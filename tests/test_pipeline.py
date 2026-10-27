@@ -2,6 +2,8 @@
 
 import hashlib
 import io
+import sys
+import weakref
 import zipfile
 from datetime import date
 
@@ -10,9 +12,11 @@ import httpx
 from deptime import cli
 from deptime.config import Coverage, PackageSpec, VersionPolicy
 from deptime.index.store import IndexStore
+from deptime.ingest import pipeline
 from deptime.ingest.pipeline import IngestReport, ingest_package, snapshot_path
-from deptime.ingest.snapshot import ApiSnapshot
+from deptime.ingest.snapshot import ApiSnapshot, LazySnapshot
 from deptime.query import DepTime
+from tests.conftest import HTTPX, RELEASED_AT, SNAPSHOTS
 
 SPEC = PackageSpec(name="fakepkg", import_names=("fakepkg",), tier="B")
 POLICY = VersionPolicy(date(2023, 1, 1), 12, False, False)
@@ -232,3 +236,40 @@ def test_ingest_keeps_only_snapshots_on_disk(tmp_path):
     leftovers = [p for p in tmp_path.rglob("*") if p.is_file() and "snapshots" not in p.parts]
     assert leftovers == []
     assert snapshot_path(tmp_path, "fakepkg", "1.0.0").exists()
+
+
+def test_ingest_memory_does_not_grow_with_release_count(tmp_path, monkeypatch):
+    """A cold CI build died holding 100+ litellm snapshots at once; at most a few may be alive (DT-DATA-03)."""
+    wheels = {f"fakepkg-{n}.0.0-py3-none-any.whl": _wheel(V2_INIT) for n in range(1, 7)}
+    monkeypatch.setattr(sys.modules[__name__], "WHEELS", wheels)
+    refs: list[weakref.ref] = []  # ApiSnapshot is an unhashable dataclass, so no WeakSet
+    most = 0
+
+    def track(snap):
+        nonlocal most
+        if snap is not None:
+            refs.append(weakref.ref(snap))
+            most = max(most, sum(r() is not None for r in refs))
+        return snap
+
+    real_build, real_load = pipeline.build_snapshot, ApiSnapshot.load.__func__
+    monkeypatch.setattr(pipeline, "build_snapshot", lambda *a, **k: track(real_build(*a, **k)))
+    monkeypatch.setattr(ApiSnapshot, "load", classmethod(lambda cls, path: track(real_load(cls, path))))
+    for serve_files in (True, False):  # cold run builds every release; warm run reads them all from the cache
+        with _client(serve_files=serve_files) as client:
+            report = ingest_package(
+                SPEC, POLICY, IndexStore.memory(), tmp_path, client=client, today=TODAY, log=_quiet
+            )
+        assert report.failed == {} and report.stats.releases == 6
+    assert most <= 3
+
+
+def test_lazy_rebuild_matches_eager_rebuild():
+    eager, lazy = IndexStore.memory(), IndexStore.memory()
+    eager.rebuild_package(HTTPX, SNAPSHOTS, RELEASED_AT)
+    items = [LazySnapshot(s.version, lambda s=s: s) for s in reversed(SNAPSHOTS)]
+    stats = lazy.rebuild_package(HTTPX, [*items, LazySnapshot("9.9.9", lambda: None)], RELEASED_AT)
+    assert stats.releases == len(SNAPSHOTS)  # a snapshot that loads as None is skipped
+    for table in ("releases", "spans", "events", "replacements"):
+        rows = [sorted(map(tuple, s.conn.execute(f"SELECT * FROM {table}")), key=repr) for s in (eager, lazy)]
+        assert rows[0] == rows[1], table

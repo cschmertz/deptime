@@ -9,6 +9,7 @@ from __future__ import annotations
 import gzip
 import json
 import re
+from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -59,6 +60,18 @@ class ApiSnapshot:
             payload = json.load(fh)
         symbols = {s["path"]: SymbolRecord(**s) for s in payload.pop("symbols")}
         return cls(symbols=symbols, **payload)
+
+
+@dataclass(frozen=True)
+class LazySnapshot:
+    """A release's snapshot, loaded only when an index rebuild reaches it.
+
+    Holding every release of a package at once doesn't fit a CI runner: litellm's 290 releases need ~19 GB
+    (DT-DATA-03). `load` may return None when the snapshot turns out to be unavailable.
+    """
+
+    version: str
+    load: Callable[[], ApiSnapshot | None]
 
 
 def _s(value: Any) -> str | None:

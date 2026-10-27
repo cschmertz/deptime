@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from importlib import resources
@@ -15,7 +15,7 @@ from packaging.version import InvalidVersion, Version
 from deptime.config import PackageSpec
 from deptime.ingest.diff import ChangeEvent, diff_snapshots, initial_events
 from deptime.ingest.replacements import mine
-from deptime.ingest.snapshot import ApiSnapshot, SymbolRecord
+from deptime.ingest.snapshot import ApiSnapshot, LazySnapshot, SymbolRecord
 
 SCHEMA_VERSION = "1"
 
@@ -74,18 +74,39 @@ class IndexStore:
     def rebuild_package(
         self,
         spec: PackageSpec,
-        snapshots: list[ApiSnapshot],
+        snapshots: Sequence[ApiSnapshot | LazySnapshot],
         released_at: dict[str, str | None] | None = None,
         source_files: dict[str, str] | None = None,
     ) -> RebuildStats:
-        """Replace everything stored for `spec.name` with data derived from `snapshots` (any order)."""
+        """Replace everything stored for `spec.name` with data derived from `snapshots` (any order).
+
+        Releases are visited once, in version order, holding at most two snapshots, so memory doesn't grow
+        with the number of releases (DT-DATA-03). A `LazySnapshot` that loads as None is skipped.
+        """
         released_at, source_files = released_at or {}, source_files or {}
-        snaps = sorted(snapshots, key=lambda s: Version(s.version))
+        ordered = sorted(snapshots, key=lambda s: Version(s.version))
         name = spec.name
 
+        release_rows: list[tuple] = []
         span_rows: list[tuple] = []
         open_spans: dict[str, tuple[int, int, tuple]] = {}  # path -> (first, last, state)
-        for i, snap in enumerate(snaps):
+        events: list[tuple[int, int | None, ChangeEvent]] = []
+        prev: ApiSnapshot | None = None
+        for item in ordered:
+            snap = item.load() if isinstance(item, LazySnapshot) else item
+            if snap is None:
+                continue
+            i = len(release_rows)
+            release_rows.append(
+                (
+                    name,
+                    snap.version,
+                    i,
+                    released_at.get(snap.version),
+                    source_files.get(snap.version),
+                    len(snap.errors),
+                )
+            )
             for path, rec in snap.symbols.items():
                 state = (
                     rec.kind,
@@ -102,13 +123,12 @@ class IndexStore:
                 open_spans[path] = (i, i, state)
             for path in [p for p, (_f, last, _s) in open_spans.items() if last < i]:
                 span_rows.append((path, *open_spans.pop(path)))
+            if prev is None:
+                events.extend((0, None, ev) for ev in initial_events(snap))
+            else:
+                events.extend((i, i - 1, ev) for ev in diff_snapshots(prev, snap))
+            prev = snap
         span_rows.extend((path, *cur) for path, cur in open_spans.items())
-
-        events: list[tuple[int, int | None, ChangeEvent]] = []
-        if snaps:
-            events.extend((0, None, ev) for ev in initial_events(snaps[0]))
-        for i in range(1, len(snaps)):
-            events.extend((i, i - 1, ev) for ev in diff_snapshots(snaps[i - 1], snaps[i]))
 
         repl: dict[tuple[str, str], tuple[float, str, str]] = {}
 
@@ -157,17 +177,7 @@ class IndexStore:
             )
             self.conn.executemany(
                 "INSERT INTO releases(package, version, ordinal, released_at, source_file, error_count) VALUES (?, ?, ?, ?, ?, ?)",
-                [
-                    (
-                        name,
-                        s.version,
-                        i,
-                        released_at.get(s.version),
-                        source_files.get(s.version),
-                        len(s.errors),
-                    )
-                    for i, s in enumerate(snaps)
-                ],
+                release_rows,
             )
             self.conn.executemany(
                 "INSERT INTO spans(package, path, tail, first_ordinal, last_ordinal, kind, canonical, params, deprecated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -191,7 +201,7 @@ class IndexStore:
                 ],
             )
             self.conn.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('built_at', ?)", (_now(),))
-        return RebuildStats(name, len(snaps), len(span_rows), len(events), len(repl))
+        return RebuildStats(name, len(release_rows), len(span_rows), len(events), len(repl))
 
     # ------------------------------------------------------------------ read path
     def built_at(self) -> str | None:

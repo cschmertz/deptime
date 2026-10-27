@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import shutil
 import sqlite3
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
+from functools import partial
 from pathlib import Path
 
 import httpx
@@ -18,7 +20,7 @@ import httpx
 from deptime.config import PackageSpec, VersionPolicy
 from deptime.index.store import IndexStore, RebuildStats
 from deptime.ingest import pypi
-from deptime.ingest.snapshot import SNAPSHOT_FORMAT, ApiSnapshot, build_snapshot
+from deptime.ingest.snapshot import SNAPSHOT_FORMAT, ApiSnapshot, LazySnapshot, build_snapshot
 
 
 @dataclass
@@ -45,12 +47,34 @@ def _cached_snapshot(cache_dir: Path, package: str, version: str) -> ApiSnapshot
     return snap if snap.format == SNAPSHOT_FORMAT else None
 
 
+def _lazy_cached(cache_dir: Path, package: str, version: str) -> LazySnapshot:
+    return LazySnapshot(version, partial(_cached_snapshot, cache_dir, package, version))
+
+
+def _carried_snapshot(
+    spec: PackageSpec, store: IndexStore, cache_dir: Path, version: str
+) -> ApiSnapshot | None:
+    return _cached_snapshot(cache_dir, spec.name, version) or store.snapshot_at(spec, version)
+
+
 def _carry_forward(
     spec: PackageSpec, store: IndexStore, cache_dir: Path, versions: list[str]
-) -> list[ApiSnapshot]:
-    """Already-indexed releases this run didn't produce: their cached snapshot, else rebuilt from the index."""
-    snaps = [_cached_snapshot(cache_dir, spec.name, v) or store.snapshot_at(spec, v) for v in versions]
-    return [s for s in snaps if s is not None]
+) -> list[LazySnapshot]:
+    """Already-indexed releases this run didn't produce: their cached snapshot, else rebuilt from the index.
+
+    They load during `rebuild_package`, which reads them before it rewrites the package's rows.
+    """
+    return [LazySnapshot(v, partial(_carried_snapshot, spec, store, cache_dir, v)) for v in versions]
+
+
+def _peak_memory_mb() -> float | None:
+    """Peak resident memory of this process so far, for the ingest log (ru_maxrss: KiB on Linux, bytes on macOS)."""
+    try:
+        import resource
+    except ImportError:  # Windows
+        return None
+    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    return peak / (1024 * 1024 if sys.platform == "darwin" else 1024)
 
 
 def _discard(artifact: Path, extract_dir: Path) -> None:
@@ -98,7 +122,9 @@ def ingest_package(
                 f"PyPI unavailable ({type(exc).__name__}); used {len(cached)} cached snapshots"
             )
             log(f"[{spec.name}] {report.failed['*']}")
-            snaps = [ApiSnapshot.load(p) for p in cached]
+            snaps = [
+                LazySnapshot(p.name.removesuffix(".json.gz"), partial(ApiSnapshot.load, p)) for p in cached
+            ]
             report.cached = [s.version for s in snaps]
             carried = _carry_forward(spec, store, cache_dir, [v for v in indexed if v not in report.cached])
             report.carried = [s.version for s in carried]
@@ -118,15 +144,17 @@ def ingest_package(
         report.selected = [str(r.version) for r in selected]
         log(f"[{spec.name}] {len(selected)} releases selected")
 
-        snapshots: list[ApiSnapshot] = []
+        # Snapshots stay on disk until the rebuild streams through them (see LazySnapshot).
+        snapshots: list[LazySnapshot] = []
         released_at: dict[str, str | None] = {}
         source_files: dict[str, str] = {}
         for rel in selected:
             version = str(rel.version)
             released_at[version] = rel.uploaded_at.isoformat() if rel.uploaded_at else None
-            cached = _cached_snapshot(cache_dir, spec.name, version)
-            if cached is not None:
-                snapshots.append(cached)
+            if (
+                _cached_snapshot(cache_dir, spec.name, version) is not None
+            ):  # loaded here only to check its format
+                snapshots.append(_lazy_cached(cache_dir, spec.name, version))
                 report.cached.append(version)
                 continue
             file = pypi.pick_file(rel)
@@ -149,7 +177,7 @@ def ingest_package(
                 report.failed[version] = "no public symbols extracted: " + "; ".join(snap.errors[:3])
                 continue
             snap.save(snapshot_path(cache_dir, spec.name, version))
-            snapshots.append(snap)
+            snapshots.append(_lazy_cached(cache_dir, spec.name, version))
             source_files[version] = file.filename
             report.built.append(version)
             log(f"[{spec.name}] {version}: {len(snap.symbols)} public symbols ({len(snap.errors)} warnings)")
@@ -179,7 +207,8 @@ def ingest_package(
             {**prev_released_at, **released_at},
             {**prev_source_files, **source_files},
         )
-        log(f"[{spec.name}] index rebuilt: {report.stats}")
+        peak = _peak_memory_mb()
+        log(f"[{spec.name}] index rebuilt: {report.stats}" + (f"; peak memory {peak:.0f} MB" if peak else ""))
         return report
     finally:
         if own_client:

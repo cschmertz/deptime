@@ -1,0 +1,23 @@
+name: release
+
+# Publishes to PyPI when a version tag is pushed (git tag v0.1.0 && git push --tags).
+# One-time setup: on pypi.org, add a "trusted publisher" for this repo + workflow + environment `pypi`.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  pypi:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write # PyPI trusted publishing (no API token stored anywhere)
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked && uv run pytest
+      - run: uv build
+      - uses: pypa/gh-action-pypi-publish@release/v1

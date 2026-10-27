@@ -1,0 +1,24 @@
+name: Index a package
+description: Ask for a Python package to be added to DepTime's coverage
+title: "[coverage] <package>"
+labels: ["coverage"]
+body:
+  - type: input
+    id: package
+    attributes:
+      label: PyPI distribution name
+      placeholder: "langchain-anthropic"
+    validations:
+      required: true
+  - type: input
+    id: import_names
+    attributes:
+      label: Import name(s)
+      placeholder: "langchain_anthropic"
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it changes often enough to need DepTime
+      description: Links to breaking-change notes or issues help prioritise.

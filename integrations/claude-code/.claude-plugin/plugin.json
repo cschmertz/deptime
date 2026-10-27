@@ -1,0 +1,14 @@
+{
+  "name": "deptime",
+  "displayName": "DepTime",
+  "version": "0.0.1",
+  "description": "Explains Python ImportError / AttributeError / TypeError caused by library API changes: what changed, in which release, and what to use instead. Runs locally; your code and errors never leave your machine.",
+  "author": {
+    "name": "cschmertz",
+    "url": "https://github.com/cschmertz"
+  },
+  "homepage": "https://github.com/cschmertz/deptime",
+  "repository": "https://github.com/cschmertz/deptime",
+  "license": "MIT",
+  "keywords": ["python", "dependencies", "deprecation", "upgrade", "mcp"]
+}

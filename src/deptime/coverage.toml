@@ -1,0 +1,300 @@
+# DepTime coverage list: which distributions we index, their import names, and the version policy.
+# Rationale for the selection lives in docs/03-product-spec.md §Coverage.
+#
+# `name`         = PyPI distribution name (normalized per PEP 503 at load time).
+# `import_names` = top-level import paths the distribution provides. Used to map tracebacks to packages.
+# `tier`         = A (AI/agent stack, highest churn) | B (classic libraries with documented breaks).
+# `notes`        = known analysis caveats; see docs/07-risks-and-spikes.md.
+
+[policy]
+# For every minor series (X.Y) that has a release on/after `since`, index its first and last release.
+since = "2023-01-01"
+# Additionally index *every* release uploaded in the last N months (patch-level precision where it matters).
+recent_months = 12
+include_prereleases = false
+include_yanked = false
+
+# ---------------------------------------------------------------- Tier A: AI / agent stack
+[[package]]
+name = "openai"
+import_names = ["openai"]
+tier = "A"
+
+[[package]]
+name = "anthropic"
+import_names = ["anthropic"]
+tier = "A"
+
+[[package]]
+name = "google-genai"
+import_names = ["google.genai"]
+tier = "A"
+notes = "Namespace package under `google`."
+
+[[package]]
+name = "google-generativeai"
+import_names = ["google.generativeai"]
+tier = "A"
+notes = "Legacy SDK; replacements point at google-genai (cross-package hints, see DT-DATA-07)."
+
+[[package]]
+name = "mistralai"
+import_names = ["mistralai"]
+tier = "A"
+
+[[package]]
+name = "litellm"
+import_names = ["litellm"]
+tier = "A"
+
+[[package]]
+name = "langchain"
+import_names = ["langchain"]
+tier = "A"
+notes = "Heavy lazy __getattr__ re-exports; spike S1 target."
+
+[[package]]
+name = "langchain-core"
+import_names = ["langchain_core"]
+tier = "A"
+
+[[package]]
+name = "langchain-community"
+import_names = ["langchain_community"]
+tier = "A"
+notes = "Very large; lazy imports."
+
+[[package]]
+name = "langchain-openai"
+import_names = ["langchain_openai"]
+tier = "A"
+
+[[package]]
+name = "langgraph"
+import_names = ["langgraph"]
+tier = "A"
+
+[[package]]
+name = "llama-index-core"
+import_names = ["llama_index.core"]
+tier = "A"
+notes = "Namespace package under `llama_index`."
+
+[[package]]
+name = "mcp"
+import_names = ["mcp"]
+tier = "A"
+notes = "1.x -> 2.x renamed FastMCP to MCPServer; good rename-map page candidate."
+
+[[package]]
+name = "fastmcp"
+import_names = ["fastmcp"]
+tier = "A"
+
+[[package]]
+name = "pydantic"
+import_names = ["pydantic"]
+tier = "A"
+notes = "v1 -> v2 migration is the canonical rename-map page."
+
+[[package]]
+name = "pydantic-settings"
+import_names = ["pydantic_settings"]
+tier = "A"
+
+[[package]]
+name = "pydantic-ai-slim"
+import_names = ["pydantic_ai"]
+tier = "A"
+notes = "`pydantic-ai` is a meta-package; code ships in pydantic-ai-slim."
+
+[[package]]
+name = "openai-agents"
+import_names = ["agents"]
+tier = "A"
+notes = "Import name `agents` collides with other distributions; disambiguate via installed_versions."
+
+[[package]]
+name = "crewai"
+import_names = ["crewai"]
+tier = "A"
+
+[[package]]
+name = "dspy"
+import_names = ["dspy"]
+tier = "A"
+
+[[package]]
+name = "instructor"
+import_names = ["instructor"]
+tier = "A"
+
+[[package]]
+name = "transformers"
+import_names = ["transformers"]
+tier = "A"
+notes = "Huge, lazy module; index-size spike S4 target."
+
+[[package]]
+name = "huggingface-hub"
+import_names = ["huggingface_hub"]
+tier = "A"
+
+[[package]]
+name = "chromadb"
+import_names = ["chromadb"]
+tier = "A"
+
+[[package]]
+name = "qdrant-client"
+import_names = ["qdrant_client"]
+tier = "A"
+
+[[package]]
+name = "pinecone"
+import_names = ["pinecone"]
+tier = "A"
+notes = "Formerly `pinecone-client`."
+
+[[package]]
+name = "weaviate-client"
+import_names = ["weaviate"]
+tier = "A"
+
+[[package]]
+name = "ollama"
+import_names = ["ollama"]
+tier = "A"
+
+# ---------------------------------------------------------------- Tier B: documented breaking changes
+[[package]]
+name = "fastapi"
+import_names = ["fastapi"]
+tier = "B"
+
+[[package]]
+name = "starlette"
+import_names = ["starlette"]
+tier = "B"
+
+[[package]]
+name = "httpx"
+import_names = ["httpx"]
+tier = "B"
+notes = "0.28 removed `proxies`/`app` kwargs; used as the end-to-end demo."
+
+[[package]]
+name = "sqlalchemy"
+import_names = ["sqlalchemy"]
+tier = "B"
+
+[[package]]
+name = "sqlmodel"
+import_names = ["sqlmodel"]
+tier = "B"
+
+[[package]]
+name = "pandas"
+import_names = ["pandas"]
+tier = "B"
+notes = "Mixed compiled/pure; DataFrame.append removal (2.0) is a benchmark case."
+
+[[package]]
+name = "numpy"
+import_names = ["numpy"]
+tier = "B"
+notes = "Compiled; rely on shipped .pyi stubs."
+
+[[package]]
+name = "polars"
+import_names = ["polars"]
+tier = "B"
+
+[[package]]
+name = "scikit-learn"
+import_names = ["sklearn"]
+tier = "B"
+
+[[package]]
+name = "matplotlib"
+import_names = ["matplotlib"]
+tier = "B"
+
+[[package]]
+name = "streamlit"
+import_names = ["streamlit"]
+tier = "B"
+
+[[package]]
+name = "gradio"
+import_names = ["gradio"]
+tier = "B"
+
+[[package]]
+name = "django"
+import_names = ["django"]
+tier = "B"
+
+[[package]]
+name = "flask"
+import_names = ["flask"]
+tier = "B"
+
+[[package]]
+name = "werkzeug"
+import_names = ["werkzeug"]
+tier = "B"
+
+[[package]]
+name = "celery"
+import_names = ["celery"]
+tier = "B"
+
+[[package]]
+name = "redis"
+import_names = ["redis"]
+tier = "B"
+
+[[package]]
+name = "pymongo"
+import_names = ["pymongo"]
+tier = "B"
+
+[[package]]
+name = "selenium"
+import_names = ["selenium"]
+tier = "B"
+
+[[package]]
+name = "urllib3"
+import_names = ["urllib3"]
+tier = "B"
+
+[[package]]
+name = "aiohttp"
+import_names = ["aiohttp"]
+tier = "B"
+
+[[package]]
+name = "pytest"
+import_names = ["pytest"]
+tier = "B"
+notes = "Public API re-exported from private `_pytest`."
+
+[[package]]
+name = "typer"
+import_names = ["typer"]
+tier = "B"
+
+[[package]]
+name = "click"
+import_names = ["click"]
+tier = "B"
+
+[[package]]
+name = "marshmallow"
+import_names = ["marshmallow"]
+tier = "B"
+
+# Deliberately skipped for v1: boto3 (generated), torch/tensorflow (compiled), apache-airflow (too large).
+# Stdlib module availability per Python version comes from typeshed's stdlib/VERSIONS (DT-DATA-06).

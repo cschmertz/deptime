@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "deptime": {
+      "command": "uvx",
+      "args": ["deptime", "mcp"]
+    }
+  }
+}

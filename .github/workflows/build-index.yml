@@ -1,0 +1,82 @@
+name: build-index
+
+# Nightly: analyse new PyPI releases and publish the prebuilt index to the rolling `index` pre-release.
+# Local installs download <repo>/releases/download/index/{manifest.json,index.sqlite.gz} (see config.DEFAULT_INDEX_URL).
+# Free on public repositories. Snapshots are cached between runs, so only new releases are analysed.
+# A cold build (~3,500 releases) may not fit in one run. The ingest step has its own timeout, the snapshot cache is
+# saved anyway, and the next run carries on from it (DT-DATA-03).
+on:
+  # Nightly schedule is OFF while the repo is private: it would spend private Actions minutes, and private
+  # release assets can't be downloaded by `deptime` clients anyway. Re-enable when going public (BACKLOG DT-OSS-04).
+  # schedule:
+  #   - cron: "17 4 * * *" # daily at 04:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write # upload release assets
+
+concurrency:
+  group: build-index
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    env:
+      DEPTIME_HOME: ${{ github.workspace }}/.deptime
+      DEPTIME_OFFLINE: "1" # no background download or refresh; the explicit `index pull` below still runs
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      # DT-OSS-07: pin actions to commit SHAs.
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked --no-dev
+
+      - name: Restore snapshot cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .deptime/build/snapshots
+          key: snapshots-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: snapshots-
+
+      # Ingesting into last night's index keeps a release whose download or analysis fails tonight (DT-DATA-12),
+      # and keeps packages the run didn't reach before its timeout. sha256 and schema are checked as for users.
+      - name: Start from the published index
+        run: uv run deptime index pull || echo "::notice::no compatible published index; building from snapshots only"
+
+      - name: Ingest every covered package (always --all, so the published index is complete)
+        timeout-minutes: 270
+        continue-on-error: true # a timed-out run still publishes its progress; the next run continues from the cache
+        run: |
+          uv run deptime ingest --all --into-downloaded \
+            || echo "::warning::some releases failed to index; see the log above"
+
+      - name: Save snapshot cache (also after a timeout, so a cold build makes progress every run)
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .deptime/build/snapshots
+          key: snapshots-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Pack
+        run: uv run deptime index pack --out dist
+
+      - name: Guard against publishing a shrunken index
+        run: |
+          new=$(jq .packages dist/manifest.json)
+          if gh release download index --pattern manifest.json --dir prev 2>/dev/null; then
+            old=$(jq .packages prev/manifest.json)
+            echo "packages: previous=$old new=$new"
+            if [ "$new" -lt $(( old * 9 / 10 )) ]; then
+              echo "::error::new index has $new packages vs $old published; refusing to publish"
+              exit 1
+            fi
+          fi
+
+      - name: Publish to the rolling `index` release
+        run: |
+          gh release view index >/dev/null 2>&1 || gh release create index --prerelease \
+            --title "DepTime index (rolling)" \
+            --notes "Nightly prebuilt index, downloaded automatically by \`deptime mcp\` and \`deptime index pull\`."
+          gh release upload index dist/index.sqlite.gz dist/manifest.json --clobber

@@ -1,0 +1,42 @@
+name: Wrong answer
+description: DepTime gave a wrong or unhelpful answer (these become benchmark cases)
+title: "[wrong answer] <package>: <symbol>"
+labels: ["wrong-answer"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks! Every report becomes a benchmark case. Please remove secrets and personal paths from the traceback.
+  - type: textarea
+    id: traceback
+    attributes:
+      label: Traceback (or the call you checked)
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Installed versions
+      placeholder: "httpx==0.28.1, python 3.12"
+    validations:
+      required: true
+  - type: textarea
+    id: got
+    attributes:
+      label: What DepTime returned
+      description: Paste the finding (issue, versions, replacements), or the whole JSON.
+      render: json
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What is actually true
+      description: Link the changelog, migration guide, or commit if you can.
+    validations:
+      required: true
+  - type: input
+    id: index
+    attributes:
+      label: Output of `deptime index status` (built_at)

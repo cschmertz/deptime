@@ -18,6 +18,18 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v6
+      # A PyPI version can never be reused, so refuse to publish when the tag and the package disagree (audit C-01).
+      - name: Check the tag matches the package version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pyproject="$(uv version --short)"
+          init="$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' src/deptime/__init__.py)"
+          plugin="$(jq -r .version integrations/claude-code/.claude-plugin/plugin.json)"
+          echo "tag=$tag pyproject=$pyproject __init__=$init plugin.json=$plugin"
+          if [ "$tag" != "$pyproject" ] || [ "$tag" != "$init" ] || [ "$tag" != "$plugin" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match the package version"
+            exit 1
+          fi
       - run: uv sync --locked && uv run pytest
       - run: uv build
       - uses: pypa/gh-action-pypi-publish@release/v1

@@ -33,7 +33,7 @@ claude mcp add deptime -- uvx deptime mcp
 
 On first launch DepTime downloads its prebuilt index (one file from this repo's GitHub Releases) in the background, then checks for a newer one at most once a day. Set `DEPTIME_OFFLINE=1` to never touch the network.
 
-Claude Code users can also install the plugin in [`integrations/claude-code`](integrations/claude-code). It adds a skill and a local hook that suggests DepTime when a Python version-change error appears in a command's output.
+Claude Code users can also install the plugin in [`integrations/claude-code`](integrations/claude-code) with `/plugin marketplace add cschmertz/deptime`, then `/plugin install deptime@deptime`. It adds a skill and a local hook that suggests DepTime when a Python version-change error appears in a command's output.
 
 > Until the first PyPI release, run from a checkout: `claude mcp add deptime -- uv run --directory /path/to/deptime deptime mcp`.
 

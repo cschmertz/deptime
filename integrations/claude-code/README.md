@@ -10,14 +10,25 @@ The first run downloads the prebuilt index (one file from this repo's GitHub Rel
 
 Failed Bash commands fire `PostToolUseFailure`, not `PostToolUse`, so the hook is registered for both.
 
+## Install
+
+This repo is also a plugin marketplace (`.claude-plugin/marketplace.json`). In Claude Code:
+
+```text
+/plugin marketplace add cschmertz/deptime
+/plugin install deptime@deptime
+```
+
+From a terminal: `claude plugin marketplace add cschmertz/deptime && claude plugin install deptime@deptime`.
+
+The plugin's MCP server runs `uvx deptime mcp`, so it needs the PyPI release (v0.1.0, DT-OSS-05).
+
 ## Try it from a source checkout (before the PyPI release)
 
 ```bash
 claude plugin validate integrations/claude-code      # "Validation passed"
 claude mcp add deptime -- uv run --directory "$PWD" deptime mcp
 ```
-
-After `deptime` is published to PyPI (DT-OSS-05), `claude --plugin-dir integrations/claude-code` or a marketplace install is enough.
 
 ## Want a hosted endpoint instead?
 

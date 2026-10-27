@@ -1,0 +1,15 @@
+{
+  "name": "deptime",
+  "description": "DepTime for Claude Code: tells your agent what changed in a Python library, in which release, and what to use instead.",
+  "owner": {
+    "name": "cschmertz",
+    "url": "https://github.com/cschmertz"
+  },
+  "plugins": [
+    {
+      "name": "deptime",
+      "source": "./integrations/claude-code",
+      "description": "Explains Python ImportError / AttributeError / TypeError caused by library API changes: what changed, in which release, and what to use instead. Runs locally; your code and errors never leave your machine."
+    }
+  ]
+}

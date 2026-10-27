@@ -6,10 +6,8 @@ name: build-index
 # A cold build (~3,500 releases) may not fit in one run. The ingest step has its own timeout, the snapshot cache is
 # saved anyway, and the next run carries on from it (DT-DATA-03).
 on:
-  # Nightly schedule is OFF while the repo is private: it would spend private Actions minutes, and private
-  # release assets can't be downloaded by `deptime` clients anyway. Re-enable when going public (BACKLOG DT-OSS-04).
-  # schedule:
-  #   - cron: "17 4 * * *" # daily at 04:17 UTC
+  schedule:
+    - cron: "17 4 * * *" # daily at 04:17 UTC
   workflow_dispatch:
 
 permissions:

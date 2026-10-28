@@ -145,12 +145,19 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
 - [x] **DT-CORE-17**: `never_existed` for a name the traceback shows was in use: say it may predate the first indexed release or be created at runtime, at `low` confidence, instead of "may be misremembered" at `medium` · `P0` `S`
   - Found by the first benchmark run (2026-10-28): `numpy.float` comes back `never_existed` at medium. numpy is indexed from 1.24.0, the release that removed it, and before that numpy served it from a module `__getattr__`. Bench case `numpy-float-alias`.
   - Done 2026-10-28: when the owner module or class defines `__getattr__` at the resolved release, `never_existed` is `low` and says the name may be created at runtime. Every `never_existed` explanation (symbol and parameter) names the earliest indexed release. Still open: `medium` should mean the index covers the package's whole history, which needs ingest to record whether earlier releases exist.
+- [ ] **DT-CORE-18**: `*_not_yet_added` between indexed releases: say "added between X and Y" instead of "first appears in Y" · `P0` `S`
+  - Found by the pilot cases (2026-10-28): `langchain_core.tools.InjectedToolArg` was added in 0.2.21, but older series are indexed only at their first and last release, so DepTime says it "first appears in 0.2.43". The `>=0.2.43` advice works; the stated fact doesn't. Removals already get a window; additions should too. A matching `first_version_with` needs denser indexing of older series (a data-policy decision).
 
 ### Quality (DT-QA)
 - [ ] **DT-QA-01**: 200-traceback benchmark from real GitHub issues (`bench/cases/*.jsonl`) · `P0` `L`
 - [ ] **DT-QA-02**: Benchmark runner + CI report (fail on a regression above 2 points) · `P0` `M` · deps: QA-01
   - Done so far (2026-10-28): `python -m deptime.bench` scores cases as `bench/README.md` defines; `bench.yml` runs it against the published index on code changes and after each `build-index`, failing on a drop of more than 2 points on the cases `bench/baseline.json` shares with the run. First number, 8 seed cases: root cause + boundary 50% (Tier B 80%, Tier A 0%; 4 of 8 are `known_gap`).
 - [ ] **DT-QA-03**: Golden tests per Tier A package against the published index (nightly, network-marked) · `P1` `M`
+- [ ] **DT-QA-04**: Cases derived from TimeMachine-bench (Fujii et al., EACL 2026; github.com/tohoku-nlp/timemachine-bench) · `P1` `M` · deps: QA-02
+  - Python repos whose tests pass under old dependencies and fail under new ones, with exact versions. Run the failing tests in a sandbox to get real tracebacks; take ground truth from the fix commits, never from DepTime. An outside, published source makes the launch number more credible than self-picked cases.
+  - First step: count how many of its repos break on one of our 52 covered packages.
+- [ ] **DT-QA-05**: Agent-uplift eval on GitChameleon 2.0 (328 version-conditioned Python problems with unit tests, NeurIPS 2025) · `P2` `L` · after launch
+  - The same agent with and without DepTime's MCP tools; report the pass-rate difference. This answers "does it make my agent better?", which the traceback benchmark doesn't. VersiCode is a backup dataset.
 
 ## M2 — Public launch (DT-GTM)
 

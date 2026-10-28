@@ -28,6 +28,18 @@ def test_wrong_boundary_fails_the_case_but_keeps_the_root_cause(dt):
     assert (r.root_cause, r.boundary, r.replacement, r.passed) == (True, False, None, False)
 
 
+def test_first_version_with_is_scored_against_the_upgrade_advice(dt):
+    # Code written for a newer release: httpx.NewThing first appears in 0.27.2 in the synthetic index.
+    tb = "ImportError: cannot import name 'NewThing' from 'httpx' (/app/x.py)"
+    case = _case("new", symbol_suffix="httpx.NewThing", issue="symbol_not_yet_added") | {"traceback": tb}
+    case["installed"] = {"httpx": "0.26.0"}
+    hit, miss = (
+        case | {"id": cid, "expected": case["expected"] | {"first_version_with": v}}
+        for cid, v in (("hit", "0.27"), ("miss", "0.28"))
+    )
+    assert [(r.root_cause, r.boundary) for r in run(dt, [hit, miss])] == [(True, True), (True, False)]
+
+
 def test_boundary_and_replacement_require_the_root_cause(dt):
     case = _case("wrong", last_version_with="0.27", replacement_contains="proxy")
     case["expected"]["issue"] = "symbol_removed"
@@ -54,6 +66,7 @@ def test_summary_reports_tiers_and_known_gap_share(dt):
         "replacement": None,
     }
     assert list(s["by_tier"]) == ["B"]
+    assert list(s["by_origin"]) == ["constructed"]
 
 
 def test_regression_is_measured_on_shared_cases_only(dt):

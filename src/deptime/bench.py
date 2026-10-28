@@ -32,6 +32,7 @@ class CaseResult:
     id: str
     tier: str
     status: str
+    origin: str  # "reported" (a real traceback from an issue or post) or "constructed"
     root_cause: bool
     boundary: bool | None  # None when the case has no expected boundary
     replacement: bool | None  # None when the case has no expected replacement
@@ -71,6 +72,10 @@ def score_case(case: dict, result: ExplainResult, coverage: Coverage) -> CaseRes
     boundary = replacement = None
     if "last_version_with" in exp:
         boundary = root_cause and (top.last_version_with or "").startswith(exp["last_version_with"])
+    elif "first_version_with" in exp:
+        # *_not_yet_added: the first release that has it is the one DepTime advises upgrading to (`pkg>=X`).
+        first_with = (top.pin_to_restore or "").partition(">=")[2] if top else ""
+        boundary = root_cause and first_with.startswith(exp["first_version_with"])
     if "replacement_contains" in exp:
         replacement = root_cause and any(
             exp["replacement_contains"] in r.target for r in top.replacements[:3]
@@ -82,12 +87,13 @@ def score_case(case: dict, result: ExplainResult, coverage: Coverage) -> CaseRes
         targets = ", ".join(r.target for r in top.replacements[:3]) or "-"
         got = (
             f"{top.package} {top.symbol} {top.issue} last_with={top.last_version_with} "
-            f"confidence={top.confidence} replacements=[{targets}]"
+            f"pin={top.pin_to_restore} confidence={top.confidence} replacements=[{targets}]"
         )
     return CaseResult(
         id=case["id"],
         tier=spec.tier if spec else "-",
         status=case.get("status", "expected_pass"),
+        origin="constructed" if case.get("source") == "constructed" else "reported",
         root_cause=root_cause,
         boundary=boundary,
         replacement=replacement,
@@ -117,22 +123,30 @@ def metrics(results: list[CaseResult]) -> dict[str, float | None]:
     }
 
 
+def _grouped(results: list[CaseResult], field: str) -> dict:
+    groups = {}
+    for value in sorted({getattr(r, field) for r in results}):
+        rs = [r for r in results if getattr(r, field) == value]
+        groups[value] = {"cases": len(rs), **metrics(rs)}
+    return groups
+
+
 def summarize(results: list[CaseResult]) -> dict:
-    by_tier = {}
-    for tier in sorted({r.tier for r in results}):
-        rs = [r for r in results if r.tier == tier]
-        by_tier[tier] = {"cases": len(rs), **metrics(rs)}
     return {
         "cases": len(results),
         "known_gap_share": _pct(sum(r.status == "known_gap" for r in results), len(results)),
         "overall": metrics(results),
-        "by_tier": by_tier,
+        "by_tier": _grouped(results, "tier"),
+        "by_origin": _grouped(results, "origin"),
     }
 
 
 def regressions(results: list[CaseResult], baseline: dict, max_drop: float = MAX_DROP_POINTS) -> list[str]:
     """Metrics that fell by more than `max_drop` points on the cases shared with the baseline."""
-    base = {cid: CaseResult(id=cid, tier="", status="", got="", **v) for cid, v in baseline["cases"].items()}
+    base = {
+        cid: CaseResult(id=cid, tier="", status="", origin="", got="", **v)
+        for cid, v in baseline["cases"].items()
+    }
     now = [r for r in results if r.id in base]
     before, after = metrics([base[r.id] for r in now]), metrics(now)
     return [
@@ -172,10 +186,15 @@ def report(results: list[CaseResult], index_built_at: str | None) -> str:
         lines.append(f"{'':20}got: {r.got}")
     s = summarize(results)
     lines += ["", f"{s['cases']} cases, known_gap share {s['known_gap_share']}%", ""]
-    lines.append(f"{'':8}{'cases':>6}  " + "  ".join(f"{m:>23}" for m in METRICS))
-    for name, row in [("overall", {"cases": s["cases"], **s["overall"]}), *s["by_tier"].items()]:
+    lines.append(f"{'':12}{'cases':>6}  " + "  ".join(f"{m:>23}" for m in METRICS))
+    rows = [
+        ("overall", {"cases": s["cases"], **s["overall"]}),
+        *s["by_tier"].items(),
+        *s["by_origin"].items(),
+    ]
+    for name, row in rows:
         cells = "  ".join(f"{'-' if row[m] is None else f'{row[m]}%':>23}" for m in METRICS)
-        lines.append(f"{name:8}{row['cases']:>6}  {cells}")
+        lines.append(f"{name:12}{row['cases']:>6}  {cells}")
     return "\n".join(lines)
 
 

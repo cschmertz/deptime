@@ -1,32 +1,98 @@
 {
   "index_built_at": "2026-10-28T13:21:16+00:00",
   "summary": {
-    "cases": 8,
-    "known_gap_share": 50.0,
+    "cases": 18,
+    "known_gap_share": 44.4,
     "overall": {
-      "root_cause": 50.0,
-      "root_cause_and_boundary": 50.0,
-      "boundary": 66.7,
-      "replacement": 60.0
+      "root_cause": 77.8,
+      "root_cause_and_boundary": 55.6,
+      "boundary": 62.5,
+      "replacement": 50.0
     },
     "by_tier": {
       "A": {
-        "cases": 3,
-        "root_cause": 0.0,
-        "root_cause_and_boundary": 0.0,
-        "boundary": 0.0,
+        "cases": 8,
+        "root_cause": 62.5,
+        "root_cause_and_boundary": 12.5,
+        "boundary": 16.7,
         "replacement": 0.0
       },
       "B": {
-        "cases": 5,
-        "root_cause": 80.0,
-        "root_cause_and_boundary": 80.0,
-        "boundary": 80.0,
-        "replacement": 100.0
+        "cases": 10,
+        "root_cause": 90.0,
+        "root_cause_and_boundary": 90.0,
+        "boundary": 90.0,
+        "replacement": 66.7
+      }
+    },
+    "by_origin": {
+      "constructed": {
+        "cases": 8,
+        "root_cause": 50.0,
+        "root_cause_and_boundary": 50.0,
+        "boundary": 66.7,
+        "replacement": 60.0
+      },
+      "reported": {
+        "cases": 10,
+        "root_cause": 100.0,
+        "root_cause_and_boundary": 60.0,
+        "boundary": 60.0,
+        "replacement": 33.3
       }
     }
   },
   "cases": {
+    "httpx-asyncclient-app-kwarg-datasette": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "httpx-client-app-kwarg-py39-pytest": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "httpx-asyncclient-proxies-kwarg-cerebras": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true
+    },
+    "httpx-client-proxy-not-yet-added-gotrue": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "httpx-asyncclient-proxy-not-yet-added-cooaki": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "langchain-core-memory-module-removed": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "langchain-core-injectedtoolarg-not-yet-added": {
+      "root_cause": true,
+      "boundary": false,
+      "replacement": null
+    },
+    "langchain-core-is-basemodel-instance-not-yet-added": {
+      "root_cause": true,
+      "boundary": false,
+      "replacement": null
+    },
+    "langchain-core-pydanticoutputparser-not-yet-added": {
+      "root_cause": true,
+      "boundary": false,
+      "replacement": null
+    },
+    "langchain-core-is-data-content-block-not-yet-added": {
+      "root_cause": true,
+      "boundary": false,
+      "replacement": null
+    },
     "httpx-proxies-kwarg": {
       "root_cause": true,
       "boundary": true,

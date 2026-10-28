@@ -8,14 +8,31 @@
 |---|---|
 | `id` | Stable slug |
 | `source` | URL of the GitHub issue / Stack Overflow post / migration guide it came from, or `"constructed"` |
+| `evidence` | URL(s) backing the expected answer: changelog, release notes, maintainer reply, or the library's source at a tag. **Never DepTime's own output**, or the benchmark is circular |
 | `traceback` | Verbatim text, trimmed of secrets and personal paths |
 | `installed` | `{package: version}` the reporter was running |
 | `expected.package` | Distribution that changed |
 | `expected.symbol_suffix` | End of the expected `finding.symbol`, e.g. `Client.__init__(proxies)` |
 | `expected.issue` | `symbol_removed` / `param_removed` / `module_removed` / … |
 | `expected.last_version_with` | Optional; checked as a prefix (`"1.5"` matches `1.5.3`) |
+| `expected.first_version_with` | Optional, for `*_not_yet_added`; checked as a prefix against the version in DepTime's `pin_to_restore` (`pkg>=X`) |
 | `expected.replacement_contains` | Optional; must appear in one of the top-3 replacement targets |
 | `status` | `expected_pass`, or `known_gap` (with the backlog ID that fixes it) |
+| `fixed_by` | For `known_gap`: the backlog ID(s) that should make it pass |
+
+`expected.issue` is one of `symbol_removed`, `symbol_not_yet_added`, `param_removed`, `param_not_yet_added`, `param_now_required` or `module_removed`. The `*_not_yet_added` issues are for code written against a newer release than the one installed. Use the shortest `symbol_suffix` that identifies the symbol: `Class.method`, `Class.__init__(param)`, `module.name` for a module-level name, or the dotted module path for a missing module. Set `last_version_with` to the release series before the removal (`"0.27"` when 0.28.0 removed it), or to the exact previous version if a patch release removed it. Likewise, `first_version_with` is the series that added it (`"0.26"` when 0.26.0 added it), or the exact version if a patch release added it. Pre-releases never count, because the index skips them. Omit either field when the evidence doesn't pin it down.
+
+## Collection rules (DT-QA-01)
+
+- **Real tracebacks** from GitHub issues or Stack Overflow, with the issue or post URL in `source`. Cases built from a migration guide use `"source": "constructed"` and cite the guide in `evidence`. They're reported separately from real ones.
+- **Versions are known.** The reporter states them, or they can be inferred from a `pip freeze`, lockfile or maintainer reply in the thread. The installed version is at or after the package's earliest indexed release (see `deptime coverage`).
+- **Versions are checked.** Reported versions are often wrong. Confirm from the library's source that the installed version can produce the error, and skip broken installs (a package that fails to import its own names).
+- **Independent ground truth.** Expected fields come from `evidence`, never from running DepTime.
+- **Diversity.** At most 2 reported cases per distinct break. A break is one change in the library, usually one changelog entry: `Client` and `AsyncClient` losing `app=` is one break. At least 3 cases per Tier A package, and at most half of a package's cases are `*_not_yet_added`.
+- **No temporary removals.** Skip a break that a later release reverted (a name missing from one patch release only). It's a release bug, not an API change.
+- **Privacy** (docs/08). Replace usernames and project names in paths (`/home/user/...`, `/app/...`, `/venv/lib/python3.X/site-packages/...`), including in the final line, but keep the path's shape: `site-packages` versus `~/.local` can be the diagnosis. Drop tokens, keys and hostnames, and keep only the traceback, not the surrounding `pip freeze`.
+- **One file per package:** `cases/<package>.jsonl`, named after the package in `expected.package`.
+- New cases start as `expected_pass`. After a run, each failure becomes `known_gap` with a backlog ID, or a bug to fix. Status records what we expect DepTime to do, so it may follow DepTime's output; expected answers may not.
 
 ## Harvesting real cases
 

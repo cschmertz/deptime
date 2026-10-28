@@ -25,12 +25,14 @@
 - `build-index` runs nightly at 04:17 UTC and replaces the rolling `index` release. The first full builds (2026-10-28) indexed 52 packages and 3,371 releases into a 78.9 MB `.gz`.
 - Not covered yet: transformers (DT-DATA-16), fastmcp 3.3+ (DT-DATA-17), and names numpy only creates at runtime, such as `numpy.emath` (DT-DATA-02).
 
-**Still open for M1:** the S1 false-absent measurement (DT-SPIKE-01) and the benchmark (DT-QA-01, DT-QA-02).
+**Benchmark (2026-10-28):** 159 real tracebacks from 47 packages (`bench/`): root cause 78.0%, root cause + boundary 64.8%, replacement 15.9%. Below the 70% launch floor (docs/06). Every miss is assigned to an item below; the biggest are DT-DATA-19 (15), DT-CORE-19 (13), DT-CORE-05 (10) and DT-DATA-20 (5).
+
+**Still open for M1:** the S1 false-absent measurement (DT-SPIKE-01), and lifting the benchmark above 70%.
 
 **Suggested order for the next sessions**
 1. Check the first scheduled `build-index` run on the per-package pipeline (DT-OSS-04).
-2. Measure S1 and build the benchmark, since both gate M1.
-3. DT-DATA-17 (fastmcp 3.3+), then DT-OSS-07 (pin actions to SHAs, Dependabot, `pip-audit`).
+2. Benchmark fixes, cheapest first: DT-CORE-19 (parser), DT-CORE-05, DT-DATA-20, DT-DATA-21; then decide DT-DATA-19 (index density). Re-measure on fresh cases before quoting a number (DT-QA-04).
+3. Measure S1 (DT-SPIKE-01), then DT-DATA-17 (fastmcp 3.3+) and DT-OSS-07 (pin actions to SHAs, Dependabot, `pip-audit`).
 
 ---
 
@@ -122,15 +124,27 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
 - [ ] **DT-DATA-18**: Snapshot builds keep memory flat across releases · `P2` `S`
   - Why: building litellm's 290 releases in one process grows by ~45 MB per release and never gives it back, peaking at 11.9 GB of a 16 GB runner (2026-10-28). Only cold builds are affected; nightly runs build a few releases.
   - AC: memory after each release returns to a fixed baseline (e.g. clear griffe's caches, or build each release in a subprocess); litellm's cold build stays under 4 GB.
+- [ ] **DT-DATA-19**: Index density: boundaries that fall between indexed releases · `P0` `M` · data-policy decision
+  - Why: older minor series are indexed only at their first and last release, so a patch-level removal or addition (chromadb `API` removed in 0.4.15; only 0.4.0 and 0.4.24 are indexed) gets the wrong boundary. 15 bench misses, the largest group (bench cases with `fixed_by` DT-DATA-19).
+  - AC: measure the index size of indexing every release since 2023-01-01 (or every release for Tier A); decide; re-run the bench. Until then DT-CORE-18 keeps the wording honest.
+- [ ] **DT-DATA-20**: Names served by a `__getattr__` deprecation shim count as present · `P0` `M`
+  - Why: many libraries keep a removed name alive for a few releases through a module `__getattr__`, so static analysis dates the removal too early. Found in the shipped wheels: pydantic-ai 1.100.0 maps `'BuiltinToolCallPart': 'NativeToolCallPart'`; fastmcp 2.12.5 has `if name == "BearerAuthProvider":`; also werkzeug `__version__` (3.0) and django `timezone.utc` (4.1–4.2). 5 bench misses.
+  - AC: snapshots read string literals that a module's `__getattr__` compares against or looks up (and dicts such as numpy's `__deprecated_attrs__`), record those names as present and deprecated, and take a mapped target as a replacement. Still static: never import the package (ADR 0002).
+- [ ] **DT-DATA-21**: Index names re-exported from another distribution · `P0` `S`
+  - Why: `flask.escape` (from markupsafe, flask ≤2.3) and `typer.clear` (from click) are absent from the index, so DepTime answers `never_existed`, a confident wrong answer. 2 bench misses; it also inflates S1's false-absent rate.
+  - AC: an alias whose target is in another distribution is recorded under the re-exporting package's public path (kind from the alias, no signature); the two bench cases pass.
+- [ ] **DT-DATA-22**: Decide whether to index private names that users import (`flask._app_ctx_stack`, `pymongo.database._check_name`) · `P2` `S`
+  - 2 bench misses. Today they come back `never_existed`; at minimum the explanation should say private names aren't indexed.
 
 ### Core logic (DT-CORE)
 - [ ] **DT-CORE-01**: Benchmark-driven tuning of candidate selection and ranking · `P0` `M` · deps: QA-01
   - AC: root-cause accuracy ≥ 80% (M1 floor: 70%).
 - [ ] **DT-CORE-02**: Instance-chain hints for `object_attribute` (prefer frame and referenced-name evidence; show ambiguity) · `P2` `M`
+  - Bench: user subclasses of library classes (`LogParam.get_metavar(ctx)` in click 8.2, `ValidatorSchema.context` in marshmallow 4) and an owner-less `sort()` that should be `DataFrame.sort`, not `Expr.sort` (3 cases).
 - [ ] **DT-CORE-03**: Import-name collision disambiguation (`agents`) via installed versions · `P1` `S`
 - [ ] **DT-CORE-04**: Signature-similarity "moved" heuristic (only if S2 shows a gain) · `P2` `M`
 - [ ] **DT-CORE-05**: Library-specific migration exceptions (openai `APIRemovedInV1`, pydantic `PydanticImportError`) · `P1` `S` · deps: SPIKE-03
-  - AC: bench cases `openai-v1-chatcompletion` and `pydantic-basesettings-moved` pass.
+  - AC: bench cases `openai-v1-chatcompletion` and `pydantic-basesettings-moved` pass; also numpy 2's "`np.float_` was removed in the NumPy 2.0 release" messages, pydantic's `PydanticUserError` for removed kwargs (`regex`), and pytest's `PluginValidationError` for hook arguments (bench cases with `fixed_by` DT-CORE-05).
 - [ ] **DT-CORE-06**: Mine replacement hints from the live error text (e.g. mcp 2.x's FastMCP → MCPServer hint), checked against the index · `P1` `S`
 - [ ] **DT-CORE-07**: `check_symbols` from a code snippet (extract imports and attributes with `ast`) · `P2` `M`
 - [ ] **DT-CORE-08**: Sanitize mined text (control characters, instruction-like content), with adversarial tests · `P0` `S`
@@ -147,17 +161,24 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
   - Done 2026-10-28: when the owner module or class defines `__getattr__` at the resolved release, `never_existed` is `low` and says the name may be created at runtime. Every `never_existed` explanation (symbol and parameter) names the earliest indexed release. Still open: `medium` should mean the index covers the package's whole history, which needs ingest to record whether earlier releases exist.
 - [ ] **DT-CORE-18**: `*_not_yet_added` between indexed releases: say "added between X and Y" instead of "first appears in Y" · `P0` `S`
   - Found by the pilot cases (2026-10-28): `langchain_core.tools.InjectedToolArg` was added in 0.2.21, but older series are indexed only at their first and last release, so DepTime says it "first appears in 0.2.43". The `>=0.2.43` advice works; the stated fact doesn't. Removals already get a window; additions should too. A matching `first_version_with` needs denser indexing of older series (a data-policy decision).
+- [ ] **DT-CORE-19**: Parse real-world error text, not only clean tracebacks · `P0` `M`
+  - Why: 13 bench misses where the error is plainly there but the parser finds no exception line: log prefixes (`api-1 | AttributeError: …`, `ERROR - …`), pytest's `E   TypeError: …` followed by `path:line: TypeError`, indented or `#`-commented lines, errors wrapped in JSON or in another exception (`Exception: module 'dspy' has no attribute 'Assert'`), warnings printed after the exception, bare messages without the type, `module aiohttp has no attribute X` without quotes, and `got an unexpected keyword argument` without a callable name.
+  - AC: the bench cases with `fixed_by` DT-CORE-19 get a finding; a failing case in `tests/test_tracebacks.py` for each shape first; still deterministic and still capped in length.
 
 ### Quality (DT-QA)
 - [ ] **DT-QA-01**: 200-traceback benchmark from real GitHub issues (`bench/cases/*.jsonl`) · `P0` `L`
+  - Done so far (2026-10-28): 159 real cases from 47 packages; none yet for langchain-openai, pinecone and celery (no verifiable report of a break since 2023). Lesson: verify against the shipped wheel, not the GitHub tag.
 - [ ] **DT-QA-02**: Benchmark runner + CI report (fail on a regression above 2 points) · `P0` `M` · deps: QA-01
   - Done so far (2026-10-28): `python -m deptime.bench` scores cases as `bench/README.md` defines; `bench.yml` runs it against the published index on code changes and after each `build-index`, failing on a drop of more than 2 points on the cases `bench/baseline.json` shares with the run. First number, 8 seed cases: root cause + boundary 50% (Tier B 80%, Tier A 0%; 4 of 8 are `known_gap`).
 - [ ] **DT-QA-03**: Golden tests per Tier A package against the published index (nightly, network-marked) · `P1` `M`
 - [ ] **DT-QA-04**: Cases derived from TimeMachine-bench (Fujii et al., EACL 2026; github.com/tohoku-nlp/timemachine-bench) · `P1` `M` · deps: QA-02
   - Python repos whose tests pass under old dependencies and fail under new ones, with exact versions. Run the failing tests in a sandbox to get real tracebacks; take ground truth from the fix commits, never from DepTime. An outside, published source makes the launch number more credible than self-picked cases.
   - First step: count how many of its repos break on one of our 52 covered packages.
+  - Also the holdout: fixes are being designed from the current 159 cases, so the launch number must be measured again on cases collected after them.
 - [ ] **DT-QA-05**: Agent-uplift eval on GitChameleon 2.0 (328 version-conditioned Python problems with unit tests, NeurIPS 2025) · `P2` `L` · after launch
   - The same agent with and without DepTime's MCP tools; report the pass-rate difference. This answers "does it make my agent better?", which the traceback benchmark doesn't. VersiCode is a backup dataset.
+- [ ] **DT-QA-06**: Investigate the unexplained bench misses · `P0` `S`
+  - `never_existed` or a wrong boundary for `sqlalchemy.schema.ThreadLocalMetaData`, `langchain.server`, `litellm.llms.prompt_templates`, `instructor.core.patch.handle_response_model`, `AnthropicModel.__init__(api_key)` in pydantic-ai, and `numpy.product` (gone after 1.24.4 in the index; really 1.26). Each is an index false-absent or a wrong case: check the shipped wheels, never GitHub tags (crewai 0.67.1's tag lacks `LLM`, its wheel has it).
 
 ## M2 — Public launch (DT-GTM)
 

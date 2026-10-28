@@ -16,15 +16,19 @@
 Free, open source (MIT), and **local**: your code and errors never leave your machine.
 
 ```text
-TypeError: Client.__init__() got an unexpected keyword argument 'proxies'      (httpx 0.28.1 installed)
+TypeError: Client.__init__() got an unexpected keyword argument 'proxies'
+           (httpx 0.28.1 installed)
 
 → explain_error
-  httpx.Client.__init__ accepted `proxies` up to httpx 0.27.2; it is gone from 0.28.1 onward.
-  Deprecated in or before 0.27.2 ("The 'proxies' argument is now deprecated. Use 'proxy' or 'mounts' instead.").
-  Use `proxy` or `mounts` instead, or pin httpx<=0.27.2.          issue=param_removed  confidence=high
+  httpx.Client.__init__ accepted `proxies` up to httpx 0.27.2; it is gone
+  from 0.28.0 onward. Deprecated in 0.26.0 ("The 'proxies' argument is now
+  deprecated. Use 'proxy' or 'mounts' instead."). Use `proxy` or `mounts`
+  instead, or pin httpx<=0.27.2.
+
+  issue=param_removed  confidence=high
 ```
 
-That output is real. It came from the actual httpx 0.27.2/0.28.1 wheels, and the deprecation text was recovered from httpx's own source code.
+That's real output from the published index: DepTime diffed httpx's releases from PyPI, and the deprecation text comes from httpx's own source code.
 
 > **Status:** alpha. v0.1.0 is on PyPI (2026-10-28), and the prebuilt index of 52 packages is rebuilt nightly. Known gaps are tracked in [BACKLOG.md](BACKLOG.md).
 
@@ -64,6 +68,11 @@ uvx deptime index status | pull
 ```
 
 ## How it works
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cschmertz/deptime/main/docs/assets/how-it-works-dark.svg">
+  <img alt="How DepTime works. Built nightly on GitHub: new PyPI releases are read statically and diffed release to release; packages are never imported or run. The only thing that crosses to your machine is one file, index.sqlite.gz. Answered on your machine: deptime mcp answers your agent locally, and your code and errors stay there." src="https://raw.githubusercontent.com/cschmertz/deptime/main/docs/assets/how-it-works-light.svg">
+</picture>
 
 1. **Nightly in GitHub Actions:** download every selected release of each covered package from PyPI, extract its public API with [griffe](https://mkdocstrings.github.io/griffe/) (static analysis, no code is ever executed), and diff consecutive releases. Results go into a compact SQLite index. Snapshots are cached, so only new releases are analysed.
 2. The index is published as `index.sqlite.gz` + `manifest.json` (sha256, schema version) on a rolling `index` release.

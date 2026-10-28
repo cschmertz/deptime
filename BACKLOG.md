@@ -25,13 +25,13 @@
 - `build-index` runs nightly at 04:17 UTC and replaces the rolling `index` release. The first full builds (2026-10-28) indexed 52 packages and 3,371 releases into a 78.9 MB `.gz`.
 - Not covered yet: transformers (DT-DATA-16), fastmcp 3.3+ (DT-DATA-17), and names numpy only creates at runtime, such as `numpy.emath` (DT-DATA-02).
 
-**Benchmark (2026-10-28):** 159 real tracebacks from 47 packages (`bench/`): root cause 85.5%, root cause + boundary 72.3%, replacement 17.1%, after DT-CORE-19 (from 78.0% and 64.8%). Above the 70% floor, below the 80% target (docs/06), and measured on the cases the fixes were designed from, so not yet a launch number (DT-QA-04). Every miss is assigned to an item below; the biggest are DT-DATA-19 (15), DT-CORE-05 (10) and DT-DATA-20 (5).
+**Benchmark (2026-10-28):** 159 real tracebacks from 47 packages (`bench/`): root cause 89.9%, root cause + boundary 76.7%, replacement 17.1%, after DT-CORE-19 and DT-CORE-05 (from 78.0% and 64.8%). Above the 70% floor, below the 80% target (docs/06), and measured on the cases the fixes were designed from, so not yet a launch number (DT-QA-04). Every miss is assigned to an item below; the biggest are DT-DATA-19 (15) and DT-DATA-20 (5). Three more (DT-CORE-20, two of DT-CORE-05) pass once a `SNAPSHOT_FORMAT` 4 index is published.
 
 **Still open for M1:** the S1 false-absent measurement (DT-SPIKE-01), and lifting the benchmark above 70%.
 
 **Suggested order for the next sessions**
 1. Check the first scheduled `build-index` run on the per-package pipeline (DT-OSS-04).
-2. Benchmark fixes, cheapest first: DT-CORE-20, DT-CORE-05, DT-DATA-20, DT-DATA-21; then decide DT-DATA-19 (index density). Re-measure on fresh cases before quoting a number (DT-QA-04).
+2. Benchmark fixes, cheapest first: DT-CORE-20 and DT-CORE-05 (done), DT-DATA-20, DT-DATA-21; then decide DT-DATA-19 (index density). Re-measure on fresh cases before quoting a number (DT-QA-04).
 3. Measure S1 (DT-SPIKE-01), then DT-DATA-17 (fastmcp 3.3+) and DT-OSS-07 (pin actions to SHAs, Dependabot, `pip-audit`).
 
 ---
@@ -143,8 +143,9 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
   - Bench: user subclasses of library classes (`LogParam.get_metavar(ctx)` in click 8.2, `ValidatorSchema.context` in marshmallow 4) and an owner-less `sort()` that should be `DataFrame.sort`, not `Expr.sort` (3 cases).
 - [ ] **DT-CORE-03**: Import-name collision disambiguation (`agents`) via installed versions · `P1` `S`
 - [ ] **DT-CORE-04**: Signature-similarity "moved" heuristic (only if S2 shows a gain) · `P2` `M`
-- [ ] **DT-CORE-05**: Library-specific migration exceptions (openai `APIRemovedInV1`, pydantic `PydanticImportError`) · `P1` `S` · deps: SPIKE-03
+- [x] **DT-CORE-05**: Library-specific migration exceptions (openai `APIRemovedInV1`, pydantic `PydanticImportError`) · `P1` `S` · deps: SPIKE-03
   - AC: bench cases `openai-v1-chatcompletion` and `pydantic-basesettings-moved` pass; also numpy 2's "`np.float_` was removed in the NumPy 2.0 release" messages, pydantic's `PydanticUserError` for removed kwargs (`regex`), and pytest's `PluginValidationError` for hook arguments (bench cases with `fixed_by` DT-CORE-05).
+  - Done 2026-10-28: the parser matches these by exception class, with message templates copied from the numpy 2.0.2, pydantic 2.9.2, openai 1.55.0 and pluggy 1.6.0 wheels, and reads the lines after the exception line (openai and pluggy put the details there). It also strips pytest's `INTERNALERROR> ` prefix. pydantic's `removed-kwargs` takes its owner from the raising frame (`conlist` raises it too), else `Field`. Query: a `**kwargs` catch-all no longer counts as accepting a parameter that earlier releases declared by name (pydantic 2's `Field(**extra)`). pytest now also indexes `_pytest.hookspec`, the path pytest documents its hooks under. 9 of the 11 cases pass; the two hook cases pass on a scratch index built from the 8.4.2–9.1.1 wheels (last with 9.0.3) and need the format-4 index. Real cases: root cause 85.5% → 89.9%, root cause + boundary 72.3% → 76.7%. The messages also name the replacement ("Use `np.float64` instead"); DT-CORE-06 can mine those.
 - [ ] **DT-CORE-06**: Mine replacement hints from the live error text (e.g. mcp 2.x's FastMCP → MCPServer hint), checked against the index · `P1` `S`
 - [ ] **DT-CORE-07**: `check_symbols` from a code snippet (extract imports and attributes with `ast`) · `P2` `M`
 - [ ] **DT-CORE-08**: Sanitize mined text (control characters, instruction-like content), with adversarial tests · `P0` `S`

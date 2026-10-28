@@ -124,6 +124,35 @@ def test_no_parameter_verdict_without_a_signature():
     assert explain([("1.0", func), ("2.0", alias)], "1.5") == []
 
 
+def test_kwargs_catch_all_does_not_accept_a_parameter_once_declared_by_name():
+    # DT-CORE-05: pydantic 2's Field(**extra) raises "`regex` is removed"; pydantic 1 declared `regex`.
+    spec = PackageSpec(name="pyd", import_names=("pyd",), tier="B")
+    mod = SymbolRecord("pyd", "module", "pyd")
+    extra = _param("extra", "variadic keyword", None)
+
+    def explain(*params: list[dict]) -> list:
+        snaps = [
+            ApiSnapshot(
+                "pyd",
+                f"{i}.0",
+                ["pyd"],
+                {"pyd": mod, "pyd.Field": SymbolRecord("pyd.Field", "function", "pyd.Field", p)},
+            )
+            for i, p in enumerate(params, start=1)
+        ]
+        store = IndexStore.memory()
+        store.rebuild_package(spec, snaps)
+        tb = "TypeError: Field() got an unexpected keyword argument 'regex'"
+        return (
+            DepTime(store, Coverage(POLICY, (spec,))).explain_error(tb, {"pyd": f"{len(params)}.0"}).findings
+        )
+
+    f = explain([_param("default"), _param("regex")], [_param("default"), extra])[0]
+    assert (f.issue, f.last_version_with, f.first_version_without) == ("param_removed", "1.0", "2.0")
+    # Never declared by name: the catch-all may well accept it, so no verdict.
+    assert explain([_param("default"), extra], [_param("default"), extra]) == []
+
+
 def test_explain_reports_uncovered_packages(dt):
     res = dt.explain_error("ImportError: cannot import name 'x' from 'somepkg.sub' (/a.py)")
     assert res.findings == [] and res.not_covered == ["somepkg"]

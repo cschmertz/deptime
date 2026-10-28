@@ -191,6 +191,68 @@ def test_unexpected_kwarg_without_a_callable_takes_it_from_the_call_site():
 def test_an_unrecognised_exception_line_is_not_replaced_by_an_earlier_message():
     s = parse_traceback(
         "WARNING: module 'x' has no attribute 'y'\n"
-        "pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead"
+        "pydantic.errors.PydanticUserError: A non-annotated attribute was detected: `x = 1`."
     )
     assert (s.kind, s.exception_type) == ("unknown", "PydanticUserError")
+
+
+def test_library_migration_errors_name_the_removed_api():
+    # DT-CORE-05: messages copied from numpy 2.0.2, pydantic 2.9.2 and openai 1.55.0 wheels.
+    cases = {
+        "AttributeError: `np.float_` was removed in the NumPy 2.0 release. Use `np.float64` instead.. "
+        "Did you mean: 'float16'?": ("module_attribute", "numpy", "float_"),
+        "pydantic.errors.PydanticImportError: `BaseSettings` has been moved to the `pydantic-settings` package. "
+        "See https://docs.pydantic.dev/2.6/migration/#basesettings-has-moved-to-pydantic-settings for more details."
+        "\n\nFor further information visit https://errors.pydantic.dev/2.6/u/import-error": (
+            "import_name",
+            "pydantic",
+            "BaseSettings",
+        ),
+        "pydantic.errors.PydanticImportError: `pydantic:ConstrainedInt` has been removed in V2.": (
+            "import_name",
+            "pydantic",
+            "ConstrainedInt",
+        ),
+        # No "Error" suffix, and the message starts on a later line.
+        "openai.lib._old_api.APIRemovedInV1: \n\nYou tried to access openai.ChatCompletion, but this is no longer "
+        "supported in openai>=1.0.0 - see the README at https://github.com/openai/openai-python for the API.\n": (
+            "module_attribute",
+            "openai",
+            "ChatCompletion",
+        ),
+    }
+    for text, expected in cases.items():
+        s = parse_traceback(text)
+        assert s is not None, text
+        assert (s.kind, s.module, s.name) == expected, text
+
+
+def test_pydantic_removed_kwargs_take_the_raising_function():
+    s = parse_traceback(
+        "Traceback (most recent call last):\n"
+        '  File "/env/lib/python3.10/site-packages/pydantic/types.py", line 894, in conlist\n'
+        "    raise PydanticUserError(\n"
+        "pydantic.errors.PydanticUserError: `unique_items` is removed, use `Set` instead(this feature is discussed)\n"
+    )
+    assert (s.kind, s.owner, s.kwarg) == ("unexpected_kwarg", "conlist", "unique_items")
+    # Without frames, Field(): pydantic documents `removed-kwargs` as Field()'s error.
+    s = parse_traceback("pydantic.errors.PydanticUserError: `regex` is removed. use `pattern` instead")
+    assert (s.kind, s.owner, s.kwarg) == ("unexpected_kwarg", "Field", "regex")
+
+
+def test_pluggy_hook_argument_behind_the_internalerror_prefix():
+    s = parse_traceback(
+        "INTERNALERROR> Traceback (most recent call last):\n"
+        'INTERNALERROR>   File "/venv/lib/python3.14/site-packages/pluggy/_manager.py", line 343, in _verify_hook\n'
+        "INTERNALERROR>     raise PluginValidationError(\n"
+        "INTERNALERROR> pluggy._manager.PluginValidationError: Plugin '140630964876496' for hook 'pytest_collect_file'\n"
+        "INTERNALERROR> hookimpl definition: pytest_collect_file(path, parent)\n"
+        "INTERNALERROR> Argument(s) {'path'} are declared in the hookimpl but can not be found in the hookspec\n"
+    )
+    assert (s.kind, s.owner, s.kwarg, s.exception_type) == (
+        "unexpected_kwarg",
+        "pytest_collect_file",
+        "path",
+        "PluginValidationError",
+    )
+    assert s.frames[0].module == "pluggy._manager"

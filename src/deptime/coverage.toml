@@ -280,9 +280,9 @@ tier = "B"
 
 [[package]]
 name = "pytest"
-import_names = ["pytest"]
+import_names = ["pytest", "_pytest.hookspec"]
 tier = "B"
-notes = "Public API re-exported from private `_pytest`."
+notes = "Public API re-exported from private `_pytest`; plugin hookspecs are documented at `_pytest.hookspec`."
 
 [[package]]
 name = "typer"

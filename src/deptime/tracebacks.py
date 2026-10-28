@@ -15,13 +15,14 @@ MAX_INPUT_CHARS = 20_000  # analysed from the end of the input
 MAX_ACCEPTED_CHARS = 200_000  # the MCP tool's input limit; the parser itself keeps the last MAX_INPUT_CHARS
 
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
-# Column-0 prefixes that wrap whole lines: pytest's "E   " and a compose service's "api-1  | ".
-LINE_PREFIX_RE = re.compile(r"^(?:E\s+|[\w.-]+\s*\|\s?)")
+# Column-0 prefixes that wrap whole lines: pytest's "E   " and "INTERNALERROR> ", and a compose service's "api-1  | ".
+LINE_PREFIX_RE = re.compile(r"^(?:E\s+|INTERNALERROR>\s?|[\w.-]+\s*\|\s?)")
 TRACEBACK_HEADER = "Traceback (most recent call last):"
 FRAME_RE = re.compile(r'^\s*File "(?P<file>[^"]+)", line (?P<line>\d+)(?:, in (?P<func>.+?))?\s*$')
-EXC_LINE_RE = re.compile(
-    r"^(?P<type>(?:[A-Za-z_]\w*\.)*(?:[A-Za-z_]\w*)?(?:Error|Exception))(?::\s?(?P<msg>.*))?$"
+EXC_LINE_RE = re.compile(  # openai's APIRemovedInV1 is the one supported exception without the usual suffix
+    r"^(?P<type>(?:[A-Za-z_]\w*\.)*(?:[A-Za-z_]\w*)?(?:Error|Exception|APIRemovedInV1))(?::\s?(?P<msg>.*))?$"
 )
+MAX_MESSAGE_LINES = 10  # lines after the exception line that may continue a multi-line message
 CARET_RE = re.compile(r"^\s*[~^]+\s*$")
 SITE_RE = re.compile(r"[\\/](?:site|dist)-packages[\\/](?P<rel>.+?)\.pyi?$")
 SUGGESTION_RE = re.compile(r"\.?\s*Did you mean:? '(?P<s>[\w.]+)'\??\s*$")
@@ -41,6 +42,15 @@ MISSING_ARG_RE = re.compile(
 )
 TOO_MANY_POS_RE = re.compile(
     r"(?P<owner>[\w.]+)\(\) takes .+? positional arguments? but \d+ (?:were|was) given"
+)
+# Libraries that name a removed API in their own words (DT-CORE-05); templates copied from their wheels.
+NUMPY_EXPIRED_RE = re.compile(r"`np\.(?P<name>\w+)` was removed in the NumPy 2\.0 release")
+PYDANTIC_REMOVED_RE = re.compile(r"`(?P<module>[\w.]+):(?P<name>\w+)` has been removed in V2")
+PYDANTIC_MOVED_RE = re.compile(r"`(?P<name>BaseSettings)` has been moved to the `pydantic-settings` package")
+PYDANTIC_REMOVED_KWARG_RE = re.compile(r"`(?P<kwarg>\w+)` is removed[.,] use ")
+OPENAI_V1_RE = re.compile(r"You tried to access openai\.(?P<name>\w+), but this is no longer supported")
+HOOK_ARG_RE = re.compile(
+    r"for hook '(?P<hook>\w+)'.*?Argument\(s\) \{'(?P<arg>\w+)'.*? are declared in the hookimpl", re.S
 )
 # The exception type a message implies, for errors logged or quoted without their exception line.
 INFERRED_TYPE = {
@@ -206,7 +216,10 @@ def parse_traceback(text: str) -> ErrorSignal | None:
         frames=frames,
         referenced_names=_referenced_names([f.code for f in frames if f.code]),
     )
-    _classify(signal, message_core)
+    continuation = lines[exc_index + 1 : exc_index + 1 + MAX_MESSAGE_LINES]
+    _classify_library(signal, "\n".join([message_core, *continuation]))
+    if signal.kind == "unknown":
+        _classify(signal, message_core)
     if signal.kind == "unexpected_kwarg" and signal.owner is None:
         _owner_from_call_site(signal, lines)
     return signal
@@ -222,6 +235,29 @@ def _owner_from_call_site(signal: ErrorSignal, lines: list[str]) -> None:
             if callee not in signal.referenced_names:
                 signal.referenced_names.append(callee)
             return
+
+
+def _classify_library(signal: ErrorSignal, text: str) -> None:
+    """Migration errors raised by the library itself, matched by exception class. `text` is the message and the
+    lines after it, where openai and pluggy put the details."""
+    exc = signal.exception_type
+    if exc == "AttributeError" and (m := NUMPY_EXPIRED_RE.search(text)):
+        signal.kind, signal.module, signal.name = "module_attribute", "numpy", m.group("name")
+    elif exc == "PydanticImportError" and (m := PYDANTIC_REMOVED_RE.search(text)):
+        signal.kind, signal.module, signal.name = "import_name", m.group("module"), m.group("name")
+    elif exc == "PydanticImportError" and (m := PYDANTIC_MOVED_RE.search(text)):
+        signal.kind, signal.module, signal.name = "import_name", "pydantic", m.group("name")
+    elif exc == "PydanticUserError" and (m := PYDANTIC_REMOVED_KWARG_RE.search(text)):
+        # pydantic documents `removed-kwargs` as Field()'s error; conlist() raises it too, and its frame says so.
+        raiser = signal.frames[-1] if signal.frames else None
+        from_pydantic = raiser is not None and (raiser.module or "").split(".")[0] == "pydantic"
+        signal.kind, signal.kwarg = "unexpected_kwarg", m.group("kwarg")
+        signal.owner = raiser.function if from_pydantic else "Field"
+    elif exc == "APIRemovedInV1" and (m := OPENAI_V1_RE.search(text)):
+        signal.kind, signal.module, signal.name = "module_attribute", "openai", m.group("name")
+    elif exc == "PluginValidationError" and (m := HOOK_ARG_RE.search(text)):
+        # A plugin's hook implementation takes an argument the hookspec no longer provides.
+        signal.kind, signal.owner, signal.kwarg = "unexpected_kwarg", m.group("hook"), m.group("arg")
 
 
 def _classify(signal: ErrorSignal, msg: str) -> None:

@@ -749,7 +749,13 @@ class DepTime:
         current = self.store.span_at(name, path, ordinal)
         if current is not None and current["params"] is None:
             return None  # no signature at this version (an unresolved alias, a class); no parameter verdict
-        if current is not None and _accepts_kwarg(current["params"], param):
+        had = [s for s in spans if param in _param_names(s["params"])]
+        accepts = current is not None and _accepts_kwarg(current["params"], param)
+        if accepts and had and param not in _param_names(current["params"]):
+            # A **kwargs catch-all that replaced a declared parameter is how libraries reject it with their own
+            # error (pydantic 2's Field(**extra) raises "`regex` is removed").
+            accepts = False
+        if accepts:
 
             def rejects(o: int) -> bool:
                 span = self.store.span_at(name, path, o)
@@ -775,7 +781,6 @@ class DepTime:
                 confidence="medium",
                 explanation=f"{path} stops accepting `{param}` {text}.",
             )
-        had = [s for s in spans if param in _param_names(s["params"])]
         if not had:
             if any(s["params"] is None for s in spans):
                 return None  # some releases have no known signature, so "never accepted" can't be shown

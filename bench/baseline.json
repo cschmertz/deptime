@@ -2,26 +2,26 @@
   "index_built_at": "2026-10-28T13:21:16+00:00",
   "summary": {
     "cases": 167,
-    "known_gap_share": 35.9,
+    "known_gap_share": 28.7,
     "overall": {
-      "root_cause": 76.6,
-      "root_cause_and_boundary": 64.1,
-      "boundary": 64.4,
-      "replacement": 18.4
+      "root_cause": 83.8,
+      "root_cause_and_boundary": 71.3,
+      "boundary": 71.8,
+      "replacement": 19.5
     },
     "by_tier": {
       "A": {
         "cases": 81,
-        "root_cause": 76.5,
-        "root_cause_and_boundary": 58.0,
-        "boundary": 58.4,
-        "replacement": 16.7
+        "root_cause": 85.2,
+        "root_cause_and_boundary": 66.7,
+        "boundary": 67.5,
+        "replacement": 19.4
       },
       "B": {
         "cases": 86,
-        "root_cause": 76.7,
-        "root_cause_and_boundary": 69.8,
-        "boundary": 69.8,
+        "root_cause": 82.6,
+        "root_cause_and_boundary": 75.6,
+        "boundary": 75.6,
         "replacement": 19.6
       }
     },
@@ -35,17 +35,17 @@
       },
       "reported": {
         "cases": 159,
-        "root_cause": 78.0,
-        "root_cause_and_boundary": 64.8,
-        "boundary": 64.3,
-        "replacement": 15.9
+        "root_cause": 85.5,
+        "root_cause_and_boundary": 72.3,
+        "boundary": 72.0,
+        "replacement": 17.1
       }
     }
   },
   "cases": {
     "aiohttp-clientwstimeout-not-yet-added-engineio": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": null
     },
     "aiohttp-connectiontimeouterror-not-yet-added-slade": {
@@ -54,13 +54,13 @@
       "replacement": null
     },
     "anthropic-messages-create-temperature-removed-nao": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": null
     },
     "anthropic-messages-create-temperature-removed-mem0-mcp": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": null
     },
     "anthropic-count-tokens-removed-langchain-community": {
@@ -154,8 +154,8 @@
       "replacement": null
     },
     "dspy-assert-removed": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": null
     },
     "fastapi-encoders-dictintstrany-removed-responseschema": {
@@ -179,8 +179,8 @@
       "replacement": false
     },
     "fastmcp-get-tools-removed-ecs-server": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": false
     },
     "fastmcp-server-proxy-module-removed-iac-server": {
@@ -359,8 +359,8 @@
       "replacement": false
     },
     "langgraph-graph-graph-module-removed-copilotkit": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": false
     },
     "langgraph-addnode-input-schema-not-yet-added": {
@@ -499,8 +499,8 @@
       "replacement": null
     },
     "ollama-chat-tools-kwarg-not-yet-added": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": null
     },
     "openai-agents-functiontoolresult-not-yet-added": {
@@ -664,9 +664,9 @@
       "replacement": false
     },
     "qdrant-client-search-removed-openuni": {
-      "root_cause": false,
-      "boundary": false,
-      "replacement": false
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true
     },
     "qdrant-client-search-removed-vector-bench": {
       "root_cause": true,
@@ -699,8 +699,8 @@
       "replacement": false
     },
     "scikit-learn-mean-squared-error-squared-relbench": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": false
     },
     "scikit-learn-agglomerative-affinity-mdsine2": {
@@ -759,13 +759,13 @@
       "replacement": false
     },
     "selenium-chrome-executable-path-undetected": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": false
     },
     "selenium-firefox-binary-module-tbselenium": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": null
     },
     "selenium-webdriver-desired-capabilities-property-appiumlibrary": {
@@ -804,8 +804,8 @@
       "replacement": false
     },
     "starlette-router-on-startup-removed-asgi-lifespan": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": false
     },
     "starlette-app-middleware-decorator-removed-nextcloud-mcp": {

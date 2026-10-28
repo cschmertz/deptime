@@ -25,13 +25,13 @@
 - `build-index` runs nightly at 04:17 UTC and replaces the rolling `index` release. The first full builds (2026-10-28) indexed 52 packages and 3,371 releases into a 78.9 MB `.gz`.
 - Not covered yet: transformers (DT-DATA-16), fastmcp 3.3+ (DT-DATA-17), and names numpy only creates at runtime, such as `numpy.emath` (DT-DATA-02).
 
-**Benchmark (2026-10-28):** 159 real tracebacks from 47 packages (`bench/`): root cause 78.0%, root cause + boundary 64.8%, replacement 15.9%. Below the 70% launch floor (docs/06). Every miss is assigned to an item below; the biggest are DT-DATA-19 (15), DT-CORE-19 (13), DT-CORE-05 (10) and DT-DATA-20 (5).
+**Benchmark (2026-10-28):** 159 real tracebacks from 47 packages (`bench/`): root cause 85.5%, root cause + boundary 72.3%, replacement 17.1%, after DT-CORE-19 (from 78.0% and 64.8%). Above the 70% floor, below the 80% target (docs/06), and measured on the cases the fixes were designed from, so not yet a launch number (DT-QA-04). Every miss is assigned to an item below; the biggest are DT-DATA-19 (15), DT-CORE-05 (10) and DT-DATA-20 (5).
 
 **Still open for M1:** the S1 false-absent measurement (DT-SPIKE-01), and lifting the benchmark above 70%.
 
 **Suggested order for the next sessions**
 1. Check the first scheduled `build-index` run on the per-package pipeline (DT-OSS-04).
-2. Benchmark fixes, cheapest first: DT-CORE-19 (parser), DT-CORE-05, DT-DATA-20, DT-DATA-21; then decide DT-DATA-19 (index density). Re-measure on fresh cases before quoting a number (DT-QA-04).
+2. Benchmark fixes, cheapest first: DT-CORE-20, DT-CORE-05, DT-DATA-20, DT-DATA-21; then decide DT-DATA-19 (index density). Re-measure on fresh cases before quoting a number (DT-QA-04).
 3. Measure S1 (DT-SPIKE-01), then DT-DATA-17 (fastmcp 3.3+) and DT-OSS-07 (pin actions to SHAs, Dependabot, `pip-audit`).
 
 ---
@@ -161,9 +161,12 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
   - Done 2026-10-28: when the owner module or class defines `__getattr__` at the resolved release, `never_existed` is `low` and says the name may be created at runtime. Every `never_existed` explanation (symbol and parameter) names the earliest indexed release. Still open: `medium` should mean the index covers the package's whole history, which needs ingest to record whether earlier releases exist.
 - [ ] **DT-CORE-18**: `*_not_yet_added` between indexed releases: say "added between X and Y" instead of "first appears in Y" · `P0` `S`
   - Found by the pilot cases (2026-10-28): `langchain_core.tools.InjectedToolArg` was added in 0.2.21, but older series are indexed only at their first and last release, so DepTime says it "first appears in 0.2.43". The `>=0.2.43` advice works; the stated fact doesn't. Removals already get a window; additions should too. A matching `first_version_with` needs denser indexing of older series (a data-policy decision).
-- [ ] **DT-CORE-19**: Parse real-world error text, not only clean tracebacks · `P0` `M`
+- [x] **DT-CORE-19**: Parse real-world error text, not only clean tracebacks · `P0` `M`
   - Why: 13 bench misses where the error is plainly there but the parser finds no exception line: log prefixes (`api-1 | AttributeError: …`, `ERROR - …`), pytest's `E   TypeError: …` followed by `path:line: TypeError`, indented or `#`-commented lines, errors wrapped in JSON or in another exception (`Exception: module 'dspy' has no attribute 'Assert'`), warnings printed after the exception, bare messages without the type, `module aiohttp has no attribute X` without quotes, and `got an unexpected keyword argument` without a callable name.
   - AC: the bench cases with `fixed_by` DT-CORE-19 get a finding; a failing case in `tests/test_tracebacks.py` for each shape first; still deterministic and still capped in length.
+  - Done 2026-10-28: 12 of the 13 cases pass; the 13th now parses and moved to DT-CORE-20. Real cases: root cause 78.0% → 85.5%, root cause + boundary 64.8% → 72.3%.
+- [ ] **DT-CORE-20**: A parameter check against an unknown signature isn't "never accepted" · `P0` `S`
+  - Why: `pytest.skip` is indexed as an alias without parameters (pytest wraps the function in a decorator), so `skip(msg=...)` comes back `never_existed` at medium confidence although pytest 7.x accepted `msg`. A missing signature should give no parameter verdict (or a note), never a negative one; separately, resolve decorated functions' signatures at ingest. Bench case `pytest-skip-msg-kwarg-odl`.
 
 ### Quality (DT-QA)
 - [ ] **DT-QA-01**: 200-traceback benchmark from real GitHub issues (`bench/cases/*.jsonl`) · `P0` `L`

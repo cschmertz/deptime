@@ -15,11 +15,12 @@ MAX_INPUT_CHARS = 20_000  # analysed from the end of the input
 MAX_ACCEPTED_CHARS = 200_000  # the MCP tool's input limit; the parser itself keeps the last MAX_INPUT_CHARS
 
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
-PYTEST_PREFIX_RE = re.compile(r"^E {1,8}")
+# Column-0 prefixes that wrap whole lines: pytest's "E   " and a compose service's "api-1  | ".
+LINE_PREFIX_RE = re.compile(r"^(?:E\s+|[\w.-]+\s*\|\s?)")
 TRACEBACK_HEADER = "Traceback (most recent call last):"
 FRAME_RE = re.compile(r'^\s*File "(?P<file>[^"]+)", line (?P<line>\d+)(?:, in (?P<func>.+?))?\s*$')
 EXC_LINE_RE = re.compile(
-    r"^(?P<type>(?:[A-Za-z_]\w*\.)*[A-Za-z_]\w*(?:Error|Exception))(?::\s?(?P<msg>.*))?$"
+    r"^(?P<type>(?:[A-Za-z_]\w*\.)*(?:[A-Za-z_]\w*)?(?:Error|Exception))(?::\s?(?P<msg>.*))?$"
 )
 CARET_RE = re.compile(r"^\s*[~^]+\s*$")
 SITE_RE = re.compile(r"[\\/](?:site|dist)-packages[\\/](?P<rel>.+?)\.pyi?$")
@@ -30,16 +31,29 @@ FROM_IMPORT_RE = re.compile(r"^\s*from\s+(?P<mod>[\w.]+)\s+import\s+(?P<names>[\
 CIRCULAR_RE = re.compile(r"partially initialized module '(?P<module>[\w.]+)'")
 IMPORT_NAME_RE = re.compile(r"cannot import name '(?P<name>[\w.]+)' from '(?P<module>[\w.]+)'")
 NO_MODULE_RE = re.compile(r"No module named '(?P<module>[\w.]+)'")
-MODULE_ATTR_RE = re.compile(r"module '(?P<module>[\w.]+)' has no attribute '(?P<name>\w+)'")
+MODULE_ATTR_RE = re.compile(r"module '?(?P<module>[\w.]+)'? has no attribute '?(?P<name>\w+)'?")
 TYPE_ATTR_RE = re.compile(r"type object '(?P<owner>[\w.]+)' has no attribute '(?P<name>\w+)'")
 OBJ_ATTR_RE = re.compile(r"'(?P<owner>[\w.]+)' object has no attribute '(?P<name>\w+)'")
 UNEXPECTED_KW_RE = re.compile(r"(?P<owner>[\w.]+)\(\) got an unexpected keyword argument '(?P<kwarg>\w+)'")
+BARE_KW_RE = re.compile(r"got an unexpected keyword argument '(?P<kwarg>\w+)'")  # no callable named
 MISSING_ARG_RE = re.compile(
     r"(?P<owner>[\w.]+)\(\) missing \d+ required (?:positional|keyword-only) arguments?: (?P<names>.+)$"
 )
 TOO_MANY_POS_RE = re.compile(
     r"(?P<owner>[\w.]+)\(\) takes .+? positional arguments? but \d+ (?:were|was) given"
 )
+# The exception type a message implies, for errors logged or quoted without their exception line.
+INFERRED_TYPE = {
+    "circular_import": "ImportError",
+    "import_name": "ImportError",
+    "module_missing": "ModuleNotFoundError",
+    "module_attribute": "AttributeError",
+    "class_attribute": "AttributeError",
+    "object_attribute": "AttributeError",
+    "unexpected_kwarg": "TypeError",
+    "missing_argument": "TypeError",
+    "too_many_positional": "TypeError",
+}
 
 
 @dataclass
@@ -96,7 +110,12 @@ class ErrorSignal:
 def _clean_lines(text: str) -> list[str]:
     # Keep the tail: Python prints the exception line last, after any amount of log output.
     text = ANSI_RE.sub("", text[-MAX_INPUT_CHARS:])
-    return [PYTEST_PREFIX_RE.sub("", line.rstrip("\r")) for line in text.splitlines()]
+    return [LINE_PREFIX_RE.sub("", line.rstrip("\r")) for line in text.splitlines()]
+
+
+def _exception_text(line: str) -> str:
+    """The line as an exception line reads: without indentation or a leading comment marker."""
+    return line.strip().lstrip("#").lstrip()
 
 
 def _module_from_path(path: str) -> str | None:
@@ -127,11 +146,19 @@ def parse_traceback(text: str) -> ErrorSignal | None:
 
     exc_index, exc_type, exc_msg = -1, "", ""
     for i, line in enumerate(lines):
-        m = EXC_LINE_RE.match(line)
+        m = EXC_LINE_RE.match(_exception_text(line))
         if m:
             exc_index, exc_type, exc_msg = i, m.group("type"), (m.group("msg") or "").strip()
     if exc_index < 0:
-        return None
+        # Logged, quoted or JSON-wrapped errors lose their exception line: use the last known message.
+        for i in range(len(lines) - 1, -1, -1):
+            probe = ErrorSignal(kind="unknown", exception_type="", message="")
+            _classify(probe, lines[i])
+            if probe.kind != "unknown":
+                exc_index, exc_type, exc_msg = i, INFERRED_TYPE[probe.kind], lines[i].strip()
+                break
+        else:
+            return None
 
     # Frames belong to the traceback block that precedes the final exception line.
     start = 0
@@ -151,7 +178,7 @@ def parse_traceback(text: str) -> ErrorSignal | None:
                 nxt.strip()
                 and not FRAME_RE.match(nxt)
                 and not CARET_RE.match(nxt)
-                and not EXC_LINE_RE.match(nxt)
+                and not EXC_LINE_RE.match(_exception_text(nxt))
             ):
                 code = nxt.strip()
         frames.append(
@@ -180,7 +207,21 @@ def parse_traceback(text: str) -> ErrorSignal | None:
         referenced_names=_referenced_names([f.code for f in frames if f.code]),
     )
     _classify(signal, message_core)
+    if signal.kind == "unexpected_kwarg" and signal.owner is None:
+        _owner_from_call_site(signal, lines)
     return signal
+
+
+def _owner_from_call_site(signal: ErrorSignal, lines: list[str]) -> None:
+    """`got an unexpected keyword argument 'x'` with no callable (scikit-learn): take the call that passes x=."""
+    call = re.compile(rf"(?P<callee>[A-Za-z_][\w.]*)\([^()]*\b{re.escape(signal.kwarg or '')}\s*=")
+    for line in reversed(lines):
+        if m := call.search(line):
+            callee = m.group("callee")
+            signal.owner = callee.rsplit(".", 1)[-1]
+            if callee not in signal.referenced_names:
+                signal.referenced_names.append(callee)
+            return
 
 
 def _classify(signal: ErrorSignal, msg: str) -> None:
@@ -198,6 +239,8 @@ def _classify(signal: ErrorSignal, msg: str) -> None:
         signal.kind, signal.owner, signal.name = "object_attribute", m.group("owner"), m.group("name")
     elif m := UNEXPECTED_KW_RE.search(msg):
         signal.kind, signal.owner, signal.kwarg = "unexpected_kwarg", m.group("owner"), m.group("kwarg")
+    elif m := BARE_KW_RE.search(msg):
+        signal.kind, signal.kwarg = "unexpected_kwarg", m.group("kwarg")
     elif m := MISSING_ARG_RE.search(msg):
         signal.kind, signal.owner = "missing_argument", m.group("owner")
         signal.missing_args = re.findall(r"'(\w+)'", m.group("names"))

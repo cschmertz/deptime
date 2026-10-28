@@ -1,28 +1,28 @@
 {
   "index_built_at": "2026-10-28T13:21:16+00:00",
   "summary": {
-    "cases": 18,
-    "known_gap_share": 44.4,
+    "cases": 168,
+    "known_gap_share": 4.2,
     "overall": {
-      "root_cause": 77.8,
-      "root_cause_and_boundary": 55.6,
-      "boundary": 62.5,
-      "replacement": 50.0
+      "root_cause": 76.2,
+      "root_cause_and_boundary": 63.7,
+      "boundary": 64.0,
+      "replacement": 18.4
     },
     "by_tier": {
       "A": {
-        "cases": 8,
-        "root_cause": 62.5,
-        "root_cause_and_boundary": 12.5,
-        "boundary": 16.7,
-        "replacement": 0.0
+        "cases": 82,
+        "root_cause": 75.6,
+        "root_cause_and_boundary": 57.3,
+        "boundary": 57.7,
+        "replacement": 16.7
       },
       "B": {
-        "cases": 10,
-        "root_cause": 90.0,
-        "root_cause_and_boundary": 90.0,
-        "boundary": 90.0,
-        "replacement": 66.7
+        "cases": 86,
+        "root_cause": 76.7,
+        "root_cause_and_boundary": 69.8,
+        "boundary": 69.8,
+        "replacement": 19.6
       }
     },
     "by_origin": {
@@ -34,15 +34,220 @@
         "replacement": 60.0
       },
       "reported": {
-        "cases": 10,
-        "root_cause": 100.0,
-        "root_cause_and_boundary": 60.0,
-        "boundary": 60.0,
-        "replacement": 33.3
+        "cases": 160,
+        "root_cause": 77.5,
+        "root_cause_and_boundary": 64.4,
+        "boundary": 63.9,
+        "replacement": 15.9
       }
     }
   },
   "cases": {
+    "aiohttp-clientwstimeout-not-yet-added-engineio": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": null
+    },
+    "aiohttp-connectiontimeouterror-not-yet-added-slade": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "anthropic-messages-create-temperature-removed-nao": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": null
+    },
+    "anthropic-messages-create-temperature-removed-mem0-mcp": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": null
+    },
+    "anthropic-count-tokens-removed-langchain-community": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "chromadb-submitembeddingrecord-renamed-crewai": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "chromadb-api-class-removed-chroma-migrate": {
+      "root_cause": true,
+      "boundary": false,
+      "replacement": null
+    },
+    "chromadb-auth-token-module-removed-0-5": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "chromadb-auth-basic-module-removed-httpclient": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "click-clirunner-mix-stderr-seagoat": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "click-clirunner-mix-stderr-climate-ref": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "click-paramtype-get-metavar-ctx-filesender": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": null
+    },
+    "crewai-llm-not-yet-added": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": null
+    },
+    "crewai-taskoutput-not-yet-added": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "crewai-lite-agent-module-not-yet-added": {
+      "root_cause": true,
+      "boundary": null,
+      "replacement": null
+    },
+    "crewai-mcp-module-not-yet-added": {
+      "root_cause": true,
+      "boundary": null,
+      "replacement": null
+    },
+    "django-force-text-oscar-phonenumber": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "django-ugettext-lazy-drf-recaptcha": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "django-conf-urls-url-restless": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "django-timezone-utc-saas": {
+      "root_cause": true,
+      "boundary": false,
+      "replacement": false
+    },
+    "dspy-teleprompt-mipro-removed": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "dspy-hfclienttgi-removed": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "dspy-azureopenai-removed": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "dspy-assert-removed": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": null
+    },
+    "fastapi-encoders-dictintstrany-removed-responseschema": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "fastapi-get-flat-dependant-removed-jsonrpc": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "fastapi-get-flat-dependant-removed-litellm": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "fastapi-openapi-prefix-removed-cadwyn": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "fastmcp-get-tools-removed-ecs-server": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": false
+    },
+    "fastmcp-server-proxy-module-removed-iac-server": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": false
+    },
+    "fastmcp-bearerauthprovider-removed-rabbitmq": {
+      "root_cause": true,
+      "boundary": false,
+      "replacement": false
+    },
+    "fastmcp-remoteauthprovider-not-yet-added": {
+      "root_cause": true,
+      "boundary": false,
+      "replacement": null
+    },
+    "flask-before-first-request-ddtrace": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "flask-before-first-request-flask-redoc": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "flask-escape-import-activitywatch": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": false
+    },
+    "flask-app-ctx-stack-flask-zipkin": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": null
+    },
+    "google-genai-files-upload-path-kwarg-removed": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "google-genai-inlinedresponse-metadata-not-yet-added": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "google-generativeai-file-state-not-yet-added": {
+      "root_cause": true,
+      "boundary": false,
+      "replacement": null
+    },
+    "gradio-image-source-kwarg-hyperdreamer": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "gradio-queue-concurrency-count-rvc": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
     "httpx-asyncclient-app-kwarg-datasette": {
       "root_cause": true,
       "boundary": true,
@@ -68,17 +273,52 @@
       "boundary": true,
       "replacement": null
     },
+    "huggingface-hub-cached-download-removed-sentence-transformers": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true
+    },
+    "huggingface-hub-hffolder-removed-gradio-oauth": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "huggingface-hub-split-torch-state-dict-not-yet-added-abodybuilder3": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "huggingface-hub-split-torch-state-dict-not-yet-added-speechtokenizer": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "instructor-from-anthropic-not-yet-added": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "instructor-core-patch-handle-response-model-removed": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": false
+    },
+    "langchain-community-chat-models-vertexai-removed-ragas": {
+      "root_cause": true,
+      "boundary": false,
+      "replacement": false
+    },
+    "langchain-community-chat-models-vertexai-removed-rag-benchmarking": {
+      "root_cause": true,
+      "boundary": false,
+      "replacement": false
+    },
     "langchain-core-memory-module-removed": {
       "root_cause": true,
       "boundary": true,
       "replacement": null
     },
     "langchain-core-injectedtoolarg-not-yet-added": {
-      "root_cause": true,
-      "boundary": false,
-      "replacement": null
-    },
-    "langchain-core-is-basemodel-instance-not-yet-added": {
       "root_cause": true,
       "boundary": false,
       "replacement": null
@@ -91,6 +331,391 @@
     "langchain-core-is-data-content-block-not-yet-added": {
       "root_cause": true,
       "boundary": false,
+      "replacement": null
+    },
+    "langchain-core-pydantic-v1-module-removed-unitycatalog": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "langchain-core-pydantic-v1-module-removed-databricks-bridge": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "langchain-langchain-server-module-removed": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": null
+    },
+    "langchain-chains-module-removed-v1": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "langchain-agentexecutor-removed-v1": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "langgraph-graph-graph-module-removed-openai-serve": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "langgraph-graph-graph-module-removed-copilotkit": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": false
+    },
+    "langgraph-addnode-input-schema-not-yet-added": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "litellm-llms-prompt-templates-module-moved": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": false
+    },
+    "litellm-get-valid-models-not-yet-exported": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "llama-index-core-functioncallingagent-removed-mem0": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "llama-index-core-agentrunner-removed-agent-governance": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "llama-index-core-agent-workflow-not-yet-added": {
+      "root_cause": true,
+      "boundary": false,
+      "replacement": null
+    },
+    "marshmallow-field-default-kwarg-packit": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "marshmallow-field-missing-kwarg-misp": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "marshmallow-schema-context-attr-taxcalc": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": null
+    },
+    "marshmallow-post-dump-pass-many-safety": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "matplotlib-tostring-rgb-rvc-webui": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true
+    },
+    "matplotlib-tostring-rgb-paddlex": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true
+    },
+    "matplotlib-register-cmap-ptypy": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "matplotlib-contourset-collections-reliability": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "mcp-fastmcp-module-wandb-server": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "mcp-streamablehttp-client-renamed-exasol": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true
+    },
+    "mcp-mcperror-renamed-fetch-server": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "mcp-lowlevel-server-list-tools-decorator": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "mistralai-chat-completion-module-removed-devika": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "mistralai-chat-completion-module-removed-vanna": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "mistralai-mistral-moved-to-client-outlines": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true
+    },
+    "mistralai-mistral-moved-to-client-instructor": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true
+    },
+    "numpy-float-underscore-sceptre": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": false
+    },
+    "numpy-nan-uppercase-sksurgerycore": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": false
+    },
+    "numpy-string-underscore-cnvpytor": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": false
+    },
+    "numpy-product-chaospy": {
+      "root_cause": true,
+      "boundary": false,
+      "replacement": false
+    },
+    "ollama-create-modelfile-kwarg-removed": {
+      "root_cause": true,
+      "boundary": false,
+      "replacement": null
+    },
+    "ollama-chat-tools-kwarg-not-yet-added": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": null
+    },
+    "openai-agents-functiontoolresult-not-yet-added": {
+      "root_cause": true,
+      "boundary": false,
+      "replacement": null
+    },
+    "openai-agents-function-tool-strict-mode-not-yet-added": {
+      "root_cause": true,
+      "boundary": false,
+      "replacement": null
+    },
+    "openai-agents-function-tool-needs-approval-not-yet-added": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "openai-error-module-removed-ai-agents": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "openai-error-module-removed-ragas": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "openai-openai-class-not-yet-added-0-28": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "openai-threadmessage-removed-marvin": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "pandas-dataframe-append-cpm-python": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true
+    },
+    "pandas-dataframe-append-pychopper": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true
+    },
+    "pandas-dataframe-iteritems-cnvkit": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "pandas-read-csv-error-bad-lines-freesurfer": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "polars-expr-apply-removed": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "polars-expr-map-removed": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "polars-list-lengths-removed": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "polars-dataframe-sort-descending-not-yet-added": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": null
+    },
+    "pydantic-ai-slim-anthropicmodel-api-key-removed": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": false
+    },
+    "pydantic-ai-slim-openaimodel-removed-codewiki": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true
+    },
+    "pydantic-ai-slim-builtintoolcallpart-removed": {
+      "root_cause": true,
+      "boundary": false,
+      "replacement": false
+    },
+    "pydantic-ai-slim-agent-instrument-not-yet-added": {
+      "root_cause": true,
+      "boundary": false,
+      "replacement": null
+    },
+    "pydantic-settings-settingserror-moved-file-secrets": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "pydantic-settings-settingserror-moved-vault": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "pydantic-settings-cliapp-not-yet-added": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "pydantic-basesettings-moved-mlserver": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": false
+    },
+    "pydantic-basesettings-moved-pydantic-6777": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": false
+    },
+    "pydantic-modelfield-removed-fastapi-jsonapi": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "pydantic-field-regex-removed-bagel-cli": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": false
+    },
+    "pydantic-field-regex-removed-odmantic": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": false
+    },
+    "pymongo-database-check-name-mongoengine": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": null
+    },
+    "pymongo-bulk-module-pymongoarrow": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "pytest-skip-msg-kwarg-odl": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": false
+    },
+    "pytest-collect-file-path-arg-pytest-pylint": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": false
+    },
+    "pytest-report-header-startdir-arg-sugar": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": false
+    },
+    "qdrant-client-search-removed-openuni": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": false
+    },
+    "qdrant-client-search-removed-vector-bench": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true
+    },
+    "redis-errors-kwarg-splitio": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "redis-int-or-none-import-tair": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "redis-lib-name-kwarg-fakeredis-408": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "redis-lib-name-kwarg-fakeredis-410": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "scikit-learn-onehotencoder-sparse-lazypredict": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "scikit-learn-mean-squared-error-squared-relbench": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": false
+    },
+    "scikit-learn-agglomerative-affinity-mdsine2": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "scikit-learn-check-array-ensure-all-finite-not-yet-added-treeple": {
+      "root_cause": true,
+      "boundary": true,
       "replacement": null
     },
     "httpx-proxies-kwarg": {
@@ -132,6 +757,131 @@
       "root_cause": true,
       "boundary": true,
       "replacement": true
+    },
+    "selenium-chrome-executable-path-webbot": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "selenium-chrome-executable-path-undetected": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": false
+    },
+    "selenium-firefox-binary-module-tbselenium": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": null
+    },
+    "selenium-webdriver-desired-capabilities-property-appiumlibrary": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "sqlalchemy-engine-execute-removed-kamcli": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "sqlalchemy-metadata-bind-removed-data-infra": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "sqlalchemy-threadlocalmetadata-removed-phenobase": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": null
+    },
+    "sqlalchemy-session-get-execution-options-not-yet-added": {
+      "root_cause": true,
+      "boundary": false,
+      "replacement": null
+    },
+    "sqlmodel-sqltypes-guid-removed-mountaineer": {
+      "root_cause": true,
+      "boundary": false,
+      "replacement": null
+    },
+    "starlette-app-on-startup-removed-fasthtml": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "starlette-router-on-startup-removed-asgi-lifespan": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": false
+    },
+    "starlette-app-middleware-decorator-removed-nextcloud-mcp": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "starlette-app-route-decorator-removed-slowapi": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "streamlit-experimental-rerun-spacy-streamlit": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "streamlit-source-util-get-pages-streamlit-extras": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "streamlit-make-url-path-regex-pygwalker": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "typer-clear-export-removed-async-typer": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": null
+    },
+    "urllib3-retry-method-whitelist-pytrends": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "urllib3-retry-method-whitelist-notion-py": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "urllib3-util-ssl-default-ciphers-openzim": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "weaviate-client-schema-module-removed-openllmetry": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "werkzeug-url-quote-flask-2-0-0-hubspot": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true
+    },
+    "werkzeug-url-quote-flask-2-0-3-pkuautoelective": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true
+    },
+    "werkzeug-version-attr-flask-2-2-4": {
+      "root_cause": true,
+      "boundary": false,
+      "replacement": false
+    },
+    "werkzeug-version-attr-pytest-flask": {
+      "root_cause": true,
+      "boundary": false,
+      "replacement": false
     }
   }
 }

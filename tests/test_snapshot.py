@@ -82,6 +82,22 @@ STUBS = {
 }
 
 
+# pytest's API lives in the private top-level package `_pytest`, shipped in the same wheel.
+SIBLING = {
+    "testy/__init__.py": (
+        "from _testy.outcomes import skip\n"
+        "from _testy.main import Session\n"
+        "from other.thing import helper\n"
+        '__all__ = ["skip", "Session", "helper"]\n'
+    ),
+    "_testy/__init__.py": "",
+    "_testy/outcomes.py": "def skip(reason='', *, allow_module_level=False, msg=None):\n    pass\n",
+    "_testy/main.py": "class Session:\n    def __init__(self, config):\n        pass\n",
+    "other/__init__.py": "",
+    "other/thing.py": "def helper(x):\n    pass\n",
+}
+
+
 def _write(root: Path, files: dict[str, str] = FILES) -> Path:
     for rel, text in files.items():
         p = root / rel
@@ -148,6 +164,17 @@ def test_stub_redefined_init_imports_are_public(tmp_path):
     assert {"stubby.add", "stubby.float64"} <= paths
     assert [p["name"] for p in snap.symbols["stubby.add"].params] == ["x", "y"]
     assert not {"stubby._private", "stubby.TypeAlias"} & paths
+
+
+def test_private_sibling_package_is_resolved(tmp_path):
+    snap = build_snapshot("testy", "1.0", ["testy"], _write(tmp_path, SIBLING))
+    skip = snap.symbols["testy.skip"]
+    assert (skip.kind, skip.canonical) == ("function", "_testy.outcomes.skip")
+    assert [p["name"] for p in skip.params] == ["reason", "allow_module_level", "msg"]
+    assert [p["name"] for p in snap.symbols["testy.Session.__init__"].params] == ["config"]
+    # Only the `_testy` sibling is loaded; another distribution's names stay aliases (DT-DATA-21).
+    assert snap.symbols["testy.helper"].kind == "alias"
+    assert not any(p.startswith("_testy") for p in snap.symbols)
 
 
 def test_snapshot_roundtrip(tmp_path):

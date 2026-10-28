@@ -96,6 +96,34 @@ def test_never_existed_on_an_owner_with_getattr_is_low_confidence():
     assert "__getattr__" not in f.explanation
 
 
+def test_no_parameter_verdict_without_a_signature():
+    # DT-CORE-20: an unresolved alias has no signature (pytest.skip before `_pytest` was loaded), so a
+    # kwarg error against it says nothing about whether the parameter existed.
+    spec = PackageSpec(name="wrap", import_names=("wrap",), tier="B")
+    mod = SymbolRecord("wrap", "module", "wrap")
+    func = SymbolRecord("wrap.skip", "function", "_wrap.skip", [_param("reason"), _param("msg")])
+    alias = SymbolRecord("wrap.skip", "alias", "_wrap.skip")
+    tb = "TypeError: skip() got an unexpected keyword argument 'msg'"
+
+    def explain(snaps: list[tuple[str, SymbolRecord]], installed: str) -> list:
+        store = IndexStore.memory()
+        store.rebuild_package(
+            spec, [ApiSnapshot("wrap", v, ["wrap"], {"wrap": mod, "wrap.skip": s}) for v, s in snaps]
+        )
+        return DepTime(store, Coverage(POLICY, (spec,))).explain_error(tb, {"wrap": installed}).findings
+
+    # No release has a signature: not "never accepted".
+    assert explain([("1.0", alias), ("2.0", alias)], "2.0") == []
+    # 2.0 rejects `msg`, but 1.0's signature is unknown, so "never accepted" still can't be shown.
+    without = SymbolRecord("wrap.skip", "function", "_wrap.skip", [_param("reason")])
+    assert explain([("1.0", alias), ("2.0", without)], "2.0") == []
+    assert explain([("1.0", func), ("2.0", without)], "2.0")[0].issue == "param_removed"
+    # The installed release has none: not "removed" either, although 1.0 accepted `msg`.
+    assert explain([("1.0", func), ("2.0", alias)], "2.0") == []
+    # 1.5 isn't indexed and 1.0 accepts `msg`; an unknown signature at 2.0 doesn't close the window.
+    assert explain([("1.0", func), ("2.0", alias)], "1.5") == []
+
+
 def test_explain_reports_uncovered_packages(dt):
     res = dt.explain_error("ImportError: cannot import name 'x' from 'somepkg.sub' (/a.py)")
     assert res.findings == [] and res.not_covered == ["somepkg"]

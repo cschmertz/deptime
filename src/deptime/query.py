@@ -747,11 +747,17 @@ class DepTime:
         dep_version, dep_message = self._deprecation(name, path, param)
         replacements = [self._replacement(r) for r in self.store.replacements(name, symbol)]
         current = self.store.span_at(name, path, ordinal)
+        if current is not None and current["params"] is None:
+            return None  # no signature at this version (an unresolved alias, a class); no parameter verdict
         if current is not None and _accepts_kwarg(current["params"], param):
 
             def rejects(o: int) -> bool:
                 span = self.store.span_at(name, path, o)
-                return span is not None and not _accepts_kwarg(span["params"], param)
+                return (
+                    span is not None
+                    and span["params"] is not None
+                    and not _accepts_kwarg(span["params"], param)
+                )
 
             window = self._window(name, resolved, exact, installed, rejects)
             if window is None:
@@ -771,6 +777,8 @@ class DepTime:
             )
         had = [s for s in spans if param in _param_names(s["params"])]
         if not had:
+            if any(s["params"] is None for s in spans):
+                return None  # some releases have no known signature, so "never accepted" can't be shown
             return Finding(
                 **base,
                 issue="never_existed",

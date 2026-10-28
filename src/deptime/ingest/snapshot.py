@@ -16,7 +16,7 @@ from typing import Any
 
 import griffe
 
-SNAPSHOT_FORMAT = 3  # bump when extraction changes: cached snapshots in another format are rebuilt
+SNAPSHOT_FORMAT = 4  # bump when extraction changes: cached snapshots in another format are rebuilt
 MAX_DEPTH = 12  # guards pathological re-export cycles
 
 DEPRECATED_DECORATOR_RE = re.compile(r"^(?:[\w.]+\.)?deprecated\b(?:\((?P<args>.*)\))?$", re.S)
@@ -265,7 +265,9 @@ def build_snapshot(package: str, version: str, import_names: list[str], search_p
                 allow_inspection=False,  # never import untrusted code
                 try_relative_path=False,
                 resolve_aliases=True,
-                resolve_external=False,
+                # None loads only a private sibling (`_pytest` for `pytest`), found in the same wheel because
+                # search_paths replaces sys.path; other distributions' names stay aliases.
+                resolve_external=None,
             )
         except Exception as exc:  # report and continue: one bad import name must not sink the release
             snap.errors.append(f"load {import_name}: {type(exc).__name__}: {exc}")

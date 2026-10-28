@@ -19,7 +19,7 @@
 
 ---
 
-## Current state: public alpha, v0.1.0 (since 2026-10-28)
+## Current state: public alpha, v0.1.1 (since 2026-10-28)
 
 - The repo is public. `uvx deptime mcp` installs from PyPI, and pushing a `v*` tag publishes through trusted publishing (`release.yml`).
 - `build-index` runs nightly at 04:17 UTC and replaces the rolling `index` release. The first full builds (2026-10-28) indexed 52 packages and 3,371 releases into a 78.9 MB `.gz`.

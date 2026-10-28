@@ -10,6 +10,7 @@ import ast
 import gzip
 import json
 import re
+import sys
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -30,6 +31,9 @@ WARNING_CATEGORY_RE = re.compile(
 )
 # A shim's warning category that marks a deprecation, including django's RemovedInDjango50Warning.
 SHIM_CATEGORY_RE = re.compile(rf"{WARNING_CATEGORY_RE.pattern}|\bRemovedIn\w*Warning\b")
+# Builds run on the pinned interpreter (.python-version), so this list doesn't vary between index builds.
+# distutils left the stdlib in 3.12; typing_extensions is a backport of it.
+STDLIB_MODULES = frozenset(sys.stdlib_module_names) | {"distutils", "typing_extensions"}
 
 
 @dataclass
@@ -321,6 +325,16 @@ def _find_getattr(stmts: list[ast.stmt]) -> ast.FunctionDef | None:
     return None
 
 
+def _source_tree(mod: griffe.Module) -> ast.Module | None:
+    filepath = mod.filepath
+    if not isinstance(filepath, Path) or filepath.suffix != ".py":
+        return None
+    try:
+        return ast.parse(filepath.read_text(encoding="utf-8", errors="replace"))
+    except (OSError, SyntaxError, ValueError):
+        return None
+
+
 def getattr_served(mod: griffe.Module) -> dict[str, str | None]:
     """Names a module `__getattr__` returns a value for (deprecation shims, lazy imports), each with the
     deprecation message its branch warns with. Read from the source with `ast`; nothing is imported (ADR 0002).
@@ -328,12 +342,8 @@ def getattr_served(mod: griffe.Module) -> dict[str, str | None]:
     Only names compared with literals, or looked up in a module-level literal collection, are found. A name
     whose branch raises (numpy 2.0's expired attributes) is not served.
     """
-    filepath = mod.filepath
-    if not isinstance(filepath, Path) or filepath.suffix != ".py":
-        return {}
-    try:
-        tree = ast.parse(filepath.read_text(encoding="utf-8", errors="replace"))
-    except (OSError, SyntaxError, ValueError):
+    tree = _source_tree(mod)
+    if tree is None:
         return {}
     func = _find_getattr(tree.body)
     args = (func.args.posonlyargs + func.args.args) if func else []
@@ -360,6 +370,26 @@ def getattr_served(mod: griffe.Module) -> dict[str, str | None]:
     }
 
 
+def foreign_reexports(mod: griffe.Module, *, plain: bool) -> frozenset[str]:
+    """Names a module imports from another distribution in a shape that re-exports them (DT-DATA-21):
+    `from click.termui import clear as clear`, the explicit re-export convention (typer), and with `plain`,
+    `from markupsafe import escape` from outside the standard library (flask 2.2).
+
+    Only top-level statements count: an import under `if TYPE_CHECKING:` or `try:` may not exist at runtime.
+    """
+    tree = _source_tree(mod)
+    names: set[str] = set()
+    for st in tree.body if tree is not None else []:
+        if isinstance(st, ast.ImportFrom) and st.level == 0 and st.module:
+            stdlib = st.module.split(".")[0] in STDLIB_MODULES
+            names.update(
+                a.name
+                for a in st.names
+                if a.asname == a.name or (plain and a.asname is None and not stdlib and a.name != "*")
+            )
+    return frozenset(names)
+
+
 def _within(path: str, prefix: str) -> bool:
     return path == prefix or path.startswith(prefix + ".")
 
@@ -384,6 +414,7 @@ class _Walker:
         self.roots = root_prefixes
         self.visiting: set[tuple[str, str]] = set()
         self.shims: dict[str, dict[str, str | None]] = {}
+        self.foreign: dict[str, frozenset[str]] = {}
 
     def _internal(self, canonical: str) -> bool:
         return any(canonical == r or canonical.startswith(r + ".") for r in self.roots)
@@ -419,6 +450,7 @@ class _Walker:
         griffe counts imported names as private, but `from .app import Flask as Flask` is how flask, fastapi,
         click and sqlalchemy expose their API. When an `__init__.pyi` redefines an imported name (numpy 2.0's
         `float64`, `add`), griffe merges the stub and the name is no longer an alias, so the `.py` import counts.
+        Names from another distribution count only in a re-exporting shape (`foreign_reexports`).
         """
         try:
             if member.is_public:
@@ -426,13 +458,15 @@ class _Walker:
         except (griffe.AliasResolutionError, griffe.CyclicAliasError):
             return False
         source = member.target_path if member.is_alias else mod.imports.get(name)  # type: ignore[union-attr]
-        return (
-            reexporter is not None
-            and source is not None
-            and not mod.exports
-            and not name.startswith("_")
-            and self._internal(source)
-        )
+        if reexporter is None or source is None or mod.exports or name.startswith("_"):
+            return False
+        if self._internal(source):
+            return True
+        if mod.path not in self.foreign:
+            # A plain import counts only at the package's top level: a subpackage importing pydantic's
+            # `BaseModel` (chromadb.server.fastapi, crewai.flow.runtime) uses it rather than exporting it.
+            self.foreign[mod.path] = foreign_reexports(mod, plain=mod.path in self.roots)
+        return name in self.foreign[mod.path]
 
     @staticmethod
     def _walks(module_path: str, public_path: str, reexporter: str | None) -> bool:

@@ -45,18 +45,32 @@ REEXPORTS = {
 IMPORTS = {
     "flasky/__init__.py": (
         "import os\n"
-        "from typing import Any\n"
+        "import markupsafe\n"
+        "from typing import Any, TYPE_CHECKING\n"
+        "from shutil import get_terminal_size as get_terminal_size\n"
+        "from markupsafe import escape\n"
+        "from click.termui import clear as clear\n"
+        "from click import echo as say\n"
+        "from typing_extensions import Self\n"
         "from flasky.app import Flask as Flask\n"
         "from flasky.app import helper, _hidden\n"
+        "if TYPE_CHECKING:\n"
+        "    from markupsafe import Markup\n"
+        "try:\n"
+        "    from orjson import dumps\n"
+        "except ImportError:\n"
+        "    pass\n"
     ),
     "flasky/app.py": (
+        "from markupsafe import escape\n"
         "from flasky.util import tool\n\n\n"
         "class Flask:\n    pass\n\n\n"
         "def helper():\n    pass\n\n\n"
         "def _hidden():\n    pass\n"
     ),
     "flasky/util.py": "def tool():\n    pass\n",
-    "strict/__init__.py": 'from strict.core import listed, unlisted\n__all__ = ["listed"]\n',
+    "flasky/ext/__init__.py": "from pydantic import BaseModel\nfrom starlette import status as status\n",
+    "strict/__init__.py": 'from markupsafe import escape\nfrom strict.core import listed, unlisted\n__all__ = ["listed"]\n',
     "strict/core.py": "def listed():\n    pass\n\n\ndef unlisted():\n    pass\n",
 }
 
@@ -207,6 +221,29 @@ def test_package_init_imports_are_public_without_all(tmp_path):
     assert snap.symbols["flasky.Flask"].canonical == "flasky.app.Flask"
     # Private names, other packages' objects, imports in plain modules, and anything `__all__` leaves out stay out.
     assert not {"flasky._hidden", "flasky.os", "flasky.Any", "flasky.app.tool", "strict.unlisted"} & paths
+
+
+def test_package_init_reexports_from_other_distributions(tmp_path):
+    # DT-DATA-21: typer re-exports click's API (`as clear`); flask 2.2 imports `escape` from markupsafe.
+    snap = build_snapshot("flasky", "1.0", ["flasky", "strict"], _write(tmp_path, IMPORTS))
+    found = {p: (r.kind, r.canonical, r.params) for p, r in snap.symbols.items()}
+    assert found["flasky.escape"] == ("alias", "markupsafe.escape", None)
+    assert found["flasky.clear"] == ("alias", "click.termui.clear", None)
+    assert found["flasky.get_terminal_size"] == ("alias", "shutil.get_terminal_size", None)
+    assert found["flasky.ext.status"] == ("alias", "starlette.status", None)  # fastapi.status
+    # Out: module imports, plain stdlib imports, renames, conditional imports, plain modules, names `__all__`
+    # omits, and plain imports in a subpackage (chromadb.server.fastapi imports pydantic's BaseModel to use it).
+    assert not {
+        "flasky.markupsafe",
+        "flasky.TYPE_CHECKING",
+        "flasky.Self",
+        "flasky.say",
+        "flasky.Markup",
+        "flasky.dumps",
+        "flasky.app.escape",
+        "flasky.ext.BaseModel",
+        "strict.escape",
+    } & set(found)
 
 
 def test_stub_redefined_init_imports_are_public(tmp_path):

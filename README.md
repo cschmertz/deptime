@@ -30,7 +30,7 @@ TypeError: Client.__init__() got an unexpected keyword argument 'proxies'
 
 That's real output from the published index: DepTime diffed httpx's releases from PyPI, and the deprecation text comes from httpx's own source code.
 
-> **Status:** alpha. v0.1.0 is on PyPI (2026-10-28), and the prebuilt index of 52 packages is rebuilt nightly. Known gaps are tracked in [BACKLOG.md](BACKLOG.md).
+> **Status:** alpha. The prebuilt index is rebuilt nightly. Known gaps are tracked in [BACKLOG.md](BACKLOG.md).
 
 ## Install
 

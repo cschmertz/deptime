@@ -15,10 +15,12 @@
 
 Free, open source (MIT), and **local**: your code and errors never leave your machine.
 
+<p>
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cschmertz/deptime/main/docs/assets/how-it-works-dark.svg">
   <img alt="How DepTime works. Built nightly on GitHub: new PyPI releases are read statically and diffed release to release; packages are never imported or run. The only thing that crosses to your machine is one file, index.sqlite.gz. Answered on your machine: deptime mcp answers your agent locally, and your code and errors stay there." src="https://raw.githubusercontent.com/cschmertz/deptime/main/docs/assets/how-it-works-light.svg">
 </picture>
+</p>
 
 ```text
 TypeError: Client.__init__() got an unexpected keyword argument 'proxies'
@@ -42,7 +44,8 @@ That's real output from the published index: DepTime diffed httpx's releases fro
 Requires [uv](https://docs.astral.sh/uv/).
 
 ```bash
-# Claude Code (Cursor, Codex, VS Code and Claude Desktop take the same command in their MCP config)
+# Claude Code. Cursor, Codex, VS Code and Claude Desktop take the same
+# command (uvx deptime mcp) in their MCP config.
 claude mcp add deptime -- uvx deptime mcp
 ```
 
@@ -68,7 +71,8 @@ Every answer carries evidence and a confidence level. If a package isn't covered
 uvx deptime explain --installed httpx==0.28.1 < traceback.txt
 uvx deptime history httpx Client.__init__
 uvx deptime check httpx 0.28.1 'httpx.Client:proxies,proxy'
-uvx deptime diff httpx 0.27.2 0.28.1              # or: diff pydantic 2024-06-01 (since a date)
+uvx deptime diff httpx 0.27.2 0.28.1
+uvx deptime diff pydantic 2024-06-01              # everything since a date
 uvx deptime index status | pull
 ```
 
@@ -92,7 +96,8 @@ The most useful contributions are wrong-answer reports, which become benchmark c
 
 ```bash
 uv sync && uv run pytest
-uv run deptime ingest httpx --versions 0.27.2 0.28.1   # build a small local index from real PyPI wheels
+# build a small local index from real PyPI wheels
+uv run deptime ingest httpx --versions 0.27.2 0.28.1
 ```
 
 ## Docs

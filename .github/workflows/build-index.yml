@@ -2,60 +2,141 @@ name: build-index
 
 # Nightly: analyse new PyPI releases and publish the prebuilt index to the rolling `index` pre-release.
 # Local installs download <repo>/releases/download/index/{manifest.json,index.sqlite.gz} (see config.DEFAULT_INDEX_URL).
-# Free on public repositories. Snapshots are cached between runs, so only new releases are analysed.
-# A cold build (~3,500 releases) may not fit in one run. The ingest step has its own timeout, the snapshot cache is
-# saved anyway, and the next run carries on from it (DT-DATA-03).
+# Free on public repositories.
+#
+# One job per covered package builds that package's snapshots on its own runner, with its own snapshot cache and
+# log, so a heavy package can only fail itself (DT-DATA-03). The publish job then assembles the index from those
+# snapshots without downloading or analysing anything. It starts from the published index, so a package whose job
+# failed tonight keeps the releases it already had (DT-DATA-12).
 on:
   schedule:
     - cron: "17 4 * * *" # daily at 04:17 UTC
   workflow_dispatch:
 
 permissions:
-  contents: write # upload release assets
+  contents: read
 
 concurrency:
   group: build-index
   cancel-in-progress: false
 
+env:
+  DEPTIME_HOME: ${{ github.workspace }}/.deptime
+  DEPTIME_OFFLINE: "1" # no background index download or refresh; `ingest` and the explicit `index pull` still run
+
 jobs:
-  build:
+  plan:
     runs-on: ubuntu-latest
-    timeout-minutes: 340
-    env:
-      DEPTIME_HOME: ${{ github.workspace }}/.deptime
-      DEPTIME_OFFLINE: "1" # no background download or refresh; the explicit `index pull` below still runs
-      GH_TOKEN: ${{ github.token }}
+    outputs:
+      packages: ${{ steps.list.outputs.packages }}
     steps:
       # DT-OSS-07: pin actions to commit SHAs.
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v6
+      - name: List the covered packages
+        id: list
+        run: |
+          packages=$(uv run --no-dev python -c 'import json; from deptime.config import Settings, load_coverage; print(json.dumps([p.name for p in load_coverage(Settings.from_env().coverage_file).packages]))')
+          echo "packages=$packages" >> "$GITHUB_OUTPUT"
+          echo "$packages"
+
+  snapshots:
+    name: snapshots (${{ matrix.package }})
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJSON(needs.plan.outputs.packages) }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
       - run: uv sync --locked --no-dev
 
-      - name: Restore snapshot cache
+      # `|` can't occur in a package name, so one package's prefix never matches another's (langchain vs langchain-core).
+      - name: Restore this package's snapshot cache
+        id: restore
         uses: actions/cache/restore@v4
         with:
-          path: .deptime/build/snapshots
-          key: snapshots-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: snapshots-
+          path: .deptime/build/snapshots/${{ matrix.package }}
+          key: snapshots|${{ matrix.package }}|latest
+          restore-keys: snapshots|${{ matrix.package }}|
 
-      # Ingesting into last night's index keeps a release whose download or analysis fails tonight (DT-DATA-12),
-      # and keeps packages the run didn't reach before its timeout. sha256 and schema are checked as for users.
+      - name: Build the snapshots that aren't cached yet
+        timeout-minutes: 320
+        continue-on-error: true # a timed-out cold build still saves its progress below; the next run carries on
+        run: uv run deptime ingest "${{ matrix.package }}"
+
+      - name: Resources used
+        if: always()
+        run: |
+          free -m
+          df -h .
+          du -sh .deptime/build/snapshots 2>/dev/null || true
+
+      - name: Snapshot cache key
+        id: key
+        if: always()
+        run: echo "key=snapshots|${{ matrix.package }}|${{ hashFiles(format('.deptime/build/snapshots/{0}/**', matrix.package)) }}" >> "$GITHUB_OUTPUT"
+
+      - name: Save this package's snapshot cache (also after a timeout; skipped when nothing changed)
+        if: always() && !endsWith(steps.key.outputs.key, '|') && steps.key.outputs.key != steps.restore.outputs.cache-matched-key
+        uses: actions/cache/save@v4
+        with:
+          path: .deptime/build/snapshots/${{ matrix.package }}
+          key: ${{ steps.key.outputs.key }}
+
+      - name: Hand the snapshots to the publish job
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: snapshots-${{ matrix.package }}
+          path: .deptime/build/snapshots/
+          include-hidden-files: true # the path is under .deptime/
+          if-no-files-found: warn
+          retention-days: 1
+          compression-level: 0 # already gzipped
+
+  publish:
+    needs: [plan, snapshots]
+    # Runs even when some package jobs failed: those packages keep their published releases.
+    if: ${{ !cancelled() && needs.plan.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    permissions:
+      contents: write # upload release assets
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked --no-dev
+
+      - name: Collect every package's snapshots
+        continue-on-error: true # a package without snapshots keeps its published releases
+        uses: actions/download-artifact@v4
+        with:
+          pattern: snapshots-*
+          path: .deptime/build/snapshots
+          merge-multiple: true
+
+      # Ingesting into last night's index keeps a release that has no snapshot tonight (DT-DATA-12).
+      # sha256 and schema are checked as for users.
       - name: Start from the published index
         run: uv run deptime index pull || echo "::notice::no compatible published index; building from snapshots only"
 
-      - name: Ingest every covered package (always --all, so the published index is complete)
-        timeout-minutes: 270
-        continue-on-error: true # a timed-out run still publishes its progress; the next run continues from the cache
+      - name: Assemble the index from the snapshots (never downloads or analyses a release)
         run: |
-          uv run deptime ingest --all --into-downloaded \
-            || echo "::warning::some releases failed to index; see the log above"
+          uv run deptime ingest --all --into-downloaded --cached-only \
+            || echo "::warning::some releases have no snapshot tonight; see the log above"
 
-      - name: Save snapshot cache (also after a timeout, so a cold build makes progress every run)
+      - name: Resources used
         if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: .deptime/build/snapshots
-          key: snapshots-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          free -m
+          df -h .
+          du -sh .deptime/build/snapshots .deptime/*.sqlite 2>/dev/null || true
 
       - name: Pack
         run: uv run deptime index pack --out dist

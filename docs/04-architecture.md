@@ -67,6 +67,8 @@ The full schema is in `src/deptime/index/schema.sql`.
 - **`events`**: diff facts per release. `prev_ordinal IS NULL` marks state already present in the earliest indexed release, which is why `deprecated_in = "<=X"`.
 - **`replacements`**: candidates per symbol, or per `func(param)`, with confidence, source and evidence.
 - **Snapshots** (`.json.gz`) are the immutable intermediate. CI caches them, so a nightly run only analyses new releases, and the whole index can be rebuilt from them after any change to the diff logic.
+  - Each covered package gets its own CI job, with its own runner, log and snapshot cache, so one heavy package can't take the others down. A final job assembles the index from their snapshots with `deptime ingest --all --cached-only`, which never downloads or analyses a release (DT-DATA-03).
+  - The index rebuild streams snapshots from disk in version order, holding at most two, so memory doesn't grow with a package's release count.
 
 ## Index distribution
 

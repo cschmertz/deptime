@@ -273,3 +273,30 @@ def test_lazy_rebuild_matches_eager_rebuild():
     for table in ("releases", "spans", "events", "replacements"):
         rows = [sorted(map(tuple, s.conn.execute(f"SELECT * FROM {table}")), key=repr) for s in (eager, lazy)]
         assert rows[0] == rows[1], table
+
+
+def test_cached_only_never_downloads_and_keeps_published_releases(tmp_path):
+    """CI's publish job assembles from the per-package jobs' snapshots; a missing one keeps the indexed copy."""
+    store = IndexStore.memory()
+    with _client() as client:
+        ingest_package(SPEC, POLICY, store, tmp_path, client=client, today=TODAY, log=_quiet)
+    snapshot_path(tmp_path, "fakepkg", "2.0.0").unlink()  # as if its per-package job had failed
+    requested: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requested.append(str(request.url))
+        if str(request.url) == "https://pypi.org/simple/fakepkg/":
+            return httpx.Response(200, json=_simple_index())
+        return httpx.Response(404)
+
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        report = ingest_package(
+            SPEC, POLICY, store, tmp_path, client=client, today=TODAY, cached_only=True, log=_quiet
+        )
+    assert requested == ["https://pypi.org/simple/fakepkg/"]  # the release list only, no artifacts
+    assert report.cached == ["1.0.0"] and "2.0.0" in report.failed
+    assert report.carried == ["2.0.0"] and report.stats.releases == 2
+    assert {r["version"]: r["source_file"] for r in store.releases("fakepkg")} == {
+        "1.0.0": "fakepkg-1.0.0-py3-none-any.whl",
+        "2.0.0": "fakepkg-2.0.0-py3-none-any.whl",
+    }

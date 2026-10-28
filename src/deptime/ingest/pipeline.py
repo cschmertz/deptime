@@ -104,8 +104,15 @@ def ingest_package(
     versions: list[str] | None = None,
     client: httpx.Client | None = None,
     today: date | None = None,
+    cached_only: bool = False,
     log: Callable[[str], None] = print,
 ) -> IngestReport:
+    """Index `spec`'s selected releases, building any snapshot that isn't cached yet.
+
+    `cached_only` never downloads or analyses a release: one without a cached snapshot is reported as failed,
+    so an already-indexed copy is kept. CI's publish job uses it to assemble the index from the snapshots the
+    per-package jobs built.
+    """
     report = IngestReport(spec.name)
     # Releases already in the index are only dropped on purpose (yanked, or no longer selected by the policy),
     # never because this run failed to download or analyse them.
@@ -151,13 +158,17 @@ def ingest_package(
         for rel in selected:
             version = str(rel.version)
             released_at[version] = rel.uploaded_at.isoformat() if rel.uploaded_at else None
-            if (
-                _cached_snapshot(cache_dir, spec.name, version) is not None
-            ):  # loaded here only to check its format
+            file = pypi.pick_file(rel)
+            # Loaded here only to check its format; the rebuild loads it again when it gets there.
+            if _cached_snapshot(cache_dir, spec.name, version) is not None:
                 snapshots.append(_lazy_cached(cache_dir, spec.name, version))
+                if file is not None:
+                    source_files[version] = file.filename
                 report.cached.append(version)
                 continue
-            file = pypi.pick_file(rel)
+            if cached_only:
+                report.failed[version] = "no cached snapshot (cached-only run)"
+                continue
             if file is None:
                 report.failed[version] = "no wheel or sdist"
                 continue

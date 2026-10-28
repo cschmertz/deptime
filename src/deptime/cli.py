@@ -71,7 +71,13 @@ def cmd_ingest(args: argparse.Namespace, settings: Settings) -> int:
             continue
         try:
             report = ingest_package(
-                spec, coverage.policy, store, settings.cache_dir, versions=args.versions or None, log=_err
+                spec,
+                coverage.policy,
+                store,
+                settings.cache_dir,
+                versions=args.versions or None,
+                cached_only=args.cached_only,
+                log=_err,
             )
         except Exception as exc:  # one broken package must not stop the rest of the run
             _err(f"[{name}] FAILED: {type(exc).__name__}: {exc}")
@@ -257,6 +263,11 @@ def main(argv: list[str] | None = None) -> int:
         "--into-downloaded",
         action="store_true",
         help="allow ingesting into a downloaded index (it then stops receiving daily updates)",
+    )
+    p.add_argument(
+        "--cached-only",
+        action="store_true",
+        help="use only cached snapshots: never download or analyse a release (CI's publish job)",
     )
     p.set_defaults(func=cmd_ingest)
 

@@ -142,10 +142,13 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
 - [x] **DT-CORE-15**: Optional → required parameters: `param_now_required` / `param_now_optional` events, used for "missing required argument" and checked against the installed release (audit I-10, Q-17) · `P0` `S`
 - [ ] **DT-CORE-16**: Errors raised inside a dependency consider the package being called (audit Q-18) · `P0` `S`
   - AC: other indexed packages are searched, installed first, keeping only concrete changes (done; bench case `openai-httpx-proxies-internal`); candidates ranked by `Requires-Dist` once per-release dependency data exists.
+- [ ] **DT-CORE-17**: `never_existed` for a name the traceback shows was in use: say it may predate the first indexed release or be created at runtime, at `low` confidence, instead of "may be misremembered" at `medium` · `P0` `S`
+  - Found by the first benchmark run (2026-10-28): `numpy.float` comes back `never_existed` at medium. numpy is indexed from 1.24.0, the release that removed it, and before that numpy served it from a module `__getattr__`. Bench case `numpy-float-alias`.
 
 ### Quality (DT-QA)
 - [ ] **DT-QA-01**: 200-traceback benchmark from real GitHub issues (`bench/cases/*.jsonl`) · `P0` `L`
 - [ ] **DT-QA-02**: Benchmark runner + CI report (fail on a regression above 2 points) · `P0` `M` · deps: QA-01
+  - Done so far (2026-10-28): `python -m deptime.bench` scores cases as `bench/README.md` defines; `bench.yml` runs it against the published index on code changes and after each `build-index`, failing on a drop of more than 2 points on the cases `bench/baseline.json` shares with the run. First number, 8 seed cases: root cause + boundary 50% (Tier B 80%, Tier A 0%; 4 of 8 are `known_gap`).
 - [ ] **DT-QA-03**: Golden tests per Tier A package against the published index (nightly, network-marked) · `P1` `M`
 
 ## M2 — Public launch (DT-GTM)

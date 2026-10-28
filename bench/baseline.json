@@ -1,0 +1,71 @@
+{
+  "index_built_at": "2026-10-28T13:21:16+00:00",
+  "summary": {
+    "cases": 8,
+    "known_gap_share": 50.0,
+    "overall": {
+      "root_cause": 50.0,
+      "root_cause_and_boundary": 50.0,
+      "boundary": 66.7,
+      "replacement": 60.0
+    },
+    "by_tier": {
+      "A": {
+        "cases": 3,
+        "root_cause": 0.0,
+        "root_cause_and_boundary": 0.0,
+        "boundary": 0.0,
+        "replacement": 0.0
+      },
+      "B": {
+        "cases": 5,
+        "root_cause": 80.0,
+        "root_cause_and_boundary": 80.0,
+        "boundary": 80.0,
+        "replacement": 100.0
+      }
+    }
+  },
+  "cases": {
+    "httpx-proxies-kwarg": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true
+    },
+    "pandas-dataframe-append": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true
+    },
+    "sqlalchemy-engine-execute": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "numpy-float-alias": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": null
+    },
+    "mcp-fastmcp-module": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": false
+    },
+    "openai-v1-chatcompletion": {
+      "root_cause": false,
+      "boundary": null,
+      "replacement": null
+    },
+    "pydantic-basesettings-moved": {
+      "root_cause": false,
+      "boundary": null,
+      "replacement": false
+    },
+    "openai-httpx-proxies-internal": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true
+    }
+  }
+}

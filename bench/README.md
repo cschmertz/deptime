@@ -34,4 +34,17 @@ Keep only cases where the reporter's versions are known, or can be inferred from
 - **Replacement:** `replacement_contains` is among the top 3 targets.
 - Report per-tier accuracy and the share of `known_gap` cases. CI fails on a regression of more than 2 points.
 
+Boundary and replacement only count when the root cause is right. The headline metric, `root_cause_and_boundary`, counts a case as passed when the root cause is right and the boundary matches (or the case doesn't expect one).
+
+## Running it
+
+```bash
+uv run deptime index pull                                                      # the published index, into DEPTIME_HOME
+uv run python -m deptime.bench bench/cases                                     # per-case report and per-tier table
+uv run python -m deptime.bench bench/cases --baseline bench/baseline.json      # exit 1 on a regression
+uv run python -m deptime.bench bench/cases --write-baseline bench/baseline.json  # record an intended change
+```
+
+`.github/workflows/bench.yml` runs the baseline check on code changes and after every nightly `build-index`. A regression is measured on the cases that both the baseline and the current run contain. So adding new cases never fails it, and only a case that used to pass and now fails does. After a fix makes cases pass, write a new baseline so they're protected too.
+
 The seed file (`cases/seed.jsonl`) contains well-documented, real-world breaks. Cases marked `known_gap` say which backlog item fixes them.

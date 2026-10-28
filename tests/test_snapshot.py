@@ -61,6 +61,27 @@ IMPORTS = {
 }
 
 
+# numpy 2.0/2.1: `__all__` is built at runtime, and `__init__.py` imports names defined in compiled code, so griffe
+# replaces those imports with their definitions in `__init__.pyi`.
+STUBS = {
+    "stubby/__init__.py": (
+        "from stubby import _core\n"
+        "from stubby._core import add, float64, _private\n"
+        "__all__ = list(set(_core.__all__))\n"
+    ),
+    "stubby/__init__.pyi": (
+        "from typing import TypeAlias\n\n"
+        "__all__: list[str]\n\n"
+        "float64: TypeAlias = float\n\n\n"
+        "def add(x: int, y: int) -> int: ...\n"
+    ),
+    "stubby/_core.py": (
+        '__all__ = ["add", "float64"]\nfrom stubby._umath import *  # compiled: no source to read\n\n\n'
+        "def _private():\n    pass\n"
+    ),
+}
+
+
 def _write(root: Path, files: dict[str, str] = FILES) -> Path:
     for rel, text in files.items():
         p = root / rel
@@ -119,6 +140,14 @@ def test_package_init_imports_are_public_without_all(tmp_path):
     assert snap.symbols["flasky.Flask"].canonical == "flasky.app.Flask"
     # Private names, other packages' objects, imports in plain modules, and anything `__all__` leaves out stay out.
     assert not {"flasky._hidden", "flasky.os", "flasky.Any", "flasky.app.tool", "strict.unlisted"} & paths
+
+
+def test_stub_redefined_init_imports_are_public(tmp_path):
+    snap = build_snapshot("stubby", "1.0", ["stubby"], _write(tmp_path, STUBS))
+    paths = set(snap.symbols)
+    assert {"stubby.add", "stubby.float64"} <= paths
+    assert [p["name"] for p in snap.symbols["stubby.add"].params] == ["x", "y"]
+    assert not {"stubby._private", "stubby.TypeAlias"} & paths
 
 
 def test_snapshot_roundtrip(tmp_path):

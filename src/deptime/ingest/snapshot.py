@@ -16,7 +16,7 @@ from typing import Any
 
 import griffe
 
-SNAPSHOT_FORMAT = 2  # bump when extraction changes: cached snapshots in another format are rebuilt
+SNAPSHOT_FORMAT = 3  # bump when extraction changes: cached snapshots in another format are rebuilt
 MAX_DEPTH = 12  # guards pathological re-export cycles
 
 DEPRECATED_DECORATOR_RE = re.compile(r"^(?:[\w.]+\.)?deprecated\b(?:\((?P<args>.*)\))?$", re.S)
@@ -170,19 +170,21 @@ class _Walker:
         missing (or computed at runtime, as in numpy).
 
         griffe counts imported names as private, but `from .app import Flask as Flask` is how flask, fastapi,
-        click and sqlalchemy expose their API.
+        click and sqlalchemy expose their API. When an `__init__.pyi` redefines an imported name (numpy 2.0's
+        `float64`, `add`), griffe merges the stub and the name is no longer an alias, so the `.py` import counts.
         """
         try:
             if member.is_public:
                 return True
         except (griffe.AliasResolutionError, griffe.CyclicAliasError):
             return False
+        source = member.target_path if member.is_alias else mod.imports.get(name)  # type: ignore[union-attr]
         return (
             reexporter is not None
-            and member.is_alias
+            and source is not None
             and not mod.exports
             and not name.startswith("_")
-            and self._internal(member.target_path)  # type: ignore[union-attr]
+            and self._internal(source)
         )
 
     @staticmethod

@@ -160,12 +160,30 @@ class _Walker:
         self.record(SymbolRecord(public_path, "module", mod.path))
         reexporter = mod.path if public_path == mod.path and mod.is_init_module else None
         for name, member in list(mod.members.items()):
-            try:
-                if not member.is_public:
-                    continue
-            except (griffe.AliasResolutionError, griffe.CyclicAliasError):
-                continue
-            self.member(member, f"{public_path}.{name}", depth, reexporter)
+            if self._public(mod, name, member, reexporter):
+                self.member(member, f"{public_path}.{name}", depth, reexporter)
+
+    def _public(
+        self, mod: griffe.Module, name: str, member: griffe.Object | griffe.Alias, reexporter: str | None
+    ) -> bool:
+        """griffe's rule, plus what a package's `__init__` imports from the package itself when `__all__` is
+        missing (or computed at runtime, as in numpy).
+
+        griffe counts imported names as private, but `from .app import Flask as Flask` is how flask, fastapi,
+        click and sqlalchemy expose their API.
+        """
+        try:
+            if member.is_public:
+                return True
+        except (griffe.AliasResolutionError, griffe.CyclicAliasError):
+            return False
+        return (
+            reexporter is not None
+            and member.is_alias
+            and not mod.exports
+            and not name.startswith("_")
+            and self._internal(member.target_path)  # type: ignore[union-attr]
+        )
 
     @staticmethod
     def _walks(module_path: str, public_path: str, reexporter: str | None) -> bool:

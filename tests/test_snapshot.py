@@ -41,6 +41,26 @@ REEXPORTS = {
 }
 
 
+# Without `__all__`, a package's `__init__` exposes its API by importing it (flask, fastapi, click, sqlalchemy).
+IMPORTS = {
+    "flasky/__init__.py": (
+        "import os\n"
+        "from typing import Any\n"
+        "from flasky.app import Flask as Flask\n"
+        "from flasky.app import helper, _hidden\n"
+    ),
+    "flasky/app.py": (
+        "from flasky.util import tool\n\n\n"
+        "class Flask:\n    pass\n\n\n"
+        "def helper():\n    pass\n\n\n"
+        "def _hidden():\n    pass\n"
+    ),
+    "flasky/util.py": "def tool():\n    pass\n",
+    "strict/__init__.py": 'from strict.core import listed, unlisted\n__all__ = ["listed"]\n',
+    "strict/core.py": "def listed():\n    pass\n\n\ndef unlisted():\n    pass\n",
+}
+
+
 def _write(root: Path, files: dict[str, str] = FILES) -> Path:
     for rel, text in files.items():
         p = root / rel
@@ -90,6 +110,15 @@ def test_reexported_modules_are_walked_once_and_test_suites_skipped(tmp_path):
         "loopy.plain.loopy",
     }
     assert snap.symbols["loopy.loopy"].kind == "module" and snap.symbols["loopy.loopy"].canonical == "loopy"
+
+
+def test_package_init_imports_are_public_without_all(tmp_path):
+    snap = build_snapshot("flasky", "1.0", ["flasky", "strict"], _write(tmp_path, IMPORTS))
+    paths = set(snap.symbols)
+    assert {"flasky.Flask", "flasky.helper", "strict.listed"} <= paths
+    assert snap.symbols["flasky.Flask"].canonical == "flasky.app.Flask"
+    # Private names, other packages' objects, imports in plain modules, and anything `__all__` leaves out stay out.
+    assert not {"flasky._hidden", "flasky.os", "flasky.Any", "flasky.app.tool", "strict.unlisted"} & paths
 
 
 def test_snapshot_roundtrip(tmp_path):

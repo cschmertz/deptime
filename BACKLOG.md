@@ -73,6 +73,7 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
   - AC: 100 cases at ≥ 90% kind + package accuracy.
 - [ ] **DT-SPIKE-04**: S4 index size, build time, download size · `P0` `S`
   - AC: `.gz` under 100 MB; nightly incremental under 30 min; p95 under 20 ms; cold build fits Actions limits (or a matrix plan).
+  - Measured 2026-10-28 (52 packages, 3,371 releases): `.gz` 78.9 MB (773 MB unpacked); cold build 35–61 min as one job per package. Nightly incremental and p95 not measured yet.
 - [ ] **DT-SPIKE-05**: S5 client compatibility matrix (local and hosted) · `P0` `M`
   - AC: Claude Code, Cursor, Codex CLI, VS Code and Claude Desktop with `uvx deptime mcp`; handshake-era clients against hosted mode; the matrix published in the README.
 - [ ] **DT-SPIKE-06**: S6 do agents call it unprompted (plugin vs. no plugin)? · `P1` `M`
@@ -108,9 +109,10 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
   - AC: ≥ 90% of selected releases indexed for each package; failures listed in the workflow summary.
 - [ ] **DT-DATA-02**: Index Tier B · `P1` `M` · deps: DATA-01
   - AC: same bar as DATA-01; numpy indexed via its `.pyi` stubs; compiled-only gaps noted in `coverage.toml`.
-- [ ] **DT-DATA-03**: Cold-build strategy for CI · `P1` `S` · deps: SPIKE-04
+  - Done so far: names numpy's `__init__.py` imports and `__init__.pyi` defines (`add`, `float64`) are indexed for 2.0 and 2.1 too. `numpy.emath.sqrt` is still missing.
+- [x] **DT-DATA-03**: Cold-build strategy for CI · `P1` `S` · deps: SPIKE-04
   - AC: the first full build completes (split into a matrix if needed); the snapshot cache stays within Actions cache limits.
-  - Done so far: only snapshots stay on disk (wheels and unpacked sources are deleted once analysed); the ingest step has its own timeout and the snapshot cache is saved even after it, so a cold build that doesn't fit one run publishes its progress and the next run continues; runs start from the published index. Policy selects ~3,510 releases; measured ~2 s/release locally (langchain-core: 93 releases in 190 s; snapshots ~130 KB each).
+  - Done: one job per package builds and caches its own snapshots, then a publish job assembles the index from them and from the published index; only snapshots stay on disk; a timed-out build still saves its cache. The first full builds (2026-10-28) took 35–61 min with every job green; the slowest is litellm (25 min, 290 releases). The snapshot cache is 2.3 GB of the 10 GB limit, including entries from older snapshot formats that expire unused.
 - [ ] **DT-DATA-04**: Freshness SLO + yanked handling · `P1` `S`
   - AC: a new release is indexed within 24 h (nightly); yanked releases dropped on rebuild; build date shown by `coverage` and `index status`.
 - [ ] **DT-DATA-05**: Lazy-module support (`__getattr__` re-exports) · `P1` `L` · deps: SPIKE-01
@@ -124,6 +126,12 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
 - [ ] **DT-DATA-16**: Store inherited members once per class, then index transformers again · `P1` `M` · deps: SPIKE-04
   - Why: transformers 5.21.0 has ~1.5M public paths, 87% of them inherited methods repeated across ~3,700 model classes (2026-10-28), so it was taken out of `coverage.toml`.
   - AC: snapshots record each class's own members and its bases; queries resolve `Class.member` through the bases; transformers is back in coverage with the `.gz` still under 100 MB.
+- [ ] **DT-DATA-17**: Follow a wrapper release to the distribution that holds its code · `P1` `S`
+  - Why: since 3.3.0, `fastmcp` is an empty wheel that pins `fastmcp-slim==<same version>`, so its 31 newest releases have no snapshot (2026-10-28). typer 0.12.0 (`typer-slim`) and pinecone 2.2.2–5.0.1 (`pinecone-client`) have the same shape.
+  - AC: when a release has no code for its import names and pins one distribution at the same version, ingest analyses that distribution's artifact and records it as the source file; fastmcp 3.3.0+ is indexed. A pin to a different version (dspy 0.1.5 → `dspy-ai==2.4.5`) is still reported as failed.
+- [ ] **DT-DATA-18**: Snapshot builds keep memory flat across releases · `P2` `S`
+  - Why: building litellm's 290 releases in one process grows by ~45 MB per release and never gives it back, peaking at 11.9 GB of a 16 GB runner (2026-10-28). Only cold builds are affected; nightly runs build a few releases.
+  - AC: memory after each release returns to a fixed baseline (e.g. clear griffe's caches, or build each release in a subprocess); litellm's cold build stays under 4 GB.
 
 ### Core logic (DT-CORE)
 - [ ] **DT-CORE-01**: Benchmark-driven tuning of candidate selection and ranking · `P0` `M` · deps: QA-01

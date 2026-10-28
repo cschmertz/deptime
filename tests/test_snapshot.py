@@ -98,6 +98,57 @@ SIBLING = {
 }
 
 
+# Module `__getattr__` shims, shaped like pydantic-ai 1.100 (rename map), werkzeug 3.0 (`__version__`),
+# django 4.2 (`if name != "utc": raise`) and numpy 2.0 (raises for removed names: those must stay absent).
+SHIMS = {
+    "shimmy/__init__.py": (
+        "import warnings\n"
+        "from shimmy.core import NewPart\n\n"
+        "_RENAMED: dict[str, str] = {'OldPart': 'NewPart'}\n"
+        "__expired__ = {'float_': 'Use `np.float64` instead.'}\n\n\n"
+        "def __getattr__(name):\n"
+        "    if name in _RENAMED:\n"
+        "        new_name = _RENAMED[name]\n"
+        "        warnings.warn(f'`shimmy.{name}` is deprecated, use `shimmy.{new_name}` instead.', DeprecationWarning)\n"
+        "        return globals()[new_name]\n"
+        "    elif name == '__version__':\n"
+        "        return '1.0'\n"
+        "    elif name == 'NewPart' or name == 'lazy':\n"
+        "        return NewPart\n"
+        "    if name in __expired__:\n"
+        "        raise AttributeError(__expired__[name])\n"
+        "    if name in ('_private', 'gone'):\n"
+        "        if name == 'gone':\n"
+        "            raise AttributeError(name)\n"
+        "        return 1\n"
+        "    raise AttributeError(name)\n"
+    ),
+    "shimmy/core.py": "class NewPart:\n    pass\n",
+    "shimmy/tz.py": (
+        "import warnings\nfrom datetime import timezone\n\n\n"
+        "def __getattr__(name):\n"
+        "    if name != 'utc':\n"
+        "        raise AttributeError(name)\n"
+        "    warnings.warn(\n"
+        "        'The shimmy.tz.utc alias is deprecated. '\n"
+        "        'Please use datetime.timezone.utc instead.',\n"
+        "        RemovedInShimmy2Warning,\n"
+        "    )\n"
+        "    return timezone.utc\n"
+    ),
+    # fastmcp 2.12's warning is conditional; numpy 1.26's `core.MachAr` says "private API" with a DeprecationWarning.
+    "shimmy/legacy.py": (
+        "import warnings\nSETTINGS = None\n\n\n"
+        "def __getattr__(name):\n"
+        "    if name == 'Image':\n"
+        "        if SETTINGS.deprecation_warnings:\n"
+        "            warnings.warn('`shimmy.legacy.Image` is considered private API', DeprecationWarning)\n"
+        "        return 1\n"
+        "    raise AttributeError(name)\n"
+    ),
+}
+
+
 def _write(root: Path, files: dict[str, str] = FILES) -> Path:
     for rel, text in files.items():
         p = root / rel
@@ -175,6 +226,28 @@ def test_private_sibling_package_is_resolved(tmp_path):
     # Only the `_testy` sibling is loaded; another distribution's names stay aliases (DT-DATA-21).
     assert snap.symbols["testy.helper"].kind == "alias"
     assert not any(p.startswith("_testy") for p in snap.symbols)
+
+
+def test_names_a_module_getattr_serves_are_present(tmp_path):
+    # DT-DATA-20: a removed name kept alive by a deprecation shim is still importable.
+    snap = build_snapshot("shimmy", "1.0", ["shimmy"], _write(tmp_path, SHIMS))
+    old = snap.symbols["shimmy.OldPart"]
+    assert (old.kind, old.canonical) == ("getattr", "shimmy.__getattr__")
+    assert old.deprecated == "`shimmy.OldPart` is deprecated, use `shimmy.NewPart` instead."
+    assert (snap.symbols["shimmy.__version__"].kind, snap.symbols["shimmy.__version__"].deprecated) == (
+        "getattr",
+        None,
+    )
+    assert snap.symbols["shimmy.lazy"].kind == "getattr"
+    assert snap.symbols["shimmy.NewPart"].kind == "class"  # a real member wins
+    utc = snap.symbols["shimmy.tz.utc"]
+    assert utc.kind == "getattr"
+    assert (
+        utc.deprecated == "The shimmy.tz.utc alias is deprecated. Please use datetime.timezone.utc instead."
+    )
+    assert snap.symbols["shimmy.legacy.Image"].deprecated == "`shimmy.legacy.Image` is considered private API"
+    # Names whose branch raises (numpy 2.0's expired attributes) and private names stay absent.
+    assert not {"shimmy.float_", "shimmy.gone", "shimmy._private"} & set(snap.symbols)
 
 
 def test_snapshot_roundtrip(tmp_path):

@@ -25,13 +25,13 @@
 - `build-index` runs nightly at 04:17 UTC and replaces the rolling `index` release. The first full builds (2026-10-28) indexed 52 packages and 3,371 releases into a 78.9 MB `.gz`.
 - Not covered yet: transformers (DT-DATA-16), fastmcp 3.3+ (DT-DATA-17), and names numpy only creates at runtime, such as `numpy.emath` (DT-DATA-02).
 
-**Benchmark (2026-10-28):** 159 real tracebacks from 47 packages (`bench/`): root cause 89.9%, root cause + boundary 76.7%, replacement 17.1%, after DT-CORE-19 and DT-CORE-05 (from 78.0% and 64.8%). Above the 70% floor, below the 80% target (docs/06), and measured on the cases the fixes were designed from, so not yet a launch number (DT-QA-04). Every miss is assigned to an item below; the biggest are DT-DATA-19 (15) and DT-DATA-20 (5). Three more (DT-CORE-20, two of DT-CORE-05) pass once a `SNAPSHOT_FORMAT` 4 index is published.
+**Benchmark (2026-10-28):** 159 real tracebacks from 47 packages (`bench/`): root cause 89.9%, root cause + boundary 76.7%, replacement 17.1%, after DT-CORE-19 and DT-CORE-05 (from 78.0% and 64.8%). Above the 70% floor, below the 80% target (docs/06), and measured on the cases the fixes were designed from, so not yet a launch number (DT-QA-04). Every miss is assigned to an item below; the biggest is DT-DATA-19 (15). Eight more (DT-CORE-20, two of DT-CORE-05, five of DT-DATA-20) pass once a `SNAPSHOT_FORMAT` 4 index is published.
 
 **Still open for M1:** the S1 false-absent measurement (DT-SPIKE-01), and lifting the benchmark above 70%.
 
 **Suggested order for the next sessions**
 1. Check the first scheduled `build-index` run on the per-package pipeline (DT-OSS-04).
-2. Benchmark fixes, cheapest first: DT-CORE-20 and DT-CORE-05 (done), DT-DATA-20, DT-DATA-21; then decide DT-DATA-19 (index density). Re-measure on fresh cases before quoting a number (DT-QA-04).
+2. Benchmark fixes, cheapest first: DT-CORE-20, DT-CORE-05 and DT-DATA-20 (done), DT-DATA-21; then decide DT-DATA-19 (index density). Re-measure on fresh cases before quoting a number (DT-QA-04).
 3. Measure S1 (DT-SPIKE-01), then DT-DATA-17 (fastmcp 3.3+) and DT-OSS-07 (pin actions to SHAs, Dependabot, `pip-audit`).
 
 ---
@@ -109,6 +109,7 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
   - AC: a new release is indexed within 24 h (nightly); yanked releases dropped on rebuild; build date shown by `coverage` and `index status`.
 - [ ] **DT-DATA-05**: Lazy-module support (`__getattr__` re-exports) · `P1` `L` · deps: SPIKE-01
   - AC: langchain/transformers false-absent rate below 10%.
+  - Progress 2026-10-28: DT-DATA-20 records names a module `__getattr__` serves when they are compared with literals or looked up in a module-level literal table (langchain-community's lazy `llms` imports). Names computed at runtime are still missed.
 - [ ] **DT-DATA-06**: Stdlib module availability per Python version (typeshed `stdlib/VERSIONS`) · `P1` `S`
 - [ ] **DT-DATA-07**: Cross-package replacement hints (`google.generativeai` → `google.genai`) · `P1` `S`
 - [ ] **DT-DATA-08**: Curated migration map for the top 20 migrations (reviewed; `source="curated"`) · `P1` `M` · deps: SPIKE-02
@@ -127,9 +128,10 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
 - [ ] **DT-DATA-19**: Index density: boundaries that fall between indexed releases · `P0` `M` · data-policy decision
   - Why: older minor series are indexed only at their first and last release, so a patch-level removal or addition (chromadb `API` removed in 0.4.15; only 0.4.0 and 0.4.24 are indexed) gets the wrong boundary. 15 bench misses, the largest group (bench cases with `fixed_by` DT-DATA-19).
   - AC: measure the index size of indexing every release since 2023-01-01 (or every release for Tier A); decide; re-run the bench. Until then DT-CORE-18 keeps the wording honest.
-- [ ] **DT-DATA-20**: Names served by a `__getattr__` deprecation shim count as present · `P0` `M`
+- [x] **DT-DATA-20**: Names served by a `__getattr__` deprecation shim count as present · `P0` `M`
   - Why: many libraries keep a removed name alive for a few releases through a module `__getattr__`, so static analysis dates the removal too early. Found in the shipped wheels: pydantic-ai 1.100.0 maps `'BuiltinToolCallPart': 'NativeToolCallPart'`; fastmcp 2.12.5 has `if name == "BearerAuthProvider":`; also werkzeug `__version__` (3.0) and django `timezone.utc` (4.1–4.2). 5 bench misses.
   - AC: snapshots read string literals that a module's `__getattr__` compares against or looks up (and dicts such as numpy's `__deprecated_attrs__`), record those names as present and deprecated, and take a mapped target as a replacement. Still static: never import the package (ADR 0002).
+  - Done 2026-10-28: snapshots parse a module's `__getattr__` with `ast` (never imported) and follow which names reach a `return`: `name == "X"`, `name in <literal or module-level dict/set/list>`, `or`/`and` of those, and guards such as `if name != "utc": raise`. A name whose branch raises stays absent (numpy 2.0's expired attributes); conditions it can't read serve nothing; `try`, `with` and `match` bodies aren't followed (numpy 1.26's `try: __deprecated_attrs__[attr]` shape is still missed). Served names are kind `getattr` (canonical: the `__getattr__`), and real members win. Their deprecation text is the branch's `warn(...)`, with the f-string filled in from the source (the name, the module, a rename table's target), so pydantic-ai's rename map yields "use `pydantic_ai.NativeToolCallPart` instead"; a deprecation-type category counts too (django's `RemovedInDjango50Warning`). Checked on the shipped wheels: pydantic-ai-slim 1.100.0, fastmcp 2.12.5, werkzeug 3.0.6, django 4.2.16, numpy 1.26.4 and 2.0.2. On a scratch index of the boundary releases all 5 cases get the right boundary (django and pydantic-ai also the replacement); they pass once a `SNAPSHOT_FORMAT` 4 index is published. Latest releases of all 52 packages gain about 250 names (most: langchain-community 104 lazy `llms` imports, weaviate 24, instructor 24, litellm 23, click 22). werkzeug's "Use feature detection or …" now mines the replacement `feature` at 0.6 (DT-CORE-12).
 - [ ] **DT-DATA-21**: Index names re-exported from another distribution · `P0` `S`
   - Why: `flask.escape` (from markupsafe, flask ≤2.3) and `typer.clear` (from click) are absent from the index, so DepTime answers `never_existed`, a confident wrong answer. 2 bench misses; it also inflates S1's false-absent rate.
   - AC: an alias whose target is in another distribution is recorded under the re-exporting package's public path (kind from the alias, no signature); the two bench cases pass.

@@ -94,6 +94,11 @@ def _requires(raw: str | None, param: str) -> bool:
     return any(p["name"] == param and is_required(p) for p in json.loads(raw)) if raw else False
 
 
+def _before_index(rels: list[sqlite3.Row]) -> str:
+    """The index starts at a release, so a name removed before it looks the same as one that never existed."""
+    return f" If it was removed before {rels[0]['version']}, the earliest release DepTime indexes, it won't show here."
+
+
 def _accepts_kwarg(raw: str | None, kwarg: str) -> bool:
     for p in json.loads(raw) if raw else []:
         if p["kind"] == "variadic keyword":
@@ -596,15 +601,30 @@ class DepTime:
             "installed_version": installed,
             "resolved_version": resolved["version"] if resolved else None,
         }
+        ordinal = resolved["ordinal"] if resolved else rels[-1]["ordinal"]
         if not spans:
+            explanation = f"{path} does not exist in any indexed release of {name} ({rels[0]['version']}..{rels[-1]['version']})."
+            # A module or class __getattr__ can create names at runtime (numpy served np.float this way), and
+            # `import a.b` never consults one.
+            owner = path.rpartition(".")[0]
+            dynamic = (
+                not module
+                and bool(owner)
+                and self.store.span_at(name, f"{owner}.__getattr__", ordinal) is not None
+            )
+            if dynamic:
+                explanation += (
+                    f" {owner} defines `__getattr__` at {self._version(name, ordinal)}, so it can create names"
+                    " at runtime, which DepTime's static index can't see."
+                )
             return Finding(
                 **base,
                 issue="never_existed",
-                confidence="medium" if resolved else "low",
-                explanation=f"{path} does not exist in any indexed release of {name} ({rels[0]['version']}..{rels[-1]['version']}). "
-                "It may be misremembered or belong to another package.",
+                confidence="medium" if resolved and not dynamic else "low",
+                explanation=explanation
+                + " It may be misremembered or belong to another package."
+                + _before_index(rels),
             )
-        ordinal = resolved["ordinal"] if resolved else rels[-1]["ordinal"]
         dep_version, dep_message = self._deprecation(name, path)
         replacements = [self._replacement(r) for r in self.store.replacements(name, path)]
         if self.store.span_at(name, path, ordinal) is not None:
@@ -756,7 +776,8 @@ class DepTime:
                 issue="never_existed",
                 replacements=replacements,
                 confidence="medium" if resolved else "low",
-                explanation=f"{path} never accepted `{param}` in any indexed release ({rels[0]['version']}..{rels[-1]['version']}).",
+                explanation=f"{path} never accepted `{param}` in any indexed release ({rels[0]['version']}..{rels[-1]['version']})."
+                + _before_index(rels),
             )
         earlier = [s for s in had if s["last_ordinal"] < ordinal]
         if earlier:

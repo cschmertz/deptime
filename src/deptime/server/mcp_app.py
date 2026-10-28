@@ -33,7 +33,8 @@ analysis of every indexed release (no docs scraping, no LLM guesses). Use it whe
 - you are about to use an API you remember from training data: call `check_symbols` with the installed version;
 - you are upgrading a dependency: call `diff_versions` (from may be a date such as your training cutoff).
 Call `coverage` to see which packages and versions are indexed. Answers include evidence and confidence;
-"never_existed" means no indexed release ever had that name.
+"never_existed" means no indexed release ever had that name; at low confidence the name may be created at
+runtime or predate the earliest indexed release, so read its explanation before calling it misremembered.
 """
 
 READ_ONLY = ToolAnnotations(read_only_hint=True, idempotent_hint=True, open_world_hint=False)

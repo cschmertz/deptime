@@ -58,7 +58,42 @@ def test_explain_removed_symbol_with_replacement(dt):
 
 def test_explain_never_existed(dt):
     res = dt.explain_error("AttributeError: module 'httpx' has no attribute 'Clientt'", {"httpx": "0.28.1"})
-    assert res.findings[0].issue == "never_existed"
+    f = res.findings[0]
+    assert (f.issue, f.confidence) == ("never_existed", "medium")
+    # DT-CORE-17: the index starts at a release, so a name removed before it is indistinguishable from a typo.
+    assert "If it was removed before 0.26.0, the earliest release DepTime indexes" in f.explanation
+
+    kw = "TypeError: Client.__init__() got an unexpected keyword argument 'nope'"
+    f = dt.explain_error(kw, {"httpx": "0.28.1"}).findings[0]
+    assert f.issue == "never_existed"
+    assert "If it was removed before 0.26.0, the earliest release DepTime indexes" in f.explanation
+
+
+def test_never_existed_on_an_owner_with_getattr_is_low_confidence():
+    # DT-CORE-17: numpy served np.float from a module __getattr__, which a static index can't see.
+    spec = PackageSpec(name="lazy", import_names=("lazy",), tier="B")
+    mod = SymbolRecord("lazy", "module", "lazy")
+    hook = SymbolRecord(
+        "lazy.__getattr__", "function", "lazy.__getattr__", [_param("name", "positional only", None)]
+    )
+    store = IndexStore.memory()
+    store.rebuild_package(
+        spec,
+        [
+            ApiSnapshot("lazy", "1.0", ["lazy"], {"lazy": mod}),
+            ApiSnapshot("lazy", "2.0", ["lazy"], {"lazy": mod, "lazy.__getattr__": hook}),
+        ],
+    )
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+    tb = "AttributeError: module 'lazy' has no attribute 'float'"
+
+    f = dt.explain_error(tb, {"lazy": "2.0"}).findings[0]
+    assert (f.issue, f.confidence) == ("never_existed", "low")
+    assert "lazy defines `__getattr__` at 2.0" in f.explanation
+    # Without the hook at the installed release, it's the ordinary answer.
+    f = dt.explain_error(tb, {"lazy": "1.0"}).findings[0]
+    assert (f.issue, f.confidence) == ("never_existed", "medium")
+    assert "__getattr__" not in f.explanation
 
 
 def test_explain_reports_uncovered_packages(dt):

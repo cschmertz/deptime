@@ -15,6 +15,7 @@ version questions deterministically. Prefer it over guessing or web searching fo
 3. Read `findings[0]`:
    - `param_removed` / `symbol_removed` / `module_removed` → use `replacements` (highest confidence first) or apply `pin_to_restore` if the user prefers not to migrate.
    - `never_existed` → the name was probably misremembered; check `symbol_history` or the library's docs.
+     At `low` confidence, read `explanation` first: the name may be created at runtime or predate the earliest indexed release.
    - `present_in_installed_version` → not a version change; look for a wrong venv, a shadowing local module, or an optional dependency.
 4. If the package is listed in `not_covered`, DepTime cannot help; fall back to the library's docs.
 

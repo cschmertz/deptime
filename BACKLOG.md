@@ -142,8 +142,9 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
 - [x] **DT-CORE-15**: Optional → required parameters: `param_now_required` / `param_now_optional` events, used for "missing required argument" and checked against the installed release (audit I-10, Q-17) · `P0` `S`
 - [ ] **DT-CORE-16**: Errors raised inside a dependency consider the package being called (audit Q-18) · `P0` `S`
   - AC: other indexed packages are searched, installed first, keeping only concrete changes (done; bench case `openai-httpx-proxies-internal`); candidates ranked by `Requires-Dist` once per-release dependency data exists.
-- [ ] **DT-CORE-17**: `never_existed` for a name the traceback shows was in use: say it may predate the first indexed release or be created at runtime, at `low` confidence, instead of "may be misremembered" at `medium` · `P0` `S`
+- [x] **DT-CORE-17**: `never_existed` for a name the traceback shows was in use: say it may predate the first indexed release or be created at runtime, at `low` confidence, instead of "may be misremembered" at `medium` · `P0` `S`
   - Found by the first benchmark run (2026-10-28): `numpy.float` comes back `never_existed` at medium. numpy is indexed from 1.24.0, the release that removed it, and before that numpy served it from a module `__getattr__`. Bench case `numpy-float-alias`.
+  - Done 2026-10-28: when the owner module or class defines `__getattr__` at the resolved release, `never_existed` is `low` and says the name may be created at runtime. Every `never_existed` explanation (symbol and parameter) names the earliest indexed release. Still open: `medium` should mean the index covers the package's whole history, which needs ingest to record whether earlier releases exist.
 
 ### Quality (DT-QA)
 - [ ] **DT-QA-01**: 200-traceback benchmark from real GitHub issues (`bench/cases/*.jsonl`) · `P0` `L`

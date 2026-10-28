@@ -1,0 +1,48 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.cschmertz/deptime",
+  "title": "DepTime",
+  "description": "What changed in a Python library, in which release, and what replaces it. Answered locally.",
+  "repository": {
+    "url": "https://github.com/cschmertz/deptime",
+    "source": "github"
+  },
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/cschmertz/deptime/main/docs/assets/deptime-icon.svg",
+      "mimeType": "image/svg+xml",
+      "sizes": ["any"]
+    }
+  ],
+  "version": "0.1.2",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "deptime",
+      "version": "0.1.2",
+      "runtimeHint": "uvx",
+      "transport": {
+        "type": "stdio"
+      },
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "mcp"
+        }
+      ],
+      "environmentVariables": [
+        {
+          "name": "DEPTIME_OFFLINE",
+          "description": "Set to 1 to never touch the network: no index download and no daily update check.",
+          "isRequired": false
+        },
+        {
+          "name": "DEPTIME_HOME",
+          "description": "Where the index is stored. Defaults to ~/.cache/deptime.",
+          "isRequired": false
+        }
+      ]
+    }
+  ]
+}

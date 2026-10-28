@@ -1,6 +1,6 @@
 [project]
 name = "deptime"
-version = "0.1.1"
+version = "0.1.2"
 description = "API time machine for Python libraries: tells coding agents what changed, in which release, and what to use instead. Local-first MCP server."
 readme = "README.md"
 requires-python = ">=3.12"

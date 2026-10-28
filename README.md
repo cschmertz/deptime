@@ -121,3 +121,5 @@ uv run deptime ingest httpx --versions 0.27.2 0.28.1
 ## License
 
 [MIT](https://github.com/cschmertz/deptime/blob/main/LICENSE)
+
+<!-- mcp-name: io.github.cschmertz/deptime -->

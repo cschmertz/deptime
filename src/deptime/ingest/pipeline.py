@@ -39,22 +39,24 @@ def snapshot_path(cache_dir: Path, package: str, version: str) -> Path:
     return cache_dir / "snapshots" / package / f"{version}.json.gz"
 
 
-def _cached_snapshot(cache_dir: Path, package: str, version: str) -> ApiSnapshot | None:
-    path = snapshot_path(cache_dir, package, version)
+def _cached_snapshot(cache_dir: Path, spec: PackageSpec, version: str) -> ApiSnapshot | None:
+    path = snapshot_path(cache_dir, spec.name, version)
     if not path.exists():
         return None
     snap = ApiSnapshot.load(path)
-    return snap if snap.format == SNAPSHOT_FORMAT else None
+    # Another extractor's, or built for other import names (a coverage.toml edit): rebuild it.
+    current = snap.format == SNAPSHOT_FORMAT and snap.import_names == list(spec.import_names)
+    return snap if current else None
 
 
-def _lazy_cached(cache_dir: Path, package: str, version: str) -> LazySnapshot:
-    return LazySnapshot(version, partial(_cached_snapshot, cache_dir, package, version))
+def _lazy_cached(cache_dir: Path, spec: PackageSpec, version: str) -> LazySnapshot:
+    return LazySnapshot(version, partial(_cached_snapshot, cache_dir, spec, version))
 
 
 def _carried_snapshot(
     spec: PackageSpec, store: IndexStore, cache_dir: Path, version: str
 ) -> ApiSnapshot | None:
-    return _cached_snapshot(cache_dir, spec.name, version) or store.snapshot_at(spec, version)
+    return _cached_snapshot(cache_dir, spec, version) or store.snapshot_at(spec, version)
 
 
 def _carry_forward(
@@ -160,8 +162,8 @@ def ingest_package(
             released_at[version] = rel.uploaded_at.isoformat() if rel.uploaded_at else None
             file = pypi.pick_file(rel)
             # Loaded here only to check its format; the rebuild loads it again when it gets there.
-            if _cached_snapshot(cache_dir, spec.name, version) is not None:
-                snapshots.append(_lazy_cached(cache_dir, spec.name, version))
+            if _cached_snapshot(cache_dir, spec, version) is not None:
+                snapshots.append(_lazy_cached(cache_dir, spec, version))
                 if file is not None:
                     source_files[version] = file.filename
                 report.cached.append(version)
@@ -188,7 +190,7 @@ def ingest_package(
                 report.failed[version] = "no public symbols extracted: " + "; ".join(snap.errors[:3])
                 continue
             snap.save(snapshot_path(cache_dir, spec.name, version))
-            snapshots.append(_lazy_cached(cache_dir, spec.name, version))
+            snapshots.append(_lazy_cached(cache_dir, spec, version))
             source_files[version] = file.filename
             report.built.append(version)
             log(f"[{spec.name}] {version}: {len(snap.symbols)} public symbols ({len(snap.errors)} warnings)")

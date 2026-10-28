@@ -176,6 +176,20 @@ def test_failed_retry_keeps_an_indexed_release(tmp_path):
     assert res.findings[0].issue == "param_removed"
 
 
+def test_cached_snapshot_for_other_import_names_is_rebuilt(tmp_path):
+    """A coverage.toml edit to import_names must reach every cached release, or its names look "added" later."""
+    store = IndexStore.memory()
+    _full_ingest(store, tmp_path)
+    wider = PackageSpec(name="fakepkg", import_names=("fakepkg", "fakepkg_hooks"), tier="B")
+    with _client() as client:
+        report = ingest_package(wider, POLICY, store, tmp_path, client=client, today=TODAY, log=_quiet)
+    assert report.cached == [] and report.built == ["1.0.0", "2.0.0"]
+    assert ApiSnapshot.load(snapshot_path(tmp_path, "fakepkg", "1.0.0")).import_names == [
+        "fakepkg",
+        "fakepkg_hooks",
+    ]
+
+
 def test_versions_run_adds_to_indexed_releases(tmp_path):
     """I-02: `ingest --versions 2.0.0` adds 2.0.0; it doesn't narrow the package to it."""
     store = IndexStore.memory()

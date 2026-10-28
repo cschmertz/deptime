@@ -19,7 +19,7 @@
 
 ---
 
-## Current state: public alpha, v0.1.1 (since 2026-10-28)
+## Current state: public alpha, v0.1.2 (since 2026-10-28)
 
 - The repo is public. `uvx deptime mcp` installs from PyPI, and pushing a `v*` tag publishes through trusted publishing (`release.yml`).
 - `build-index` runs nightly at 04:17 UTC and replaces the rolling `index` release. The first full builds (2026-10-28) indexed 52 packages and 3,371 releases into a 78.9 MB `.gz`.
@@ -154,6 +154,9 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
 - [ ] **DT-GTM-02**: Landing page (or GitHub Pages) with install, demo, benchmark, privacy · `P1` `S`
 - [ ] **DT-GTM-03**: Registry listings · `P0` `S` · deps: OSS-05
   - AC: official MCP Registry `server.json` (PyPI package, stdio) under `io.github.cschmertz/deptime`; Smithery, Glama, PulseMCP, mcp.so, mcpservers.org, MCP Market; Glama quality score checked.
+  - Done 2026-10-28: listed on the official MCP Registry as `io.github.cschmertz/deptime` 0.1.2. `release.yml` publishes `server.json` after PyPI on every tag.
+    Glama: claimed; a build of `deptime mcp` passed (license A, maintenance B); tool scores pending. awesome-mcp-servers: PR #17910 open.
+  - Still to do: mcp.so, mcpservers.org (web forms); PulseMCP (submissions paused; it reads the official registry); Smithery; MCP Market.
 - [ ] **DT-GTM-04**: Claude Code plugin release (marketplace) · `P0` `S` · deps: SPIKE-06, OSS-05
 - [ ] **DT-GTM-05**: Cursor rule + AGENTS.md snippet, tested in fresh projects · `P1` `S`
 - [ ] **DT-GTM-06**: Benchmark-led launch post (Show HN, r/Python, r/LangChain, r/ClaudeAI, dev.to) · `P0` `M` · deps: QA-02

@@ -15,6 +15,11 @@
 
 Free, open source (MIT), and **local**: your code and errors never leave your machine.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cschmertz/deptime/main/docs/assets/how-it-works-dark.svg">
+  <img alt="How DepTime works. Built nightly on GitHub: new PyPI releases are read statically and diffed release to release; packages are never imported or run. The only thing that crosses to your machine is one file, index.sqlite.gz. Answered on your machine: deptime mcp answers your agent locally, and your code and errors stay there." src="https://raw.githubusercontent.com/cschmertz/deptime/main/docs/assets/how-it-works-light.svg">
+</picture>
+
 ```text
 TypeError: Client.__init__() got an unexpected keyword argument 'proxies'
            (httpx 0.28.1 installed)
@@ -69,16 +74,7 @@ uvx deptime index status | pull
 
 ## How it works
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cschmertz/deptime/main/docs/assets/how-it-works-dark.svg">
-  <img alt="How DepTime works. Built nightly on GitHub: new PyPI releases are read statically and diffed release to release; packages are never imported or run. The only thing that crosses to your machine is one file, index.sqlite.gz. Answered on your machine: deptime mcp answers your agent locally, and your code and errors stay there." src="https://raw.githubusercontent.com/cschmertz/deptime/main/docs/assets/how-it-works-light.svg">
-</picture>
-
-1. **Nightly in GitHub Actions:** download every selected release of each covered package from PyPI, extract its public API with [griffe](https://mkdocstrings.github.io/griffe/) (static analysis, no code is ever executed), and diff consecutive releases. Results go into a compact SQLite index. Snapshots are cached, so only new releases are analysed.
-2. The index is published as `index.sqlite.gz` + `manifest.json` (sha256, schema version) on a rolling `index` release.
-3. **On your machine,** `deptime mcp` verifies and installs that file, then answers every question locally in milliseconds.
-
-The full design is in [docs/04-architecture.md](docs/04-architecture.md) and the decisions are in [docs/adr/](docs/adr/).
+Every night, GitHub Actions reads each new release's public API with [griffe](https://mkdocstrings.github.io/griffe/), which parses the source without running it, diffs it against the previous release, and publishes the result as one file, `index.sqlite.gz`, on this repo's Releases. On your machine, `deptime mcp` checks that file's sha256 and schema before swapping it in, then answers every question locally in milliseconds. The full design is in [docs/04-architecture.md](docs/04-architecture.md), and the decisions are in [docs/adr/](docs/adr/).
 
 ## Hosting (optional)
 

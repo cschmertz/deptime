@@ -19,7 +19,7 @@ body:
     id: env
     attributes:
       label: Environment
-      placeholder: "deptime 0.1.0, macOS 15, Python 3.12, Claude Code 2.1.281"
+      placeholder: "deptime 0.1.1, macOS 15, Python 3.12, Claude Code 2.1.281"
     validations:
       required: true
   - type: textarea

@@ -121,6 +121,9 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
 - [ ] **DT-DATA-09**: Pydantic model fields treated as `__init__` kwargs · `P2` `M`
 - [x] **DT-DATA-12**: Ingestion never drops an indexed release by accident (audit I-02) · `P0` `S`
   - AC: a failed retry, `--versions` and a PyPI outage keep already-indexed releases (from the snapshot cache, else rebuilt from the index) (done); `ingest` refuses a downloaded index without `--into-downloaded` and marks it locally built only after a rebuild (done). CI still starts each night from an empty index, so carrying releases forward there needs the previous published index as a base (see DT-DATA-03).
+- [ ] **DT-DATA-16**: Store inherited members once per class, then index transformers again · `P1` `M` · deps: SPIKE-04
+  - Why: transformers 5.21.0 has ~1.5M public paths, 87% of them inherited methods repeated across ~3,700 model classes (2026-10-28), so it was taken out of `coverage.toml`.
+  - AC: snapshots record each class's own members and its bases; queries resolve `Class.member` through the bases; transformers is back in coverage with the `.gz` still under 100 MB.
 
 ### Core logic (DT-CORE)
 - [ ] **DT-CORE-01**: Benchmark-driven tuning of candidate selection and ranking · `P0` `M` · deps: QA-01

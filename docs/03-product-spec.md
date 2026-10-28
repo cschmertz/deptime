@@ -127,10 +127,10 @@ All tools are read-only and idempotent, and return structured output (pydantic m
 ## Coverage v1
 
 - **Policy** (`src/deptime/coverage.toml`): for every minor series active since 2023-01-01, index its first and last release, plus every release from the last 12 months. No pre-releases and no yanked releases.
-- **Tier A (AI and agent stack, 28 packages):** openai, anthropic, google-genai, google-generativeai, mistralai, litellm, langchain (+core, community, openai), langgraph, llama-index-core, mcp, fastmcp, pydantic (+settings), pydantic-ai-slim, openai-agents, crewai, dspy, instructor, transformers, huggingface-hub, chromadb, qdrant-client, pinecone, weaviate-client, ollama.
+- **Tier A (AI and agent stack, 27 packages):** openai, anthropic, google-genai, google-generativeai, mistralai, litellm, langchain (+core, community, openai), langgraph, llama-index-core, mcp, fastmcp, pydantic (+settings), pydantic-ai-slim, openai-agents, crewai, dspy, instructor, huggingface-hub, chromadb, qdrant-client, pinecone, weaviate-client, ollama.
 - **Tier B (libraries with documented breaking changes, 25 packages):** fastapi, starlette, httpx, sqlalchemy, sqlmodel, pandas, numpy (via its stubs), polars, scikit-learn, matplotlib, streamlit, gradio, django, flask, werkzeug, celery, redis, pymongo, selenium, urllib3, aiohttp, pytest, typer, click, marshmallow.
 - **Standard library:** module availability per Python version, from typeshed `stdlib/VERSIONS` (DT-DATA-06). This catches removals like `distutils`, `imp` and `cgi`.
-- **Skipped in v1:** boto3 (generated code), torch and tensorflow (compiled), apache-airflow (too large).
+- **Skipped in v1:** boto3 (generated code), torch and tensorflow (compiled), apache-airflow (too large), transformers (about 1.5M public paths per release, mostly inherited methods; it returns with DT-DATA-16).
 
 ## Non-goals for v1
 

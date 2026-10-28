@@ -129,11 +129,14 @@ name = "instructor"
 import_names = ["instructor"]
 tier = "A"
 
-[[package]]
-name = "transformers"
-import_names = ["transformers"]
-tier = "A"
-notes = "Huge, lazy module; index-size spike S4 target."
+# transformers is left out until inherited members are stored once per class (DT-DATA-16): its latest release has
+# ~1.5M public paths, 87% of them inherited methods repeated across ~3,700 model classes, which would roughly
+# double the index on its own. Until then, DepTime reports it as not covered.
+# [[package]]
+# name = "transformers"
+# import_names = ["transformers"]
+# tier = "A"
+# notes = "Huge, lazy module; index-size spike S4 target."
 
 [[package]]
 name = "huggingface-hub"

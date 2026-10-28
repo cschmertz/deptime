@@ -51,7 +51,7 @@ TypeError: Client.__init__() got an unexpected keyword argument 'proxies'
 
 That's the real `explain_error` answer from the published index, trimmed. The full answer also quotes the deprecation message DepTime found in httpx's own source, and adds a one-sentence explanation for your agent to pass on.
 
-> **Status:** alpha. The prebuilt index is rebuilt nightly. Known gaps are tracked in [BACKLOG.md](BACKLOG.md).
+> **Status:** alpha. The prebuilt index is rebuilt nightly. Known gaps are tracked in [BACKLOG.md](https://github.com/cschmertz/deptime/blob/main/BACKLOG.md).
 
 ## Install
 
@@ -65,7 +65,7 @@ claude mcp add deptime -- uvx deptime mcp
 
 On first launch DepTime downloads its prebuilt index (one file from this repo's GitHub Releases) in the background, then checks for a newer one at most once a day. Set `DEPTIME_OFFLINE=1` to never touch the network.
 
-Claude Code users can also install the plugin in [`integrations/claude-code`](integrations/claude-code) with `/plugin marketplace add cschmertz/deptime`, then `/plugin install deptime@deptime`. It adds a skill and a local hook that suggests DepTime when a Python version-change error appears in a command's output.
+Claude Code users can also install the plugin in [`integrations/claude-code`](https://github.com/cschmertz/deptime/tree/main/integrations/claude-code) with `/plugin marketplace add cschmertz/deptime`, then `/plugin install deptime@deptime`. It adds a skill and a local hook that suggests DepTime when a Python version-change error appears in a command's output.
 
 ## Tools
 
@@ -77,7 +77,7 @@ Claude Code users can also install the plugin in [`integrations/claude-code`](in
 | `diff_versions(package, from_version \| date, to_version?, used_symbols?)` | Upgrading, or "what changed since my training cutoff?" |
 | `coverage()` | What's indexed (52 fast-moving packages: AI/agent stack + libraries with known breaking changes) |
 
-Every answer carries evidence and a confidence level. If a package isn't covered, DepTime says so instead of guessing. The contracts are in [docs/03-product-spec.md](docs/03-product-spec.md).
+Every answer carries evidence and a confidence level. If a package isn't covered, DepTime says so instead of guessing. The contracts are in [docs/03-product-spec.md](https://github.com/cschmertz/deptime/blob/main/docs/03-product-spec.md).
 
 ## CLI
 
@@ -92,11 +92,11 @@ uvx deptime index status | pull
 
 ## How it works
 
-Every night, GitHub Actions reads each new release's public API with [griffe](https://mkdocstrings.github.io/griffe/), which parses the source without running it, diffs it against the previous release, and publishes the result as one file, `index.sqlite.gz`, on this repo's Releases. On your machine, `deptime mcp` checks that file's sha256 and schema before swapping it in, then answers every question locally in milliseconds. The full design is in [docs/04-architecture.md](docs/04-architecture.md), and the decisions are in [docs/adr/](docs/adr/).
+Every night, GitHub Actions reads each new release's public API with [griffe](https://mkdocstrings.github.io/griffe/), which parses the source without running it, diffs it against the previous release, and publishes the result as one file, `index.sqlite.gz`, on this repo's Releases. On your machine, `deptime mcp` checks that file's sha256 and schema before swapping it in, then answers every question locally in milliseconds. The full design is in [docs/04-architecture.md](https://github.com/cschmertz/deptime/blob/main/docs/04-architecture.md), and the decisions are in [docs/adr/](https://github.com/cschmertz/deptime/tree/main/docs/adr).
 
 ## Hosting (optional)
 
-Local mode covers coding agents. For web clients that only accept a URL, or for a public demo, run `deptime serve` (MCP at `/mcp`, JSON at `/v1/*`) on Cloud Run (likely free) or Fly.io (about $3–6/month). It has a `Dockerfile` and `fly.toml`, plus anonymous rate limits. See [docs/05-hosting-and-sustainability.md](docs/05-hosting-and-sustainability.md).
+Local mode covers coding agents. For web clients that only accept a URL, or for a public demo, run `deptime serve` (MCP at `/mcp`, JSON at `/v1/*`) on Cloud Run (likely free) or Fly.io (about $3–6/month). It has a `Dockerfile` and `fly.toml`, plus anonymous rate limits. See [docs/05-hosting-and-sustainability.md](https://github.com/cschmertz/deptime/blob/main/docs/05-hosting-and-sustainability.md).
 
 ## Prior art and credits
 
@@ -106,7 +106,7 @@ Local mode covers coding agents. For web clients that only accept a URL, or for 
 
 ## Contributing
 
-The most useful contributions are wrong-answer reports, which become benchmark cases. See [CONTRIBUTING.md](CONTRIBUTING.md). Development setup:
+The most useful contributions are wrong-answer reports, which become benchmark cases. See [CONTRIBUTING.md](https://github.com/cschmertz/deptime/blob/main/CONTRIBUTING.md). Development setup:
 
 ```bash
 uv sync && uv run pytest
@@ -116,8 +116,8 @@ uv run deptime ingest httpx --versions 0.27.2 0.28.1
 
 ## Docs
 
-[Product spec](docs/03-product-spec.md) · [Architecture](docs/04-architecture.md) · [Hosting & sustainability](docs/05-hosting-and-sustainability.md) · [Launch & adoption](docs/06-launch-and-adoption.md) · [Risks & spikes](docs/07-risks-and-spikes.md) · [Privacy & security](docs/08-privacy-and-security.md)
+[Product spec](https://github.com/cschmertz/deptime/blob/main/docs/03-product-spec.md) · [Architecture](https://github.com/cschmertz/deptime/blob/main/docs/04-architecture.md) · [Hosting & sustainability](https://github.com/cschmertz/deptime/blob/main/docs/05-hosting-and-sustainability.md) · [Launch & adoption](https://github.com/cschmertz/deptime/blob/main/docs/06-launch-and-adoption.md) · [Risks & spikes](https://github.com/cschmertz/deptime/blob/main/docs/07-risks-and-spikes.md) · [Privacy & security](https://github.com/cschmertz/deptime/blob/main/docs/08-privacy-and-security.md)
 
 ## License
 
-[MIT](LICENSE)
+[MIT](https://github.com/cschmertz/deptime/blob/main/LICENSE)

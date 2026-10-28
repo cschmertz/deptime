@@ -5,7 +5,10 @@
   </picture>
 </h1>
 
+[![PyPI](https://img.shields.io/pypi/v/deptime)](https://pypi.org/project/deptime/)
+[![Python](https://img.shields.io/pypi/pyversions/deptime)](https://pypi.org/project/deptime/)
 [![CI](https://github.com/cschmertz/deptime/actions/workflows/ci.yml/badge.svg)](https://github.com/cschmertz/deptime/actions/workflows/ci.yml)
+[![Index build](https://github.com/cschmertz/deptime/actions/workflows/build-index.yml/badge.svg)](https://github.com/cschmertz/deptime/actions/workflows/build-index.yml)
 [![License: MIT](https://img.shields.io/github/license/cschmertz/deptime)](https://github.com/cschmertz/deptime/blob/main/LICENSE)
 
 **An API time machine for Python libraries, built for coding agents.** When an agent hits `ImportError`, `AttributeError` or "unexpected keyword argument" in a fast-moving library, one call to DepTime says **what changed, in which release, and what to use instead**. Answers are computed from static diffs of every indexed release, not from docs or model memory.
@@ -23,7 +26,7 @@ TypeError: Client.__init__() got an unexpected keyword argument 'proxies'      (
 
 That output is real. It came from the actual httpx 0.27.2/0.28.1 wheels, and the deprecation text was recovered from httpx's own source code.
 
-> **Status:** pre-alpha (2026-10-17). The pipeline, local mode and plugin work end to end; the public index isn't published yet. See [BACKLOG.md](BACKLOG.md).
+> **Status:** alpha. v0.1.0 is on PyPI (2026-10-28), and the prebuilt index of 52 packages is rebuilt nightly. Known gaps are tracked in [BACKLOG.md](BACKLOG.md).
 
 ## Install
 
@@ -37,8 +40,6 @@ claude mcp add deptime -- uvx deptime mcp
 On first launch DepTime downloads its prebuilt index (one file from this repo's GitHub Releases) in the background, then checks for a newer one at most once a day. Set `DEPTIME_OFFLINE=1` to never touch the network.
 
 Claude Code users can also install the plugin in [`integrations/claude-code`](integrations/claude-code) with `/plugin marketplace add cschmertz/deptime`, then `/plugin install deptime@deptime`. It adds a skill and a local hook that suggests DepTime when a Python version-change error appears in a command's output.
-
-> Until the first PyPI release, run from a checkout: `claude mcp add deptime -- uv run --directory /path/to/deptime deptime mcp`.
 
 ## Tools
 

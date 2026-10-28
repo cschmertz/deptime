@@ -19,30 +19,18 @@
 
 ---
 
-## Current state: private staging (since 2026-10-18)
+## Current state: public alpha, v0.1.0 (since 2026-10-28)
 
-The repo lives at `github.com/cschmertz/deptime` as **private** while setup and the spikes happen.
+- The repo is public. `uvx deptime mcp` installs from PyPI, and pushing a `v*` tag publishes through trusted publishing (`release.yml`).
+- `build-index` runs nightly at 04:17 UTC and replaces the rolling `index` release. The first full builds (2026-10-28) indexed 52 packages and 3,371 releases into a 78.9 MB `.gz`.
+- Not covered yet: transformers (DT-DATA-16), fastmcp 3.3+ (DT-DATA-17), and names numpy only creates at runtime, such as `numpy.emath` (DT-DATA-02).
 
-**Works while private**
-- CI on every push (about 2 Actions minutes per run).
-- All local development: `uv run deptime …`.
-- Building your own index (`deptime ingest`) and running `deptime mcp` against it.
-
-**Doesn't work until public**
-- `deptime index pull` and the automatic download: private release assets need auth, so clients get a 404.
-- `uvx deptime` from PyPI.
-- **Note:** publishing to PyPI makes the source public on PyPI, so reserve the name (DT-OSS-03) when you're ready for that.
+**Still open for M1:** the S1 false-absent measurement (DT-SPIKE-01) and the benchmark (DT-QA-01, DT-QA-02).
 
 **Suggested order for the next sessions**
-1. **M0 spikes locally**, S1 first since it's the go/no-go. No GitHub needed: `uv run deptime ingest <pkg>`.
-2. *(Optional)* Run `build-index` once by hand (Actions → build-index → Run workflow) to measure the S4 cold-build time. It costs private minutes and creates a private `index` release.
-3. **Go public:**
-   1. Flip the visibility.
-   2. Enable private vulnerability reporting.
-   3. **Uncomment the `schedule:` in `.github/workflows/build-index.yml`.**
-   4. Run `build-index`.
-   5. Verify `deptime index pull` works on a clean machine (DT-OSS-01, DT-OSS-04).
-4. **PyPI:** add the trusted publisher on pypi.org, then `git tag v0.1.0 && git push --tags` (DT-OSS-03, DT-OSS-05).
+1. Check the first scheduled `build-index` run on the per-package pipeline (DT-OSS-04).
+2. Measure S1 and build the benchmark, since both gate M1.
+3. DT-DATA-17 (fastmcp 3.3+), then DT-OSS-07 (pin actions to SHAs, Dependabot, `pip-audit`).
 
 ---
 
@@ -83,16 +71,18 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
 ## M1 — Local alpha
 
 ### Open source and release (DT-OSS)
-- [ ] **DT-OSS-01**: Publish the repo as `github.com/cschmertz/deptime` · `P0` `S`
+- [x] **DT-OSS-01**: Publish the repo as `github.com/cschmertz/deptime` · `P0` `S`
   - AC: public repo; description and topics (`mcp`, `python`, `coding-agents`, `deprecation`); private vulnerability reporting enabled; CI green. (`config.DEFAULT_INDEX_URL` assumes this name.)
 - [ ] **DT-OSS-02**: README proof · `P0` `M` · deps: QA-02, SPIKE-05
   - AC: a 10-second demo GIF (traceback → answer); benchmark table; compatibility matrix; prior-art section.
-- [ ] **DT-OSS-03**: Reserve the name on PyPI · `P0` `S`
+- [x] **DT-OSS-03**: Reserve the name on PyPI · `P0` `S`
   - AC: `deptime` 0.0.x published (also proves the packaging); name reserved.
 - [ ] **DT-OSS-04**: First published index · `P0` `S` · deps: OSS-01, DATA-01
   - AC: `build-index.yml` run manually, then on schedule; `deptime index pull` works from the public URL on a clean machine; release-asset download counts visible.
-- [ ] **DT-OSS-05**: Tagged release through PyPI trusted publishing · `P0` `S` · deps: OSS-03
+  - Done so far (2026-10-28): manual runs published the index, and `index pull` works from the public URL in an empty `DEPTIME_HOME`. Still to see: a green scheduled run on the per-package pipeline.
+- [x] **DT-OSS-05**: Tagged release through PyPI trusted publishing · `P0` `S` · deps: OSS-03
   - AC: trusted publisher configured; `git tag v0.1.0` publishes; `uvx deptime mcp` works from PyPI.
+  - Done 2026-10-28: v0.1.0 published by `release.yml` with provenance; `uvx deptime@0.1.0 mcp` answered over stdio from an empty home.
 - [ ] **DT-OSS-06**: CHANGELOG + versioning policy · `P2` `S`
   - AC: Keep-a-Changelog file; semver for the CLI and tool contract; the index schema version is documented.
 - [ ] **DT-OSS-07**: Supply chain · `P1` `S`

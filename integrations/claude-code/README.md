@@ -21,9 +21,9 @@ This repo is also a plugin marketplace (`.claude-plugin/marketplace.json`). In C
 
 From a terminal: `claude plugin marketplace add cschmertz/deptime && claude plugin install deptime@deptime`.
 
-The plugin's MCP server runs `uvx deptime mcp`, so it needs the PyPI release (v0.1.0, DT-OSS-05).
+The plugin's MCP server runs `uvx deptime mcp`, which installs DepTime from PyPI.
 
-## Try it from a source checkout (before the PyPI release)
+## Try it from a source checkout
 
 ```bash
 claude plugin validate integrations/claude-code      # "Validation passed"

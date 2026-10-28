@@ -9,7 +9,7 @@ license-files = ["LICENSE"]
 authors = [{ name = "cschmertz" }]
 keywords = ["mcp", "model-context-protocol", "coding-agents", "deprecation", "api-changes", "griffe", "python"]
 classifiers = [
-  "Development Status :: 2 - Pre-Alpha",
+  "Development Status :: 3 - Alpha",
   "Environment :: Console",
   "Intended Audience :: Developers",
   "Operating System :: OS Independent",

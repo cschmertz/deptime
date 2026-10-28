@@ -29,6 +29,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       packages: ${{ steps.list.outputs.packages }}
+      snapshot_format: ${{ steps.list.outputs.snapshot_format }}
     steps:
       # DT-OSS-07: pin actions to commit SHAs.
       - uses: actions/checkout@v5
@@ -39,6 +40,7 @@ jobs:
           packages=$(uv run --no-dev python -c 'import json; from deptime.config import Settings, load_coverage; print(json.dumps([p.name for p in load_coverage(Settings.from_env().coverage_file).packages]))')
           echo "packages=$packages" >> "$GITHUB_OUTPUT"
           echo "$packages"
+          echo "snapshot_format=$(uv run --no-dev python -c 'from deptime.ingest.snapshot import SNAPSHOT_FORMAT; print(SNAPSHOT_FORMAT)')" >> "$GITHUB_OUTPUT"
 
   snapshots:
     name: snapshots (${{ matrix.package }})
@@ -55,18 +57,23 @@ jobs:
       - run: uv sync --locked --no-dev
 
       # `|` can't occur in a package name, so one package's prefix never matches another's (langchain vs langchain-core).
+      # The snapshot format is in the key: snapshots from an older extractor would only be rebuilt.
       - name: Restore this package's snapshot cache
         id: restore
         uses: actions/cache/restore@v4
         with:
           path: .deptime/build/snapshots/${{ matrix.package }}
-          key: snapshots|${{ matrix.package }}|latest
-          restore-keys: snapshots|${{ matrix.package }}|
+          key: snapshots|${{ needs.plan.outputs.snapshot_format }}|${{ matrix.package }}|latest
+          restore-keys: snapshots|${{ needs.plan.outputs.snapshot_format }}|${{ matrix.package }}|
 
       - name: Build the snapshots that aren't cached yet
         timeout-minutes: 320
         continue-on-error: true # a timed-out cold build still saves its progress below; the next run carries on
-        run: uv run deptime ingest "${{ matrix.package }}"
+        run: |
+          # Memory use every minute, so a runner that dies mid-build still leaves a trace in the log.
+          ( while sleep 60; do free -m | awk 'NR==2 {print "[memory] " $3 " MB used of " $2}'; done ) &
+          trap "kill $!" EXIT
+          uv run deptime ingest "${{ matrix.package }}"
 
       - name: Resources used
         if: always()
@@ -78,7 +85,7 @@ jobs:
       - name: Snapshot cache key
         id: key
         if: always()
-        run: echo "key=snapshots|${{ matrix.package }}|${{ hashFiles(format('.deptime/build/snapshots/{0}/**', matrix.package)) }}" >> "$GITHUB_OUTPUT"
+        run: echo "key=snapshots|${{ needs.plan.outputs.snapshot_format }}|${{ matrix.package }}|${{ hashFiles(format('.deptime/build/snapshots/{0}/**', matrix.package)) }}" >> "$GITHUB_OUTPUT"
 
       - name: Save this package's snapshot cache (also after a timeout; skipped when nothing changed)
         if: always() && !endsWith(steps.key.outputs.key, '|') && steps.key.outputs.key != steps.restore.outputs.cache-matched-key

@@ -16,7 +16,7 @@ from typing import Any
 
 import griffe
 
-SNAPSHOT_FORMAT = 1
+SNAPSHOT_FORMAT = 2  # bump when extraction changes: cached snapshots in another format are rebuilt
 MAX_DEPTH = 12  # guards pathological re-export cycles
 
 DEPRECATED_DECORATOR_RE = re.compile(r"^(?:[\w.]+\.)?deprecated\b(?:\((?P<args>.*)\))?$", re.S)
@@ -122,6 +122,15 @@ def deprecation_message(obj: griffe.Object) -> str | None:
     return "deprecated (warning emitted; message not statically recoverable)"
 
 
+def _within(path: str, prefix: str) -> bool:
+    return path == prefix or path.startswith(prefix + ".")
+
+
+def _is_test_module(path: str) -> bool:
+    """Bundled test suites (`numpy.lib.tests.test_shape_base`) aren't API; `numpy.testing` and `django.test` are."""
+    return any(part in {"tests", "conftest"} or part.startswith("test_") for part in path.split("."))
+
+
 def _resolve(member: griffe.Object | griffe.Alias) -> griffe.Object | None:
     if not member.is_alias:
         return member  # type: ignore[return-value]
@@ -149,21 +158,42 @@ class _Walker:
             return
         self.visiting.add(key)
         self.record(SymbolRecord(public_path, "module", mod.path))
+        reexporter = mod.path if public_path == mod.path and mod.is_init_module else None
         for name, member in list(mod.members.items()):
             try:
                 if not member.is_public:
                     continue
             except (griffe.AliasResolutionError, griffe.CyclicAliasError):
                 continue
-            self.member(member, f"{public_path}.{name}", depth)
+            self.member(member, f"{public_path}.{name}", depth, reexporter)
 
-    def member(self, member: griffe.Object | griffe.Alias, public_path: str, depth: int) -> None:
+    @staticmethod
+    def _walks(module_path: str, public_path: str, reexporter: str | None) -> bool:
+        """Walk a module at its own path, and once more where a package's `__init__` re-exports it
+        (`numpy.emath`), unless that points back at the package or a parent of it.
+
+        Modules re-exported anywhere else are recorded but not walked: a wildcard import of a module that
+        imports its own package (litellm's `from .main import *`) otherwise yields `litellm.litellm.litellm...`.
+        """
+        if public_path == module_path:
+            return True
+        return reexporter is not None and not _within(reexporter, module_path)
+
+    def member(
+        self,
+        member: griffe.Object | griffe.Alias,
+        public_path: str,
+        depth: int,
+        reexporter: str | None = None,
+    ) -> None:
         target = _resolve(member)
         if target is None:
             self.record(SymbolRecord(public_path, "alias", getattr(member, "target_path", None)))
             return
         if target.is_module:
-            if self._internal(target.path):
+            if _is_test_module(target.path):
+                return
+            if self._internal(target.path) and self._walks(target.path, public_path, reexporter):
                 self.module(target, public_path, depth + 1)  # type: ignore[arg-type]
             else:
                 self.record(SymbolRecord(public_path, "module", target.path))

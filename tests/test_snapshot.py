@@ -27,8 +27,22 @@ FILES = {
 }
 
 
-def _write(root: Path) -> Path:
-    for rel, text in FILES.items():
+# `from .main import *` re-exports everything `main` imports, including the package itself (litellm, sqlalchemy).
+REEXPORTS = {
+    "loopy/__init__.py": "from loopy.main import *\n",
+    "loopy/main.py": "import loopy\nfrom loopy.lib import scimath as emath\n\n\ndef run():\n    pass\n",
+    "loopy/plain.py": "from loopy.main import *\n",
+    "loopy/lib/__init__.py": "",
+    "loopy/lib/scimath.py": "def sqrt(x):\n    return x\n",
+    "loopy/lib/test_scimath.py": "def test_sqrt():\n    pass\n",
+    "loopy/tests/__init__.py": "",
+    "loopy/tests/test_main.py": "def test_run():\n    pass\n",
+    "loopy/conftest.py": "def fixture():\n    pass\n",
+}
+
+
+def _write(root: Path, files: dict[str, str] = FILES) -> Path:
+    for rel, text in files.items():
         p = root / rel
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(text)
@@ -53,6 +67,29 @@ def test_public_paths_signatures_and_deprecations(tmp_path):
     assert [p["name"] for p in init.params] == ["proxy", "proxies", "timeout"]
     assert init.canonical == "fakepkg._impl.Client.__init__"
     assert "'proxies' argument is now deprecated" in init.deprecated
+
+
+def test_reexported_modules_are_walked_once_and_test_suites_skipped(tmp_path):
+    snap = build_snapshot("loopy", "1.0", ["loopy"], _write(tmp_path, REEXPORTS))
+    assert set(snap.symbols) == {
+        "loopy",
+        "loopy.run",
+        "loopy.main",
+        "loopy.main.run",
+        "loopy.lib",
+        "loopy.lib.scimath",
+        "loopy.lib.scimath.sqrt",
+        # A package `__init__` re-exporting a module under a new name is walked there once (`numpy.emath`).
+        "loopy.emath",
+        "loopy.emath.sqrt",
+        # Re-exports of the package itself, or from a plain module, are recorded but not walked.
+        "loopy.loopy",
+        "loopy.plain",
+        "loopy.plain.run",
+        "loopy.plain.emath",
+        "loopy.plain.loopy",
+    }
+    assert snap.symbols["loopy.loopy"].kind == "module" and snap.symbols["loopy.loopy"].canonical == "loopy"
 
 
 def test_snapshot_roundtrip(tmp_path):

@@ -1,9 +1,13 @@
-<h1>
+<h1 align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cschmertz/deptime/main/docs/assets/deptime-wordmark-dark.svg">
     <img alt="DepTime" src="https://raw.githubusercontent.com/cschmertz/deptime/main/docs/assets/deptime-wordmark-light.svg" width="340">
   </picture>
 </h1>
+
+<p align="center"><b>An API time machine for Python libraries, built for coding agents.</b></p>
+
+<div align="center">
 
 [![PyPI](https://img.shields.io/pypi/v/deptime)](https://pypi.org/project/deptime/)
 [![Python](https://img.shields.io/pypi/pyversions/deptime)](https://pypi.org/project/deptime/)
@@ -11,7 +15,9 @@
 [![Index build](https://github.com/cschmertz/deptime/actions/workflows/build-index.yml/badge.svg)](https://github.com/cschmertz/deptime/actions/workflows/build-index.yml)
 [![License: MIT](https://img.shields.io/github/license/cschmertz/deptime)](https://github.com/cschmertz/deptime/blob/main/LICENSE)
 
-**An API time machine for Python libraries, built for coding agents.** When an agent hits `ImportError`, `AttributeError` or "unexpected keyword argument" in a fast-moving library, one call to DepTime says **what changed, in which release, and what to use instead**. Answers are computed from static diffs of every indexed release, not from docs or model memory.
+</div>
+
+When an agent hits `ImportError`, `AttributeError` or "unexpected keyword argument" in a fast-moving library, one call to DepTime says **what changed, in which release, and what to use instead**. Answers are computed from static diffs of every indexed release, not from docs or model memory.
 
 Free, open source (MIT), and **local**: your code and errors never leave your machine.
 
@@ -24,18 +30,26 @@ Free, open source (MIT), and **local**: your code and errors never leave your ma
 
 ```text
 TypeError: Client.__init__() got an unexpected keyword argument 'proxies'
-           (httpx 0.28.1 installed)
-
-→ explain_error
-  httpx.Client.__init__ accepted `proxies` up to httpx 0.27.2; it is gone
-  from 0.28.0 onward. Deprecated in 0.26.0 ("The 'proxies' argument is now
-  deprecated. Use 'proxy' or 'mounts' instead."). Use `proxy` or `mounts`
-  instead, or pin httpx<=0.27.2.
-
-  issue=param_removed  confidence=high
 ```
 
-That's real output from the published index: DepTime diffed httpx's releases from PyPI, and the deprecation text comes from httpx's own source code.
+```json
+{
+  "symbol": "httpx.Client.__init__(proxies)",
+  "issue": "param_removed",
+  "installed_version": "0.28.1",
+  "last_version_with": "0.27.2",
+  "first_version_without": "0.28.0",
+  "deprecated_in": "0.26.0",
+  "replacements": [
+    {"target": "proxy", "confidence": 0.8, "source": "deprecation_message"},
+    {"target": "mounts", "confidence": 0.79, "source": "deprecation_message"}
+  ],
+  "pin_to_restore": "httpx<=0.27.2",
+  "confidence": "high"
+}
+```
+
+That's the real `explain_error` answer from the published index, trimmed. The full answer also quotes the deprecation message DepTime found in httpx's own source, and adds a one-sentence explanation for your agent to pass on.
 
 > **Status:** alpha. The prebuilt index is rebuilt nightly. Known gaps are tracked in [BACKLOG.md](BACKLOG.md).
 

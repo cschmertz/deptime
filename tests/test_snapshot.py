@@ -69,9 +69,30 @@ IMPORTS = {
         "def _hidden():\n    pass\n"
     ),
     "flasky/util.py": "def tool():\n    pass\n",
-    "flasky/ext/__init__.py": "from pydantic import BaseModel\nfrom starlette import status as status\n",
+    "flasky/ext/__init__.py": (
+        "from pydantic import BaseModel\nfrom starlette import status as status\n\n\nclass Settings(BaseModel):\n    pass\n"
+    ),
     "strict/__init__.py": 'from markupsafe import escape\nfrom strict.core import listed, unlisted\n__all__ = ["listed"]\n',
     "strict/core.py": "def listed():\n    pass\n\n\ndef unlisted():\n    pass\n",
+}
+
+
+# sqlalchemy's `schema.py` (1.4: plain imports only) and `types.py` (2.x: `as` re-exports) are plain modules.
+FACADES = {
+    "alchemy/__init__.py": "",
+    "alchemy/sql/__init__.py": "",
+    "alchemy/sql/schema.py": "class Column:\n    pass\n\n\nclass MetaData:\n    pass\n\n\ndef _key():\n    pass\n",
+    "alchemy/schema.py": (
+        '"""Compatibility namespace for alchemy.sql.schema."""\n\n'
+        "from typing import Any\n"
+        "from markupsafe import Markup\n"
+        "from .sql.schema import Column  # noqa\n"
+        "from .sql.schema import _key  # noqa\n"
+    ),
+    "alchemy/types.py": (
+        "from .sql.schema import MetaData as MetaData\nfrom .sql.schema import Column\n\n\ndef helper():\n    pass\n"
+    ),
+    "alchemy/engine.py": "from alchemy.sql.schema import Column\n\n\ndef create():\n    pass\n",
 }
 
 
@@ -243,6 +264,25 @@ def test_package_init_reexports_from_other_distributions(tmp_path):
         "flasky.app.escape",
         "flasky.ext.BaseModel",
         "strict.escape",
+    } & set(found)
+
+
+def test_plain_modules_that_reexport(tmp_path):
+    # DT-DATA-24: without this, sqlalchemy.types.Integer looked removed in 2.0.0.
+    snap = build_snapshot("alchemy", "1.0", ["alchemy"], _write(tmp_path, FACADES))
+    found = {p: (r.kind, r.canonical) for p, r in snap.symbols.items()}
+    assert found["alchemy.schema.Column"] == ("class", "alchemy.sql.schema.Column")
+    assert found["alchemy.types.MetaData"] == ("class", "alchemy.sql.schema.MetaData")
+    assert found["alchemy.schema.Markup"] == (
+        "alias",
+        "markupsafe.Markup",
+    )  # a module of imports re-exports them
+    # A module with its own code imports to use: plain imports there stay private, as do stdlib and `_` names.
+    assert not {
+        "alchemy.types.Column",
+        "alchemy.engine.Column",
+        "alchemy.schema.Any",
+        "alchemy.schema._key",
     } & set(found)
 
 

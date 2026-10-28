@@ -370,24 +370,34 @@ def getattr_served(mod: griffe.Module) -> dict[str, str | None]:
     }
 
 
-def foreign_reexports(mod: griffe.Module, *, plain: bool) -> frozenset[str]:
-    """Names a module imports from another distribution in a shape that re-exports them (DT-DATA-21):
-    `from click.termui import clear as clear`, the explicit re-export convention (typer), and with `plain`,
-    `from markupsafe import escape` from outside the standard library (flask 2.2).
+@dataclass(frozen=True)
+class _Imports:
+    """How a module's top-level `from x import y` statements bind names. An import under `if TYPE_CHECKING:` or
+    `try:` may not exist at runtime, so only top-level statements count."""
 
-    Only top-level statements count: an import under `if TYPE_CHECKING:` or `try:` may not exist at runtime.
-    """
+    redundant: frozenset[str]  # `from x import y as y`, the explicit re-export convention
+    plain: frozenset[str]  # `from x import y`, with x outside the standard library
+    imports_only: bool  # nothing but imports and a docstring, like sqlalchemy 1.4's `schema.py`
+
+
+def _is_docstring(st: ast.stmt) -> bool:
+    return isinstance(st, ast.Expr) and isinstance(st.value, ast.Constant) and isinstance(st.value.value, str)
+
+
+def module_imports(mod: griffe.Module) -> _Imports:
     tree = _source_tree(mod)
-    names: set[str] = set()
-    for st in tree.body if tree is not None else []:
-        if isinstance(st, ast.ImportFrom) and st.level == 0 and st.module:
-            stdlib = st.module.split(".")[0] in STDLIB_MODULES
-            names.update(
-                a.name
-                for a in st.names
-                if a.asname == a.name or (plain and a.asname is None and not stdlib and a.name != "*")
-            )
-    return frozenset(names)
+    body = tree.body if tree is not None else []
+    redundant: set[str] = set()
+    plain: set[str] = set()
+    for st in body:
+        if isinstance(st, ast.ImportFrom):
+            stdlib = st.level == 0 and (st.module or "").split(".")[0] in STDLIB_MODULES
+            redundant.update(a.name for a in st.names if a.asname == a.name)
+            plain.update(a.name for a in st.names if a.asname is None and a.name != "*" and not stdlib)
+    imports_only = bool(body) and all(
+        isinstance(st, (ast.Import, ast.ImportFrom)) or _is_docstring(st) for st in body
+    )
+    return _Imports(frozenset(redundant), frozenset(plain), imports_only)
 
 
 def _within(path: str, prefix: str) -> bool:
@@ -414,7 +424,7 @@ class _Walker:
         self.roots = root_prefixes
         self.visiting: set[tuple[str, str]] = set()
         self.shims: dict[str, dict[str, str | None]] = {}
-        self.foreign: dict[str, frozenset[str]] = {}
+        self.imports: dict[str, _Imports] = {}
 
     def _internal(self, canonical: str) -> bool:
         return any(canonical == r or canonical.startswith(r + ".") for r in self.roots)
@@ -444,13 +454,18 @@ class _Walker:
     def _public(
         self, mod: griffe.Module, name: str, member: griffe.Object | griffe.Alias, reexporter: str | None
     ) -> bool:
-        """griffe's rule, plus what a package's `__init__` imports from the package itself when `__all__` is
-        missing (or computed at runtime, as in numpy).
+        """griffe's rule, plus imports that re-export when `__all__` is missing (or computed at runtime, as in
+        numpy).
 
         griffe counts imported names as private, but `from .app import Flask as Flask` is how flask, fastapi,
         click and sqlalchemy expose their API. When an `__init__.pyi` redefines an imported name (numpy 2.0's
         `float64`, `add`), griffe merges the stub and the name is no longer an alias, so the `.py` import counts.
-        Names from another distribution count only in a re-exporting shape (`foreign_reexports`).
+
+        In any module, `from x import y as y` re-exports (typer's click API, sqlalchemy 2's `schema.py`), and so
+        does every import of a module that is nothing but imports (DT-DATA-24). Otherwise a plain module's
+        imports are its implementation. A package's `__init__` also re-exports what it imports from the package
+        itself, and its top-level `__init__` what it imports from another distribution (DT-DATA-21: flask 2.2's
+        markupsafe `escape`); a subpackage importing pydantic's `BaseModel` (chromadb.server.fastapi) uses it.
         """
         try:
             if member.is_public:
@@ -458,15 +473,16 @@ class _Walker:
         except (griffe.AliasResolutionError, griffe.CyclicAliasError):
             return False
         source = member.target_path if member.is_alias else mod.imports.get(name)  # type: ignore[union-attr]
-        if reexporter is None or source is None or mod.exports or name.startswith("_"):
+        if source is None or mod.exports or name.startswith("_"):
             return False
-        if self._internal(source):
+        if mod.path not in self.imports:
+            self.imports[mod.path] = module_imports(mod)
+        shapes = self.imports[mod.path]
+        if name in shapes.redundant or (shapes.imports_only and name in shapes.plain):
             return True
-        if mod.path not in self.foreign:
-            # A plain import counts only at the package's top level: a subpackage importing pydantic's
-            # `BaseModel` (chromadb.server.fastapi, crewai.flow.runtime) uses it rather than exporting it.
-            self.foreign[mod.path] = foreign_reexports(mod, plain=mod.path in self.roots)
-        return name in self.foreign[mod.path]
+        if reexporter is None:
+            return False
+        return self._internal(source) or (mod.path in self.roots and name in shapes.plain)
 
     @staticmethod
     def _walks(module_path: str, public_path: str, reexporter: str | None) -> bool:

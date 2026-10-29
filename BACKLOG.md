@@ -22,17 +22,16 @@
 ## Current state: public alpha, v0.1.2 (since 2026-10-28)
 
 - The repo is public. `uvx deptime mcp` installs from PyPI, and pushing a `v*` tag publishes through trusted publishing (`release.yml`).
-- `build-index` runs nightly at 04:17 UTC and replaces the rolling `index` release. The first full builds (2026-10-28) indexed 52 packages and 3,371 releases into a 78.9 MB `.gz`.
+- `build-index` runs nightly at 04:17 UTC and replaces the rolling `index` release. The first full builds (2026-10-28) indexed 52 packages and 3,371 releases into a 78.9 MB `.gz`. The first `SNAPSHOT_FORMAT` 4 build (cold, 2026-10-29) took 40 minutes and holds 3,377 releases in 79.8 MB.
 - Not covered yet: transformers (DT-DATA-16), fastmcp 3.3+ (DT-DATA-17), names numpy only creates at runtime, such as 1.x's `numpy.emath` (DT-DATA-02), and modules in folders without `__init__.py`, such as `litellm.types` (DT-DATA-23).
 
-**Benchmark (2026-10-28):** 159 real tracebacks from 47 packages (`bench/`): root cause 89.9%, root cause + boundary 76.7%, replacement 17.1%, after DT-CORE-19 and DT-CORE-05 (from 78.0% and 64.8%). Above the 70% floor, below the 80% target (docs/06), and measured on the cases the fixes were designed from, so not yet a launch number (DT-QA-04). Every miss is assigned to an item below; the biggest is DT-DATA-19 (17). Eleven more (DT-CORE-20, two of DT-CORE-05, five of DT-DATA-20, two of DT-DATA-21, one of DT-DATA-24) pass once a `SNAPSHOT_FORMAT` 4 index is published.
+**Benchmark (2026-10-29):** 159 real tracebacks from 47 packages (`bench/`), on the first `SNAPSHOT_FORMAT` 4 index: root cause 93.7%, root cause + boundary 83.6%, replacement 19.5% (from 89.9%, 76.7% and 17.1% on the format 3 index, and 78.0% and 64.8% before DT-CORE-19 and DT-CORE-05). The new index made the eleven cases DT-CORE-20, DT-CORE-05, DT-DATA-20, DT-DATA-21 and DT-DATA-24 fixed pass, and changed no other case. Above the 70% floor and the 80% target (docs/06), but measured on the cases the fixes were designed from, so not yet a launch number (DT-QA-04). Every miss is assigned to an item below; the biggest is DT-DATA-19 (17).
 
 **Still open for M1:** the S1 false-absent measurement (DT-SPIKE-01), and lifting the benchmark above 70%.
 
 **Suggested order for the next sessions**
-1. Publish a `SNAPSHOT_FORMAT` 4 index (a cold `build-index` run) and re-run the benchmark (DT-QA-01).
-2. Benchmark fixes, cheapest first: DT-CORE-20, DT-CORE-05, DT-DATA-20 and DT-DATA-21 (done); then decide DT-DATA-19 (index density). Re-measure on fresh cases before quoting a number (DT-QA-04).
-3. Measure S1 (DT-SPIKE-01), then DT-DATA-17 (fastmcp 3.3+) and DT-OSS-07 (pin actions to SHAs, Dependabot, `pip-audit`).
+1. Decide DT-DATA-19 (index density; 17 misses, the biggest group). Re-measure on fresh cases before quoting a number (DT-QA-04).
+2. Measure S1 (DT-SPIKE-01), then DT-DATA-17 (fastmcp 3.3+) and DT-OSS-07 (pin actions to SHAs, Dependabot, `pip-audit`).
 
 ---
 

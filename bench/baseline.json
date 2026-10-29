@@ -1,28 +1,28 @@
 {
-  "index_built_at": "2026-10-28T13:21:16+00:00",
+  "index_built_at": "2026-10-29T13:25:19+00:00",
   "summary": {
     "cases": 167,
-    "known_gap_share": 23.4,
+    "known_gap_share": 16.8,
     "overall": {
-      "root_cause": 89.2,
-      "root_cause_and_boundary": 76.6,
-      "boundary": 76.1,
-      "replacement": 19.5
+      "root_cause": 92.8,
+      "root_cause_and_boundary": 83.2,
+      "boundary": 82.8,
+      "replacement": 21.8
     },
     "by_tier": {
       "A": {
         "cases": 81,
         "root_cause": 92.6,
-        "root_cause_and_boundary": 74.1,
-        "boundary": 72.7,
-        "replacement": 19.4
+        "root_cause_and_boundary": 76.5,
+        "boundary": 75.3,
+        "replacement": 22.2
       },
       "B": {
         "cases": 86,
-        "root_cause": 86.0,
-        "root_cause_and_boundary": 79.1,
-        "boundary": 79.1,
-        "replacement": 19.6
+        "root_cause": 93.0,
+        "root_cause_and_boundary": 89.5,
+        "boundary": 89.5,
+        "replacement": 21.6
       }
     },
     "by_origin": {
@@ -35,10 +35,10 @@
       },
       "reported": {
         "cases": 159,
-        "root_cause": 89.9,
-        "root_cause_and_boundary": 76.7,
-        "boundary": 76.4,
-        "replacement": 17.1
+        "root_cause": 93.7,
+        "root_cause_and_boundary": 83.6,
+        "boundary": 83.4,
+        "replacement": 19.5
       }
     }
   },
@@ -135,8 +135,8 @@
     },
     "django-timezone-utc-saas": {
       "root_cause": true,
-      "boundary": false,
-      "replacement": false
+      "boundary": true,
+      "replacement": true
     },
     "dspy-teleprompt-mipro-removed": {
       "root_cause": true,
@@ -190,7 +190,7 @@
     },
     "fastmcp-bearerauthprovider-removed-rabbitmq": {
       "root_cause": true,
-      "boundary": false,
+      "boundary": true,
       "replacement": false
     },
     "fastmcp-remoteauthprovider-not-yet-added": {
@@ -209,8 +209,8 @@
       "replacement": null
     },
     "flask-escape-import-activitywatch": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": false
     },
     "flask-app-ctx-stack-flask-zipkin": {
@@ -590,8 +590,8 @@
     },
     "pydantic-ai-slim-builtintoolcallpart-removed": {
       "root_cause": true,
-      "boundary": false,
-      "replacement": false
+      "boundary": true,
+      "replacement": true
     },
     "pydantic-ai-slim-agent-instrument-not-yet-added": {
       "root_cause": true,
@@ -649,18 +649,18 @@
       "replacement": null
     },
     "pytest-skip-msg-kwarg-odl": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": false
     },
     "pytest-collect-file-path-arg-pytest-pylint": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": false
     },
     "pytest-report-header-startdir-arg-sugar": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": false
     },
     "qdrant-client-search-removed-openuni": {
@@ -784,8 +784,8 @@
       "replacement": null
     },
     "sqlalchemy-threadlocalmetadata-removed-phenobase": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": null
     },
     "sqlalchemy-session-get-execution-options-not-yet-added": {
@@ -834,8 +834,8 @@
       "replacement": null
     },
     "typer-clear-export-removed-async-typer": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": null
     },
     "urllib3-retry-method-whitelist-pytrends": {
@@ -870,12 +870,12 @@
     },
     "werkzeug-version-attr-flask-2-2-4": {
       "root_cause": true,
-      "boundary": false,
+      "boundary": true,
       "replacement": false
     },
     "werkzeug-version-attr-pytest-flask": {
       "root_cause": true,
-      "boundary": false,
+      "boundary": true,
       "replacement": false
     }
   }

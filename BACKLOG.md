@@ -30,7 +30,7 @@
 **Still open for M1:** the S1 false-absent measurement (DT-SPIKE-01), and lifting the benchmark above 70%.
 
 **Suggested order for the next sessions**
-1. Check the first scheduled `build-index` run on the per-package pipeline (DT-OSS-04).
+1. Publish a `SNAPSHOT_FORMAT` 4 index (a cold `build-index` run) and re-run the benchmark (DT-QA-01).
 2. Benchmark fixes, cheapest first: DT-CORE-20, DT-CORE-05, DT-DATA-20 and DT-DATA-21 (done); then decide DT-DATA-19 (index density). Re-measure on fresh cases before quoting a number (DT-QA-04).
 3. Measure S1 (DT-SPIKE-01), then DT-DATA-17 (fastmcp 3.3+) and DT-OSS-07 (pin actions to SHAs, Dependabot, `pip-audit`).
 
@@ -79,9 +79,10 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
   - AC: a 10-second demo GIF (traceback → answer); benchmark table; compatibility matrix; prior-art section.
 - [x] **DT-OSS-03**: Reserve the name on PyPI · `P0` `S`
   - AC: `deptime` 0.0.x published (also proves the packaging); name reserved.
-- [ ] **DT-OSS-04**: First published index · `P0` `S` · deps: OSS-01, DATA-01
+- [x] **DT-OSS-04**: First published index · `P0` `S` · deps: OSS-01, DATA-01
   - AC: `build-index.yml` run manually, then on schedule; `deptime index pull` works from the public URL on a clean machine; release-asset download counts visible.
-  - Done so far (2026-10-28): manual runs published the index, and `index pull` works from the public URL in an empty `DEPTIME_HOME`. Still to see: a green scheduled run on the per-package pipeline.
+  - Done 2026-10-28: manual runs published the index, and `index pull` works from the public URL in an empty `DEPTIME_HOME`.
+  - Done 2026-10-29: the first scheduled run on the per-package pipeline was green in 15 min. All 52 jobs restored their snapshot cache; 5 built the 6 new releases. Publish assembled 3,377 releases (78.9 MB .gz) from the published index, and `bench` ran on `workflow_run`. The run started at 10:53 UTC, 6.5 h after its 04:17 cron, because GitHub delays scheduled runs. The download counts are visible, but `--clobber` resets them every night.
 - [x] **DT-OSS-05**: Tagged release through PyPI trusted publishing · `P0` `S` · deps: OSS-03
   - AC: trusted publisher configured; `git tag v0.1.0` publishes; `uvx deptime mcp` works from PyPI.
   - Done 2026-10-28: v0.1.0 published by `release.yml` with provenance; `uvx deptime@0.1.0 mcp` answered over stdio from an empty home.

@@ -130,8 +130,8 @@ def select_versions(
     for rs in series.values():
         rs.sort(key=lambda r: r.version)
         if any(r.uploaded_at and r.uploaded_at.date() >= policy.since for r in rs):
-            chosen[rs[0].version] = rs[0]
-            chosen[rs[-1].version] = rs[-1]
+            for r in rs if policy.whole_series else (rs[0], rs[-1]):
+                chosen[r.version] = r
 
     recent_cutoff = _months_before(today, policy.recent_months)
     for r in candidates:

@@ -30,7 +30,7 @@
 **Still open for M1:** the S1 false-absent measurement (DT-SPIKE-01), and lifting the benchmark above 70%.
 
 **Suggested order for the next sessions**
-1. Decide DT-DATA-19 (index density; 17 misses, the biggest group). Re-measure on fresh cases before quoting a number (DT-QA-04).
+1. Publish a whole-series index (DT-DATA-19, a `build-index` run) and re-run the benchmark: the 17 DT-DATA-19 cases should pass. Re-measure on fresh cases before quoting a number (DT-QA-04).
 2. Measure S1 (DT-SPIKE-01), then DT-DATA-17 (fastmcp 3.3+) and DT-OSS-07 (pin actions to SHAs, Dependabot, `pip-audit`).
 
 ---
@@ -129,6 +129,8 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
 - [ ] **DT-DATA-19**: Index density: boundaries that fall between indexed releases · `P0` `M` · data-policy decision
   - Why: older minor series are indexed only at their first and last release, so a patch-level removal or addition (chromadb `API` removed in 0.4.15; only 0.4.0 and 0.4.24 are indexed) gets the wrong boundary. 17 bench misses, the largest group (bench cases with `fixed_by` DT-DATA-19).
   - AC: measure the index size of indexing every release since 2023-01-01 (or every release for Tier A); decide; re-run the bench. Until then DT-CORE-18 keeps the wording honest.
+  - Measured 2026-10-29 by building every candidate release of all 52 packages locally, over the published format 4 index: today's policy selects 3,422 releases; every release since 2023-01-01, 6,381 (16 of the 17 cases; sqlalchemy's 1.4.29 is from 2021); every release of every minor series active since 2023, 6,557 (all 17); the latter for Tier A only, 5,883 (15). The whole-series index is 93.2 MB `.gz` against 79.9 MB (both packed locally), and 955 MB unpacked: Tier A adds 13.0 MB (langchain 9.9 MB: only 2 of its 349 `0.0.x` releases were indexed, and the rest add 75,000 import paths from mid-2023; weaviate-client 1.9 MB) and Tier B 0.3 MB, so a Tier-A-only policy saves nothing. Spans split only where the API changes, so most packages grow 0–30% for 2–25× the releases. On that index all 17 cases pass and no other case changes: real cases root cause 95.0%, root cause + boundary 94.3%. A single-process cold build needed DT-DATA-18 first (langchain and litellm projected at 21–24 GB).
+  - Decided 2026-10-29: every release of every minor series active since 2023 (`whole_series = true` in `coverage.toml`). It leaves ~7 MB below the 100 MB target, and the index now grows faster than before: releases older than 12 months are no longer thinned to their series' first and last. At 2023–2026 rates that's 1–5 MB more per year (the 13.3 MB covers ~2.8 years, and 9.9 MB of it is langchain's 2023), so watch the size in each build.
 - [x] **DT-DATA-20**: Names served by a `__getattr__` deprecation shim count as present · `P0` `M`
   - Why: many libraries keep a removed name alive for a few releases through a module `__getattr__`, so static analysis dates the removal too early. Found in the shipped wheels: pydantic-ai 1.100.0 maps `'BuiltinToolCallPart': 'NativeToolCallPart'`; fastmcp 2.12.5 has `if name == "BearerAuthProvider":`; also werkzeug `__version__` (3.0) and django `timezone.utc` (4.1–4.2). 5 bench misses.
   - AC: snapshots read string literals that a module's `__getattr__` compares against or looks up (and dicts such as numpy's `__deprecated_attrs__`), record those names as present and deprecated, and take a mapped target as a replacement. Still static: never import the package (ADR 0002).

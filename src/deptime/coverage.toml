@@ -7,9 +7,11 @@
 # `notes`        = known analysis caveats; see docs/07-risks-and-spikes.md.
 
 [policy]
-# For every minor series (X.Y) that has a release on/after `since`, index its first and last release.
+# For every minor series (X.Y) that has a release on/after `since`, index every release: a patch-level break
+# needs both neighbours indexed (DT-DATA-19). `whole_series = false` keeps only each series' first and last.
 since = "2023-01-01"
-# Additionally index *every* release uploaded in the last N months (patch-level precision where it matters).
+whole_series = true
+# With `whole_series = false`, also index *every* release uploaded in the last N months.
 recent_months = 12
 include_prereleases = false
 include_yanked = false

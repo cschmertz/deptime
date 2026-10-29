@@ -88,11 +88,18 @@ class VersionPolicy:
     recent_months: int
     include_prereleases: bool
     include_yanked: bool
+    whole_series: bool = False  # every release of an active series, not only its first and last (DT-DATA-19)
 
     def describe(self) -> str:
+        since = self.since.isoformat()
+        selection = (
+            f"every release of every minor series active since {since}"
+            if self.whole_series
+            else f"first+last release of every minor series active since {since}, "
+            f"plus every release from the last {self.recent_months} months"
+        )
         return (
-            f"first+last release of every minor series active since {self.since.isoformat()}, "
-            f"plus every release from the last {self.recent_months} months; "
+            f"{selection}; "
             f"pre-releases {'included' if self.include_prereleases else 'excluded'}, "
             f"yanked {'included' if self.include_yanked else 'excluded'}"
         )
@@ -147,6 +154,7 @@ def load_coverage(path: Path | None = None) -> Coverage:
         recent_months=int(pol.get("recent_months", 12)),
         include_prereleases=bool(pol.get("include_prereleases", False)),
         include_yanked=bool(pol.get("include_yanked", False)),
+        whole_series=bool(pol.get("whole_series", False)),
     )
     packages = tuple(
         PackageSpec(

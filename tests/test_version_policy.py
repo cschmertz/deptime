@@ -1,8 +1,9 @@
+from dataclasses import replace
 from datetime import UTC, date, datetime
 
 from packaging.version import Version
 
-from deptime.config import VersionPolicy
+from deptime.config import VersionPolicy, load_coverage
 from deptime.ingest.pypi import Release, ReleaseFile, parse_simple_index, pick_file, select_versions
 
 
@@ -39,6 +40,31 @@ def test_selects_series_endpoints_and_recent_releases():
     ]
     got = [str(r.version) for r in select_versions(releases, POLICY, today=date(2026, 10, 17))]
     assert got == ["1.1.0", "1.1.2", "2.0.0", "2.0.1", "2.0.2"]
+
+
+def test_whole_series_selects_every_release_of_an_active_series():
+    # DT-DATA-19: a patch-level break inside an older series (sqlalchemy 1.4.29, from 2021) needs both neighbours.
+    releases = [
+        _rel("1.0.0", "2022-01-01"),
+        _rel("1.0.5", "2022-06-01"),  # series ended before `since` -> still skipped
+        _rel("1.1.0", "2021-12-01"),
+        _rel("1.1.1", "2022-02-01"),  # before `since`, but its series is active after it -> included
+        _rel("1.1.2", "2023-03-01"),
+        _rel("1.2.0rc1", "2023-04-01"),  # pre-release -> excluded
+        _rel("1.1.3", "2023-05-01", yanked=True),  # yanked -> excluded
+    ]
+    policy = replace(POLICY, recent_months=0, whole_series=True)
+    got = [str(r.version) for r in select_versions(releases, policy, today=date(2026, 10, 17))]
+    assert got == ["1.1.0", "1.1.1", "1.1.2"]
+    assert policy.describe().startswith("every release of every minor series active since 2023-01-01;")
+
+
+def test_coverage_file_sets_whole_series(tmp_path):
+    cov = tmp_path / "coverage.toml"
+    cov.write_text('[policy]\nsince = "2023-01-01"\nwhole_series = true\n')
+    assert load_coverage(cov).policy.whole_series
+    cov.write_text('[policy]\nsince = "2023-01-01"\n')
+    assert not load_coverage(cov).policy.whole_series  # absent: first and last release only, as before
 
 
 def test_pick_file_prefers_pure_wheel_then_any_wheel_then_sdist():

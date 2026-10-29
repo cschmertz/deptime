@@ -1,27 +1,27 @@
 {
-  "index_built_at": "2026-10-29T13:25:19+00:00",
+  "index_built_at": "2026-10-29T16:00:58+00:00",
   "summary": {
     "cases": 167,
-    "known_gap_share": 16.8,
+    "known_gap_share": 6.6,
     "overall": {
-      "root_cause": 92.8,
-      "root_cause_and_boundary": 83.2,
-      "boundary": 82.8,
+      "root_cause": 94.0,
+      "root_cause_and_boundary": 93.4,
+      "boundary": 93.3,
       "replacement": 21.8
     },
     "by_tier": {
       "A": {
         "cases": 81,
-        "root_cause": 92.6,
-        "root_cause_and_boundary": 76.5,
-        "boundary": 75.3,
+        "root_cause": 95.1,
+        "root_cause_and_boundary": 95.1,
+        "boundary": 94.8,
         "replacement": 22.2
       },
       "B": {
         "cases": 86,
         "root_cause": 93.0,
-        "root_cause_and_boundary": 89.5,
-        "boundary": 89.5,
+        "root_cause_and_boundary": 91.9,
+        "boundary": 91.9,
         "replacement": 21.6
       }
     },
@@ -35,9 +35,9 @@
       },
       "reported": {
         "cases": 159,
-        "root_cause": 93.7,
-        "root_cause_and_boundary": 83.6,
-        "boundary": 83.4,
+        "root_cause": 95.0,
+        "root_cause_and_boundary": 94.3,
+        "boundary": 94.3,
         "replacement": 19.5
       }
     }
@@ -75,7 +75,7 @@
     },
     "chromadb-api-class-removed-chroma-migrate": {
       "root_cause": true,
-      "boundary": false,
+      "boundary": true,
       "replacement": null
     },
     "chromadb-auth-token-module-removed-0-5": {
@@ -195,7 +195,7 @@
     },
     "fastmcp-remoteauthprovider-not-yet-added": {
       "root_cause": true,
-      "boundary": false,
+      "boundary": true,
       "replacement": null
     },
     "flask-before-first-request-ddtrace": {
@@ -230,7 +230,7 @@
     },
     "google-generativeai-file-state-not-yet-added": {
       "root_cause": true,
-      "boundary": false,
+      "boundary": true,
       "replacement": null
     },
     "gradio-image-source-kwarg-hyperdreamer": {
@@ -300,12 +300,12 @@
     },
     "langchain-community-chat-models-vertexai-removed-ragas": {
       "root_cause": true,
-      "boundary": false,
+      "boundary": true,
       "replacement": false
     },
     "langchain-community-chat-models-vertexai-removed-rag-benchmarking": {
       "root_cause": true,
-      "boundary": false,
+      "boundary": true,
       "replacement": false
     },
     "langchain-core-memory-module-removed": {
@@ -315,17 +315,17 @@
     },
     "langchain-core-injectedtoolarg-not-yet-added": {
       "root_cause": true,
-      "boundary": false,
+      "boundary": true,
       "replacement": null
     },
     "langchain-core-pydanticoutputparser-not-yet-added": {
       "root_cause": true,
-      "boundary": false,
+      "boundary": true,
       "replacement": null
     },
     "langchain-core-is-data-content-block-not-yet-added": {
       "root_cause": true,
-      "boundary": false,
+      "boundary": true,
       "replacement": null
     },
     "langchain-core-pydantic-v1-module-removed-unitycatalog": {
@@ -339,8 +339,8 @@
       "replacement": null
     },
     "langchain-langchain-server-module-removed": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": null
     },
     "langchain-chains-module-removed-v1": {
@@ -390,7 +390,7 @@
     },
     "llama-index-core-agent-workflow-not-yet-added": {
       "root_cause": true,
-      "boundary": false,
+      "boundary": true,
       "replacement": null
     },
     "marshmallow-field-default-kwarg-packit": {
@@ -495,7 +495,7 @@
     },
     "ollama-create-modelfile-kwarg-removed": {
       "root_cause": true,
-      "boundary": false,
+      "boundary": true,
       "replacement": null
     },
     "ollama-chat-tools-kwarg-not-yet-added": {
@@ -505,12 +505,12 @@
     },
     "openai-agents-functiontoolresult-not-yet-added": {
       "root_cause": true,
-      "boundary": false,
+      "boundary": true,
       "replacement": null
     },
     "openai-agents-function-tool-strict-mode-not-yet-added": {
       "root_cause": true,
-      "boundary": false,
+      "boundary": true,
       "replacement": null
     },
     "openai-agents-function-tool-needs-approval-not-yet-added": {
@@ -579,8 +579,8 @@
       "replacement": null
     },
     "pydantic-ai-slim-anthropicmodel-api-key-removed": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": false
     },
     "pydantic-ai-slim-openaimodel-removed-codewiki": {
@@ -595,7 +595,7 @@
     },
     "pydantic-ai-slim-agent-instrument-not-yet-added": {
       "root_cause": true,
-      "boundary": false,
+      "boundary": true,
       "replacement": null
     },
     "pydantic-settings-settingserror-moved-file-secrets": {
@@ -790,12 +790,12 @@
     },
     "sqlalchemy-session-get-execution-options-not-yet-added": {
       "root_cause": true,
-      "boundary": false,
+      "boundary": true,
       "replacement": null
     },
     "sqlmodel-sqltypes-guid-removed-mountaineer": {
       "root_cause": true,
-      "boundary": false,
+      "boundary": true,
       "replacement": null
     },
     "starlette-app-on-startup-removed-fasthtml": {

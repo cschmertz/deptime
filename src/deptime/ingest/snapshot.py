@@ -551,26 +551,40 @@ class _Walker:
                 self.record(SymbolRecord(path, "class", target.path, None, deprecation_message(target)))
 
 
+def _clear_griffe_caches() -> None:
+    """Empty griffe's module-level memo caches. They hold loaded objects, and through their parents the whole
+    package, for the life of the process: the dataclasses extension's `_dataclass_parameters` kept one package
+    tree per release built (DT-DATA-18)."""
+    for name, module in list(sys.modules.items()):
+        if name == "griffe" or name.startswith("griffe."):
+            for value in list(vars(module).values()):
+                if not isinstance(value, type) and callable(getattr(value, "cache_clear", None)):
+                    value.cache_clear()
+
+
 def build_snapshot(package: str, version: str, import_names: list[str], search_path: Path) -> ApiSnapshot:
     snap = ApiSnapshot(package=package, version=version, import_names=list(import_names))
     walker = _Walker(snap, tuple(import_names))
-    for import_name in import_names:
-        try:
-            loaded = griffe.load(
-                import_name,
-                search_paths=[str(search_path)],
-                allow_inspection=False,  # never import untrusted code
-                try_relative_path=False,
-                resolve_aliases=True,
-                # None loads only a private sibling (`_pytest` for `pytest`), found in the same wheel because
-                # search_paths replaces sys.path; other distributions' names stay aliases.
-                resolve_external=None,
-            )
-        except Exception as exc:  # report and continue: one bad import name must not sink the release
-            snap.errors.append(f"load {import_name}: {type(exc).__name__}: {exc}")
-            continue
-        if isinstance(loaded, griffe.Module):
-            walker.module(loaded, import_name)
-        else:
-            walker.member(loaded, import_name, 0)
+    try:
+        for import_name in import_names:
+            try:
+                loaded = griffe.load(
+                    import_name,
+                    search_paths=[str(search_path)],
+                    allow_inspection=False,  # never import untrusted code
+                    try_relative_path=False,
+                    resolve_aliases=True,
+                    # None loads only a private sibling (`_pytest` for `pytest`), found in the same wheel because
+                    # search_paths replaces sys.path; other distributions' names stay aliases.
+                    resolve_external=None,
+                )
+            except Exception as exc:  # report and continue: one bad import name must not sink the release
+                snap.errors.append(f"load {import_name}: {type(exc).__name__}: {exc}")
+                continue
+            if isinstance(loaded, griffe.Module):
+                walker.module(loaded, import_name)
+            else:
+                walker.member(loaded, import_name, 0)
+    finally:
+        _clear_griffe_caches()
     return snap

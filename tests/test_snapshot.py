@@ -1,6 +1,9 @@
 """griffe extraction against a tiny on-disk package (no network)."""
 
+import gc
 from pathlib import Path
+
+import griffe
 
 from deptime.ingest.snapshot import ApiSnapshot, build_snapshot
 
@@ -325,6 +328,23 @@ def test_names_a_module_getattr_serves_are_present(tmp_path):
     assert snap.symbols["shimmy.legacy.Image"].deprecated == "`shimmy.legacy.Image` is considered private API"
     # Names whose branch raises (numpy 2.0's expired attributes) and private names stay absent.
     assert not {"shimmy.float_", "shimmy.gone", "shimmy._private"} & set(snap.symbols)
+
+
+def test_a_build_leaves_no_griffe_objects_alive(tmp_path):
+    # DT-DATA-18: griffe's dataclasses extension memoized every dataclass it saw, and through its parents the
+    # whole loaded package, so a cold build grew by one package tree per release (litellm: 11.9 of 16 GB).
+    files = {
+        "dc/__init__.py": "from dataclasses import dataclass\n\n\n@dataclass\nclass Point:\n    x: int\n"
+    }
+
+    def live() -> int:
+        gc.collect()
+        return sum(isinstance(o, griffe.Object) for o in gc.get_objects())
+
+    before = live()
+    snap = build_snapshot("dc", "1.0", ["dc"], _write(tmp_path, files))
+    assert [p["name"] for p in snap.symbols["dc.Point.__init__"].params] == ["x"]
+    assert live() == before
 
 
 def test_snapshot_roundtrip(tmp_path):

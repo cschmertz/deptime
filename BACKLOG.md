@@ -27,10 +27,12 @@
 
 **Benchmark (2026-10-29):** 159 real tracebacks from 47 packages (`bench/`), on the whole-series index: root cause 95.0%, root cause + boundary 94.3%, replacement 19.5% (from 93.7% and 83.6% on the first `SNAPSHOT_FORMAT` 4 index, 89.9% and 76.7% on format 3, and 78.0% and 64.8% before DT-CORE-19 and DT-CORE-05). The whole-series index made the 17 DT-DATA-19 cases pass and changed no other case. Above the 70% floor and the 80% target (docs/06), but measured on the cases the fixes were designed from, so not yet a launch number (DT-QA-04). Each of the nine remaining real misses is assigned to an item below.
 
-**Still open for M1:** the S1 false-absent measurement (DT-SPIKE-01), and lifting the benchmark above 70%.
+**S1 (DT-SPIKE-01) passed on 2026-10-29: 5.1% false absent** on 10 dynamic packages (bar: 10%), so there's no runtime fallback. The worst packages are numpy (21%) and litellm (16%), assigned to DT-DATA-25 and DT-DATA-23.
+
+**Still open for M1:** a benchmark number on fresh cases (DT-QA-04).
 
 **Suggested order for the next sessions**
-1. Measure S1 (DT-SPIKE-01), then DT-DATA-17 (fastmcp 3.3+) and DT-OSS-07 (pin actions to SHAs, Dependabot, `pip-audit`).
+1. DT-DATA-27 (S1's false removals in langchain 0.3), DT-DATA-17 (fastmcp 3.3+) and DT-OSS-07 (pin actions to SHAs, Dependabot, `pip-audit`).
 2. Re-measure the benchmark on fresh cases before quoting a number (DT-QA-04).
 
 ---
@@ -54,8 +56,16 @@
 
 Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
 
-- [ ] **DT-SPIKE-01**: S1 static-analysis accuracy on dynamic packages · `P0` `M` · **go/no-go**
+- [x] **DT-SPIKE-01**: S1 static-analysis accuracy on dynamic packages · `P0` `M` · **go/no-go**
   - AC: a false-absent rate measured on 10 packages × 5 versions × 50 runtime-sampled symbols, with the script in `bench/s1/`. Pass at ≤ 10%; otherwise build the sandboxed dynamic fallback and re-measure; stop if it's still above 10%.
+  - **Passed 2026-10-29: 123/2,428 = 5.1% false absent** (`init` modules 6.2%, other modules 3.9%). Run 40915960477 on the whole-series index; results in `bench/s1/results-2026-10-29.md`, method in `bench/s1/README.md`. The dynamic fallback isn't needed.
+  - **Sample:** 10 packages: langchain, langchain-community, langchain-core, openai, pydantic, huggingface-hub, litellm, pydantic-ai-slim, instructor, numpy (transformers is out of coverage). 5 releases each, evenly in time. Sampled at runtime in `.github/workflows/s1.yml` only (no network, a throwaway user, wheels-only installs).
+  - **The gate was amended after the first run.** It leaves out a plain module's imports from elsewhere in its package (`hf_api.hf_hub_url`), which the index excludes by design. With them in, the rate is 549/2,452 = 22.4%; the README gives the reasoning.
+  - **Results by package:**
+    - 0% on huggingface-hub, langchain-community, langchain-core, openai and pydantic-ai-slim (0 of 14,813 langchain-community runtime names missed);
+    - langchain 1.2%, instructor 6.3%, pydantic 8.0%, litellm 15.6%, numpy 21.2%.
+    - 37 sampled misses would read as removed.
+  - **Where the misses go:** litellm → DT-DATA-23, numpy → DT-DATA-25, pydantic → DT-DATA-26, langchain → DT-DATA-27, instructor → DT-DATA-28.
 - [ ] **DT-SPIKE-02**: S2 replacement precision on 50 known migrations · `P0` `S`
   - AC: precision ≥ 80% at confidence ≥ 0.75; misses triaged.
 - [ ] **DT-SPIKE-03**: S3 traceback mapping (Python 3.10–3.14, pytest, library-specific exceptions) · `P0` `S`
@@ -146,6 +156,7 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
   - Why: griffe deliberately skips a folder of `.py` files that has no `__init__.py` ("Missing __init__ module?"), but Python imports it as a namespace package. litellm has 180 such folders in 1.106.5 (1,596 files, 24 MB of source), including all of `litellm.types` and `litellm.litellm_core_utils`, so `from litellm.types.utils import ModelResponse` looks absent. Also `flask.sansio` (3.x), `qdrant_client.embed`, selenium's generated `webdriver.common.devtools`. 39 of 52 packages have none. 1 bench miss (`litellm.llms.prompt_templates`, gone in 1.55.0).
   - AC: such folders under an import root load as packages (skipping tests and non-identifier names); the litellm case passes; litellm's cold build stays within the runner's memory and time, and the index within its size target (measure first: litellm already peaks at 11.8 of 16 GB).
   - Measured 2026-10-28 on litellm 1.106.5 (empty `__init__.py` written into a scratch copy): 55,645 → 306,860 symbols, snapshot 785 KB → 4.1 MB gz, 4 s → 15 s, peak 252 → 627 MB. Most of it is the bundled proxy server (`litellm.proxy`, 33k → 192k); leaving `litellm/proxy` out still gives 162k symbols (2.3 MB gz), with `litellm.types` 20k and `litellm.llms` 41k. With the cold build's per-release memory growth (DT-DATA-18), either variant would likely exhaust the runner over 290 releases, so DT-DATA-18 comes first; whether to index `litellm.proxy` is a scope decision.
+  - S1 (2026-10-29): litellm is the second-worst package, at 32/205 sampled (1,370 of 7,734 runtime names). 27 of the 32 are top-level names that `litellm/__init__.py` star-imports from `litellm.types` (`OpenAIChatCompletionSystemMessage`, `ToolResourcesFileSearchVectorStore`).
 - [x] **DT-DATA-24**: Re-exports in plain modules (`sqlalchemy.schema`, `sqlalchemy.types`) · `P0` `S`
   - Why: the public-import rule (9c1a21f) only covers package `__init__`s. sqlalchemy's `schema.py` and `types.py` are plain modules that only re-export (`from .sql.schema import Column` in 1.4, `... import Column as Column` in 2.x) without `__all__`, so `sqlalchemy.schema.Column`, `MetaData` and `Table` are absent in every release, and the published index says `sqlalchemy.types.Integer` (with 47 more `sqlalchemy.types` names) was removed in 2.0.0: a confident wrong answer. 1 bench miss (`sqlalchemy.schema.ThreadLocalMetaData`, last in 1.4).
   - AC: those names are present in the releases that have them, with no flood of implementation imports from ordinary modules (measure across packages); the bench case passes.
@@ -153,6 +164,16 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
 - [ ] **DT-DATA-25**: A stub's bare `__all__: list[str]` hides runtime names · `P1` `S`
   - Why: numpy's `core/fromnumeric.pyi` declares `__all__: list[str]` with no value; griffe reads that as an empty `__all__` that overrides the `.py`'s literal one, so the `from .fromnumeric import *` chain brings nothing and the top-level names come from `numpy/__init__.pyi` alone. That stub dropped `product`, `cumproduct`, `sometrue`, `alltrue`, `round_` and `find_common_type` in 1.25, when they were deprecated, so the index dates their removal to 1.25.0 instead of 2.0. 1 bench miss (`numpy.product`).
   - AC: an annotation-only `__all__` in a stub doesn't override the source's; measure what it changes across numpy 1.24–2.x before shipping; the bench case passes.
+  - S1 (2026-10-29): numpy is the worst package, at 53/250 sampled (5,374 of 17,532 runtime names), all names listed in a computed `__all__`. Seen in `numpy.matlib` (`fliplr`, `append`, missing at 1.24 but present elsewhere), `numpy.core` (`log`, `longfloat`), `numpy.core.numeric` and `numpy.core.numerictypes`. Check how many of them this fixes.
+- [ ] **DT-DATA-26**: pydantic 1.x names re-exported by `from .types import *` are missing when defined under `if TYPE_CHECKING:` … `else:` · `P1` `S`
+  - Why (S1): `pydantic.types.StrictBool` is indexed for every 1.10 release, but `pydantic.StrictBool` isn't; the index has it only from 2.0 on. `pydantic.ConstrainedInt`, defined unconditionally, comes through. So for 1.10 users, `StrictBool`, `UUID1`, `DirectoryPath` and about 20 more look added in 2.0. The same 24 names are missing from `pydantic.v1` in every 2.x release. 2.x's top level also misses 13 names per release (`NaiveDatetime`, `FutureDatetime`) that `pydantic.types` has.
+  - AC: trace griffe's wildcard expansion for conditionally defined names; the 1.10 and `pydantic.v1` names are present; measure the change across packages.
+- [ ] **DT-DATA-27**: Lazy exports listed only as a dict's keys (`__all__ = list(_module_lookup.keys())`) · `P1` `S`
+  - Why (S1): langchain 0.3.4's `langchain/chains/__init__.py` (read from the wheel) defines a literal `_module_lookup = {"NatBotChain": "langchain.chains.natbot.base", ...}`, sets `__all__ = list(_module_lookup.keys())`, and serves names through `__getattr__` → `create_importer(__package__, module_lookup=_module_lookup)`, with no `TYPE_CHECKING` imports. Neither the computed `__all__` nor `getattr_served` yields those names, so 49 names, such as `NatBotChain` and `HypotheticalDocumentEmbedder`, are indexed up to 0.3.x and then missing at 0.3.4. 48 of them would read as removed. langchain-community uses the same lookup, but its `TYPE_CHECKING` block lists every name, so nothing is missed there.
+  - AC: when `__all__` is `list(<literal dict>.keys())` and the module has a `__getattr__`, the keys are recorded as kind `getattr`; langchain 0.3's `langchain.chains` names are present; measure across packages.
+- [ ] **DT-DATA-28**: instructor's lazy exports (`instructor.v2`, `instructor.providers.*`, `instructor.dsl.validators`) · `P2` `S`
+  - Why (S1): instructor misses 15/237 sampled names (152 of 1,443 runtime names), mostly in 1.17.0: 32 in `instructor.v2` (`from_cerebras`), 20 in `instructor.providers` and 20 in `providers.openai`. The cause isn't traced yet.
+  - AC: the cause is found and fixed, or assigned to DT-DATA-23/27.
 
 ### Core logic (DT-CORE)
 - [ ] **DT-CORE-01**: Benchmark-driven tuning of candidate selection and ranking · `P0` `M` · deps: QA-01

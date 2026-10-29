@@ -23,6 +23,11 @@
   3. Compare against DepTime's spans.
 - **Pass:** false-absent rate ≤ 10%.
 - **If it fails:** add a sandboxed dynamic fallback for packages flagged `lazy`, then re-measure. If it still fails, stop.
+- **Result (2026-10-29): passed, 5.1% false absent** (123/2,428; `bench/s1/results-2026-10-29.md`).
+  - **Packages:** langchain, langchain-community, langchain-core, openai, pydantic, huggingface-hub, litellm, pydantic-ai-slim, instructor, numpy. transformers left coverage (DT-DATA-16).
+  - **Sandbox:** runtime names were sampled only in a GitHub Actions sandbox (`.github/workflows/s1.yml`).
+  - **Gate amendment:** the gate leaves out a plain module's imports from elsewhere in its package, which the index excludes by design (22.4% with them; see `bench/s1/README.md`).
+  - **Misses:** lazy loaders were nearly clean (langchain-community 0 of 14,813 runtime names). The misses are mostly numpy's computed `__all__` (DT-DATA-25) and litellm's `litellm.types` (DT-DATA-23).
 
 ### S2 — Replacement precision · 1 day
 - **Method:** 50 known migrations from changelogs and migration guides.

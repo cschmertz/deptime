@@ -39,6 +39,13 @@ On the first run (40914120420, 49 releases), the rule as first agreed gave 513/2
 
 **The cost:** an agent that imports from an implementation module gets no history for that name.
 
+## Results
+
+- **2026-10-29: passed, 123/2,428 = 5.1%** (run 40915960477, `results-2026-10-29.md`). Under the rule as first agreed, the rate is 549/2,452 = 22.4%. The misses are assigned in BACKLOG under DT-SPIKE-01.
+- **Release substitutions:**
+  - litellm 0.1.0 declares a dependency on `os`, which isn't on PyPI, so 0.1.1 was probed instead.
+  - litellm 1.14.4 downloads a tokenizer at import time, and its slot fell back to 1.53.1. PyPI no longer has 1.15–1.52, so that's the nearest release.
+
 ## Sandbox
 
 Runtime sampling imports the package, which invariant 1 forbids everywhere else. So it happens only in `.github/workflows/s1.yml`, which runs on a push to the `spike/s1` branch on an ephemeral runner. For each release, `run.py`:

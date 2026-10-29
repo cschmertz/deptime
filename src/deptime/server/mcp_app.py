@@ -37,6 +37,7 @@ Call `coverage` to see which packages and versions are indexed. Answers include 
 runtime or predate the earliest indexed release, so read its explanation before calling it misremembered.
 """
 
+PACKAGE_HELP = "PyPI distribution name, e.g. 'langchain-core'."
 READ_ONLY = ToolAnnotations(read_only_hint=True, idempotent_hint=True, open_world_hint=False)
 
 
@@ -60,7 +61,8 @@ def build_mcp(
             "Call this when a third-party Python library raises ImportError ('cannot import name'), ModuleNotFoundError, "
             "AttributeError ('has no attribute'), or TypeError ('unexpected keyword argument' / 'missing required argument'). "
             "Returns what changed, in which release, the deprecation message, replacement candidates with evidence, and the "
-            "version pin that restores the old API. Pass installed versions for an exact answer."
+            "version pin that restores the old API. Pass installed versions for an exact answer. An error DepTime can't "
+            "explain returns empty findings rather than a guess; check `note` and `not_covered`."
         ),
         annotations=READ_ONLY,
     )
@@ -89,14 +91,13 @@ def build_mcp(
         description=(
             "Version history of one public symbol, e.g. package='httpx', path='httpx.Client.__init__': first and last release "
             "it exists in, signature changes, deprecations, removals, and replacement candidates. Use before writing code "
-            "against an API you remember from training data."
+            "against an API you remember from training data. A path no indexed release has is not an error: it returns "
+            "ever_seen=false. For many symbols at one installed version, use check_symbols."
         ),
         annotations=READ_ONLY,
     )
     def symbol_history(
-        package: Annotated[
-            str, Field(max_length=100, description="PyPI distribution name, e.g. 'langchain-core'.")
-        ],
+        package: Annotated[str, Field(max_length=100, description=PACKAGE_HELP)],
         path: Annotated[
             str, Field(max_length=300, description="Public dotted path; the package prefix may be omitted.")
         ],
@@ -108,14 +109,22 @@ def build_mcp(
         title="Check symbols and kwargs against an installed version",
         description=(
             "Batch-check that symbols, and the keyword arguments you plan to pass, exist in a specific version of a package. "
-            "Returns present/missing per symbol, rejected kwargs, deprecation notes, and hints."
+            "Returns present/missing per symbol, rejected kwargs, deprecation notes, and hints. Use it to preflight code "
+            "against the version you have installed; for one symbol across all releases use symbol_history, and after an "
+            "exception use explain_error."
         ),
         annotations=READ_ONLY,
     )
     def check_symbols(
-        package: Annotated[str, Field(max_length=100)],
+        package: Annotated[str, Field(max_length=100, description=PACKAGE_HELP)],
         version: Annotated[str, Field(max_length=50, description="Installed version, e.g. '0.28.1'.")],
-        symbols: Annotated[list[SymbolQuery], Field(max_length=100)],
+        symbols: Annotated[
+            list[SymbolQuery],
+            Field(
+                max_length=100,
+                description="Up to 100 symbols, each a public dotted path plus the keyword arguments you plan to pass.",
+            ),
+        ],
     ) -> CheckSymbolsResult:
         return deptime.check_symbols(package, version, symbols)
 
@@ -124,12 +133,13 @@ def build_mcp(
         title="Breaking changes between versions",
         description=(
             "Breaking changes and deprecations of a package between two versions, or since a date such as your training "
-            "cutoff ('YYYY-MM-DD'). Optionally restrict to the symbols your code uses. Most severe first."
+            "cutoff ('YYYY-MM-DD'). Optionally restrict to the symbols your code uses. Most severe first. Use it when "
+            "upgrading, or for code written against an older release; for a single symbol use symbol_history."
         ),
         annotations=READ_ONLY,
     )
     def diff_versions(
-        package: Annotated[str, Field(max_length=100)],
+        package: Annotated[str, Field(max_length=100, description=PACKAGE_HELP)],
         from_version: Annotated[
             str,
             Field(max_length=50, description="Version, or a date 'YYYY-MM-DD' (nearest release on/before)."),
@@ -137,16 +147,38 @@ def build_mcp(
         to_version: Annotated[
             str | None, Field(max_length=50, description="Defaults to the latest indexed release.")
         ] = None,
-        used_symbols: Annotated[list[str] | None, Field(max_length=500)] = None,
-        include_added: bool = False,
-        limit: Annotated[int, Field(ge=1, le=500)] = 200,
+        used_symbols: Annotated[
+            list[str] | None,
+            Field(
+                max_length=500,
+                description="Public dotted paths your code uses (up to 500); only changes on these paths or their "
+                "members are returned.",
+            ),
+        ] = None,
+        include_added: Annotated[
+            bool,
+            Field(
+                description="Also list symbols added in the range. Off by default: breaking changes and deprecations only."
+            ),
+        ] = False,
+        limit: Annotated[
+            int,
+            Field(
+                ge=1,
+                le=500,
+                description="Maximum events to return (1-500), most severe first; `truncated` is true when more exist.",
+            ),
+        ] = 200,
     ) -> DiffResult:
         return deptime.diff_versions(package, from_version, to_version, used_symbols, include_added, limit)
 
     @mcp.tool(
         name="coverage",
         title="What DepTime indexes",
-        description="Lists indexed packages and version ranges. If a package is missing, DepTime cannot answer about it.",
+        description=(
+            "Lists indexed packages and version ranges. If a package is missing, DepTime cannot answer about it. "
+            "Takes no arguments; call it first when unsure whether a package is covered."
+        ),
         annotations=READ_ONLY,
     )
     def coverage() -> CoverageResult:

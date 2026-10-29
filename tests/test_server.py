@@ -33,6 +33,20 @@ async def test_mcp_tools_listed_and_callable(dt):
 
 
 @pytest.mark.anyio
+async def test_every_tool_parameter_is_described(dt):
+    # Agents read parameter intent from the schema (Glama's TDQS grades it too); a bare name is a guess.
+    async with Client(build_mcp(dt)) as client:
+        tools = (await client.list_tools()).tools
+    undescribed = [
+        f"{t.name}.{name}"
+        for t in tools
+        for name, schema in t.input_schema.get("properties", {}).items()
+        if not schema.get("description")
+    ]
+    assert undescribed == []
+
+
+@pytest.mark.anyio
 async def test_mcp_explain_error_accepts_a_long_log(dt):
     # Q-02: a whole CI log ending in the traceback must reach the parser, not fail input validation.
     log = "collected test output line\n" * 1200 + HTTPX_TB

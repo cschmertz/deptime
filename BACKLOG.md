@@ -19,7 +19,7 @@
 
 ---
 
-## Current state: public alpha, v0.1.2 (since 2026-10-28)
+## Current state: public alpha, v0.1.3 (since 2026-10-29)
 
 - The repo is public. `uvx deptime mcp` installs from PyPI, and pushing a `v*` tag publishes through trusted publishing (`release.yml`).
 - `build-index` runs nightly at 04:17 UTC and replaces the rolling `index` release. The first full builds (2026-10-28) indexed 52 packages and 3,371 releases into a 78.9 MB `.gz`. The first `SNAPSHOT_FORMAT` 4 build (cold, 2026-10-29) took 40 minutes and holds 3,377 releases in 79.8 MB. The first whole-series build (DT-DATA-19, warm caches, 2026-10-29) took 38 minutes and holds 6,508 releases in 92.9 MB.
@@ -234,6 +234,13 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
   - AC: official MCP Registry `server.json` (PyPI package, stdio) under `io.github.cschmertz/deptime`; Smithery, Glama, PulseMCP, mcp.so, mcpservers.org, MCP Market; Glama quality score checked.
   - Done 2026-10-28: listed on the official MCP Registry as `io.github.cschmertz/deptime` 0.1.2. `release.yml` publishes `server.json` after PyPI on every tag.
     Glama: claimed; a build of `deptime mcp` passed (license A, maintenance B); tool scores pending. awesome-mcp-servers: PR #17910 open.
+  - 2026-10-29: Glama scored the tool definitions (TDQS) at A, 4.1/5 (quality A):
+    - tools: explain_error 4.4, diff_versions 4.0, symbol_history 4.0, coverage 3.9, check_symbols 3.8;
+    - server: disambiguation 5, naming consistency 4, tool count 5, completeness 4.
+    - 0.1.3 adds what it docked: six undescribed parameters, a routing sentence per tool, and what an unknown path or unexplained error returns. Those are additions only; a test guards the parameter descriptions.
+    - Naming consistency (noun-style `symbol_history`, `coverage`) stays, because renaming breaks the public contract.
+    - Server completeness asks for a symbol-search or upgrade-path tool, which is a scope decision.
+    - The README has the Glama score badge, and GitHub releases now exist for every tag (`release.yml` makes them).
   - Still to do: mcp.so, mcpservers.org (web forms); PulseMCP (submissions paused; it reads the official registry); Smithery; MCP Market.
 - [ ] **DT-GTM-04**: Claude Code plugin release (marketplace) · `P0` `S` · deps: SPIKE-06, OSS-05
 - [ ] **DT-GTM-05**: Cursor rule + AGENTS.md snippet, tested in fresh projects · `P1` `S`

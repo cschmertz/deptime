@@ -28,6 +28,8 @@ Free, open source (MIT), and **local**: your code and errors never leave your ma
 </picture>
 </p>
 
+Every night, GitHub Actions reads each new release's public API with [griffe](https://mkdocstrings.github.io/griffe/), which parses the source without running it, diffs it against the previous release, and publishes the result as one file, `index.sqlite.gz`, on this repo's Releases. On your machine, `deptime mcp` checks that file's sha256 and schema before swapping it in, then answers every question locally in milliseconds. The full design is in [docs/04-architecture.md](https://github.com/cschmertz/deptime/blob/main/docs/04-architecture.md), and the decisions are in [docs/adr/](https://github.com/cschmertz/deptime/tree/main/docs/adr).
+
 ```text
 TypeError: Client.__init__() got an unexpected keyword argument 'proxies'
 ```
@@ -89,10 +91,6 @@ uvx deptime diff httpx 0.27.2 0.28.1
 uvx deptime diff pydantic 2024-06-01              # everything since a date
 uvx deptime index status | pull
 ```
-
-## How it works
-
-Every night, GitHub Actions reads each new release's public API with [griffe](https://mkdocstrings.github.io/griffe/), which parses the source without running it, diffs it against the previous release, and publishes the result as one file, `index.sqlite.gz`, on this repo's Releases. On your machine, `deptime mcp` checks that file's sha256 and schema before swapping it in, then answers every question locally in milliseconds. The full design is in [docs/04-architecture.md](https://github.com/cschmertz/deptime/blob/main/docs/04-architecture.md), and the decisions are in [docs/adr/](https://github.com/cschmertz/deptime/tree/main/docs/adr).
 
 ## Hosting (optional)
 

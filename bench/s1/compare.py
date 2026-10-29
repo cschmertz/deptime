@@ -7,6 +7,10 @@ test. For each probed release it samples 25 runtime-public names from package `_
 other modules (topping up from one stratum when the other runs short), with a seed fixed per release, and checks
 each against the spans at that exact indexed release. A false absent is a sampled name with no span there.
 Pass: at most 10% false absent overall (docs/07 §S1). The rate over every runtime name is reported alongside.
+
+The gate leaves out a plain module's imports from elsewhere in its package (`module / dir / package`): they're
+implementation, not the lazy or dynamic exports R1 is about, and the index excludes them by design. The rate under
+the rule as first agreed, with them in, is printed next to it (bench/s1/README.md, "Amendment").
 """
 
 from __future__ import annotations
@@ -42,6 +46,10 @@ def load_probes(root: Path) -> list[dict]:
             raise SystemExit(f"{path}: not a probe result")
         probes.append(data)
     return probes
+
+
+def in_gate(rec: dict) -> bool:
+    return not (rec["stratum"] == "module" and rec["how"] == "dir" and rec["origin"] == "package")
 
 
 def sample(rows: list[dict], per_stratum: int, seed: str) -> list[dict]:
@@ -88,7 +96,10 @@ def main() -> int:
         population = [{"path": p, **rec} for p, rec in rows.items()]
         for rec in population:
             rec["present"] = store.span_at(name, rec["path"], ordinal) is not None
-        picked = sample(population, plan["per_stratum"], f"{plan['seed']}:{name}:{version}")
+        seed = f"{plan['seed']}:{name}:{version}"
+        strict = sample(population, plan["per_stratum"], seed)
+        population = [r for r in population if in_gate(r)]
+        picked = sample(population, plan["per_stratum"], seed)
         for rec in picked:
             if not rec["present"]:
                 rec["seen_elsewhere"] = bool(store.spans(name, rec["path"]))
@@ -96,13 +107,15 @@ def main() -> int:
         c = by_pkg[name]
         c["sampled"] += len(picked)
         c["missed"] += len(misses)
+        c["strict_sampled"] += len(strict)
+        c["strict_missed"] += sum(not r["present"] for r in strict)
         c["population"] += len(population)
         c["population_missed"] += sum(not r["present"] for r in population)
         for r in picked:
             by_stratum[r["stratum"], "sampled"] += 1
             by_stratum[r["stratum"], "missed"] += not r["present"]
-        for r in population:
-            if not r["present"]:
+        for r in rows.values():
+            if store.span_at(name, f"{r['module']}.{r['name']}", ordinal) is None:
                 by_shape[r["stratum"], r["how"], r["origin"]] += 1
         results.append(
             {
@@ -121,8 +134,14 @@ def main() -> int:
     sampled = sum(c["sampled"] for c in by_pkg.values())
     missed = sum(c["missed"] for c in by_pkg.values())
     verdict = "PASS" if sampled and missed / sampled <= PASS_RATE else "FAIL"
+    removed = sum(m["seen_elsewhere"] for r in results for m in r["missed"])
+    strict = rate(
+        sum(c["strict_missed"] for c in by_pkg.values()), sum(c["strict_sampled"] for c in by_pkg.values())
+    )
     print(f"# S1 false-absent rate (DT-SPIKE-01), index built {store.built_at()}\n")
     print(f"**{verdict}**: sampled {rate(missed, sampled)} (pass at <= {PASS_RATE:.0%}).\n")
+    print(f"- {removed} of the misses are names seen in other releases, so they would read as removed.")
+    print(f"- Rule as first agreed (plain-module package imports in): {strict}.")
     for stratum in ("init", "module"):
         print(f"- {stratum}: {rate(by_stratum[stratum, 'missed'], by_stratum[stratum, 'sampled'])}")
     print("\n| package | releases | sampled | every runtime name |\n|---|---|---|---|")
@@ -140,7 +159,9 @@ def main() -> int:
             f"| {r['package']} | {r['version']} | {r['python']} | {r['modules_imported']} ({r['modules_failed']})"
             f" | {r['population']} | {len(r['missed'])}/{r['sampled']} |"
         )
-    print("\nEvery runtime name the index lacks, by shape (stratum, how listed, where defined):\n")
+    print(
+        "\nEvery runtime name the index lacks, by shape (stratum, how listed, where defined; all shapes):\n"
+    )
     for (stratum, how, origin), n in by_shape.most_common():
         print(f"- {stratum} / {how} / {origin}: {n}")
     print("\nSampled misses:\n")

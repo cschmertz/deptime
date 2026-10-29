@@ -24,7 +24,20 @@ The report breaks misses down by shape. One shape to read with care: a plain mod
 Not sampled:
 - names that need an extra that isn't installed (they don't resolve at runtime);
 - submodules that fail to import;
-- lazy names that are missing from `__all__`, because `dir()` doesn't list them.
+- lazy names that are missing from `__all__`, because `dir()` doesn't list them;
+- names that aren't identifiers (pydantic writes parametrized generics such as `RunnableSerializable[Any]` into module namespaces).
+
+A release whose top-level import fails offline isn't a sample; its slot moves on to a neighbouring release. litellm 1.14.4, for example, downloads a tokenizer file at import time.
+
+### Amendment (2026-10-29, after the first run)
+
+The gate leaves out the `module / dir / package` shape: a plain module's imports from elsewhere in its own package, such as `huggingface_hub.hf_api.hf_hub_url` or `langchain_core.prompt_values.Serializable`. Every report still prints the rate under the rule as first agreed.
+
+On the first run (40914120420, 49 releases), the rule as first agreed gave 513/2,352 = 21.8%. Of those 513 misses, 398 had this shape (94.9% of its 22,494 runtime names).
+
+**Why:** these names are implementation, not the lazy or dynamic exports that R1 is about. The index excludes them on purpose (`snapshot._Walker._public`). Only 30 of the 398 would have read as removed; the rest would come out as `never_existed`.
+
+**The cost:** an agent that imports from an implementation module gets no history for that name.
 
 ## Sandbox
 

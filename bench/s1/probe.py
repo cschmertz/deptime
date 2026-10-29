@@ -95,6 +95,12 @@ def import_all(roots: tuple[str, ...]) -> tuple[dict[str, object], dict[str, str
     return modules, failed
 
 
+def _listable(name: str) -> bool:
+    """Public, and a name code can import: pydantic writes parametrized generics such as
+    `RunnableSerializable[Any]` into module namespaces, and `dir()` lists them."""
+    return name.isidentifier() and not name.startswith("_")
+
+
 def _kind(obj: object) -> str:
     if inspect.ismodule(obj):
         return "module"
@@ -129,9 +135,9 @@ def public_names(modules: dict[str, object], roots: tuple[str, ...]) -> tuple[li
         stratum = "init" if hasattr(mod, "__path__") else "module"
         exports = getattr(mod, "__all__", None)
         if isinstance(exports, (list, tuple)) and all(isinstance(n, str) for n in exports):
-            candidates = [(n, "__all__") for n in dict.fromkeys(exports) if not n.startswith("_")]
+            candidates = [(n, "__all__") for n in dict.fromkeys(exports) if _listable(n)]
         else:
-            candidates = [(n, "dir") for n in dir(mod) if not n.startswith("_")]
+            candidates = [(n, "dir") for n in dir(mod) if _listable(n)]
         for name, how in candidates:
             obj, err = _guarded(getattr, mod, name)
             if err is not None:
@@ -180,7 +186,9 @@ def main() -> int:
         f"{args.package} {args.version}: {len(modules)} modules, {len(failed)} failed, {len(rows)} names",
         file=sys.stderr,
     )
-    return 0 if installed == args.version else 3
+    if installed != args.version:
+        return 3
+    return 4 if any(r in failed for r in roots) else 0  # an unimportable release is not a sample
 
 
 if __name__ == "__main__":

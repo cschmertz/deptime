@@ -1,0 +1,50 @@
+name: s1
+
+# Spike S1 (DT-SPIKE-01): sample each planned release's public names at RUNTIME, which means importing it.
+# Invariant 1 forbids that anywhere else, so it happens here only: an ephemeral runner, one throwaway venv per
+# release, and probe.py run by bench/s1/run.py with no network, a separate user and an empty environment.
+# It runs only on a push to the spike/s1 branch. Compare the downloaded artifacts with the index locally:
+#   gh run download <run id> -D <empty dir>
+#   uv run python bench/s1/compare.py <that dir> --index <index.sqlite>
+on:
+  push:
+    branches: [spike/s1]
+    paths: ["bench/s1/**", ".github/workflows/s1.yml"]
+
+permissions: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    permissions:
+      contents: read # checkout only; the token is not persisted and never reaches the probe
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - langchain
+          - langchain-community
+          - langchain-core
+          - openai
+          - pydantic
+          - huggingface-hub
+          - litellm
+          - pydantic-ai-slim
+          - instructor
+          - numpy
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: false
+      - name: Probe ${{ matrix.package }}
+        run: python3 -I bench/s1/run.py --plan bench/s1/plan.json --package "${{ matrix.package }}" --out "$RUNNER_TEMP/s1-out"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: s1-${{ matrix.package }}
+          path: ${{ runner.temp }}/s1-out
+          if-no-files-found: error

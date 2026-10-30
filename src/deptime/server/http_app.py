@@ -19,7 +19,7 @@ from deptime.models import SymbolQuery
 from deptime.query import DepTime
 from deptime.server.mcp_app import build_mcp
 from deptime.server.metering import (
-    FREE_TOOLS,
+    UNMETERED_TOOLS,
     InMemoryQuotaStore,
     MeteringMiddleware,
     identify,
@@ -77,7 +77,7 @@ def create_app(settings: Settings | None = None):
     @mcp.custom_route("/v1/{tool}", methods=["GET", "POST"])
     async def rest(request: Request) -> JSONResponse:
         tool = request.path_params["tool"].replace("-", "_")
-        if tool not in FREE_TOOLS:
+        if tool not in UNMETERED_TOOLS:
             caller = identify(request.headers, request.client.host if request.client else None, settings)
             decision = quota.consume(caller)
             if not decision.allowed:

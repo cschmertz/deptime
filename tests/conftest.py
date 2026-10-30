@@ -124,9 +124,8 @@ def settings(index_file: Path, tmp_path: Path) -> Settings:
         public_url="http://test",
         trust_proxy_headers=False,
         anon_daily_limit=2,
-        free_key_monthly_limit=10,
-        pro_monthly_limit=100,
-        dev_api_keys="pro-key:pro",
+        key_monthly_limit=100,
+        dev_api_keys="trusted-key",
     )
 
 

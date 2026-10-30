@@ -1,8 +1,8 @@
-"""Caller identification and rate limits for a *hosted* DepTime instance (docs/05-hosting-and-sustainability.md).
+"""Caller identification and rate limits for a *hosted* DepTime instance (docs/05-self-hosting.md).
 
 Local stdio mode never meters. A public instance needs anonymous per-IP limits so one client can't exhaust it;
-keys (`DEPTIME_DEV_API_KEYS`) let trusted users bypass them. Paid plans are parked (see BACKLOG.md "Parked").
-The quota store is in-memory; a persistent one is DT-HOST-03.
+keys (`DEPTIME_DEV_API_KEYS`) give trusted callers a monthly limit instead. The quota store is in-memory; a
+persistent one is DT-HOST-03.
 """
 
 from __future__ import annotations
@@ -19,14 +19,14 @@ from mcp.types import CallToolResult, TextContent
 
 from deptime.config import Settings
 
-Plan = Literal["local", "anonymous", "free", "pro", "credits"]
-FREE_TOOLS = frozenset({"coverage"})
+CallerKind = Literal["local", "anonymous", "key"]
+UNMETERED_TOOLS = frozenset({"coverage"})
 
 
 @dataclass(frozen=True)
 class Caller:
     id: str  # stable, non-reversible identifier (hashed IP or key id), safe to log
-    plan: Plan
+    kind: CallerKind
 
 
 @dataclass(frozen=True)
@@ -46,16 +46,14 @@ def _hash(value: str) -> str:
 
 
 def identify(headers: Mapping[str, str] | None, client_host: str | None, settings: Settings) -> Caller:
-    """Bearer key -> plan from the key store; otherwise anonymous by (hashed) client IP; no HTTP -> local."""
+    """A configured bearer key -> key; otherwise anonymous by (hashed) client IP; no HTTP -> local."""
     if headers is None:
         return Caller("local", "local")
     auth = headers.get("authorization", "")
     key = auth[7:].strip() if auth.lower().startswith("bearer ") else headers.get("x-api-key", "").strip()
-    if key:
-        plan = _dev_keys(settings).get(key)
-        if plan is not None:
-            return Caller(f"key:{_hash(key)}", plan)
-        # Unknown keys fall through to anonymous limits rather than erroring; the quota message explains.
+    if key and key in _dev_keys(settings):
+        return Caller(f"key:{_hash(key)}", "key")
+    # Unknown keys fall through to anonymous limits rather than erroring; the quota message explains.
     ip = (_proxied_client_ip(headers, settings) if settings.trust_proxy_headers else None) or client_host
     return Caller(f"ip:{_hash(ip or 'unknown')}", "anonymous")
 
@@ -76,13 +74,8 @@ def _proxied_client_ip(headers: Mapping[str, str], settings: Settings) -> str | 
     return hops[-min(settings.trusted_proxy_hops, len(hops))]
 
 
-def _dev_keys(settings: Settings) -> dict[str, Plan]:
-    out: dict[str, Plan] = {}
-    for item in filter(None, (s.strip() for s in settings.dev_api_keys.split(","))):
-        key, _, plan = item.partition(":")
-        if plan in {"free", "pro", "credits"}:
-            out[key] = plan  # type: ignore[assignment]
-    return out
+def _dev_keys(settings: Settings) -> frozenset[str]:
+    return frozenset(filter(None, (s.strip() for s in settings.dev_api_keys.split(","))))
 
 
 class InMemoryQuotaStore:
@@ -93,20 +86,16 @@ class InMemoryQuotaStore:
         self._counts: dict[tuple[str, str], int] = defaultdict(int)
         self._lock = threading.Lock()
 
-    def _limit(self, plan: Plan) -> tuple[int | None, str]:
-        if plan == "local":
-            return None, "none"
-        if plan == "anonymous":
+    def _limit(self, kind: CallerKind) -> tuple[int | None, str]:
+        if kind == "anonymous":
             return self.settings.anon_daily_limit, "day"
-        if plan == "free":
-            return self.settings.free_key_monthly_limit, "month"
-        if plan == "pro":
-            return self.settings.pro_monthly_limit, "month"
-        return None, "none"  # credits: parked with the paid tiers (BACKLOG.md "Parked")
+        if kind == "key":
+            return self.settings.key_monthly_limit, "month"
+        return None, "none"
 
     def consume(self, caller: Caller, now: datetime | None = None) -> Decision:
         now = now or datetime.now(UTC)
-        limit, window = self._limit(caller.plan)
+        limit, window = self._limit(caller.kind)
         if limit is None:
             return Decision(True, 0, None, window)
         bucket = now.strftime("%Y-%m-%d") if window == "day" else now.strftime("%Y-%m")
@@ -120,14 +109,14 @@ class InMemoryQuotaStore:
 
 def quota_message(caller: Caller, decision: Decision, settings: Settings) -> str:
     return (
-        f"This hosted DepTime instance allows {decision.limit} calls per {decision.window} for {caller.plan} use "
+        f"This hosted DepTime instance allows {decision.limit} calls per {decision.window} for {caller.kind} callers "
         f"({decision.used} used). DepTime is free and open source: run it locally with no limits via "
         "`uvx deptime mcp` (see https://github.com/cschmertz/deptime). The `coverage` tool stays available."
     )
 
 
 class MeteringMiddleware:
-    """MCP ServerMiddleware: meters `tools/call` (except free tools) before the handler runs."""
+    """MCP ServerMiddleware: meters `tools/call` (except unmetered tools) before the handler runs."""
 
     def __init__(self, quota: QuotaStore, settings: Settings):
         self.quota = quota
@@ -138,7 +127,7 @@ class MeteringMiddleware:
             return await call_next(ctx)
         params = ctx.params or {}
         tool = params.get("name") if isinstance(params, dict) else getattr(params, "name", None)
-        if tool in FREE_TOOLS:
+        if tool in UNMETERED_TOOLS:
             return await call_next(ctx)
         request = getattr(ctx, "request", None)
         headers = getattr(request, "headers", None)

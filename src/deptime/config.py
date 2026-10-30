@@ -51,9 +51,8 @@ class Settings:
     public_url: str
     trust_proxy_headers: bool
     anon_daily_limit: int
-    free_key_monthly_limit: int
-    pro_monthly_limit: int
-    dev_api_keys: str  # "key:plan,key2:plan"; a real key store is parked with the paid tiers
+    key_monthly_limit: int
+    dev_api_keys: str  # comma-separated keys for trusted callers
     # With trust_proxy_headers: proxies *append* to X-Forwarded-For, so the client is this many hops from the right.
     trusted_proxy_hops: int = 1
     client_ip_header: str = ""  # e.g. "Fly-Client-IP": a header your platform's proxy sets (wins over XFF)
@@ -74,8 +73,7 @@ class Settings:
             public_url=_env("DEPTIME_PUBLIC_URL", "http://127.0.0.1:8000"),
             trust_proxy_headers=_env_bool("DEPTIME_TRUST_PROXY_HEADERS", False),
             anon_daily_limit=_env_int("DEPTIME_ANON_DAILY_LIMIT", 25),
-            free_key_monthly_limit=_env_int("DEPTIME_FREE_KEY_MONTHLY_LIMIT", 1500),
-            pro_monthly_limit=_env_int("DEPTIME_PRO_MONTHLY_LIMIT", 20000),
+            key_monthly_limit=_env_int("DEPTIME_KEY_MONTHLY_LIMIT", 20000),
             dev_api_keys=_env("DEPTIME_DEV_API_KEYS", ""),
             trusted_proxy_hops=max(1, _env_int("DEPTIME_TRUSTED_PROXY_HOPS", 1)),
             client_ip_header=_env("DEPTIME_CLIENT_IP_HEADER", ""),

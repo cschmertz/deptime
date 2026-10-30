@@ -77,10 +77,10 @@ async def test_metering_blocks_after_anonymous_limit(settings):
     # The limit message must point people at unlimited local use.
     assert blocked.is_error is True and "uvx deptime mcp" in blocked.content[0].text
     assert blocked.model_dump(by_alias=True)["resultType"] == "complete"  # required by spec 2026-07-28
-    assert (await mw(_ctx("coverage"), ok))["content"][0]["text"] == "ok"  # free tool
-    assert (await mw(_ctx("explain_error", headers={"authorization": "Bearer pro-key"}), ok))["content"][0][
-        "text"
-    ] == "ok"
+    assert (await mw(_ctx("coverage"), ok))["content"][0]["text"] == "ok"  # unmetered tool
+    assert (await mw(_ctx("explain_error", headers={"authorization": "Bearer trusted-key"}), ok))["content"][
+        0
+    ]["text"] == "ok"
 
 
 def test_http_health_and_rest(settings):

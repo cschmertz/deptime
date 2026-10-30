@@ -28,5 +28,5 @@ data/snapshots/
 # CI / local DepTime home
 .deptime/
 
-# Private audit notes (also keeps them out of the Hatch sdist)
-/audit-2026-10-20/
+# Local notes (also keeps them out of the Hatch sdist)
+/notes/

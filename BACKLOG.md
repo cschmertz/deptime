@@ -7,15 +7,14 @@
   - `P1`: needed for the milestone's goal.
   - `P2`: nice to have.
 - **Size:** `S` ≤ ½ day · `M` 1–2 days · `L` 3–5 days.
-- **Direction:** free, open source (MIT), local-first ([ADR 0007](docs/adr/0007-open-source-local-first.md)). Success means adoption plus accuracy ([docs/06](docs/06-launch-and-adoption.md)).
+- **Direction:** free, open source (MIT), local-first ([ADR 0007](docs/adr/0007-open-source-local-first.md)).
 
-| Milestone | Window | Exit criterion |
-|---|---|---|
-| **M0 Spikes** | Days 1–7 | S1 go/no-go (false-absent ≤ 10%); S2–S7 answered |
-| **M1 Local alpha** | Days 7–14 | Public repo; nightly index published; `uvx deptime mcp` works from PyPI; benchmark ≥ 70% |
-| **M2 Public launch** | Days ~14–21 | Registries, plugin, snippets, demo GIF, benchmark post, 5 rename-map pages |
-| **M3 Optional hosted** | When wanted | Public endpoint for web clients and demos, with limits and a privacy notice |
-| **M4 Review** | Days 60 and 90 | Review criteria in [docs/06](docs/06-launch-and-adoption.md) |
+| Milestone | Exit criterion |
+|---|---|
+| **M0 Spikes** | S1 go/no-go (false-absent ≤ 10%); S2–S7 answered |
+| **M1 Local alpha** | Public repo; nightly index published; `uvx deptime mcp` works from PyPI; benchmark ≥ 70% |
+| **M2 Distribution** | Registries, plugin, snippets, demo GIF, 5 rename-map pages |
+| **M3 Optional hosted** | Public endpoint for web clients, with limits and a privacy notice |
 
 ---
 
@@ -25,13 +24,13 @@
 - `build-index` runs nightly at 04:17 UTC and replaces the rolling `index` release. The first full builds (2026-10-28) indexed 52 packages and 3,371 releases into a 78.9 MB `.gz`. The first `SNAPSHOT_FORMAT` 4 build (cold, 2026-10-29) took 40 minutes and holds 3,377 releases in 79.8 MB. The first whole-series build (DT-DATA-19, warm caches, 2026-10-29) took 38 minutes and holds 6,508 releases in 92.9 MB. The first `SNAPSHOT_FORMAT` 5 build (cold, 2026-10-30, DT-DATA-26 and DT-DATA-27) took 53 minutes and holds 6,513 releases in 92.9 MB.
 - Not covered yet: transformers (DT-DATA-16), fastmcp 3.3+ (DT-DATA-17), names numpy only creates at runtime, such as 1.x's `numpy.emath` (DT-DATA-02), and modules in folders without `__init__.py`, such as `litellm.types` (DT-DATA-23).
 
-**Benchmark (2026-10-29):** 159 real tracebacks from 47 packages (`bench/`), on the whole-series index: root cause 95.0%, root cause + boundary 94.3%, replacement 19.5% (from 93.7% and 83.6% on the first `SNAPSHOT_FORMAT` 4 index, 89.9% and 76.7% on format 3, and 78.0% and 64.8% before DT-CORE-19 and DT-CORE-05). The whole-series index made the 17 DT-DATA-19 cases pass and changed no other case, and the `SNAPSHOT_FORMAT` 5 index (2026-10-30) changes no case. Above the 70% floor and the 80% target (docs/06), but measured on the cases the fixes were designed from, so not yet a launch number (DT-QA-04). Each of the nine remaining real misses is assigned to an item below.
+**Benchmark (2026-10-29):** 159 real tracebacks from 47 packages (`bench/`), on the whole-series index: root cause 95.0%, root cause + boundary 94.3%, replacement 19.5% (from 93.7% and 83.6% on the first `SNAPSHOT_FORMAT` 4 index, 89.9% and 76.7% on format 3, and 78.0% and 64.8% before DT-CORE-19 and DT-CORE-05). The whole-series index made the 17 DT-DATA-19 cases pass and changed no other case, and the `SNAPSHOT_FORMAT` 5 index (2026-10-30) changes no case. Above the 70% floor and the 80% target, but measured on the cases the fixes were designed from, so not yet a headline number (DT-QA-04). Each of the nine remaining real misses is assigned to an item below.
 
 **S1 (DT-SPIKE-01) passed on 2026-10-29: 5.1% false absent** on 10 dynamic packages (bar: 10%), so there's no runtime fallback. Re-scored on the `SNAPSHOT_FORMAT` 5 index (2026-10-30): 4.2%, and 30 of the misses read as removed (from 37); langchain and pydantic are near zero (`bench/s1/results-2026-10-30.md`). The worst packages are numpy (21%) and litellm (16%), assigned to DT-DATA-25 and DT-DATA-23.
 
 **Still open for M1:** a benchmark number on fresh cases (DT-QA-04).
 
-**Suggested order for the next sessions**
+**Next up**
 1. DT-DATA-17 (fastmcp 3.3+) and DT-OSS-07 (pin actions to SHAs, Dependabot, `pip-audit`).
 2. Re-measure the benchmark on fresh cases before quoting a number (DT-QA-04).
 
@@ -39,7 +38,7 @@
 
 ## ✅ Done (2026-10-17)
 
-- [x] Problem and prior-art research, specs, architecture, hosting and sustainability, launch, risks, privacy/security docs, and ADRs
+- [x] Problem and prior-art research, specs, architecture, self-hosting, risks, privacy/security docs, and ADRs
 - [x] Ingestion: PEP 691 client, version policy, sha256-verified download, safe extraction, griffe public-path snapshots, diffs, replacement mining, span-encoded SQLite index
 - [x] Resilience: a failed run never wipes an index; a PyPI outage rebuilds from cached snapshots; per-package failure isolation
 - [x] Query layer: 5 tools, confidence semantics, `<=X` deprecations, unindexed-version windows, `never_existed`
@@ -89,9 +88,9 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
 - [x] **DT-OSS-03**: Reserve the name on PyPI · `P0` `S`
   - AC: `deptime` 0.0.x published (also proves the packaging); name reserved.
 - [x] **DT-OSS-04**: First published index · `P0` `S` · deps: OSS-01, DATA-01
-  - AC: `build-index.yml` run manually, then on schedule; `deptime index pull` works from the public URL on a clean machine; release-asset download counts visible.
+  - AC: `build-index.yml` run manually, then on schedule; `deptime index pull` works from the public URL on a clean machine.
   - Done 2026-10-28: manual runs published the index, and `index pull` works from the public URL in an empty `DEPTIME_HOME`.
-  - Done 2026-10-29: the first scheduled run on the per-package pipeline was green in 15 min. All 52 jobs restored their snapshot cache; 5 built the 6 new releases. Publish assembled 3,377 releases (78.9 MB .gz) from the published index, and `bench` ran on `workflow_run`. The run started at 10:53 UTC, 6.5 h after its 04:17 cron, because GitHub delays scheduled runs. The download counts are visible, but `--clobber` resets them every night.
+  - Done 2026-10-29: the first scheduled run on the per-package pipeline was green in 15 min. All 52 jobs restored their snapshot cache; 5 built the 6 new releases. Publish assembled 3,377 releases (78.9 MB .gz) from the published index, and `bench` ran on `workflow_run`. The run started at 10:53 UTC, 6.5 h after its 04:17 cron, because GitHub delays scheduled runs.
 - [x] **DT-OSS-05**: Tagged release through PyPI trusted publishing · `P0` `S` · deps: OSS-03
   - AC: trusted publisher configured; `git tag v0.1.0` publishes; `uvx deptime mcp` works from PyPI.
   - Done 2026-10-28: v0.1.0 published by `release.yml` with provenance; `uvx deptime@0.1.0 mcp` answered over stdio from an empty home.
@@ -103,7 +102,7 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
   - AC: download and refresh succeed while the server holds the old file open (e.g. versioned filenames plus a pointer file).
 - [ ] **DT-OSS-09**: Signed index provenance · `P2` `M`
   - AC: `build-index.yml` produces GitHub artifact attestations; `deptime index pull --verify` checks them; documented in SECURITY.md.
-- [ ] **DT-OSS-10**: A failed first download recovers without a restart (audit D-01) · `P0` `S`
+- [ ] **DT-OSS-10**: A failed first download recovers without a restart · `P0` `S`
   - AC: an index that appears on disk is opened on the next call (done); the refresh thread retries with backoff while there is no index; the note names the real cause (failed download, offline).
 
 ### Data (DT-DATA)
@@ -124,7 +123,7 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
 - [ ] **DT-DATA-07**: Cross-package replacement hints (`google.generativeai` → `google.genai`) · `P1` `S`
 - [ ] **DT-DATA-08**: Curated migration map for the top 20 migrations (reviewed; `source="curated"`) · `P1` `M` · deps: SPIKE-02
 - [ ] **DT-DATA-09**: Pydantic model fields treated as `__init__` kwargs · `P2` `M`
-- [x] **DT-DATA-12**: Ingestion never drops an indexed release by accident (audit I-02) · `P0` `S`
+- [x] **DT-DATA-12**: Ingestion never drops an indexed release by accident · `P0` `S`
   - AC: a failed retry, `--versions` and a PyPI outage keep already-indexed releases (from the snapshot cache, else rebuilt from the index) (done); `ingest` refuses a downloaded index without `--into-downloaded` and marks it locally built only after a rebuild (done). CI still starts each night from an empty index, so carrying releases forward there needs the previous published index as a base (see DT-DATA-03).
 - [ ] **DT-DATA-16**: Store inherited members once per class, then index transformers again · `P1` `M` · deps: SPIKE-04
   - Why: transformers 5.21.0 has ~1.5M public paths, 87% of them inherited methods repeated across ~3,700 model classes (2026-10-28), so it was taken out of `coverage.toml`.
@@ -194,12 +193,12 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
 - [ ] **DT-CORE-07**: `check_symbols` from a code snippet (extract imports and attributes with `ast`) · `P2` `M`
 - [ ] **DT-CORE-08**: Sanitize mined text (control characters, instruction-like content), with adversarial tests · `P0` `S`
 - [ ] **DT-CORE-09**: Positional-argument changes (`too_many_positional` → `param_kind_changed`) · `P2` `S`
-- [x] **DT-CORE-10**: `diff_versions` filters, sorts and counts in SQL, so `truncated` is truthful on large diffs (audit Q-01) · `P0` `S`
-- [x] **DT-CORE-11**: Long tracebacks keep their tail; the MCP input limit is 200K characters (audit Q-02) · `P0` `S`
-- [ ] **DT-CORE-12**: Replacement hints are trustworthy before they reach prose (audit Q-03) · `P0` `M`
+- [x] **DT-CORE-10**: `diff_versions` filters, sorts and counts in SQL, so `truncated` is truthful on large diffs · `P0` `S`
+- [x] **DT-CORE-11**: Long tracebacks keep their tail; the MCP input limit is 200K characters · `P0` `S`
+- [ ] **DT-CORE-12**: Replacement hints are trustworthy before they reach prose · `P0` `M`
   - AC: only hints with confidence ≥ 0.75 appear in `explanation` (done); the generic `use X` pattern only takes identifier-shaped targets; targets are checked against the next indexed snapshot.
-- [x] **DT-CORE-15**: Optional → required parameters: `param_now_required` / `param_now_optional` events, used for "missing required argument" and checked against the installed release (audit I-10, Q-17) · `P0` `S`
-- [ ] **DT-CORE-16**: Errors raised inside a dependency consider the package being called (audit Q-18) · `P0` `S`
+- [x] **DT-CORE-15**: Optional → required parameters: `param_now_required` / `param_now_optional` events, used for "missing required argument" and checked against the installed release · `P0` `S`
+- [ ] **DT-CORE-16**: Errors raised inside a dependency consider the package being called · `P0` `S`
   - AC: other indexed packages are searched, installed first, keeping only concrete changes (done; bench case `openai-httpx-proxies-internal`); candidates ranked by `Requires-Dist` once per-release dependency data exists.
 - [x] **DT-CORE-17**: `never_existed` for a name the traceback shows was in use: say it may predate the first indexed release or be created at runtime, at `low` confidence, instead of "may be misremembered" at `medium` · `P0` `S`
   - Found by the first benchmark run (2026-10-28): `numpy.float` comes back `never_existed` at medium. numpy is indexed from 1.24.0, the release that removed it, and before that numpy served it from a module `__getattr__`. Bench case `numpy-float-alias`.
@@ -222,55 +221,40 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
   - Done so far (2026-10-28): `python -m deptime.bench` scores cases as `bench/README.md` defines; `bench.yml` runs it against the published index on code changes and after each `build-index`, failing on a drop of more than 2 points on the cases `bench/baseline.json` shares with the run. First number, 8 seed cases: root cause + boundary 50% (Tier B 80%, Tier A 0%; 4 of 8 are `known_gap`).
 - [ ] **DT-QA-03**: Golden tests per Tier A package against the published index (nightly, network-marked) · `P1` `M`
 - [ ] **DT-QA-04**: Cases derived from TimeMachine-bench (Fujii et al., EACL 2026; github.com/tohoku-nlp/timemachine-bench) · `P1` `M` · deps: QA-02
-  - Python repos whose tests pass under old dependencies and fail under new ones, with exact versions. Run the failing tests in a sandbox to get real tracebacks; take ground truth from the fix commits, never from DepTime. An outside, published source makes the launch number more credible than self-picked cases.
+  - Python repos whose tests pass under old dependencies and fail under new ones, with exact versions. Run the failing tests in a sandbox to get real tracebacks; take ground truth from the fix commits, never from DepTime. An outside, published source avoids the selection bias of self-picked cases.
   - First step: count how many of its repos break on one of our 52 covered packages.
-  - Also the holdout: fixes are being designed from the current 159 cases, so the launch number must be measured again on cases collected after them.
-- [ ] **DT-QA-05**: Agent-uplift eval on GitChameleon 2.0 (328 version-conditioned Python problems with unit tests, NeurIPS 2025) · `P2` `L` · after launch
+  - Also the holdout: fixes are being designed from the current 159 cases, so the reported number must be measured again on cases collected after them.
+- [ ] **DT-QA-05**: Agent-uplift eval on GitChameleon 2.0 (328 version-conditioned Python problems with unit tests, NeurIPS 2025) · `P2` `L`
   - The same agent with and without DepTime's MCP tools; report the pass-rate difference. This answers "does it make my agent better?", which the traceback benchmark doesn't. VersiCode is a backup dataset.
 - [x] **DT-QA-06**: Investigate the unexplained bench misses · `P0` `S`
   - `never_existed` or a wrong boundary for `sqlalchemy.schema.ThreadLocalMetaData`, `langchain.server`, `litellm.llms.prompt_templates`, `instructor.core.patch.handle_response_model`, `AnthropicModel.__init__(api_key)` in pydantic-ai, and `numpy.product` (gone after 1.24.4 in the index; really 1.26). Each is an index false-absent or a wrong case: check the shipped wheels, never GitHub tags (crewai 0.67.1's tag lacks `LLM`, its wheel has it).
   - Done 2026-10-28, all six explained against the shipped wheels: `langchain.server` (lived only between the indexed 0.0.1 and 0.0.354) and pydantic-ai's `api_key` (removed in 0.0.45; 0.0.x indexed at 0.0.6 and 0.0.55) are DT-DATA-19; instructor's is an implementation import (DT-DATA-22); the other three are index bugs, now DT-DATA-23 (litellm), DT-DATA-24 (sqlalchemy) and DT-DATA-25 (numpy).
 
-## M2 — Public launch (DT-GTM)
+## M2 — Distribution (DT-GTM)
 
 - [ ] **DT-GTM-01**: Generate the 5 rename-map pages from the index (`site/`) · `P0` `M` · deps: DATA-01
 - [ ] **DT-GTM-02**: Landing page (or GitHub Pages) with install, demo, benchmark, privacy · `P1` `S`
 - [ ] **DT-GTM-03**: Registry listings · `P0` `S` · deps: OSS-05
-  - AC: official MCP Registry `server.json` (PyPI package, stdio) under `io.github.cschmertz/deptime`; Smithery, Glama, PulseMCP, mcp.so, mcpservers.org, MCP Market; Glama quality score checked.
-  - Done 2026-10-28: listed on the official MCP Registry as `io.github.cschmertz/deptime` 0.1.2. `release.yml` publishes `server.json` after PyPI on every tag.
-    Glama: claimed; a build of `deptime mcp` passed (license A, maintenance B); tool scores pending. awesome-mcp-servers: PR #17910 open.
-  - 2026-10-29: Glama scored the tool definitions (TDQS) at A, 4.1/5 (quality A):
-    - tools: explain_error 4.4, diff_versions 4.0, symbol_history 4.0, coverage 3.9, check_symbols 3.8;
-    - server: disambiguation 5, naming consistency 4, tool count 5, completeness 4.
-    - 0.1.3 adds what it docked: six undescribed parameters, a routing sentence per tool, and what an unknown path or unexplained error returns. Those are additions only; a test guards the parameter descriptions.
-    - Naming consistency (noun-style `symbol_history`, `coverage`) stays, because renaming breaks the public contract.
-    - Server completeness asks for a symbol-search or upgrade-path tool, which is a scope decision.
-    - The README has the Glama score badge, and GitHub releases now exist for every tag (`release.yml` makes them).
-  - Still to do: mcp.so, mcpservers.org (web forms); PulseMCP (submissions paused; it reads the official registry); Smithery; MCP Market.
+  - AC: official MCP Registry `server.json` (PyPI package, stdio) under `io.github.cschmertz/deptime`; listed in the main MCP directories.
+  - Done 2026-10-28: listed on the official MCP Registry as `io.github.cschmertz/deptime`, and on Glama. `release.yml` publishes `server.json` after PyPI on every tag, and makes a GitHub release.
+  - 0.1.3 describes every tool parameter and says when to use each tool over its siblings; a test guards the parameter descriptions. Tool names stay as they are (noun-style `symbol_history`, `coverage`), because renaming breaks the public contract.
 - [ ] **DT-GTM-04**: Claude Code plugin release (marketplace) · `P0` `S` · deps: SPIKE-06, OSS-05
 - [ ] **DT-GTM-05**: Cursor rule + AGENTS.md snippet, tested in fresh projects · `P1` `S`
-- [ ] **DT-GTM-06**: Benchmark-led launch post (Show HN, r/Python, r/LangChain, r/ClaudeAI, dev.to) · `P0` `M` · deps: QA-02
-- [ ] **DT-GTM-07**: Outreach: since-cutoff (collaborate or share the backend), Context7, Ref, Tessl · `P1` `S`
 
 ## M3 — Optional hosted instance (DT-HOST)
 
-Options and costs: [docs/05](docs/05-hosting-and-sustainability.md).
+Deployment notes: [docs/05](docs/05-self-hosting.md).
 
-- [ ] **DT-HOST-01**: Deploy a public instance (Cloud Run free tier or Fly.io) · `P1` `S`
+- [ ] **DT-HOST-01**: Deploy a public instance (e.g. Cloud Run or Fly.io) · `P1` `S`
   - AC: `/healthz` green; index downloaded at start-up and persisted (volume or baked into the image); works as a claude.ai custom connector.
 - [ ] **DT-HOST-02**: Public-host hardening · `P0` `S` · before HOST-01 goes public
   - AC: MCP transport allowed hosts and origins; proxy burst limits; body caps confirmed.
 - [ ] **DT-HOST-03**: Persistent rate-limit store (replaces in-memory) · `P2` `S`
 - [ ] **DT-HOST-04**: Privacy notice for the hosted instance ([docs/08](docs/08-privacy-and-security.md)) · `P0` `S` · before HOST-01 goes public
 
-## M4 — Review
-
-- [ ] **DT-REVIEW-60**: Accuracy ≥ 70%, and ≥ 50 stars or ≥ 100 index downloads/week · `P0`
-- [ ] **DT-REVIEW-90**: Keep investing, or move to maintenance mode ([docs/06](docs/06-launch-and-adoption.md)) · `P0`
-
 ## Parked
 
-- npm/TypeScript ecosystem (Augments covers npm).
+- npm/TypeScript ecosystem.
 - GitHub Action (checks a PR's dependency bumps against the index).
-- A dataset export or licensing API for docs-context tools.
+- A bulk dataset export.
 - MCP resources: rename maps as prefetchable context.

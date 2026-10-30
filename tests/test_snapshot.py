@@ -120,6 +120,25 @@ STUBS = {
 }
 
 
+# pydantic 1.10's `types.py`: type checkers see `StrictBool = bool`; at runtime the `else:` branch defines the class,
+# and the package re-exports it with `from .types import *` (pydantic 2's `NaiveDatetime` has the same shape).
+GUARDED = {
+    "guarded/__init__.py": "from guarded.types import *\n\n__all__ = ['StrictBool', 'ConstrainedInt', 'Checker']\n",
+    "guarded/types.py": (
+        "from typing import TYPE_CHECKING\n\n"
+        "__all__ = ['StrictBool', 'ConstrainedInt', 'Checker']\n\n"
+        "if TYPE_CHECKING:\n"
+        "    StrictBool = bool\n"
+        "    from collections.abc import Callable as Checker\n"
+        "else:\n\n"
+        "    class StrictBool(int):\n"
+        "        pass\n\n\n"
+        "class ConstrainedInt(int):\n"
+        "    pass\n"
+    ),
+}
+
+
 # pytest's API lives in the private top-level package `_pytest`, shipped in the same wheel.
 SIBLING = {
     "testy/__init__.py": (
@@ -310,6 +329,16 @@ def test_stub_redefined_init_imports_are_public(tmp_path):
     assert {"stubby.add", "stubby.float64"} <= paths
     assert [p["name"] for p in snap.symbols["stubby.add"].params] == ["x", "y"]
     assert not {"stubby._private", "stubby.TypeAlias"} & paths
+
+
+def test_the_else_branch_of_type_checking_is_runtime(tmp_path):
+    # DT-DATA-26: griffe marks both branches as type-checking only, and `import *` skips names that aren't available
+    # at runtime, so `pydantic.StrictBool` looked added in 2.0.
+    snap = build_snapshot("guarded", "1.0", ["guarded"], _write(tmp_path, GUARDED))
+    found = {p: (r.kind, r.canonical) for p, r in snap.symbols.items()}
+    assert found["guarded.StrictBool"] == ("class", "guarded.types.StrictBool")
+    assert found["guarded.ConstrainedInt"] == ("class", "guarded.types.ConstrainedInt")
+    assert "guarded.Checker" not in found  # only type checkers see it
 
 
 def test_private_sibling_package_is_resolved(tmp_path):

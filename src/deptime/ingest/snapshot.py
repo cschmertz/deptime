@@ -575,6 +575,35 @@ class _Walker:
                 self.record(SymbolRecord(path, "class", target.path, None, deprecation_message(target)))
 
 
+def _in_type_checking_else(node: ast.AST) -> bool:
+    """Whether `node` sits in the `else:` of an `if TYPE_CHECKING:`, the branch that runs."""
+    child, parent = node, getattr(node, "parent", None)
+    while parent is not None:
+        if isinstance(parent, ast.If) and ast.unparse(parent.test) in {
+            "TYPE_CHECKING",
+            "typing.TYPE_CHECKING",
+        }:
+            return any(child is st for st in parent.orelse)
+        child, parent = parent, getattr(parent, "parent", None)
+    return False
+
+
+class _RuntimeElse(griffe.Extension):
+    """griffe marks the whole `if TYPE_CHECKING:` statement as type-checking only, `else:` included, and `import *`
+    skips names that aren't available at runtime. pydantic 1.x's `StrictBool` and 2.x's `NaiveDatetime`, defined
+    for type checkers and again under `else:`, were missing from the package that star-imports them (DT-DATA-26)."""
+
+    def on_instance(self, *, node: ast.AST | griffe.ObjectNode, obj: griffe.Object, **kwargs: Any) -> None:
+        if not obj.runtime and isinstance(node, ast.AST) and _in_type_checking_else(node):
+            obj.runtime = True
+
+    def on_alias_instance(
+        self, *, node: ast.AST | griffe.ObjectNode, alias: griffe.Alias, **kwargs: Any
+    ) -> None:
+        if not alias.runtime and isinstance(node, ast.AST) and _in_type_checking_else(node):
+            alias.runtime = True
+
+
 def _clear_griffe_caches() -> None:
     """Empty griffe's module-level memo caches. They hold loaded objects, and through their parents the whole
     package, for the life of the process: the dataclasses extension's `_dataclass_parameters` kept one package
@@ -601,6 +630,7 @@ def build_snapshot(package: str, version: str, import_names: list[str], search_p
                     # None loads only a private sibling (`_pytest` for `pytest`), found in the same wheel because
                     # search_paths replaces sys.path; other distributions' names stay aliases.
                     resolve_external=None,
+                    extensions=griffe.load_extensions(_RuntimeElse()),
                 )
             except Exception as exc:  # report and continue: one bad import name must not sink the release
                 snap.errors.append(f"load {import_name}: {type(exc).__name__}: {exc}")

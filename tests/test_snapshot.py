@@ -162,6 +162,21 @@ SHIMS = {
         "    raise AttributeError(name)\n"
     ),
     "shimmy/core.py": "class NewPart:\n    pass\n",
+    # langchain 0.3.4's `chains/__init__.py`: lazy exports listed only as a dict's keys, served by one `return`.
+    "shimmy/chains/__init__.py": (
+        "from typing import Any\n\n"
+        "from shimmy._api import create_importer\n\n"
+        "_module_lookup = {\n"
+        '    "NatBotChain": "shimmy.chains.natbot.base",\n'
+        '    "APIChain": "shimmy.chains.api.base",\n'
+        "}\n\n"
+        "importer = create_importer(__package__, module_lookup=_module_lookup)\n\n\n"
+        "def __getattr__(name: str) -> Any:\n"
+        "    return importer(name)\n\n\n"
+        "__all__ = list(_module_lookup.keys())\n"
+    ),
+    "shimmy/_api.py": "def create_importer(package, *, module_lookup=None):\n    pass\n",
+    "shimmy/proxy.py": "def __getattr__(name):\n    return name\n",
     "shimmy/tz.py": (
         "import warnings\nfrom datetime import timezone\n\n\n"
         "def __getattr__(name):\n"
@@ -328,6 +343,16 @@ def test_names_a_module_getattr_serves_are_present(tmp_path):
     assert snap.symbols["shimmy.legacy.Image"].deprecated == "`shimmy.legacy.Image` is considered private API"
     # Names whose branch raises (numpy 2.0's expired attributes) and private names stay absent.
     assert not {"shimmy.float_", "shimmy.gone", "shimmy._private"} & set(snap.symbols)
+
+
+def test_lazy_exports_listed_only_in_a_computed_all(tmp_path):
+    # DT-DATA-27: langchain 0.3.4's `langchain.chains.NatBotChain` and 47 more looked removed.
+    snap = build_snapshot("shimmy", "1.0", ["shimmy"], _write(tmp_path, SHIMS))
+    for name in ("NatBotChain", "APIChain"):
+        rec = snap.symbols[f"shimmy.chains.{name}"]
+        assert (rec.kind, rec.canonical, rec.deprecated) == ("getattr", "shimmy.chains.__getattr__", None)
+    # A module without `__all__` doesn't say which names its catch-all `__getattr__` serves.
+    assert not any(r.kind == "getattr" for p, r in snap.symbols.items() if p.startswith("shimmy.proxy."))
 
 
 def test_a_build_leaves_no_griffe_objects_alive(tmp_path):

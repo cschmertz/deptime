@@ -18,7 +18,7 @@ from typing import Any
 
 import griffe
 
-SNAPSHOT_FORMAT = 4  # bump when extraction changes: cached snapshots in another format are rebuilt
+SNAPSHOT_FORMAT = 5  # bump when extraction changes: cached snapshots in another format are rebuilt
 MAX_DEPTH = 12  # guards pathological re-export cycles
 
 DEPRECATED_DECORATOR_RE = re.compile(r"^(?:[\w.]+\.)?deprecated\b(?:\((?P<args>.*)\))?$", re.S)
@@ -172,11 +172,28 @@ def _string_keys(node: ast.expr) -> dict[str, str | None] | None:
     return None
 
 
+def _table_keys(node: ast.expr, tables: dict[str, dict[str, str | None]]) -> frozenset[str] | None:
+    """A literal collection of strings, or a module-level table's keys: `list(_module_lookup.keys())`."""
+    if (literal := _string_keys(node)) is not None:
+        return frozenset(literal)
+    if (
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id in {"list", "tuple", "sorted", "set", "frozenset"}
+        and len(node.args) == 1
+    ):
+        node = node.args[0]
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "keys":
+        node = node.func.value
+    return frozenset(tables[node.id]) if isinstance(node, ast.Name) and node.id in tables else None
+
+
 @dataclass
 class _Shim:
     module: str
     param: str
     tables: dict[str, dict[str, str | None]]  # module-level literal collections, by name
+    exports: frozenset[str] = frozenset()  # what `__all__` lists, when the source says so statically
 
 
 def _tested(test: ast.expr, shim: _Shim) -> tuple[frozenset[str], bool] | None:
@@ -213,12 +230,14 @@ def _reach(
     stmts: list[ast.stmt], live: _Names, trail: list[ast.stmt], shim: _Shim, served: dict[str, list[ast.stmt]]
 ) -> _Names | None:
     """Follow `stmts` for the names in `live`; record each name that reaches a `return`, with the statements run
-    on the way there. Returns the names that fall through, or None when none do."""
+    on the way there. Returns the names that fall through, or None when none do.
+
+    A `return` that every name but a few reaches serves the names `__all__` lists (langchain 0.3.4's `chains`
+    lists its lazy imports only as `list(_module_lookup.keys())`); other names it may serve are unknowable."""
     for st in stmts:
         if isinstance(st, ast.Return):
-            if not live.exclude:
-                for name in live.names:
-                    served.setdefault(name, trail)
+            for name in shim.exports - live.names if live.exclude else live.names:
+                served.setdefault(name, trail)
             return None
         if isinstance(st, ast.Raise):
             return None
@@ -339,8 +358,8 @@ def getattr_served(mod: griffe.Module) -> dict[str, str | None]:
     """Names a module `__getattr__` returns a value for (deprecation shims, lazy imports), each with the
     deprecation message its branch warns with. Read from the source with `ast`; nothing is imported (ADR 0002).
 
-    Only names compared with literals, or looked up in a module-level literal collection, are found. A name
-    whose branch raises (numpy 2.0's expired attributes) is not served.
+    Only names compared with literals, looked up in a module-level literal collection, or listed in a static
+    `__all__` are found. A name whose branch raises (numpy 2.0's expired attributes) is not served.
     """
     tree = _source_tree(mod)
     if tree is None:
@@ -350,6 +369,7 @@ def getattr_served(mod: griffe.Module) -> dict[str, str | None]:
     if func is None or not args:
         return {}
     tables: dict[str, dict[str, str | None]] = {}
+    exports: frozenset[str] = frozenset()
     for st in tree.body:
         if isinstance(st, ast.Assign) and len(st.targets) == 1:
             target, value = st.targets[0], st.value
@@ -357,9 +377,13 @@ def getattr_served(mod: griffe.Module) -> dict[str, str | None]:
             target, value = st.target, st.value
         else:
             continue
-        if isinstance(target, ast.Name) and (keys := _string_keys(value)) is not None:
+        if not isinstance(target, ast.Name):
+            continue
+        if target.id == "__all__":
+            exports = _table_keys(value, tables) or frozenset()
+        elif (keys := _string_keys(value)) is not None:
             tables[target.id] = keys
-    shim = _Shim(mod.path, args[0].arg, tables)
+    shim = _Shim(mod.path, args[0].arg, tables, exports)
     served: dict[str, list[ast.stmt]] = {}
     _reach(func.body, _Names(frozenset(), exclude=True), [], shim, served)
     return {

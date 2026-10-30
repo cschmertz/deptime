@@ -1,4 +1,4 @@
-# Optional hosted mode (docs/05-hosting-and-sustainability.md). Local use needs none of this: `uvx deptime mcp`.
+# Optional hosted mode (docs/05-self-hosting.md). Local use needs none of this: `uvx deptime mcp`.
 # The index is not baked in: `deptime serve` downloads the published index into $DEPTIME_HOME in the background
 # at start-up (GitHub Releases) and refreshes it daily. Mount a volume at /data to keep it across restarts.
 FROM python:3.12-slim

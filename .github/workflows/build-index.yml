@@ -2,7 +2,6 @@ name: build-index
 
 # Nightly: analyse new PyPI releases and publish the prebuilt index to the rolling `index` pre-release.
 # Local installs download <repo>/releases/download/index/{manifest.json,index.sqlite.gz} (see config.DEFAULT_INDEX_URL).
-# Free on public repositories.
 #
 # One job per covered package builds that package's snapshots on its own runner, with its own snapshot cache and
 # log, so a heavy package can only fail itself (DT-DATA-03). The publish job then assembles the index from those

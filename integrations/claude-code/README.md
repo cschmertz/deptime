@@ -32,7 +32,7 @@ claude mcp add deptime -- uv run --directory "$PWD" deptime mcp
 
 ## Want a hosted endpoint instead?
 
-Point Claude Code at a server started with `deptime serve` (docs/05-hosting-and-sustainability.md):
+Point Claude Code at a server started with `deptime serve` (docs/05-self-hosting.md):
 
 ```bash
 claude mcp add --transport http deptime https://your-host.example/mcp

@@ -1,12 +1,10 @@
 # 03 — Product spec: DepTime v1
 
-## Positioning
+## Summary
 
 > When a coding agent hits an `ImportError`, `AttributeError` or "unexpected keyword argument" in a fast-moving Python library, DepTime tells it in one call **what changed, in which release, and what to use instead**. Answers are computed from static diffs of every indexed release, not from docs or model memory.
 
 DepTime is **free and open source (MIT)** and **runs locally** (`uvx deptime mcp`): code and errors never leave the machine ([ADR 0007](adr/0007-open-source-local-first.md)).
-
-**Name:** DepTime. As of 2026-10-17 it is free on PyPI, npm and GitHub; DT-OSS-03 reserves it.
 
 ## Problem
 
@@ -34,7 +32,7 @@ DepTime is **free and open source (MIT)** and **runs locally** (`uvx deptime mcp
 |---|---|---|
 | **Local (default)** | `uvx deptime mcp` (stdio) | Claude Code, Cursor, Codex, VS Code, Claude Desktop: private and free |
 | CLI | `deptime explain / history / check / diff` | Humans, scripts |
-| Hosted (optional) | `deptime serve`: `/mcp` + `/v1/*` | Web clients that need a URL; demos ([05](05-hosting-and-sustainability.md)) |
+| Hosted (optional) | `deptime serve`: `/mcp` + `/v1/*` | Web clients that need a URL; demos ([05](05-self-hosting.md)) |
 
 ## Why DepTime vs. what exists
 
@@ -42,7 +40,7 @@ DepTime is **free and open source (MIT)** and **runs locally** (`uvx deptime mcp
 |---|---|---|
 | Introspecting the installed env (`dir()`, pyright) | The current version only | No history, no "renamed to", no pin |
 | Context7 / Ref (versioned docs) | Docs prose for a version | No symbol-level boundaries, token-heavy, docs lag the code |
-| [since-cutoff](https://github.com/MohammadHijjawi97/since-cutoff) | Local griffe diff of your pins vs. the model cutoff | Not hosted, needs per-project setup, has no traceback entry point, and names replacements only when deprecation text says so explicitly |
+| [since-cutoff](https://github.com/MohammadHijjawi97/since-cutoff) | Local griffe diff of your pins vs. the model cutoff | Runs per project on demand, has no traceback entry point, and names replacements only when deprecation text says so explicitly |
 | dep-diff-mcp | Upgrade plans from release notes | Notes are incomplete; DepTime reads the code |
 | Web search | Anything | Slow, expensive, unverified |
 
@@ -105,7 +103,7 @@ All tools are read-only and idempotent, and return structured output (pydantic m
 - `from_version` can be a date (`YYYY-MM-DD`), which covers "everything since my training cutoff."
 - `used_symbols` filters the results to your own usage.
 
-### `coverage() → CoverageResult` (free, never metered)
+### `coverage() → CoverageResult` (never rate-limited)
 
 - Lists the indexed packages and version ranges, the version policy, and packages that are configured but not indexed yet.
 
@@ -152,12 +150,11 @@ All tools are read-only and idempotent, and return structured output (pydantic m
 |---|---|
 | Correct root cause + version boundary on the traceback benchmark | ≥ 80% |
 | Correct replacement, when one exists | ≥ 60% |
-| False "removed" or "never_existed" rate in spike S1 sampling | ≤ 10% (**stop the project if this is breached**) |
+| False "removed" or "never_existed" rate in spike S1 sampling | ≤ 10% (S1's go/no-go bar) |
 | Server p95 latency per tool call | < 150 ms |
 | New PyPI release indexed (p95) | < 24 h |
 
 ## Open questions
 
-- ~~Licensing~~: decided as MIT, local-first ([ADR 0007](adr/0007-open-source-local-first.md)).
 - Should rename maps also be exposed as MCP *resources* for clients that prefetch context?
 - Should `explain_error` also mine replacement hints from the live error text? Some libraries now embed migration hints in the exception itself; `mcp` 2.x does (DT-CORE-06).

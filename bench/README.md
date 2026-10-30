@@ -1,6 +1,6 @@
 # Traceback benchmark (DT-QA-01 / DT-QA-02)
 
-**Purpose:** measure whether `explain_error` gives the right answer on *real* failures. This is the evidence for the launch post and the input to the day-60 accuracy kill criterion (root cause + boundary ≥ 70%, target ≥ 80%).
+**Purpose:** measure whether `explain_error` gives the right answer on *real* failures. This is the project's accuracy measure (root cause + boundary: floor 70%, target 80%).
 
 ## Case format (`cases/*.jsonl`, one JSON object per line)
 

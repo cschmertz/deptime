@@ -4,8 +4,8 @@ Static pages generated **from the index**, never written by hand. That way every
 
 Planned generator: `uv run python -m deptime.site build --out site/dist`. It will:
 1. Run `diff_versions` for each migration below and group events by symbol.
-2. Render one page per migration: a table of old → new symbols, version boundaries, replacement evidence, and a "paste your traceback into DepTime" call to action with install instructions.
-3. Emit `sitemap.xml` and `llms.txt` so search engines and AI assistants can cite the pages.
+2. Render one page per migration: a table of old → new symbols, version boundaries, replacement evidence, and install instructions.
+3. Emit `sitemap.xml` and `llms.txt`.
 
 | Page | Diff |
 |---|---|
@@ -15,4 +15,4 @@ Planned generator: `uv run python -m deptime.site build --out site/dist`. It wil
 | pydantic v1 → v2 | `pydantic` 1.10.x → 2.x |
 | openai 0.x → 1.x | `openai` 0.28 → 1.x |
 
-Deploy target: Cloudflare Pages (free).
+Deploy target: Cloudflare Pages.

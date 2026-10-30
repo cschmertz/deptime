@@ -5,7 +5,7 @@ DepTime is **local-first** ([ADR 0007](adr/0007-open-source-local-first.md)). Th
 ## Overview
 
 ```
- ┌──────────────── GitHub Actions, nightly (.github/workflows/build-index.yml): free on public repos ────────────────┐
+ ┌──────────────── GitHub Actions, nightly (.github/workflows/build-index.yml) ──────────────────────────────────────┐
  │                                                                                                                 │
  │  PyPI JSON Simple API ─► select versions ─► download + sha256 verify ─► safe extract ─► griffe STATIC load       │
  │  (PEP 691/700)          (coverage policy)   (200 MB cap)               (zip-slip guard,  (never import/exec)    │
@@ -93,12 +93,3 @@ The client logic lives in `distribution.ensure_index`:
   - `ServerMiddleware` applies anonymous limits before validation.
   - Over the limit, it returns a typed `CallToolResult(is_error=True)` (spec 2026-07-28 requires `resultType`) whose message points to `uvx deptime mcp`.
 - **Performance:** each call is a few indexed SQLite point reads; target p95 is under 20 ms in-process.
-
-## Costs
-
-| Piece | Cost |
-|---|---|
-| Nightly ingestion + publishing (GitHub Actions, public repo) | $0 |
-| Index hosting (GitHub Releases) | $0 |
-| PyPI | $0 |
-| Optional hosted instance | $0 (Cloud Run free tier) to about $3–6/month (Fly.io); see [05](05-hosting-and-sustainability.md) |

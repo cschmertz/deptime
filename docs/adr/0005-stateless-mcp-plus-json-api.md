@@ -4,13 +4,13 @@
 
 ## Context
 
-The current MCP spec (2026-07-28) carries the protocol version per request in `_meta` and adds a mandatory `server/discover`, so servers can be stateless. Some agents and scripts can't speak MCP. Metering must cover both surfaces.
+The current MCP spec (2026-07-28) carries the protocol version per request in `_meta` and adds a mandatory `server/discover`, so servers can be stateless. Some agents and scripts can't speak MCP. Rate limits must cover both surfaces.
 
 ## Decision
 
 - Serve MCP at `/mcp` with `MCPServer.streamable_http_app(stateless_http=True, json_response=True)`.
 - Add `/v1/<tool>` JSON routes (through `custom_route`) that call the same `DepTime` query layer and return the same models.
-- Meter MCP calls in a `ServerMiddleware`, which runs before validation for every `tools/call`. Meter REST calls with the same quota store in the route.
+- Rate-limit MCP calls in a `ServerMiddleware`, which runs before validation for every `tools/call`. Rate-limit REST calls with the same quota store in the route.
 
 ## Consequences
 

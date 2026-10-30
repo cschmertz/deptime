@@ -10,7 +10,7 @@ Pass: at most 10% false absent overall (docs/07 §S1). The rate over every runti
 
 The gate leaves out a plain module's imports from elsewhere in its package (`module / dir / package`): they're
 implementation, not the lazy or dynamic exports R1 is about, and the index excludes them by design. The rate under
-the rule as first agreed, with them in, is printed next to it (bench/s1/README.md, "Amendment").
+the pre-registered rule, with them in, is printed next to it (bench/s1/README.md, "Amendment").
 """
 
 from __future__ import annotations
@@ -141,7 +141,7 @@ def main() -> int:
     print(f"# S1 false-absent rate (DT-SPIKE-01), index built {store.built_at()}\n")
     print(f"**{verdict}**: sampled {rate(missed, sampled)} (pass at <= {PASS_RATE:.0%}).\n")
     print(f"- {removed} of the misses are names seen in other releases, so they would read as removed.")
-    print(f"- Rule as first agreed (plain-module package imports in): {strict}.")
+    print(f"- Pre-registered rule (plain-module package imports in): {strict}.")
     for stratum in ("init", "module"):
         print(f"- {stratum}: {rate(by_stratum[stratum, 'missed'], by_stratum[stratum, 'sampled'])}")
     print("\n| package | releases | sampled | every runtime name |\n|---|---|---|---|")

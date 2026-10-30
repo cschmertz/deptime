@@ -18,7 +18,7 @@
 | API key (`DEPTIME_DEV_API_KEYS`) | Bearer secret | Logged only as a hashed id |
 | Client IP | Personal data in some jurisdictions | Truncated SHA-256 for rate limits (`metering._hash`); raw IPs are not stored by the app |
 
-- **What a public instance logs per call:** timestamp, tool, plan, hashed caller id, `signal.kind`, covered packages involved, finding `issue` types, confidence, latency.
+- **What a public instance logs per call:** timestamp, tool, caller type (anonymous or key), hashed caller id, `signal.kind`, covered packages involved, finding `issue` types, confidence, latency.
 - **Before running a public instance,** publish a short privacy notice that says exactly this (DT-HOST-04).
 
 ## Untrusted content we *ingest* (third-party packages)

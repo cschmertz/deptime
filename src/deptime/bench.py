@@ -40,7 +40,7 @@ class CaseResult:
 
     @property
     def passed(self) -> bool:
-        """Root cause and, where one is expected, boundary: the docs/06 accuracy criterion."""
+        """Root cause and, where one is expected, boundary: the benchmark's headline metric."""
         return self.root_cause and self.boundary is not False
 
 

@@ -95,7 +95,7 @@ uvx deptime index status | pull
 
 ## Hosting (optional)
 
-Local mode covers coding agents. For web clients that only accept a URL, or for a public demo, run `deptime serve` (MCP at `/mcp`, JSON at `/v1/*`) on Cloud Run (likely free) or Fly.io (about $3–6/month). It has a `Dockerfile` and `fly.toml`, plus anonymous rate limits. See [docs/05-hosting-and-sustainability.md](https://github.com/cschmertz/deptime/blob/main/docs/05-hosting-and-sustainability.md).
+Local mode covers coding agents. For web clients that only accept a URL, run `deptime serve` (MCP at `/mcp`, JSON at `/v1/*`) on any container host. The repo includes a `Dockerfile` and `fly.toml`, and the server applies anonymous rate limits. See [docs/05-self-hosting.md](https://github.com/cschmertz/deptime/blob/main/docs/05-self-hosting.md).
 
 ## Prior art and credits
 
@@ -115,7 +115,7 @@ uv run deptime ingest httpx --versions 0.27.2 0.28.1
 
 ## Docs
 
-[Product spec](https://github.com/cschmertz/deptime/blob/main/docs/03-product-spec.md) · [Architecture](https://github.com/cschmertz/deptime/blob/main/docs/04-architecture.md) · [Hosting & sustainability](https://github.com/cschmertz/deptime/blob/main/docs/05-hosting-and-sustainability.md) · [Launch & adoption](https://github.com/cschmertz/deptime/blob/main/docs/06-launch-and-adoption.md) · [Risks & spikes](https://github.com/cschmertz/deptime/blob/main/docs/07-risks-and-spikes.md) · [Privacy & security](https://github.com/cschmertz/deptime/blob/main/docs/08-privacy-and-security.md)
+[Product spec](https://github.com/cschmertz/deptime/blob/main/docs/03-product-spec.md) · [Architecture](https://github.com/cschmertz/deptime/blob/main/docs/04-architecture.md) · [Self-hosting](https://github.com/cschmertz/deptime/blob/main/docs/05-self-hosting.md) · [Risks & spikes](https://github.com/cschmertz/deptime/blob/main/docs/07-risks-and-spikes.md) · [Privacy & security](https://github.com/cschmertz/deptime/blob/main/docs/08-privacy-and-security.md)
 
 ## License
 

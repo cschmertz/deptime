@@ -17,6 +17,6 @@ Language models may be used **offline** only, for example to propose curated mig
 
 ## Consequences
 
-- The marginal cost per call is about $0, and answering needs no model API key or network call.
+- Answering needs no model API key, network call or per-call spend.
 - Answers are reproducible and testable, so the benchmark can run in CI.
 - Explanations are templated, not eloquent. That's fine, because the consumer is an agent.

@@ -16,5 +16,5 @@ Queries are point lookups: does path P exist at release R, what were P's events,
 
 - Storage is proportional to the number of changes. Queries are indexed point reads.
 - Deployment is "copy one file", and hot swap is an atomic rename plus reopen.
-- Usage and billing data live in a **separate** read-write DB, so the index stays immutable.
+- Hosted-mode rate-limit state lives outside the index (in memory today), so the index stays immutable.
 - Inserting a release in the middle of a package's history means rebuilding that package from snapshots. That's cheap, and it's the expected path.

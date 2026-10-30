@@ -6,7 +6,7 @@
 
 The tool is most useful when anyone can run it, free and locally, without an account or a key.
 
-Coding agents are the primary users, and they all run local (stdio) MCP servers. Hosting costs money and needs privacy policies for tracebacks.
+Coding agents are the primary users, and they all run local (stdio) MCP servers. A hosted service would receive users' tracebacks and need a privacy policy.
 
 The index is read-only data that changes daily, so it can be shipped as a file.
 
@@ -25,12 +25,12 @@ The index is read-only data that changes daily, so it can be shipped as a file.
    - Verify sha256, validate the schema, replace atomically.
    - Never auto-replace a locally built index.
    - `DEPTIME_OFFLINE=1` disables all network access.
-5. **Hosted mode remains** (`deptime serve`, ADR 0005) as an option for web clients and demos (see [05](../05-hosting-and-sustainability.md)), with anonymous rate limits whose message points to local use.
+5. **Hosted mode remains** (`deptime serve`, ADR 0005) as an option for web clients and demos (see [05](../05-self-hosting.md)), with anonymous rate limits whose message points to local use.
 
 ## Consequences
 
-- **$0 baseline cost.** Privacy is a selling point rather than a compliance burden.
-- **No usage telemetry.** Adoption is measured through release-asset download counts, PyPI stats, stars and contributors (docs/06).
+- **No server by default.** Tracebacks never leave the user's machine.
+- **No usage telemetry.**
 - **Distribution chain:** the index URL depends on the repo being published as `cschmertz/deptime` (`config.DEFAULT_INDEX_URL`, overridable with `DEPTIME_INDEX_URL`).
 - **stdout belongs to the protocol in stdio mode.** All logging goes to stderr, and `tests/test_stdio.py` guards this.
 - **Windows:** replacing an index file that's open may fail. Tracked as DT-OSS-08.

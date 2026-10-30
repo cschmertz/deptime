@@ -31,9 +31,9 @@ A release whose top-level import fails offline isn't a sample; its slot moves on
 
 ### Amendment (2026-10-29, after the first run)
 
-The gate leaves out the `module / dir / package` shape: a plain module's imports from elsewhere in its own package, such as `huggingface_hub.hf_api.hf_hub_url` or `langchain_core.prompt_values.Serializable`. Every report still prints the rate under the rule as first agreed.
+The gate leaves out the `module / dir / package` shape: a plain module's imports from elsewhere in its own package, such as `huggingface_hub.hf_api.hf_hub_url` or `langchain_core.prompt_values.Serializable`. Every report still prints the rate under the pre-registered rule.
 
-On the first run (40914120420, 49 releases), the rule as first agreed gave 513/2,352 = 21.8%. Of those 513 misses, 398 had this shape (94.9% of its 22,494 runtime names).
+On the first run (40914120420, 49 releases), the pre-registered rule gave 513/2,352 = 21.8%. Of those 513 misses, 398 had this shape (94.9% of its 22,494 runtime names).
 
 **Why:** these names are implementation, not the lazy or dynamic exports that R1 is about. The index excludes them on purpose (`snapshot._Walker._public`). Only 30 of the 398 would have read as removed; the rest would come out as `never_existed`.
 
@@ -41,7 +41,7 @@ On the first run (40914120420, 49 releases), the rule as first agreed gave 513/2
 
 ## Results
 
-- **2026-10-29: passed, 123/2,428 = 5.1%** (run 40915960477, `results-2026-10-29.md`). Under the rule as first agreed, the rate is 549/2,452 = 22.4%. The misses are assigned in BACKLOG under DT-SPIKE-01.
+- **2026-10-29: passed, 123/2,428 = 5.1%** (run 40915960477, `results-2026-10-29.md`). Under the pre-registered rule, the rate is 549/2,452 = 22.4%. The misses are assigned in BACKLOG under DT-SPIKE-01.
 - **Release substitutions:**
   - litellm 0.1.0 declares a dependency on `os`, which isn't on PyPI, so 0.1.1 was probed instead.
   - litellm 1.14.4 downloads a tokenizer at import time, and its slot fell back to 1.53.1. PyPI no longer has 1.15–1.52, so that's the nearest release.

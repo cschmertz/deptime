@@ -43,6 +43,12 @@ def _clean(target: str) -> str:
     return target.removesuffix("()").strip(".`'\" ")
 
 
+def _private(target: str) -> bool:
+    """`numpy._core.numeric`, `numpy.linalg._linalg`: DepTime indexes public API only, and a deprecation that names
+    where the code went privately (numpy 2's shims) still means "use the public name"."""
+    return any(part.startswith("_") and not part.endswith("__") for part in target.split("."))
+
+
 def mine(message: str | None) -> list[Hint]:
     """Replacement candidates for a whole symbol, best first, deduplicated."""
     if not message:
@@ -50,11 +56,12 @@ def mine(message: str | None) -> list[Hint]:
     hints: dict[str, Hint] = {}
     evidence = message.strip()[:300]
     for m in LANGCHAIN_ALTERNATIVE_RE.finditer(message):
-        hints.setdefault(_clean(m.group("t")), Hint(_clean(m.group("t")), 0.9, evidence))
+        if not _private(t := _clean(m.group("t"))):
+            hints.setdefault(t, Hint(t, 0.9, evidence))
     for pattern, conf in PATTERNS:
         for m in pattern.finditer(message):
             t = _clean(m.group("t"))
-            if t and t.lower() not in STOPWORDS and t not in hints:
+            if t and t.lower() not in STOPWORDS and t not in hints and not _private(t):
                 hints[t] = Hint(t, conf, evidence)
     return sorted(hints.values(), key=lambda h: -h.confidence)
 

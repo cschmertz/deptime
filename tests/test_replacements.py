@@ -68,3 +68,14 @@ def test_param_level_mismatched_quotes():
     # Real langchain-core text opens with a backtick and closes with an apostrophe.
     msg = "`input_variables' is deprecated and ignored."
     assert _targets(param_deprecations(msg, ["template_file", "input_variables"])) == {"input_variables": []}
+
+
+def test_private_names_are_never_advice():
+    # numpy 2's `numpy.linalg.linalg` and `numpy.core` shims name the private module they were renamed to.
+    msg = (
+        "The numpy.linalg.linalg has been made private and renamed to numpy.linalg._linalg. All public functions "
+        "exported by it are available from numpy.linalg. Please use numpy.linalg.det instead."
+    )
+    assert [h.target for h in mine(msg)] == ["numpy.linalg.det"]
+    assert mine("numpy.core is deprecated and has been renamed to numpy._core.") == []
+    assert mine("Use `Client.__call__` instead.")[0].target == "Client.__call__"  # a dunder isn't private

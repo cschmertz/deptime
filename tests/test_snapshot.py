@@ -120,6 +120,49 @@ STUBS = {
 }
 
 
+# numpy 1.25's chain to `numpy.product`: stubs that only annotate `__all__`, and `.py` files that build it with
+# `.extend()`, `+=` and a helper that appends another module's `__all__`; griffe reads none of these.
+RUNTIME_ALL = {
+    "rtall/__init__.py": (
+        "from rtall import core\n"
+        "from rtall.core import *\n"
+        "from rtall import lib\n"
+        "from rtall.lib import *\n\n"
+        "__all__ = ['core', 'lib']\n"
+        "__all__.extend(core.__all__)\n"
+        "__all__.extend(lib.__all__)\n"
+    ),
+    "rtall/__init__.pyi": (
+        "from rtall.core.fromnumeric import sum as sum\n\n__all__: list[str]\n\nArrayLike = object\n"
+    ),
+    "rtall/core/__init__.py": (
+        "from rtall.core import numeric\nfrom rtall.core.numeric import *\n\n__all__ = []\n__all__ += numeric.__all__\n"
+    ),
+    "rtall/core/numeric.py": (
+        "from rtall.core import fromnumeric\n"
+        "from rtall.core.fromnumeric import *\n"
+        "from rtall.core._compiled import *  # no source to read\n\n"
+        "__all__ = ['ones', 'dragon']\n\n\n"
+        "def extend_all(module):\n"
+        "    existing = set(__all__)\n"
+        "    for a in getattr(module, '__all__'):\n"
+        "        if a not in existing:\n"
+        "            __all__.append(a)\n\n\n"
+        "def ones(shape):\n    pass\n\n\n"
+        "extend_all(fromnumeric)\n"
+    ),
+    "rtall/core/fromnumeric.py": (
+        "__all__ = ['sum', 'product']\n\n\ndef sum(a):\n    pass\n\n\ndef product(a):\n    pass\n"
+    ),
+    "rtall/core/numeric.pyi": "__all__: list[str]\n\n\ndef ones(shape: tuple[int, ...]) -> object: ...\n",
+    "rtall/core/fromnumeric.pyi": "__all__: list[str]\n\n\ndef sum(a: object) -> object: ...\n",
+    "rtall/lib/__init__.py": (
+        "import math\n\n__all__ = ['math', 'tool']\n\n\ndef tool():\n    pass\n\n\nclass NumpyVersion:\n    pass\n"
+    ),
+    "rtall/lib/__init__.pyi": "__all__: list[str]\n\n\ndef tool() -> None: ...\n\n\nclass NumpyVersion: ...\n",
+}
+
+
 # numpy 2's `ndarray`: `__init__.py` imports it from compiled code, and `__init__.pyi` defines most of its methods
 # (`reshape`, `astype`, `item`) and some module functions only through `@overload`, with no implementation.
 OVERLOADS = {
@@ -376,6 +419,25 @@ def test_stub_redefined_init_imports_are_public(tmp_path):
     assert {"stubby.add", "stubby.float64"} <= paths
     assert [p["name"] for p in snap.symbols["stubby.add"].params] == ["x", "y"]
     assert not {"stubby._private", "stubby.TypeAlias"} & paths
+
+
+def test_names_a_runtime_all_lists_are_public(tmp_path):
+    # DT-DATA-25: `numpy.product` looked removed in 1.25.0, when numpy's stub dropped it, instead of 2.0.0.
+    snap = build_snapshot("rtall", "1.0", ["rtall"], _write(tmp_path, RUNTIME_ALL))
+    found = {p: (r.kind, r.canonical) for p, r in snap.symbols.items()}
+    for path in ("rtall.product", "rtall.core.product", "rtall.core.numeric.product"):
+        assert found[path] == ("function", "rtall.core.fromnumeric.product")
+    assert found["rtall.core.ones"] == ("function", "rtall.core.numeric.ones")
+    # Names with nothing to read stay present, as unresolved aliases: compiled code, the standard library.
+    assert found["rtall.core.numeric.dragon"] == ("alias", "rtall.core._compiled.dragon")
+    assert found["rtall.dragon"] == ("alias", "rtall.core._compiled.dragon")
+    assert found["rtall.lib.math"] == ("alias", "math")
+    assert found["rtall.math"] == ("alias", "math")
+    # Additive only: what was public stays public (the 2026-10-30 attempt lost `numpy.lib.NumpyVersion`).
+    assert found["rtall.sum"] == ("function", "rtall.core.fromnumeric.sum")
+    assert {"rtall.ArrayLike", "rtall.lib.NumpyVersion", "rtall.lib.tool", "rtall.tool"} <= set(found)
+    # A star import griffe couldn't expand isn't a name (the index had `numpy.core.multiarray.numpy/core/...*`).
+    assert not [p for p in found if "*" in p]
 
 
 def test_overload_only_stub_functions_are_indexed(tmp_path):

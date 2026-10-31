@@ -18,7 +18,7 @@ from typing import Any
 
 import griffe
 
-SNAPSHOT_FORMAT = 6  # bump when extraction changes: cached snapshots in another format are rebuilt
+SNAPSHOT_FORMAT = 7  # bump when extraction changes: cached snapshots in another format are rebuilt
 MAX_DEPTH = 12  # guards pathological re-export cycles
 
 DEPRECATED_DECORATOR_RE = re.compile(r"^(?:[\w.]+\.)?deprecated\b(?:\((?P<args>.*)\))?$", re.S)
@@ -426,6 +426,252 @@ def module_imports(mod: griffe.Module) -> _Imports:
     return _Imports(frozenset(redundant), frozenset(plain), imports_only)
 
 
+# `__all__` built by code rather than written out: a method call, `+=`, or a value that isn't a literal.
+_ALL_IN_CODE_RE = re.compile(r"__all__\s*(?:\.\s*\w+\s*\(|\+=|=\s*(?![\s\[(=]))")
+
+
+@dataclass(frozen=True)
+class _Exports:
+    names: frozenset[str] | None  # None: the source never binds `__all__`
+    stars: tuple[str, ...]  # modules the source star-imports, in order
+
+
+def _module_at(mod: griffe.Module, path: str) -> griffe.Module | None:
+    try:
+        found = _resolve(mod.modules_collection.get_member(path))
+    except (KeyError, ValueError, griffe.AliasResolutionError, griffe.CyclicAliasError):
+        return None
+    return found if found is not None and found.is_module else None  # type: ignore[return-value]
+
+
+def _appends_module_all(func: ast.FunctionDef) -> bool:
+    """numpy's `extend_all(module)`: a one-argument helper that appends that module's `__all__` to `__all__`."""
+    args = func.args.posonlyargs + func.args.args
+    if len(args) != 1:
+        return False
+    param = args[0].arg
+    appends = reads = False
+    for node in ast.walk(func):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            owner = node.func.value
+            if (
+                isinstance(owner, ast.Name)
+                and owner.id == "__all__"
+                and node.func.attr in {"append", "extend"}
+            ):
+                appends = True
+        if isinstance(node, ast.Attribute) and node.attr == "__all__":
+            reads |= isinstance(node.value, ast.Name) and node.value.id == param
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "getattr":
+            reads |= (
+                len(node.args) >= 2
+                and isinstance(node.args[0], ast.Name)
+                and node.args[0].id == param
+                and isinstance(node.args[1], ast.Constant)
+                and node.args[1].value == "__all__"
+            )
+    return appends and reads
+
+
+class _RuntimeAll:
+    """The names a module's `.py` source surely puts in `__all__` at runtime, read with `ast` (DT-DATA-25).
+
+    griffe reads a literal `__all__` and `+=` of literals or of another module's `__all__`, but a stub's bare
+    `__all__: list[str]` replaces that with an empty list, and `.extend()`, `.append()`, helpers and computed
+    values aren't read at all. numpy builds its `__all__` with all of these, so `numpy.product` (1.25 to 1.26) and
+    most of `numpy.core` were missing. This follows literals, `+`, `|`, `+=`, `.extend/.append/.insert/.remove`,
+    `list/set/sorted/tuple(...)`, `.copy()`, `[:]`, another module's `__all__` (`fields.__all__`, or django's
+    `from .fields import __all__ as fields_all`) and a helper like numpy's `extend_all(module)`. Anything else adds
+    nothing, so the result is a lower bound: callers add these names to what is already public and never take
+    any away. django's `__all__ = aggregates_all + fields_all + ...` left `django.db.models.CharField` missing.
+    """
+
+    def __init__(self) -> None:
+        self.cache: dict[str, _Exports] = {}
+        self.active: set[str] = set()
+
+    @staticmethod
+    def needed(mod: griffe.Module) -> bool:
+        """Whether griffe may have misread `mod.__all__`: a stub replaced it, or code builds it."""
+        path = mod.filepath
+        if not isinstance(path, Path) or path.suffix != ".py":
+            return False
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return False
+        return "__all__" in text and (path.with_suffix(".pyi").exists() or bool(_ALL_IN_CODE_RE.search(text)))
+
+    def of(self, mod: griffe.Module) -> _Exports:
+        if mod.path in self.cache:
+            return self.cache[mod.path]
+        if mod.path in self.active:
+            return _Exports(frozenset(), ())  # an import cycle: assume nothing
+        self.active.add(mod.path)
+        try:
+            tree = _source_tree(mod)
+            found = _AllReader(self, mod).read(tree.body) if tree is not None else _Exports(None, ())
+        finally:
+            self.active.discard(mod.path)
+        self.cache[mod.path] = found
+        return found
+
+
+class _AllReader:
+    def __init__(self, runtime: _RuntimeAll, mod: griffe.Module):
+        self.runtime = runtime
+        self.mod = mod
+        self.bound: dict[str, str] = {}  # local name -> the dotted path an import bound it to
+        self.lists: dict[str, set[str]] = {}  # module-level names bound to a list of strings
+        self.helpers: set[str] = set()
+        self.names: set[str] | None = None
+        self.stars: list[str] = []
+
+    def read(self, body: list[ast.stmt]) -> _Exports:
+        self.block(body)
+        return _Exports(None if self.names is None else frozenset(self.names), tuple(self.stars))
+
+    def absolute(self, level: int, module: str | None) -> str:
+        if level == 0:
+            return module or ""
+        parts = self.mod.path.split(".")
+        parts = parts[: len(parts) - level + (1 if self.mod.is_init_module else 0)]
+        return ".".join([*parts, module] if module else parts)
+
+    def block(self, body: list[ast.stmt]) -> None:
+        for st in body:
+            self.statement(st)
+
+    def statement(self, st: ast.stmt) -> None:
+        if isinstance(st, ast.If):  # numpy builds `__all__` in the `else:` of `if __NUMPY_SETUP__:`
+            before = None if self.names is None else set(self.names)
+            self.block(st.body)
+            after_body, self.names = self.names, None if before is None else set(before)
+            self.block(st.orelse)
+            if after_body != before and self.names != before:  # both branches change it: either may run
+                self.names = (after_body or set()) & (self.names or set())
+            elif after_body != before:
+                self.names = after_body
+        elif isinstance(st, ast.Try):
+            self.block(st.body + st.orelse + st.finalbody)
+        elif isinstance(st, (ast.With, ast.AsyncWith)):
+            self.block(st.body)
+        elif isinstance(st, ast.Import):
+            for alias in st.names:
+                local = alias.asname or alias.name.split(".")[0]
+                self.bound[local] = alias.name if alias.asname else local
+        elif isinstance(st, ast.ImportFrom):
+            source = self.absolute(st.level, st.module)
+            for alias in st.names:
+                if alias.name == "*":
+                    self.stars.append(source)
+                else:
+                    self.bound[alias.asname or alias.name] = f"{source}.{alias.name}"
+        elif isinstance(st, ast.FunctionDef) and _appends_module_all(st):
+            self.helpers.add(st.name)
+        elif isinstance(st, (ast.Assign, ast.AnnAssign)) and st.value is not None:
+            targets = st.targets if isinstance(st, ast.Assign) else [st.target]
+            for target in targets:
+                if isinstance(target, ast.Name) and target.id == "__all__":
+                    self.names = self.value(st.value)
+                elif isinstance(target, ast.Name):
+                    self.lists[target.id] = self.value(st.value)
+        elif isinstance(st, ast.AugAssign) and isinstance(st.target, ast.Name) and st.target.id == "__all__":
+            if isinstance(st.op, (ast.Add, ast.BitOr)):
+                self.names = (self.names or set()) | self.value(st.value)
+            else:
+                self.names = set()
+        elif isinstance(st, ast.Expr) and isinstance(st.value, ast.Call):
+            self.call(st.value)
+        elif isinstance(st, (ast.For, ast.While, ast.Delete)):
+            # A loop may add names we can't read (fine for a lower bound), but one that removes them isn't.
+            touches = any(isinstance(node, ast.Name) and node.id == "__all__" for node in ast.walk(st))
+            if touches and self.names is not None and not self._only_appends(st):
+                self.names = set()
+
+    @staticmethod
+    def _only_appends(st: ast.stmt) -> bool:
+        return not isinstance(st, ast.Delete) and not any(
+            isinstance(n, ast.Call)
+            and isinstance(n.func, ast.Attribute)
+            and isinstance(n.func.value, ast.Name)
+            and n.func.value.id == "__all__"
+            and n.func.attr not in {"append", "extend", "insert"}
+            for n in ast.walk(st)
+        )
+
+    def call(self, node: ast.Call) -> None:
+        func = node.func
+        if (
+            isinstance(func, ast.Attribute)
+            and isinstance(func.value, ast.Name)
+            and func.value.id == "__all__"
+        ):
+            names = self.names if self.names is not None else set()
+            if func.attr == "extend" and len(node.args) == 1:
+                names |= self.value(node.args[0])
+            elif func.attr in {"append", "insert"} and node.args:
+                names |= self.value(node.args[-1]) if isinstance(node.args[-1], ast.Constant) else set()
+            elif func.attr in {"remove", "discard"} and len(node.args) == 1:
+                names -= self.value(node.args[0])
+            elif func.attr in {"pop", "clear"}:
+                names = set()
+            self.names = names
+        elif isinstance(func, ast.Name) and func.id in self.helpers and len(node.args) == 1:
+            self.names = (self.names or set()) | self.value(
+                ast.Attribute(node.args[0], "__all__", ast.Load())
+            )
+
+    def module_of(self, node: ast.expr) -> griffe.Module | None:
+        if isinstance(node, ast.Name) and node.id in self.bound:
+            return _module_at(self.mod, self.bound[node.id])
+        if isinstance(node, ast.Attribute) and (base := self.module_of(node.value)) is not None:
+            return _module_at(self.mod, f"{base.path}.{node.attr}")
+        return None
+
+    def value(self, node: ast.expr) -> set[str]:
+        if isinstance(node, ast.Constant):
+            return {node.value} if isinstance(node.value, str) else set()
+        if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
+            return set().union(*(self.value(e.value if isinstance(e, ast.Starred) else e) for e in node.elts))
+        if isinstance(node, ast.Name):
+            if node.id == "__all__":
+                return set(self.names or ())
+            bound = self.bound.get(node.id, "")
+            if bound.endswith(".__all__"):  # `from .aggregates import __all__ as aggregates_all` (django)
+                source = _module_at(self.mod, bound.removesuffix(".__all__"))
+                return set(self.runtime.of(source).names or ()) if source is not None else set()
+            return set(self.lists.get(node.id, ()))
+        if isinstance(node, ast.Attribute) and node.attr == "__all__":
+            source = self.module_of(node.value)
+            return set(self.runtime.of(source).names or ()) if source is not None else set()
+        if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Add, ast.BitOr)):
+            return self.value(node.left) | self.value(node.right)
+        if isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Slice):
+            return self.value(node.value) if node.slice.lower is None and node.slice.upper is None else set()
+        if isinstance(node, ast.Call):
+            func = node.func
+            conversion = {"list", "set", "sorted", "tuple", "frozenset"}
+            if (
+                isinstance(func, ast.Name)
+                and func.id in conversion
+                and len(node.args) == 1
+                and not node.keywords
+            ):
+                return self.value(node.args[0])
+            if isinstance(func, ast.Attribute) and func.attr == "copy" and not node.args:
+                return self.value(func.value)
+            if (
+                isinstance(func, ast.Name)
+                and func.id == "getattr"
+                and len(node.args) == 2
+                and isinstance(node.args[1], ast.Constant)
+                and node.args[1].value == "__all__"
+            ):
+                return self.value(ast.Attribute(node.args[0], "__all__", ast.Load()))
+        return set()
+
+
 def _within(path: str, prefix: str) -> bool:
     return path == prefix or path.startswith(prefix + ".")
 
@@ -451,12 +697,49 @@ class _Walker:
         self.visiting: set[tuple[str, str]] = set()
         self.shims: dict[str, dict[str, str | None]] = {}
         self.imports: dict[str, _Imports] = {}
+        self.runtime_all = _RuntimeAll()
+        self.exported: dict[str, frozenset[str]] = {}
 
     def _internal(self, canonical: str) -> bool:
         return any(canonical == r or canonical.startswith(r + ".") for r in self.roots)
 
     def record(self, rec: SymbolRecord) -> None:
         self.snap.symbols.setdefault(rec.path, rec)
+
+    def _exported(self, mod: griffe.Module) -> frozenset[str]:
+        """Names `mod`'s runtime `__all__` lists, where griffe may have read it wrong (DT-DATA-25)."""
+        if mod.path not in self.exported:
+            names = self.runtime_all.of(mod).names if _RuntimeAll.needed(mod) else None
+            self.exported[mod.path] = frozenset(n for n in names or () if n.isidentifier())
+        return self.exported[mod.path]
+
+    def _star_exports(self, mod: griffe.Module, name: str) -> bool:
+        """Whether `from mod import *` binds `name`."""
+        names = self.runtime_all.of(mod).names
+        if names is not None:
+            return name in names
+        return not name.startswith("_") and name in mod.members  # without `__all__`, imports count too
+
+    def _from_stars(
+        self, mod: griffe.Module, name: str, seen: frozenset[str] = frozenset()
+    ) -> griffe.Object | griffe.Alias | str | None:
+        """What `mod`'s star imports bind `name` to, the last one first, as Python does: the member griffe has,
+        or for a star import of code griffe can't read (compiled, or another distribution) that module's path."""
+        unread = None
+        for source in reversed(self.runtime_all.of(mod).stars):
+            target = _module_at(mod, source)
+            if target is None:
+                unread = unread or f"{source}.{name}"
+                continue
+            if target.path in seen or not self._star_exports(target, name):
+                continue
+            member = target.members.get(name)
+            if member is not None:
+                return member
+            found = self._from_stars(target, name, seen | {mod.path})
+            if found is not None:
+                return found
+        return unread
 
     def module(self, mod: griffe.Module, public_path: str, depth: int = 0) -> None:
         key = (mod.path, public_path)
@@ -465,9 +748,18 @@ class _Walker:
         self.visiting.add(key)
         self.record(SymbolRecord(public_path, "module", mod.path))
         reexporter = mod.path if public_path == mod.path and mod.is_init_module else None
+        exported = self._exported(mod)
         for name, member in list(mod.members.items()):
-            if self._public(mod, name, member, reexporter):
+            if member.is_alias and member.wildcard:  # type: ignore[union-attr]  # a star import griffe couldn't expand
+                continue
+            if name in exported or self._public(mod, name, member, reexporter):
                 self.member(member, f"{public_path}.{name}", depth, reexporter)
+        for name in sorted(exported - mod.members.keys()):
+            found = self._from_stars(mod, name)
+            if isinstance(found, str):
+                self.record(SymbolRecord(f"{public_path}.{name}", "alias", found))
+            elif found is not None:
+                self.member(found, f"{public_path}.{name}", depth, reexporter)
         hook = mod.members.get("__getattr__")
         if hook is not None and not hook.is_alias:
             if mod.path not in self.shims:

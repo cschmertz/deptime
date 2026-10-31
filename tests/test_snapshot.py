@@ -120,6 +120,53 @@ STUBS = {
 }
 
 
+# numpy 2's `ndarray`: `__init__.py` imports it from compiled code, and `__init__.pyi` defines most of its methods
+# (`reshape`, `astype`, `item`) and some module functions only through `@overload`, with no implementation.
+OVERLOADS = {
+    "overly/__init__.py": "from overly._core import ndarray, where\nfrom overly.impl import pick\n",
+    "overly/_core.py": "from overly._umath import *  # compiled: no source to read\n",
+    "overly/__init__.pyi": (
+        "from typing import Any, overload\n"
+        "from typing_extensions import deprecated\n\n"
+        "class _Common:\n"
+        "    @overload\n"
+        "    def astype(self, dtype: int, order: str = ..., *, copy: bool = ...) -> int: ...\n"
+        "    @overload\n"
+        "    def astype(self, dtype: str, order: str = ..., casting: str = ...) -> str: ...\n\n"
+        "class ndarray(_Common):\n"
+        "    def fill(self, value: Any) -> None: ...\n"
+        "    @overload\n"
+        "    def reshape(self, shape: int, /, *, order: str = ...) -> ndarray: ...\n"
+        "    @overload\n"
+        "    def reshape(self, *shape: int, order: str = ...) -> ndarray: ...\n"
+        "    @overload\n"
+        '    @deprecated("`ndarray.itemset` is deprecated, use `a[index] = value`")\n'
+        "    def itemset(self, value: Any, /) -> None: ...\n"
+        "    @overload\n"
+        '    @deprecated("`ndarray.itemset` is deprecated, use `a[index] = value`")\n'
+        "    def itemset(self, index: int, value: Any, /) -> None: ...\n"
+        "    @overload\n"
+        "    def item(self) -> Any: ...\n"
+        "    @overload\n"
+        '    @deprecated("passing `args` is deprecated")\n'
+        "    def item(self, *args: int) -> Any: ...\n\n"
+        "@overload\n"
+        "def where(condition: Any, /) -> tuple[Any, ...]: ...\n"
+        "@overload\n"
+        "def where(condition: Any, x: Any, y: Any, /) -> Any: ...\n"
+    ),
+    "overly/impl.py": (
+        "from typing import overload\n\n\n"
+        "@overload\n"
+        "def pick(x: int) -> int: ...\n"
+        "@overload\n"
+        "def pick(x: str, strict: bool) -> str: ...\n"
+        "def pick(x, strict=False, *, fallback=None):\n"
+        "    return x\n"
+    ),
+}
+
+
 # pydantic 1.10's `types.py`: type checkers see `StrictBool = bool`; at runtime the `else:` branch defines the class,
 # and the package re-exports it with `from .types import *` (pydantic 2's `NaiveDatetime` has the same shape).
 GUARDED = {
@@ -329,6 +376,54 @@ def test_stub_redefined_init_imports_are_public(tmp_path):
     assert {"stubby.add", "stubby.float64"} <= paths
     assert [p["name"] for p in snap.symbols["stubby.add"].params] == ["x", "y"]
     assert not {"stubby._private", "stubby.TypeAlias"} & paths
+
+
+def test_overload_only_stub_functions_are_indexed(tmp_path):
+    # DT-DATA-29: griffe keeps `@overload` signatures aside until an implementation follows, and a stub has none, so
+    # `numpy.ndarray.reshape`, `astype` and `itemset` were missing from the index.
+    snap = build_snapshot("overly", "1.0", ["overly"], _write(tmp_path, OVERLOADS))
+
+    def sig(path: str) -> list[tuple[str, str, bool]]:
+        rec = snap.symbols[path]
+        assert rec.kind == "function", path
+        return [(p["name"], p["kind"], p["default"] is None) for p in rec.params]
+
+    # One signature that accepts every overload's call: a parameter is required only when every overload requires it.
+    assert sig("overly.ndarray.reshape") == [
+        ("shape", "positional-only", False),
+        ("order", "keyword-only", False),
+    ]
+    assert sig("overly.ndarray.astype") == [  # inherited
+        ("dtype", "positional or keyword", True),
+        ("order", "positional or keyword", False),
+        ("copy", "keyword-only", False),
+        ("casting", "positional or keyword", False),
+    ]
+    # Annotated as griffe annotates an implementation from its overloads.
+    assert [p["annotation"] for p in snap.symbols["overly.ndarray.astype"].params] == [
+        "int | str",
+        "str",
+        "bool",
+        "str",
+    ]
+    assert sig("overly.where") == [
+        ("condition", "positional-only", True),
+        ("x", "positional-only", False),
+        ("y", "positional-only", False),
+    ]
+    assert sig("overly.ndarray.fill") == [("value", "positional or keyword", True)]
+    # Deprecated only when every overload is: one deprecated call form isn't the function's deprecation.
+    assert (
+        "`ndarray.itemset` is deprecated, use `a[index] = value`"
+        in snap.symbols["overly.ndarray.itemset"].deprecated
+    )
+    assert snap.symbols["overly.ndarray.item"].deprecated is None
+    # With an implementation, its signature stands, as before.
+    assert sig("overly.pick") == [
+        ("x", "positional or keyword", True),
+        ("strict", "positional or keyword", False),
+        ("fallback", "keyword-only", False),
+    ]
 
 
 def test_the_else_branch_of_type_checking_is_runtime(tmp_path):

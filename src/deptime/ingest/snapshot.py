@@ -18,7 +18,7 @@ from typing import Any
 
 import griffe
 
-SNAPSHOT_FORMAT = 5  # bump when extraction changes: cached snapshots in another format are rebuilt
+SNAPSHOT_FORMAT = 6  # bump when extraction changes: cached snapshots in another format are rebuilt
 MAX_DEPTH = 12  # guards pathological re-export cycles
 
 DEPRECATED_DECORATOR_RE = re.compile(r"^(?:[\w.]+\.)?deprecated\b(?:\((?P<args>.*)\))?$", re.S)
@@ -606,6 +606,90 @@ class _RuntimeElse(griffe.Extension):
             alias.runtime = True
 
 
+_NAMED_KINDS = frozenset(
+    {
+        griffe.ParameterKind.positional_only,
+        griffe.ParameterKind.positional_or_keyword,
+        griffe.ParameterKind.keyword_only,
+    }
+)
+
+
+def _annotation_union(params: list[griffe.Parameter]) -> str | griffe.Expr | None:
+    """The overloads' distinct annotations joined with `|`, as griffe annotates an implementation from its overloads:
+    an unannotated `.py` implementation this stub function is merged into gets the annotations it had before."""
+    distinct: list[griffe.Expr] = []
+    for p in params:
+        if isinstance(p.annotation, griffe.Expr) and all(str(p.annotation) != str(a) for a in distinct):
+            distinct.append(p.annotation)
+    if len(distinct) < 2:
+        return distinct[0] if distinct else None
+    union: griffe.Expr = distinct[0].modernize()
+    for right in distinct[1:]:
+        union = griffe.ExprBinOp(left=union, operator="|", right=right.modernize())
+    return union
+
+
+def _merged_parameters(overloads: list[griffe.Function]) -> griffe.Parameters:
+    """One signature that accepts every overload's call, as the implementation a stub leaves out must.
+
+    Names keep the order they first appear in. A parameter is required only when every overload requires it, and
+    takes both positional and keyword arguments when overloads pass it both ways.
+    """
+    by_name: dict[str, list[griffe.Parameter]] = {}
+    for overload in overloads:
+        for param in overload.parameters:
+            by_name.setdefault(param.name, []).append(param)
+    merged = []
+    for name, params in by_name.items():
+        named = {p.kind for p in params} & _NAMED_KINDS
+        if len(named) == 1:
+            kind = next(iter(named))
+        elif named:
+            kind = griffe.ParameterKind.positional_or_keyword
+        else:
+            kind = params[0].kind  # `*args` or `**kwargs` in every overload that has it
+        required = len(params) == len(overloads) and all(
+            p.default is None and p.kind in _NAMED_KINDS for p in params
+        )
+        default = None
+        if not required and kind in _NAMED_KINDS:
+            default = next((p.default for p in params if p.default is not None), "...")
+        merged.append(
+            griffe.Parameter(name, annotation=_annotation_union(params), kind=kind, default=default)
+        )
+    return griffe.Parameters(*merged)
+
+
+class _OverloadsOnly(griffe.Extension):
+    """griffe keeps `@overload` signatures aside until the implementation follows, and a stub has none: numpy 2's
+    `ndarray.reshape`, `astype` and `itemset` never became members, and merging the stub dropped them (DT-DATA-29).
+    Each such name becomes a function with the signature `_merged_parameters` gives. It is deprecated when every
+    overload is: one deprecated call form isn't the function's deprecation."""
+
+    def on_members(self, *, obj: griffe.Object, **kwargs: Any) -> None:
+        if not isinstance(obj, (griffe.Module, griffe.Class)):
+            return
+        for name, overloads in list(obj.overloads.items()):
+            if not overloads or name in obj.members:
+                continue
+            func = griffe.Function(
+                name,
+                lineno=overloads[0].lineno,
+                endlineno=overloads[-1].endlineno,
+                runtime=any(o.runtime for o in overloads),
+                docstring=next((o.docstring for o in overloads if o.docstring), None),
+                analysis="static",
+                parameters=_merged_parameters(overloads),
+            )
+            messages = [deprecation_message(o) for o in overloads]
+            if all(messages):
+                func.deprecated = messages[0]
+            func.overloads = overloads
+            obj.set_member(name, func)
+            del obj.overloads[name]
+
+
 def _clear_griffe_caches() -> None:
     """Empty griffe's module-level memo caches. They hold loaded objects, and through their parents the whole
     package, for the life of the process: the dataclasses extension's `_dataclass_parameters` kept one package
@@ -632,7 +716,7 @@ def build_snapshot(package: str, version: str, import_names: list[str], search_p
                     # None loads only a private sibling (`_pytest` for `pytest`), found in the same wheel because
                     # search_paths replaces sys.path; other distributions' names stay aliases.
                     resolve_external=None,
-                    extensions=griffe.load_extensions(_RuntimeElse()),
+                    extensions=griffe.load_extensions(_RuntimeElse(), _OverloadsOnly()),
                 )
             except Exception as exc:  # report and continue: one bad import name must not sink the release
                 snap.errors.append(f"load {import_name}: {type(exc).__name__}: {exc}")

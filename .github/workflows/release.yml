@@ -16,7 +16,7 @@ jobs:
     permissions:
       id-token: write # PyPI trusted publishing (no API token stored anywhere)
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
       # A PyPI version can never be reused, so refuse to publish when the tag and the package disagree.
       - name: Check the tag matches the package version
@@ -44,7 +44,7 @@ jobs:
     env:
       MCP_PUBLISHER_VERSION: v1.8.1
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
       - name: Download and verify mcp-publisher
         run: |

@@ -1,20 +1,20 @@
 {
-  "index_built_at": "2026-10-29T16:00:58+00:00",
+  "index_built_at": "2026-10-31T11:50:29+00:00",
   "summary": {
     "cases": 167,
-    "known_gap_share": 6.6,
+    "known_gap_share": 6.0,
     "overall": {
-      "root_cause": 94.0,
-      "root_cause_and_boundary": 93.4,
-      "boundary": 93.3,
+      "root_cause": 94.6,
+      "root_cause_and_boundary": 94.0,
+      "boundary": 93.9,
       "replacement": 21.8
     },
     "by_tier": {
       "A": {
         "cases": 81,
-        "root_cause": 95.1,
-        "root_cause_and_boundary": 95.1,
-        "boundary": 94.8,
+        "root_cause": 96.3,
+        "root_cause_and_boundary": 96.3,
+        "boundary": 96.1,
         "replacement": 22.2
       },
       "B": {
@@ -35,9 +35,9 @@
       },
       "reported": {
         "cases": 159,
-        "root_cause": 95.0,
-        "root_cause_and_boundary": 94.3,
-        "boundary": 94.3,
+        "root_cause": 95.6,
+        "root_cause_and_boundary": 95.0,
+        "boundary": 94.9,
         "replacement": 19.5
       }
     }
@@ -184,8 +184,8 @@
       "replacement": false
     },
     "fastmcp-server-proxy-module-removed-iac-server": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": false
     },
     "fastmcp-bearerauthprovider-removed-rabbitmq": {

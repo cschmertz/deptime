@@ -21,17 +21,17 @@
 ## Current state: public alpha, v0.1.3 (since 2026-10-29)
 
 - The repo is public. `uvx deptime mcp` installs from PyPI, and pushing a `v*` tag publishes through trusted publishing (`release.yml`).
-- `build-index` runs nightly at 04:17 UTC and replaces the rolling `index` release. The first full builds (2026-10-28) indexed 52 packages and 3,371 releases into a 78.9 MB `.gz`. The first `SNAPSHOT_FORMAT` 4 build (cold, 2026-10-29) took 40 minutes and holds 3,377 releases in 79.8 MB. The first whole-series build (DT-DATA-19, warm caches, 2026-10-29) took 38 minutes and holds 6,508 releases in 92.9 MB. The first `SNAPSHOT_FORMAT` 5 build (cold, 2026-10-30, DT-DATA-26 and DT-DATA-27) took 53 minutes and holds 6,513 releases in 92.9 MB.
-- Not covered yet: transformers (DT-DATA-16), fastmcp 3.3+ (DT-DATA-17), names numpy only creates at runtime, such as 1.x's `numpy.emath` (DT-DATA-02), and modules in folders without `__init__.py`, such as `litellm.types` (DT-DATA-23).
+- `build-index` runs nightly at 04:17 UTC and replaces the rolling `index` release. The first full builds (2026-10-28) indexed 52 packages and 3,371 releases into a 78.9 MB `.gz`. The first `SNAPSHOT_FORMAT` 4 build (cold, 2026-10-29) took 40 minutes and holds 3,377 releases in 79.8 MB. The first whole-series build (DT-DATA-19, warm caches, 2026-10-29) took 38 minutes and holds 6,508 releases in 92.9 MB. The first `SNAPSHOT_FORMAT` 5 build (cold, 2026-10-30, DT-DATA-26 and DT-DATA-27) took 53 minutes and holds 6,513 releases in 92.9 MB. The first build with DT-DATA-17 (warm caches, 2026-10-31) took 26 minutes and holds 6,564 releases in 93.3 MB.
+- Not covered yet: transformers (DT-DATA-16), names numpy only creates at runtime, such as 1.x's `numpy.emath` (DT-DATA-02), and modules in folders without `__init__.py`, such as `litellm.types` (DT-DATA-23).
 
-**Benchmark (2026-10-29):** 159 real tracebacks from 47 packages (`bench/`), on the whole-series index: root cause 95.0%, root cause + boundary 94.3%, replacement 19.5% (from 93.7% and 83.6% on the first `SNAPSHOT_FORMAT` 4 index, 89.9% and 76.7% on format 3, and 78.0% and 64.8% before DT-CORE-19 and DT-CORE-05). The whole-series index made the 17 DT-DATA-19 cases pass and changed no other case, and the `SNAPSHOT_FORMAT` 5 index (2026-10-30) changes no case. Above the 70% floor and the 80% target, but measured on the cases the fixes were designed from, so not yet a headline number (DT-QA-04). Each of the nine remaining real misses is assigned to an item below.
+**Benchmark (2026-10-31):** 159 real tracebacks from 47 packages (`bench/`), on the index built 2026-10-31: root cause 95.6%, root cause + boundary 95.0%, replacement 19.5% (from 95.0% and 94.3% before DT-DATA-17, 93.7% and 83.6% on the first `SNAPSHOT_FORMAT` 4 index, 89.9% and 76.7% on format 3, and 78.0% and 64.8% before DT-CORE-19 and DT-CORE-05). The whole-series index made the 17 DT-DATA-19 cases pass and changed no other case, the `SNAPSHOT_FORMAT` 5 index (2026-10-30) changes no case, and DT-DATA-17 (2026-10-31) made the fastmcp 4.0 `fastmcp.server.proxy` case pass and changed no other. Above the 70% floor and the 80% target, but measured on the cases the fixes were designed from, so not yet a headline number (DT-QA-04). Each of the eight remaining real misses is assigned to an item below.
 
 **S1 (DT-SPIKE-01) passed on 2026-10-29: 5.1% false absent** on 10 dynamic packages (bar: 10%), so there's no runtime fallback. Re-scored on the `SNAPSHOT_FORMAT` 5 index (2026-10-30): 4.2%, and 30 of the misses read as removed (from 37); langchain and pydantic are near zero (`bench/s1/results-2026-10-30.md`). The worst packages are numpy (21%) and litellm (16%), assigned to DT-DATA-25 and DT-DATA-23.
 
 **Still open for M1:** a benchmark number on fresh cases (DT-QA-04).
 
 **Next up**
-1. DT-DATA-17 (fastmcp 3.3+) and DT-OSS-07 (pin actions to SHAs, Dependabot, `pip-audit`).
+1. DT-OSS-07 (pin actions to SHAs, Dependabot, `pip-audit`).
 2. Re-measure the benchmark on fresh cases before quoting a number (DT-QA-04).
 
 ---
@@ -128,9 +128,10 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
 - [ ] **DT-DATA-16**: Store inherited members once per class, then index transformers again · `P1` `M` · deps: SPIKE-04
   - Why: transformers 5.21.0 has ~1.5M public paths, 87% of them inherited methods repeated across ~3,700 model classes (2026-10-28), so it was taken out of `coverage.toml`.
   - AC: snapshots record each class's own members and its bases; queries resolve `Class.member` through the bases; transformers is back in coverage with the `.gz` still under 100 MB.
-- [ ] **DT-DATA-17**: Follow a wrapper release to the distribution that holds its code · `P1` `S`
+- [x] **DT-DATA-17**: Follow a wrapper release to the distribution that holds its code · `P1` `S`
   - Why: since 3.3.0, `fastmcp` is an empty wheel that pins `fastmcp-slim==<same version>`, so its 31 newest releases have no snapshot (2026-10-28). typer 0.12.0 (`typer-slim`) and pinecone 2.2.2–5.0.1 (`pinecone-client`) have the same shape.
   - AC: when a release has no code for its import names and pins one distribution at the same version, ingest analyses that distribution's artifact and records it as the source file; fastmcp 3.3.0+ is indexed. A pin to a different version (dspy 0.1.5 → `dspy-ai==2.4.5`) is still reported as failed.
+  - Done 2026-10-31: ingest follows the first same-version pin that has code for the import names (typer 0.12.0 pins the empty `typer-cli` before `typer-slim`), and each snapshot records the analysed artifact as `source_file`. `build-index` run 41196805868 (26 minutes, warm caches) added 48 releases: fastmcp 3.3.0–4.1.4 (31), pinecone 2.2.2–5.0.1 (16) and typer 0.12.0; 6,564 releases in 93.3 MB. dspy 0.1.5 still fails, as intended. On that index the fastmcp `fastmcp.server.proxy` case passes and no other case changes (real root cause + boundary 94.3% → 95.0%).
 - [x] **DT-DATA-18**: Snapshot builds keep memory flat across releases · `P2` `S`
   - Why: building litellm's 290 releases in one process grows by ~45 MB per release and never gives it back, peaking at 11.9 GB of a 16 GB runner (2026-10-28). Only cold builds are affected; nightly runs build a few releases.
   - AC: memory after each release returns to a fixed baseline (e.g. clear griffe's caches, or build each release in a subprocess); litellm's cold build stays under 4 GB.

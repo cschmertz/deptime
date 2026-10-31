@@ -3,7 +3,9 @@ name: bench
 # Traceback benchmark (DT-QA-02): replays bench/cases through explain_error against the published index, and fails
 # when a metric drops by more than 2 points on the cases bench/baseline.json shares with this run. It runs on code
 # changes and after every nightly index build, so a regression in either the code or the data is caught.
+# The TimeMachine-bench holdout (bench/tmb, DT-QA-04) is checked the same way against bench/tmb/baseline.json.
 # Record an intended change with: python -m deptime.bench bench/cases --write-baseline bench/baseline.json
+# (and bench/tmb/cases with bench/tmb/baseline.json)
 on:
   push:
     branches: [main]
@@ -34,9 +36,16 @@ jobs:
         run: |
           set -o pipefail
           uv run --no-dev python -m deptime.bench bench/cases --baseline bench/baseline.json 2>&1 | tee report.txt
-      - name: Add the report to the job summary
+      - name: Run the TimeMachine-bench holdout
+        if: success() || failure()
+        run: |
+          set -o pipefail
+          uv run --no-dev python -m deptime.bench bench/tmb/cases --baseline bench/tmb/baseline.json 2>&1 | tee report-tmb.txt
+      - name: Add the reports to the job summary
         if: always()
         run: |
-          if [ -f report.txt ]; then
-            { echo '```'; cat report.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-          fi
+          for f in report.txt report-tmb.txt; do
+            if [ -f "$f" ]; then
+              { echo "### $f"; echo '```'; cat "$f"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done

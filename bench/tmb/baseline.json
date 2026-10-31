@@ -1,0 +1,178 @@
+{
+  "index_built_at": "2026-10-31T13:04:30+00:00",
+  "summary": {
+    "cases": 29,
+    "known_gap_share": 27.6,
+    "overall": {
+      "root_cause": 82.8,
+      "root_cause_and_boundary": 72.4,
+      "boundary": 72.4,
+      "replacement": 0.0
+    },
+    "by_tier": {
+      "B": {
+        "cases": 29,
+        "root_cause": 82.8,
+        "root_cause_and_boundary": 72.4,
+        "boundary": 72.4,
+        "replacement": 0.0
+      }
+    },
+    "by_origin": {
+      "reported": {
+        "cases": 29,
+        "root_cause": 82.8,
+        "root_cause_and_boundary": 72.4,
+        "boundary": 72.4,
+        "replacement": 0.0
+      }
+    }
+  },
+  "cases": {
+    "tmb-django-conf-urls-url-django-faktura": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "tmb-django-conf-urls-url-orderingsystem": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "tmb-django-translation-ugettext-lazy-django-antispam": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "tmb-flask-before-first-request-helloflask": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "tmb-flask-json-jsonencoder-the-real-devops-challenge": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "tmb-flask-request-ctx-stack-flask-language": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": null
+    },
+    "tmb-marshmallow-field-fail-queue-messaging": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": false
+    },
+    "tmb-marshmallow-field-init-default-marshmallow-dataclass": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "tmb-marshmallow-version-django-rest-marshmallow": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "tmb-numpy-asfarray-fatpack": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "tmb-numpy-inf-segmentation-metrics": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "tmb-numpy-infinity-laptimize": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "tmb-numpy-mat-audio-dspy": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "tmb-numpy-math-pydistinct": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": null
+    },
+    "tmb-numpy-nan-fides": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "tmb-numpy-nan-fiuba-opiniones-de-curso": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "tmb-numpy-nan-inferelator": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "tmb-numpy-nan-optics-functions": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "tmb-numpy-ndarray-itemset-pynite": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": null
+    },
+    "tmb-numpy-ndarray-tostring-sonipy": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": false
+    },
+    "tmb-numpy-ninf-hiscore": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "tmb-numpy-product-h5py-like": {
+      "root_cause": true,
+      "boundary": false,
+      "replacement": false
+    },
+    "tmb-numpy-product-insurapy": {
+      "root_cause": true,
+      "boundary": false,
+      "replacement": false
+    },
+    "tmb-numpy-product-sdmpy": {
+      "root_cause": true,
+      "boundary": false,
+      "replacement": false
+    },
+    "tmb-pandas-read-csv-error-bad-lines-gwas-sumstats-validator": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "tmb-scikit-learn-utils-check-matplotlib-support-py-mcc-f1": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "tmb-sqlalchemy-connection-connect-kylinpy": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    },
+    "tmb-sqlalchemy-orm-relation-bugtracker": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false
+    },
+    "tmb-werkzeug-urls-url-decode-lemon": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null
+    }
+  }
+}

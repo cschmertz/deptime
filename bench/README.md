@@ -65,3 +65,7 @@ uv run python -m deptime.bench bench/cases --write-baseline bench/baseline.json 
 `.github/workflows/bench.yml` runs the baseline check on code changes and after every nightly `build-index`. A regression is measured on the cases that both the baseline and the current run contain. So adding new cases never fails it, and only a case that used to pass and now fails does. After a fix makes cases pass, write a new baseline so they're protected too.
 
 The seed file (`cases/seed.jsonl`) contains well-documented, real-world breaks. Cases marked `known_gap` say which backlog item fixes them.
+
+## Holdout (DT-QA-04)
+
+`tmb/` holds 29 cases from TimeMachine-bench, an outside benchmark, collected after the fixes designed from `cases/` and scored once under a rule fixed in advance. Its first run, 72.4% root cause + boundary, is the number to quote; see `tmb/README.md` and `tmb/results-2026-10-31.md`. `bench.yml` checks it against `tmb/baseline.json`.

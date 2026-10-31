@@ -44,6 +44,11 @@ uv run python -m deptime.bench bench/tmb/cases --write-baseline <scratch>/tmb.js
 - With 29 cases, the 95% interval is roughly ±15 points around a score near 80%.
 - The first run is the holdout result and is reported as is. A case's `expected` changes only to fix an error of fact, recorded below. Later runs are regression checks, not new holdout numbers.
 
+## Results
+
+- **First run (2026-10-31):** root cause + boundary 72.4% (21/29), root cause 82.8%. See `results-2026-10-31.md`.
+- Since then, `bench.yml` checks these cases against `baseline.json` on every code change and nightly index, like `bench/cases`. The eight misses are `known_gap`, each with the item that fixes it.
+
 ## Corrections
 
-None.
+- 2026-10-31, after the first run: `tmb-numpy-ndarray-tostring-sonipy` cited the numpy 2.2.6 stub as defining `ndarray.tostring`, but there it's only a comment (the stub leaves it out as deprecated). It now cites `numpy/_core/_add_newdocs.py`, which registers the method through 2.2.6 and not in 2.3.0. The expected answer (last in 2.2) is unchanged, and so is the score.

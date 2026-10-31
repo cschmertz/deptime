@@ -208,7 +208,7 @@ notes = "Mixed compiled/pure; DataFrame.append removal (2.0) is a benchmark case
 name = "numpy"
 import_names = ["numpy"]
 tier = "B"
-notes = "Compiled; rely on shipped .pyi stubs."
+notes = "Compiled; rely on shipped .pyi stubs. Methods only compiled code registers, such as `ndarray.tostring`, aren't indexed."
 
 [[package]]
 name = "polars"

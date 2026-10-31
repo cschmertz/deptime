@@ -30,9 +30,8 @@ jobs:
       packages: ${{ steps.list.outputs.packages }}
       snapshot_format: ${{ steps.list.outputs.snapshot_format }}
     steps:
-      # DT-OSS-07: pin actions to commit SHAs.
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
       - name: List the covered packages
         id: list
         run: |
@@ -51,15 +50,15 @@ jobs:
       matrix:
         package: ${{ fromJSON(needs.plan.outputs.packages) }}
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
       - run: uv sync --locked --no-dev
 
       # `|` can't occur in a package name, so one package's prefix never matches another's (langchain vs langchain-core).
       # The snapshot format is in the key: snapshots from an older extractor would only be rebuilt.
       - name: Restore this package's snapshot cache
         id: restore
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: .deptime/build/snapshots/${{ matrix.package }}
           key: snapshots|${{ needs.plan.outputs.snapshot_format }}|${{ matrix.package }}|latest
@@ -88,14 +87,14 @@ jobs:
 
       - name: Save this package's snapshot cache (also after a timeout; skipped when nothing changed)
         if: always() && !endsWith(steps.key.outputs.key, '|') && steps.key.outputs.key != steps.restore.outputs.cache-matched-key
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: .deptime/build/snapshots/${{ matrix.package }}
           key: ${{ steps.key.outputs.key }}
 
       - name: Hand the snapshots to the publish job
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: snapshots-${{ matrix.package }}
           path: .deptime/build/snapshots/
@@ -115,13 +114,13 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
       - run: uv sync --locked --no-dev
 
       - name: Collect every package's snapshots
         continue-on-error: true # a package without snapshots keeps its published releases
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: snapshots-*
           path: .deptime/build/snapshots

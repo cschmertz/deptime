@@ -11,10 +11,20 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      # DT-OSS-07: pin these to commit SHAs.
-      - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
       - run: uv sync --locked
       - run: uv run ruff format --check src tests
       - run: uv run ruff check src tests
       - run: uv run pytest
+
+  # Checks every package in uv.lock (runtime, dev and the audit group itself) against PyPI's advisory database.
+  # pip-audit is locked in the `audit` dependency group, so the tool is pinned by hash like everything it checks.
+  # To accept an advisory that doesn't apply, add `--ignore-vuln <ID>` below with a comment saying why.
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e # v6.8.0
+      - run: uv export --locked --all-groups --no-emit-project --format requirements-txt --output-file "$RUNNER_TEMP/requirements.txt"
+      - run: uv run --locked --only-group audit pip-audit --requirement "$RUNNER_TEMP/requirements.txt" --disable-pip --strict

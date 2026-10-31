@@ -38,6 +38,9 @@ Issues = "https://github.com/cschmertz/deptime/issues"
 deptime = "deptime.cli:main"
 
 [dependency-groups]
+audit = [
+  "pip-audit>=2.10",      # CI vulnerability audit of uv.lock (DT-OSS-07); not installed by `uv sync`
+]
 dev = [
   "pytest>=9.1",
   "ruff>=0.17",

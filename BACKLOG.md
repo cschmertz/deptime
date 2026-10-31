@@ -31,8 +31,7 @@
 **Still open for M1:** a benchmark number on fresh cases (DT-QA-04).
 
 **Next up**
-1. DT-OSS-07 (pin actions to SHAs, Dependabot, `pip-audit`).
-2. Re-measure the benchmark on fresh cases before quoting a number (DT-QA-04).
+1. Re-measure the benchmark on fresh cases before quoting a number (DT-QA-04).
 
 ---
 
@@ -96,8 +95,9 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
   - Done 2026-10-28: v0.1.0 published by `release.yml` with provenance; `uvx deptime@0.1.0 mcp` answered over stdio from an empty home.
 - [ ] **DT-OSS-06**: CHANGELOG + versioning policy · `P2` `S`
   - AC: Keep-a-Changelog file; semver for the CLI and tool contract; the index schema version is documented.
-- [ ] **DT-OSS-07**: Supply chain · `P1` `S`
+- [x] **DT-OSS-07**: Supply chain · `P1` `S`
   - AC: GitHub Actions pinned to SHAs; Dependabot for `uv.lock` and actions; `pip-audit` in CI.
+  - Done 2026-10-31: every action is pinned to the commit its major tag pointed at (no change in behaviour), with the release in a comment. `.github/dependabot.yml` proposes weekly `uv` and `github-actions` updates, minor and patch grouped per ecosystem; griffe gets a PR of its own, since a new extractor can change snapshots without a `SNAPSHOT_FORMAT` bump. A ci job runs `pip-audit --strict` over every package in `uv.lock`, with pip-audit itself locked in an `audit` dependency group. Its first run found certifi 2026.7.22 still trusting the emSign roots behind compromised eMudhra intermediates (PYSEC-2026-4320); the lock now has 2026.10.23.
 - [ ] **DT-OSS-08**: Windows support for index replace and hot swap · `P1` `S` · deps: SPIKE-07
   - AC: download and refresh succeed while the server holds the old file open (e.g. versioned filenames plus a pointer file).
 - [ ] **DT-OSS-09**: Signed index provenance · `P2` `M`

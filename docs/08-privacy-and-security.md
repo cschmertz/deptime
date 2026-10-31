@@ -63,5 +63,5 @@ Deprecation messages come from third-party source. A malicious or compromised pa
 
 - No secrets are needed for local mode.
 - CI uses the built-in `GITHUB_TOKEN` (release upload) and PyPI trusted publishing (no stored token).
-- Dependencies are locked in `uv.lock`. Pin GitHub Actions to SHAs and enable Dependabot (DT-OSS-07).
+- Dependencies are locked in `uv.lock`, and GitHub Actions are pinned to commit SHAs. Dependabot proposes updates to both weekly, and CI runs `pip-audit` over every locked package (DT-OSS-07).
 - The Claude Code plugin hook is stdlib-only Python with **no network calls**.

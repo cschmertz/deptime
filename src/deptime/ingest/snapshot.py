@@ -7,12 +7,13 @@ to its kind, canonical definition path, parameters, and deprecation message, if 
 from __future__ import annotations
 
 import ast
+import copy
 import gzip
 import json
 import re
 import sys
 from collections.abc import Callable
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -196,6 +197,90 @@ class _Shim:
     param: str
     tables: dict[str, dict[str, str | None]]  # module-level literal collections, by name
     exports: frozenset[str] = frozenset()  # what `__all__` lists, when the source says so statically
+    mod: griffe.Module | None = None
+    bound: dict[str, str] = field(default_factory=dict)  # module-level imports: local name -> dotted path
+    helpers: dict[str, ast.FunctionDef | None] = field(default_factory=dict)
+
+    def helper(self, local: str, bound: dict[str, str]) -> ast.FunctionDef | None:
+        """The function a call to `local` runs, when it is defined in this module or imported from one griffe
+        loaded (this package's own source)."""
+        path = bound.get(local, f"{self.module}.{local}")
+        if path not in self.helpers:
+            module_path, _, name = path.rpartition(".")
+            module = _module_at(self.mod, module_path) if self.mod is not None and module_path else None
+            tree = _source_tree(module) if module is not None else None
+            body = tree.body if tree is not None else []
+            self.helpers[path] = next(
+                (st for st in body if isinstance(st, ast.FunctionDef) and st.name == name), None
+            )
+        return self.helpers[path]
+
+
+@dataclass
+class _Served:
+    """What `_reach` finds: names that reach a `return`, each with the statements run on the way there, and
+    `return getattr(<module>, name)` catch-alls: (the module's dotted path, names that never get there, trail)."""
+
+    names: dict[str, list[ast.stmt]] = field(default_factory=dict)
+    forwards: list[tuple[str, frozenset[str], list[ast.stmt]]] = field(default_factory=list)
+
+
+def _absolute(module_path: str, is_init: bool, level: int, name: str | None) -> str:
+    """The absolute module a `from <level dots><name> import ...` in `module_path` refers to."""
+    if level == 0:
+        return name or ""
+    parts = module_path.split(".")
+    parts = parts[: len(parts) - level + (1 if is_init else 0)]
+    return ".".join([*parts, name] if name else parts)
+
+
+def _bind(bound: dict[str, str], st: ast.stmt, module_path: str, is_init: bool) -> None:
+    """Add the names an `import` statement binds, each to the dotted path it imports."""
+    if isinstance(st, ast.Import):
+        for alias in st.names:
+            local = alias.asname or alias.name.split(".")[0]
+            bound[local] = alias.name if alias.asname else local
+    elif isinstance(st, ast.ImportFrom):
+        source = _absolute(module_path, is_init, st.level, st.module)
+        bound.update({a.asname or a.name: f"{source}.{a.name}" for a in st.names if a.name != "*"})
+
+
+def _bindings(trail: list[ast.stmt], shim: _Shim) -> dict[str, str]:
+    """Import bindings in scope at the end of `trail`: the module's, then the function's own imports."""
+    bound = dict(shim.bound)
+    is_init = shim.mod is not None and shim.mod.is_init_module
+    for st in trail:
+        _bind(bound, st, shim.module, is_init)
+    return bound
+
+
+def _forwarded(value: ast.expr, trail: list[ast.stmt], shim: _Shim) -> str | None:
+    """The module a `return getattr(<module>, name[, default])` forwards to, also through a variable the trail
+    assigned that call to (numpy 2.0's `ret = getattr(numeric, attr_name, sentinel)` ... `return ret`)."""
+    if isinstance(value, ast.Name):
+        assigned = [
+            st.value
+            for st in trail
+            if isinstance(st, ast.Assign)
+            and len(st.targets) == 1
+            and isinstance(st.targets[0], ast.Name)
+            and st.targets[0].id == value.id
+        ]
+        if not assigned:
+            return None
+        value = assigned[-1]
+    if not (
+        isinstance(value, ast.Call)
+        and isinstance(value.func, ast.Name)
+        and value.func.id == "getattr"
+        and len(value.args) in {2, 3}
+        and not value.keywords
+        and isinstance(value.args[0], ast.Name)
+        and isinstance(value.args[1], ast.Name)
+        and value.args[1].id == shim.param
+    ):
+        return None
+    return _bindings(trail, shim).get(value.args[0].id)
 
 
 def _tested(test: ast.expr, shim: _Shim) -> tuple[frozenset[str], bool] | None:
@@ -229,17 +314,21 @@ def _tested(test: ast.expr, shim: _Shim) -> tuple[frozenset[str], bool] | None:
 
 
 def _reach(
-    stmts: list[ast.stmt], live: _Names, trail: list[ast.stmt], shim: _Shim, served: dict[str, list[ast.stmt]]
+    stmts: list[ast.stmt], live: _Names, trail: list[ast.stmt], shim: _Shim, served: _Served
 ) -> _Names | None:
     """Follow `stmts` for the names in `live`; record each name that reaches a `return`, with the statements run
     on the way there. Returns the names that fall through, or None when none do.
 
     A `return` that every name but a few reaches serves the names `__all__` lists (langchain 0.3.4's `chains`
-    lists its lazy imports only as `list(_module_lookup.keys())`); other names it may serve are unknowable."""
+    lists its lazy imports only as `list(_module_lookup.keys())`), and, when it returns `getattr(<module>, name)`
+    for an imported module, that module's names (numpy 2's `numpy.core.*`); other names it may serve are
+    unknowable."""
     for st in stmts:
         if isinstance(st, ast.Return):
+            if live.exclude and st.value is not None and (target := _forwarded(st.value, trail, shim)):
+                served.forwards.append((target, live.names, trail))
             for name in shim.exports - live.names if live.exclude else live.names:
-                served.setdefault(name, trail)
+                served.names.setdefault(name, trail)
             return None
         if isinstance(st, ast.Raise):
             return None
@@ -247,7 +336,8 @@ def _reach(
             tested = _tested(st.test, shim)
             if tested is None:  # a condition we can't read: names may get past it, but none is surely served
                 after = _union(
-                    _reach(st.body, live, trail, shim, {}), _reach(st.orelse, live, trail, shim, {})
+                    _reach(st.body, live, trail, shim, _Served()),
+                    _reach(st.orelse, live, trail, shim, _Served()),
                 )
             else:
                 names, positive = tested
@@ -316,24 +406,101 @@ def _warn_call(st: ast.stmt) -> ast.Call | None:
     return call if named else None
 
 
+def _deprecation_text(call: ast.Call, env: dict[str, str]) -> str | None:
+    """A `warn(...)` call's message, when the text or the category says it is a deprecation."""
+    text = _warning_text(call.args[0], "", env)
+    category = (
+        call.args[1]
+        if len(call.args) > 1
+        else next((k.value for k in call.keywords if k.arg == "category"), None)
+    )
+    category_name = ast.unparse(category) if category is not None else ""
+    deprecation = DEPRECATION_WORDS_RE.search(text or "") or SHIM_CATEGORY_RE.search(category_name)
+    return text.strip()[:400] if text and deprecation else None
+
+
+_UNKNOWN = "…"  # a value the source doesn't say statically
+
+
+class _Unreadable(Exception):
+    """A helper takes a branch on something its arguments don't decide."""
+
+
+def _text_value(node: ast.expr | None, env: dict[str, str | None]) -> str | None:
+    """A string literal, an f-string or a bound name as text; None for `None`; `_UNKNOWN` for anything else."""
+    if isinstance(node, ast.Constant) and (node.value is None or isinstance(node.value, str)):
+        return node.value
+    if isinstance(node, ast.Name):
+        return env.get(node.id, _UNKNOWN)
+    text = _warning_text(node, "", _known(env)) if node is not None else None
+    return _UNKNOWN if text is None else text
+
+
+def _known(env: dict[str, str | None]) -> dict[str, str]:
+    return {k: v for k, v in env.items() if v is not None}
+
+
+def _helper_warning(call: ast.Call, helper: ast.FunctionDef, env: dict[str, str | None]) -> str | None:
+    """The deprecation warning a helper's body emits, with its parameters bound to `call`'s arguments: numpy 2's
+    `_raise_warning(attr_name, "numeric")`. Follows string assignments and `if <param> is (not) None:`; any other
+    branch, or a warning in a nested call, gives nothing."""
+    params = helper.args.posonlyargs + helper.args.args
+    names = [p.arg for p in params]
+    defaults = dict(zip(names[len(names) - len(helper.args.defaults) :], helper.args.defaults, strict=True))
+    keywords = {k.arg: k.value for k in call.keywords if k.arg}
+    local: dict[str, str | None] = {}
+    for i, name in enumerate(names):
+        node = call.args[i] if i < len(call.args) else keywords.get(name, defaults.get(name))
+        local[name] = _text_value(node, env) if node is not None else _UNKNOWN
+
+    def run(stmts: list[ast.stmt]) -> str | None:
+        for st in stmts:
+            if isinstance(st, ast.Assign) and len(st.targets) == 1 and isinstance(st.targets[0], ast.Name):
+                local[st.targets[0].id] = _text_value(st.value, local)
+            elif isinstance(st, ast.If):
+                test = st.test
+                if not (
+                    isinstance(test, ast.Compare)
+                    and len(test.ops) == 1
+                    and isinstance(test.ops[0], (ast.Is, ast.IsNot))
+                    and isinstance(test.left, ast.Name)
+                    and local.get(test.left.id, _UNKNOWN) != _UNKNOWN
+                    and isinstance(test.comparators[0], ast.Constant)
+                    and test.comparators[0].value is None
+                ):
+                    raise _Unreadable
+                holds = (local[test.left.id] is None) == isinstance(test.ops[0], ast.Is)
+                if (text := run(st.body if holds else st.orelse)) is not None:
+                    return text
+            elif (warn := _warn_call(st)) is not None:
+                return _deprecation_text(warn, _known(local))
+        return None
+
+    try:
+        return run(helper.body)
+    except _Unreadable:
+        return None
+
+
 def _shim_message(trail: list[ast.stmt], name: str, shim: _Shim) -> str | None:
     """The deprecation warning a shim's branch emits for `name`, with the f-string filled in where the source
-    says what goes there (the name itself, the module, a rename table's target)."""
+    says what goes there (the name itself, the module, a rename table's target). A call to a helper of the same
+    package whose body warns counts as that warning."""
     env = {shim.param: name, "__name__": shim.module}
     for st in trail:
         if isinstance(st, ast.Assign) and len(st.targets) == 1 and isinstance(st.targets[0], ast.Name):
             if (target := _mapped(st.value, name, shim)) is not None:
                 env[st.targets[0].id] = target
         elif call := _warn_call(st):
-            text = _warning_text(call.args[0], name, env)
-            category = (
-                call.args[1]
-                if len(call.args) > 1
-                else next((k.value for k in call.keywords if k.arg == "category"), None)
-            )
-            category_name = ast.unparse(category) if category is not None else ""
-            deprecation = DEPRECATION_WORDS_RE.search(text or "") or SHIM_CATEGORY_RE.search(category_name)
-            return text.strip()[:400] if text and deprecation else None
+            return _deprecation_text(call, env)
+        elif (
+            isinstance(st, ast.Expr)
+            and isinstance(st.value, ast.Call)
+            and isinstance(st.value.func, ast.Name)
+            and (helper := shim.helper(st.value.func.id, _bindings(trail, shim)))
+            and (text := _helper_warning(st.value, helper, dict(env))) is not None
+        ):
+            return text
     return None
 
 
@@ -356,23 +523,93 @@ def _source_tree(mod: griffe.Module) -> ast.Module | None:
         return None
 
 
-def getattr_served(mod: griffe.Module) -> dict[str, str | None]:
+@dataclass
+class _Forward:
+    """A catch-all `return getattr(<module>, name)`: every public name of `module` but `excluded` is served."""
+
+    module: str
+    excluded: frozenset[str]
+    trail: list[ast.stmt]
+    shim: _Shim
+
+    def message(self, name: str) -> str | None:
+        return _shim_message(self.trail, name, self.shim)
+
+
+@dataclass
+class _GetattrShim:
+    """`names`: each served name with its deprecation message. `bound`: what the `.py` binds itself, so never
+    reaches `__getattr__` (None: unknowable, after a star import). `copied`: names a loop binds through
+    `globals()[n] = ...`, which griffe can't see."""
+
+    names: dict[str, str | None] = field(default_factory=dict)
+    forwards: list[_Forward] = field(default_factory=list)
+    bound: frozenset[str] | None = None
+    copied: frozenset[str] = frozenset()
+
+
+def _copies_into_globals(loop: ast.For) -> bool:
+    return isinstance(loop.target, ast.Name) and any(
+        isinstance(node, ast.Subscript)
+        and isinstance(node.ctx, ast.Store)
+        and isinstance(node.value, ast.Call)
+        and isinstance(node.value.func, ast.Name)
+        and node.value.func.id == "globals"
+        for node in ast.walk(loop)
+    )
+
+
+def _module_names(body: list[ast.stmt]) -> tuple[frozenset[str] | None, frozenset[str]]:
+    """The names a module's top level binds (None after a star import: unknowable), and the literal names a loop
+    copies in through `globals()` (numpy 2's `numpy.core.multiarray`, for old pickles)."""
+    bound: set[str] = set()
+    copied: set[str] = set()
+    star = False
+    for st in body:
+        if isinstance(st, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            bound.add(st.name)
+        elif isinstance(st, (ast.Import, ast.ImportFrom)):
+            star |= any(a.name == "*" for a in st.names)
+            bound.update(a.asname or a.name.split(".")[0] for a in st.names if a.name != "*")
+        elif isinstance(st, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+            targets = st.targets if isinstance(st, ast.Assign) else [st.target]
+            bound.update(n.id for t in targets for n in ast.walk(t) if isinstance(n, ast.Name))
+        elif (
+            isinstance(st, ast.For)
+            and _copies_into_globals(st)
+            and (keys := _string_keys(st.iter)) is not None
+        ):
+            copied.update(keys)
+        if isinstance(st, (ast.If, ast.Try, ast.With)):
+            nested = [*st.body, *getattr(st, "orelse", []), *getattr(st, "finalbody", [])]
+            nested += [s for h in getattr(st, "handlers", []) for s in h.body]
+            inner, inner_copied = _module_names(nested)
+            star |= inner is None
+            bound |= inner or set()
+            copied |= inner_copied
+    return (None if star else frozenset(bound)), frozenset(copied)
+
+
+def getattr_served(mod: griffe.Module) -> _GetattrShim:
     """Names a module `__getattr__` returns a value for (deprecation shims, lazy imports), each with the
-    deprecation message its branch warns with. Read from the source with `ast`; nothing is imported (ADR 0002).
+    deprecation message its branch warns with, and the modules it forwards every other name to. Read from the
+    source with `ast`; nothing is imported (ADR 0002).
 
     Only names compared with literals, looked up in a module-level literal collection, or listed in a static
     `__all__` are found. A name whose branch raises (numpy 2.0's expired attributes) is not served.
     """
     tree = _source_tree(mod)
     if tree is None:
-        return {}
+        return _GetattrShim()
     func = _find_getattr(tree.body)
     args = (func.args.posonlyargs + func.args.args) if func else []
     if func is None or not args:
-        return {}
+        return _GetattrShim()
     tables: dict[str, dict[str, str | None]] = {}
     exports: frozenset[str] = frozenset()
+    bound: dict[str, str] = {}
     for st in tree.body:
+        _bind(bound, st, mod.path, mod.is_init_module)
         if isinstance(st, ast.Assign) and len(st.targets) == 1:
             target, value = st.targets[0], st.value
         elif isinstance(st, ast.AnnAssign) and st.value is not None:
@@ -385,15 +622,20 @@ def getattr_served(mod: griffe.Module) -> dict[str, str | None]:
             exports = _table_keys(value, tables) or frozenset()
         elif (keys := _string_keys(value)) is not None:
             tables[target.id] = keys
-    shim = _Shim(mod.path, args[0].arg, tables, exports)
-    served: dict[str, list[ast.stmt]] = {}
+    shim = _Shim(mod.path, args[0].arg, tables, exports, mod, bound)
+    served = _Served()
     _reach(func.body, _Names(frozenset(), exclude=True), [], shim, served)
-    return {
+    names = {
         name: _shim_message(trail, name, shim)
-        for name, trail in sorted(served.items())
+        for name, trail in sorted(served.names.items())
         if name.isidentifier()
         and (not name.startswith("_") or (name.startswith("__") and name.endswith("__")))
     }
+    if not served.forwards:
+        return _GetattrShim(names)
+    own, copied = _module_names(tree.body)
+    forwards = [_Forward(target, excluded, trail, shim) for target, excluded, trail in served.forwards]
+    return _GetattrShim(names, forwards, own, copied)
 
 
 @dataclass(frozen=True)
@@ -531,13 +773,6 @@ class _AllReader:
         self.block(body)
         return _Exports(None if self.names is None else frozenset(self.names), tuple(self.stars))
 
-    def absolute(self, level: int, module: str | None) -> str:
-        if level == 0:
-            return module or ""
-        parts = self.mod.path.split(".")
-        parts = parts[: len(parts) - level + (1 if self.mod.is_init_module else 0)]
-        return ".".join([*parts, module] if module else parts)
-
     def block(self, body: list[ast.stmt]) -> None:
         for st in body:
             self.statement(st)
@@ -556,17 +791,10 @@ class _AllReader:
             self.block(st.body + st.orelse + st.finalbody)
         elif isinstance(st, (ast.With, ast.AsyncWith)):
             self.block(st.body)
-        elif isinstance(st, ast.Import):
-            for alias in st.names:
-                local = alias.asname or alias.name.split(".")[0]
-                self.bound[local] = alias.name if alias.asname else local
-        elif isinstance(st, ast.ImportFrom):
-            source = self.absolute(st.level, st.module)
-            for alias in st.names:
-                if alias.name == "*":
-                    self.stars.append(source)
-                else:
-                    self.bound[alias.asname or alias.name] = f"{source}.{alias.name}"
+        elif isinstance(st, (ast.Import, ast.ImportFrom)):
+            _bind(self.bound, st, self.mod.path, self.mod.is_init_module)
+            if isinstance(st, ast.ImportFrom) and any(a.name == "*" for a in st.names):
+                self.stars.append(_absolute(self.mod.path, self.mod.is_init_module, st.level, st.module))
         elif isinstance(st, ast.FunctionDef) and _appends_module_all(st):
             self.helpers.add(st.name)
         elif isinstance(st, (ast.Assign, ast.AnnAssign)) and st.value is not None:
@@ -741,33 +969,74 @@ class _Walker:
                 return found
         return unread
 
-    def module(self, mod: griffe.Module, public_path: str, depth: int = 0) -> None:
+    def module(self, mod: griffe.Module, public_path: str, depth: int = 0, forwarded: bool = False) -> None:
         key = (mod.path, public_path)
         if key in self.visiting or depth > MAX_DEPTH:
             return
         self.visiting.add(key)
         self.record(SymbolRecord(public_path, "module", mod.path))
-        reexporter = mod.path if public_path == mod.path and mod.is_init_module else None
+        # A module another one forwards to is public as at its own path, but its submodules aren't walked again.
+        reexporter = mod.path if (public_path == mod.path or forwarded) and mod.is_init_module else None
+        walk_from = None if forwarded else reexporter
         exported = self._exported(mod)
         for name, member in list(mod.members.items()):
             if member.is_alias and member.wildcard:  # type: ignore[union-attr]  # a star import griffe couldn't expand
                 continue
             if name in exported or self._public(mod, name, member, reexporter):
-                self.member(member, f"{public_path}.{name}", depth, reexporter)
+                self.member(member, f"{public_path}.{name}", depth, walk_from)
         for name in sorted(exported - mod.members.keys()):
             found = self._from_stars(mod, name)
             if isinstance(found, str):
                 self.record(SymbolRecord(f"{public_path}.{name}", "alias", found))
             elif found is not None:
-                self.member(found, f"{public_path}.{name}", depth, reexporter)
+                self.member(found, f"{public_path}.{name}", depth, walk_from)
         hook = mod.members.get("__getattr__")
         if hook is not None and not hook.is_alias:
             if mod.path not in self.shims:
                 self.shims[mod.path] = getattr_served(mod)
+            shim = self.shims[mod.path]
+            for forward in shim.forwards:
+                self.forward(mod, public_path, depth, forward, shim)
             canonical = f"{mod.path}.__getattr__"
-            for name, message in self.shims[mod.path].items():
+            for name, message in shim.names.items():
                 if name not in mod.members:  # a real attribute never reaches __getattr__
                     self.record(SymbolRecord(f"{public_path}.{name}", "getattr", canonical, None, message))
+
+    def forward(
+        self, mod: griffe.Module, public_path: str, depth: int, forward: _Forward, shim: _GetattrShim
+    ) -> None:
+        """Record what a `return getattr(<module>, name)` catch-all serves: that module's public names, walked at
+        `mod`'s path with their own kinds and signatures, each with the shim's warning (DT-DATA-25: numpy 2.0
+        renamed `numpy.core` to `numpy._core`, and 1,198 names under it looked removed).
+
+        Names the `.py` binds itself, and its submodules, never reach `__getattr__`. A name only its stub declares
+        does, and gets the warning too (numpy 2.5's `numpy/core/numeric.pyi` star-imports `numpy._core.numeric`).
+        A forwarded class's members aren't recorded: griffe resolves numpy's private `_core` stubs differently
+        from one release to the next (an alias cycle on `ndarray` from 2.2, scalar types stubbed only from 2.2 and
+        2.4), and ~3,800 members came and went with it.
+        """
+        target = _module_at(mod, forward.module)
+        if target is None or target.path == mod.path:
+            return  # compiled (`numpy._core._multiarray_umath`), another distribution, or itself
+        sub = copy.copy(self)  # shares the caches and `visiting`; collects into a snapshot of its own
+        sub.snap = ApiSnapshot(self.snap.package, self.snap.version, self.snap.import_names)
+        sub.module(target, public_path, depth + 1, forwarded=True)
+        self.snap.errors.extend(sub.snap.errors)
+        real = shim.bound if shim.bound is not None else frozenset(mod.members)
+        real |= {n for n, m in mod.members.items() if not m.is_alias and m.is_module}
+        prefix = f"{public_path}."
+        for path, rec in sub.snap.symbols.items():
+            if not path.startswith(prefix):
+                continue
+            name, _, below = path.removeprefix(prefix).partition(".")
+            if below or name in forward.excluded or (name in real and name not in shim.copied):
+                continue
+            message = None if name in shim.copied else forward.message(name)
+            existing = self.snap.symbols.get(path)
+            if existing is None:
+                self.record(replace(rec, deprecated=rec.deprecated or message))
+            elif message and existing.deprecated is None:
+                self.snap.symbols[path] = replace(existing, deprecated=message)
 
     def _public(
         self, mod: griffe.Module, name: str, member: griffe.Object | griffe.Alias, reexporter: str | None

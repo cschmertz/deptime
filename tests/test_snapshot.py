@@ -311,6 +311,69 @@ SHIMS = {
 }
 
 
+# numpy 2.0 renamed `numpy.core` to `numpy._core` and left forwarders behind: the package and each submodule
+# forward every attribute to their new home and warn through a helper in `numpy/core/_utils.py`.
+FORWARDS = {
+    "fwd/__init__.py": "",
+    "fwd/_core/__init__.py": (
+        "from fwd._core import numeric\n"
+        "from fwd._core.numeric import *\n\n"
+        "__all__ = ['numeric']\n"
+        "__all__ += numeric.__all__\n"
+    ),
+    "fwd/_core/numeric.py": (
+        "__all__ = ['array_equiv', 'ndarray', 'scalar']\n\n\n"
+        "def array_equiv(a1, a2):\n    pass\n\n\n"
+        "class ndarray:\n    def reshape(self, shape):\n        pass\n\n\n"
+        "scalar = 1\n\n\n"
+        "def _private():\n    pass\n"
+    ),
+    "fwd/core/__init__.py": (
+        "from fwd import _core\n"
+        "from ._utils import _raise_warning\n\n"
+        "__all__ = ['numeric', 'umath']\n\n\n"
+        "def __getattr__(attr_name):\n"
+        "    attr = getattr(_core, attr_name)\n"
+        "    _raise_warning(attr_name)\n"
+        "    return attr\n"
+    ),
+    "fwd/core/_utils.py": (
+        "import warnings\n\n\n"
+        "def _raise_warning(attr: str, submodule: str | None = None) -> None:\n"
+        "    new_module = 'fwd._core'\n"
+        "    old_module = 'fwd.core'\n"
+        "    if submodule is not None:\n"
+        "        new_module = f'{new_module}.{submodule}'\n"
+        "        old_module = f'{old_module}.{submodule}'\n"
+        "    warnings.warn(\n"
+        "        f'{old_module} is deprecated and has been renamed to {new_module}. '\n"
+        "        f'use {new_module}.{attr}.',\n"
+        "        DeprecationWarning,\n"
+        "        stacklevel=3,\n"
+        "    )\n"
+    ),
+    "fwd/core/numeric.py": (
+        "from fwd._core import numeric\n\n"
+        "# copied without a warning, for old pickles (numpy.core.multiarray's `scalar`)\n"
+        "for item in ['scalar']:\n"
+        "    globals()[item] = getattr(numeric, item)\n\n\n"
+        "def __getattr__(attr_name):\n"
+        "    from fwd._core import numeric\n"
+        "    from ._utils import _raise_warning\n\n"
+        "    sentinel = object()\n"
+        "    ret = getattr(numeric, attr_name, sentinel)\n"
+        "    if ret is sentinel:\n"
+        "        raise AttributeError(attr_name)\n"
+        "    _raise_warning(attr_name, 'numeric')\n"
+        "    return ret\n"
+    ),
+    # A compiled target (numpy.core._multiarray_umath) has no source to read.
+    "fwd/core/umath.py": (
+        "def __getattr__(attr_name):\n    from fwd._core import _umath\n\n    return getattr(_umath, attr_name)\n"
+    ),
+}
+
+
 def _write(root: Path, files: dict[str, str] = FILES) -> Path:
     for rel, text in files.items():
         p = root / rel
@@ -539,6 +602,34 @@ def test_lazy_exports_listed_only_in_a_computed_all(tmp_path):
         assert (rec.kind, rec.canonical, rec.deprecated) == ("getattr", "shimmy.chains.__getattr__", None)
     # A module without `__all__` doesn't say which names its catch-all `__getattr__` serves.
     assert not any(r.kind == "getattr" for p, r in snap.symbols.items() if p.startswith("shimmy.proxy."))
+
+
+def test_a_getattr_that_forwards_to_a_module_serves_its_names(tmp_path):
+    # DT-DATA-25: numpy 2.0's `numpy.core.*` forwarders serve `numpy._core.*`; 1,198 names looked removed in 2.0.0.
+    snap = build_snapshot("fwd", "1.0", ["fwd"], _write(tmp_path, FORWARDS))
+    equiv = snap.symbols["fwd.core.numeric.array_equiv"]
+    assert (equiv.kind, equiv.canonical) == ("function", "fwd._core.numeric.array_equiv")
+    assert [p["name"] for p in equiv.params] == ["a1", "a2"]
+    # The warning comes from the helper, with its arguments bound.
+    assert equiv.deprecated == (
+        "fwd.core.numeric is deprecated and has been renamed to fwd._core.numeric. use fwd._core.numeric.array_equiv."
+    )
+    # A forwarded class, but not its members: griffe resolves numpy's private `_core` stubs differently from one
+    # release to the next (an alias cycle on `ndarray` from 2.2), and members came and went with it.
+    assert snap.symbols["fwd.core.numeric.ndarray"].kind == "class"
+    assert not [p for p in snap.symbols if p.startswith("fwd.core.numeric.ndarray.")]
+    # The package forwards to the package, and its helper call names no submodule.
+    assert snap.symbols["fwd.core.array_equiv"].deprecated == (
+        "fwd.core is deprecated and has been renamed to fwd._core. use fwd._core.array_equiv."
+    )
+    # A real submodule stays itself; a name the module copies in itself doesn't warn.
+    numeric = snap.symbols["fwd.core.numeric"]
+    assert (numeric.kind, numeric.canonical, numeric.deprecated) == ("module", "fwd.core.numeric", None)
+    scalar = snap.symbols["fwd.core.numeric.scalar"]
+    assert (scalar.canonical, scalar.deprecated) == ("fwd._core.numeric.scalar", None)
+    # Private names aren't served; a target with no source serves nothing.
+    assert not {"fwd.core.numeric._private", "fwd.core._private"} & set(snap.symbols)
+    assert {p for p in snap.symbols if p.startswith("fwd.core.umath.")} == {"fwd.core.umath.__getattr__"}
 
 
 def test_a_build_leaves_no_griffe_objects_alive(tmp_path):

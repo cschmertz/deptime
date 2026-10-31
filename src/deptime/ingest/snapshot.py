@@ -11,6 +11,7 @@ import copy
 import gzip
 import json
 import re
+import string
 import sys
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field, replace
@@ -175,7 +176,7 @@ def _string_keys(node: ast.expr) -> dict[str, str | None] | None:
     return None
 
 
-def _table_keys(node: ast.expr, tables: dict[str, dict[str, str | None]]) -> frozenset[str] | None:
+def _table_keys(node: ast.expr, tables: dict[str, dict[str, Any]]) -> frozenset[str] | None:
     """A literal collection of strings, or a module-level table's keys: `list(_module_lookup.keys())`."""
     if (literal := _string_keys(node)) is not None:
         return frozenset(literal)
@@ -191,11 +192,188 @@ def _table_keys(node: ast.expr, tables: dict[str, dict[str, str | None]]) -> fro
     return frozenset(tables[node.id]) if isinstance(node, ast.Name) and node.id in tables else None
 
 
+_TableValue = str | tuple[str | None, ...] | None  # what a table maps a key to, as far as the source says
+_MAX_TEXT = 4000  # deprecation messages are cut at 400; longer text isn't worth building
+_MAX_ITEMS = 10_000
+
+
+def _format(template: str, args: list[Any], kwargs: dict[str, Any]) -> str | None:
+    """`template.format(*args, **kwargs)` for plain fields (`{}`, `{0}`, `{name}`, `!r`, `!s`, `!a`) whose
+    arguments are known strings; None for anything else. A format spec (`{n:>999999999}`) would let untrusted
+    source make `str.format` allocate without bound, so none is evaluated."""
+    try:
+        parsed = list(string.Formatter().parse(template))
+    except ValueError:
+        return None
+    out: list[str] = []
+    auto = 0
+    for literal, field_name, spec, conversion in parsed:
+        out.append(literal)
+        if field_name is None:
+            continue
+        if spec or conversion not in {None, "r", "s", "a"}:
+            return None
+        if field_name == "":
+            value, auto = (args[auto] if auto < len(args) else None), auto + 1
+        elif field_name.isdecimal():
+            value = args[int(field_name)] if int(field_name) < len(args) else None
+        elif field_name.isidentifier():
+            value = kwargs.get(field_name)
+        else:  # `{0.attr}`, `{n[0]}`
+            return None
+        if not isinstance(value, str):
+            return None
+        out.append(repr(value) if conversion == "r" else ascii(value) if conversion == "a" else value)
+    text = "".join(out)
+    return text if len(text) <= _MAX_TEXT else None
+
+
+def _row(value: Any) -> _TableValue:
+    if isinstance(value, str):
+        return value
+    if isinstance(value, tuple):
+        return tuple(v if isinstance(v, str) else None for v in value)
+    return None
+
+
+class _Literals:
+    """Module-level names bound to strings and literal sequences, in source order, to read the tables a
+    `__getattr__` consults when the module builds them with comprehensions and `str.format` (numpy 1.24-1.26's
+    `__deprecated_attrs__`). A value is a string, a tuple of values, or None when the source doesn't say."""
+
+    def __init__(self) -> None:
+        self.values: dict[str, Any] = {}
+
+    def value(self, node: ast.expr, local: dict[str, Any] | None = None) -> Any:
+        if isinstance(node, ast.Constant):
+            return node.value if isinstance(node.value, str) else None
+        if isinstance(node, ast.Name):
+            return local[node.id] if local is not None and node.id in local else self.values.get(node.id)
+        if isinstance(node, (ast.Tuple, ast.List)):
+            if len(node.elts) > _MAX_ITEMS or any(isinstance(e, ast.Starred) for e in node.elts):
+                return None
+            return tuple(self.value(e, local) for e in node.elts)
+        if isinstance(node, ast.JoinedStr):
+            parts = []
+            for part in node.values:
+                if isinstance(part, ast.FormattedValue):
+                    if part.format_spec is not None or part.conversion not in {-1, ord("s")}:
+                        return None
+                    part = part.value
+                text = self.value(part, local)
+                if not isinstance(text, str):
+                    return None
+                parts.append(text)
+            text = "".join(parts)
+            return text if len(text) <= _MAX_TEXT else None
+        if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+            left, right = self.value(node.left, local), self.value(node.right, local)
+            if isinstance(left, str) and isinstance(right, str) and len(left) + len(right) <= _MAX_TEXT:
+                return left + right
+            return None
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "format"
+            and not any(isinstance(a, ast.Starred) for a in node.args)
+            and all(k.arg for k in node.keywords)
+            and isinstance(template := self.value(node.func.value, local), str)
+        ):
+            args = [self.value(a, local) for a in node.args]
+            return _format(
+                template, args, {k.arg: self.value(k.value, local) for k in node.keywords if k.arg}
+            )
+        return None
+
+    def bind(self, name: str, node: ast.expr) -> None:
+        self.values[name] = self.value(node)
+
+    @staticmethod
+    def _unpack(target: ast.expr, item: Any) -> dict[str, Any] | None:
+        if isinstance(target, ast.Name):
+            return {target.id: item}
+        if not (isinstance(target, ast.Tuple) and isinstance(item, tuple) and len(item) == len(target.elts)):
+            return None
+        local: dict[str, Any] = {}
+        for t, v in zip(target.elts, item, strict=True):
+            bound = _Literals._unpack(t, v)
+            if bound is None:
+                return None
+            local.update(bound)
+        return local
+
+    def table(self, node: ast.expr) -> dict[str, _TableValue] | None:
+        """A literal dict, set, list or tuple keyed by strings, or a comprehension over a literal sequence
+        (`{n: (alias, _msg.format(n=n, an=an)) for n, alias, an in _type_info}`): key -> what it maps to."""
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and len(node.args) == 1:
+            return self.table(node.args[0]) if node.func.id in {"frozenset", "set", "tuple", "list"} else None
+        if isinstance(node, ast.Dict):
+            if not all(isinstance(k, ast.Constant) and isinstance(k.value, str) for k in node.keys):
+                return None
+            return {k.value: _row(self.value(v)) for k, v in zip(node.keys, node.values, strict=True)}  # type: ignore[union-attr]
+        if isinstance(node, (ast.Set, ast.List, ast.Tuple)):
+            if not all(isinstance(e, ast.Constant) and isinstance(e.value, str) for e in node.elts):
+                return None
+            return {e.value: None for e in node.elts}  # type: ignore[attr-defined]
+        if not isinstance(node, (ast.DictComp, ast.SetComp)) or len(node.generators) != 1:
+            return None
+        gen = node.generators[0]
+        items = self.value(gen.iter)
+        if gen.ifs or gen.is_async or not isinstance(items, tuple):
+            return None
+        out: dict[str, _TableValue] = {}
+        for item in items:
+            local = self._unpack(gen.target, item)
+            key = (
+                self.value(node.key if isinstance(node, ast.DictComp) else node.elt, local) if local else None
+            )
+            if not isinstance(key, str):
+                return None
+            out[key] = _row(self.value(node.value, local)) if isinstance(node, ast.DictComp) else None
+        return out
+
+
+def _fill_table(tables: dict[str, dict[str, _TableValue]], literals: _Literals, st: ast.stmt) -> bool:
+    """Apply `st` if it fills a table in place (`T.update({...})`, `T['k'] = v`, `del T['k']`); False if it
+    doesn't. A change the source doesn't spell out leaves the table's keys unknown, so it is dropped."""
+    if isinstance(st, ast.Expr) and isinstance(st.value, ast.Call):
+        call = st.value
+        func = call.func
+        if not (
+            isinstance(func, ast.Attribute)
+            and func.attr == "update"
+            and isinstance(func.value, ast.Name)
+            and func.value.id in tables
+        ):
+            return False
+        name = func.value.id
+        extra = {} if not call.args else literals.table(call.args[0]) if len(call.args) == 1 else None
+        if extra is None or any(k.arg is None for k in call.keywords):  # `T.update(other)`, `T.update(**kw)`
+            del tables[name]
+        else:
+            tables[name].update(extra)
+            tables[name].update({k.arg: _row(literals.value(k.value)) for k in call.keywords if k.arg})
+        return True
+    targets = st.targets if isinstance(st, (ast.Assign, ast.Delete)) else []
+    if len(targets) != 1 or not isinstance(sub := targets[0], ast.Subscript):
+        return False
+    if not (isinstance(sub.value, ast.Name) and sub.value.id in tables):
+        return False
+    name = sub.value.id
+    if not (isinstance(sub.slice, ast.Constant) and isinstance(sub.slice.value, str)):
+        del tables[name]
+    elif isinstance(st, ast.Assign):
+        tables[name][sub.slice.value] = _row(literals.value(st.value))
+    else:
+        tables[name].pop(sub.slice.value, None)
+    return True
+
+
 @dataclass
 class _Shim:
     module: str
     param: str
-    tables: dict[str, dict[str, str | None]]  # module-level literal collections, by name
+    tables: dict[str, dict[str, _TableValue]]  # module-level literal collections, by name
     exports: frozenset[str] = frozenset()  # what `__all__` lists, when the source says so statically
     mod: griffe.Module | None = None
     bound: dict[str, str] = field(default_factory=dict)  # module-level imports: local name -> dotted path
@@ -313,6 +491,48 @@ def _tested(test: ast.expr, shim: _Shim) -> tuple[frozenset[str], bool] | None:
     return (frozenset(keys), isinstance(op, ast.In)) if keys is not None else None
 
 
+def _lookup(st: ast.Try, shim: _Shim) -> tuple[frozenset[str], ast.ExceptHandler] | None:
+    """`try: x = TABLE[name]` (or `val, msg = TABLE[name]`) `except KeyError: ...`: the table's keys go on to the
+    `else` and past the `try` (numpy 1.24-1.26's `__deprecated_attrs__`, django 6.1's `core.mail`, pydantic-ai's
+    lazy exports), every other name runs the handler."""
+    if len(st.body) != 1 or len(st.handlers) != 1 or st.finalbody:
+        return None
+    assign, handler = st.body[0], st.handlers[0]
+    if not (
+        isinstance(assign, ast.Assign)
+        and len(assign.targets) == 1
+        and isinstance(assign.targets[0], (ast.Name, ast.Tuple))
+        and isinstance(value := assign.value, ast.Subscript)
+        and isinstance(value.value, ast.Name)
+        and value.value.id in shim.tables
+        and isinstance(value.slice, ast.Name)
+        and value.slice.id == shim.param
+        and isinstance(handler.type, ast.Name)
+        and handler.type.id in {"KeyError", "LookupError"}
+    ):
+        return None
+    return frozenset(shim.tables[value.value.id]), handler
+
+
+def _raises_when_called(value: ast.expr | None, trail: list[ast.stmt]) -> bool:
+    """`return f` for a function the branch defines that does nothing but raise: numpy 1.x warns about its
+    expired financial functions and hands back such a dummy, so the name is gone."""
+    if not isinstance(value, ast.Name):
+        return False
+    func = next(
+        (
+            s
+            for s in reversed(trail)
+            if isinstance(s, (ast.FunctionDef, ast.AsyncFunctionDef)) and s.name == value.id
+        ),
+        None,
+    )
+    if func is None:
+        return False
+    body = func.body[1:] if _is_docstring(func.body[0]) else func.body
+    return len(body) == 1 and isinstance(body[0], ast.Raise)
+
+
 def _reach(
     stmts: list[ast.stmt], live: _Names, trail: list[ast.stmt], shim: _Shim, served: _Served
 ) -> _Names | None:
@@ -325,6 +545,8 @@ def _reach(
     unknowable."""
     for st in stmts:
         if isinstance(st, ast.Return):
+            if _raises_when_called(st.value, trail):
+                return None
             if live.exclude and st.value is not None and (target := _forwarded(st.value, trail, shim)):
                 served.forwards.append((target, live.names, trail))
             for name in shim.exports - live.names if live.exclude else live.names:
@@ -354,12 +576,24 @@ def _reach(
                     st,
                 ]  # its warning may still be the name's deprecation (fastmcp's is conditional)
             continue
-        trail = [*trail, st]  # `try`, `with` and `match` bodies aren't followed: their returns don't count
+        if isinstance(st, ast.Try) and (lookup := _lookup(st, shim)) is not None:
+            keys, handler = lookup
+            after = _union(
+                _reach([*st.body, *st.orelse], live & keys, trail, shim, served),
+                _reach(handler.body, live - keys, trail, shim, served),
+            )
+            if after is None:
+                return None
+            live = after
+            continue
+        # Other `try`, `with` and `match` bodies aren't followed: their returns don't count.
+        trail = [*trail, st]
     return live
 
 
-def _mapped(node: ast.expr, name: str, shim: _Shim) -> str | None:
-    """`TABLE[name]` or `TABLE.get(name)`: the string TABLE maps `name` to (a rename's new name)."""
+def _mapped(node: ast.expr, name: str, shim: _Shim) -> _TableValue:
+    """`TABLE[name]` or `TABLE.get(name)`: what TABLE maps `name` to (a rename's new name, a message, or a row
+    such as numpy's `(value, message)`)."""
     if isinstance(node, ast.Subscript) and isinstance(node.slice, ast.Name) and node.slice.id == shim.param:
         table = node.value
     elif (
@@ -379,6 +613,8 @@ def _mapped(node: ast.expr, name: str, shim: _Shim) -> str | None:
 def _warning_text(node: ast.expr, name: str, env: dict[str, str]) -> str | None:
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return node.value
+    if isinstance(node, ast.Name):  # `warn(msg)` with `msg` looked up in a table (django 6.1's `core.mail`)
+        return env.get(node.id)
     if not isinstance(node, ast.JoinedStr):
         return None
     parts = []
@@ -488,9 +724,22 @@ def _shim_message(trail: list[ast.stmt], name: str, shim: _Shim) -> str | None:
     package whose body warns counts as that warning."""
     env = {shim.param: name, "__name__": shim.module}
     for st in trail:
-        if isinstance(st, ast.Assign) and len(st.targets) == 1 and isinstance(st.targets[0], ast.Name):
-            if (target := _mapped(st.value, name, shim)) is not None:
-                env[st.targets[0].id] = target
+        if isinstance(st, ast.Assign) and len(st.targets) == 1:
+            target, mapped = st.targets[0], _mapped(st.value, name, shim)
+            if isinstance(target, ast.Name) and isinstance(mapped, str):
+                env[target.id] = mapped
+            elif (
+                isinstance(target, ast.Tuple)
+                and isinstance(mapped, tuple)
+                and len(mapped) == len(target.elts)
+            ):
+                env.update(
+                    {
+                        t.id: v
+                        for t, v in zip(target.elts, mapped, strict=True)
+                        if isinstance(t, ast.Name) and v
+                    }
+                )
         elif call := _warn_call(st):
             return _deprecation_text(call, env)
         elif (
@@ -504,12 +753,16 @@ def _shim_message(trail: list[ast.stmt], name: str, shim: _Shim) -> str | None:
     return None
 
 
-def _find_getattr(stmts: list[ast.stmt]) -> ast.FunctionDef | None:
-    for st in stmts:  # numpy defines it inside a module-level `if`/`else`
+def _find_getattr(stmts: list[ast.stmt]) -> tuple[ast.FunctionDef, list[ast.stmt]] | None:
+    """The module's `__getattr__`, and the module-level statements in its scope: the top level, with the block
+    it is defined in spliced in (numpy 1.x defines it, and the tables it reads, inside an `if`/`else`)."""
+    for i, st in enumerate(stmts):
         if isinstance(st, ast.FunctionDef) and st.name == "__getattr__":
-            return st
-        if isinstance(st, (ast.If, ast.Try)) and (found := _find_getattr(st.body + st.orelse)):
-            return found
+            return st, stmts
+        if isinstance(st, (ast.If, ast.Try)):
+            for block in (st.body, st.orelse):
+                if found := _find_getattr(block):
+                    return found[0], [*stmts[:i], *found[1], *stmts[i + 1 :]]
     return None
 
 
@@ -540,12 +793,14 @@ class _Forward:
 class _GetattrShim:
     """`names`: each served name with its deprecation message. `bound`: what the `.py` binds itself, so never
     reaches `__getattr__` (None: unknowable, after a star import). `copied`: names a loop binds through
-    `globals()[n] = ...`, which griffe can't see."""
+    `globals()[n] = ...`, which griffe can't see. `deleted`: names the module binds and then `del`s, which griffe
+    still lists (numpy 1.25's `import math` ... `del math`)."""
 
     names: dict[str, str | None] = field(default_factory=dict)
     forwards: list[_Forward] = field(default_factory=list)
     bound: frozenset[str] | None = None
     copied: frozenset[str] = frozenset()
+    deleted: frozenset[str] = frozenset()
 
 
 def _copies_into_globals(loop: ast.For) -> bool:
@@ -595,21 +850,32 @@ def getattr_served(mod: griffe.Module) -> _GetattrShim:
     deprecation message its branch warns with, and the modules it forwards every other name to. Read from the
     source with `ast`; nothing is imported (ADR 0002).
 
-    Only names compared with literals, looked up in a module-level literal collection, or listed in a static
-    `__all__` are found. A name whose branch raises (numpy 2.0's expired attributes) is not served.
+    Only names compared with literals, looked up in a module-level table (a literal, or a comprehension over one,
+    filled in place with `.update()` and `T[k] = v`), or listed in a static `__all__` are found. A name whose
+    branch raises (numpy 2.0's expired attributes), or returns a dummy that raises, is not served.
     """
     tree = _source_tree(mod)
     if tree is None:
         return _GetattrShim()
-    func = _find_getattr(tree.body)
-    args = (func.args.posonlyargs + func.args.args) if func else []
-    if func is None or not args:
+    found = _find_getattr(tree.body)
+    if found is None:
         return _GetattrShim()
-    tables: dict[str, dict[str, str | None]] = {}
+    func, scope = found
+    args = func.args.posonlyargs + func.args.args
+    if not args:
+        return _GetattrShim()
+    tables: dict[str, dict[str, _TableValue]] = {}
     exports: frozenset[str] = frozenset()
     bound: dict[str, str] = {}
-    for st in tree.body:
+    deleted: set[str] = set()
+    literals = _Literals()
+    for st in scope:
         _bind(bound, st, mod.path, mod.is_init_module)
+        if _fill_table(tables, literals, st):
+            continue
+        if isinstance(st, ast.Delete):
+            deleted.update(t.id for t in st.targets if isinstance(t, ast.Name))
+            continue
         if isinstance(st, ast.Assign) and len(st.targets) == 1:
             target, value = st.targets[0], st.value
         elif isinstance(st, ast.AnnAssign) and st.value is not None:
@@ -618,10 +884,14 @@ def getattr_served(mod: griffe.Module) -> _GetattrShim:
             continue
         if not isinstance(target, ast.Name):
             continue
+        deleted.discard(target.id)
         if target.id == "__all__":
             exports = _table_keys(value, tables) or frozenset()
-        elif (keys := _string_keys(value)) is not None:
+        elif (keys := literals.table(value)) is not None:
             tables[target.id] = keys
+        else:
+            tables.pop(target.id, None)
+        literals.bind(target.id, value)
     shim = _Shim(mod.path, args[0].arg, tables, exports, mod, bound)
     served = _Served()
     _reach(func.body, _Names(frozenset(), exclude=True), [], shim, served)
@@ -632,10 +902,10 @@ def getattr_served(mod: griffe.Module) -> _GetattrShim:
         and (not name.startswith("_") or (name.startswith("__") and name.endswith("__")))
     }
     if not served.forwards:
-        return _GetattrShim(names)
+        return _GetattrShim(names, deleted=frozenset(deleted))
     own, copied = _module_names(tree.body)
     forwards = [_Forward(target, excluded, trail, shim) for target, excluded, trail in served.forwards]
-    return _GetattrShim(names, forwards, own, copied)
+    return _GetattrShim(names, forwards, own, copied, frozenset(deleted))
 
 
 @dataclass(frozen=True)
@@ -999,7 +1269,8 @@ class _Walker:
                 self.forward(mod, public_path, depth, forward, shim)
             canonical = f"{mod.path}.__getattr__"
             for name, message in shim.names.items():
-                if name not in mod.members:  # a real attribute never reaches __getattr__
+                # A real attribute never reaches __getattr__; one the module deletes again does.
+                if name not in mod.members or name in shim.deleted:
                     self.record(SymbolRecord(f"{public_path}.{name}", "getattr", canonical, None, message))
 
     def forward(

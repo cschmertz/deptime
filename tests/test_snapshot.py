@@ -374,6 +374,92 @@ FORWARDS = {
 }
 
 
+# numpy 1.24-1.26 builds its table of deprecated aliases at import time, inside a module-level `if`/`else`, and
+# reads it in a `try`; django 6.1's `core.mail` reads a literal table the same way; pydantic-ai's lazy exports
+# fall through the `try` to a `return` after it.
+TABLES = {
+    "tabled/__init__.py": (
+        "if __TABLED_SETUP__:\n"
+        "    pass\n"
+        "else:\n"
+        "    __deprecated_attrs__ = {}\n"
+        "    _financial_names = ['fv', 'pmt']\n"
+        "    __expired_functions__ = {\n"
+        "        name: (f'In accordance with NEP 32, the function {name} was removed '\n"
+        "               'from NumPy version 1.20.')\n"
+        "        for name in _financial_names}\n"
+        "    _msg = \"module 'numpy' has no attribute '{n}'. `np.{n}` was a deprecated alias. {extended_msg}\"\n"
+        "    _type_info = [('object', ''), ('bool', 'Use `np.bool_`.')]\n"
+        "    __former_attrs__ = {\n"
+        "        n: _msg.format(n=n, extended_msg=extended_msg) for n, extended_msg in _type_info}\n"
+        "    _msg = '`np.{n}` is a deprecated alias for `{an}`.  (Deprecated NumPy 1.24)'\n"
+        "    _type_info = [('bool8', bool, 'np.bool_'), ('int0', int, 'np.intp'), ('str0', str, '{0}')]\n"
+        "    __deprecated_attrs__.update({\n"
+        "        n: (alias, _msg.format(n=n, an=an)) for n, alias, an in _type_info})\n\n"
+        "    import math\n\n"
+        "    __deprecated_attrs__['math'] = (math,\n"
+        "        '`np.math` is a deprecated alias for the standard library `math` '\n"
+        "        'module (Deprecated Numpy 1.25). Replace usages of `np.math` with `math`')\n\n"
+        "    del math, _msg, _type_info\n\n"
+        "    def __getattr__(attr):\n"
+        "        import warnings\n"
+        "        try:\n"
+        "            msg = __expired_functions__[attr]\n"
+        "        except KeyError:\n"
+        "            pass\n"
+        "        else:\n"
+        "            warnings.warn(msg, DeprecationWarning, stacklevel=2)\n\n"
+        "            def _expired(*args, **kwds):\n"
+        "                raise RuntimeError(msg)\n\n"
+        "            return _expired\n\n"
+        "        try:\n"
+        "            val, msg = __deprecated_attrs__[attr]\n"
+        "        except KeyError:\n"
+        "            pass\n"
+        "        else:\n"
+        "            warnings.warn(msg, DeprecationWarning, stacklevel=2)\n"
+        "            return val\n\n"
+        "        if attr in __former_attrs__:\n"
+        "            raise AttributeError(__former_attrs__[attr])\n"
+        "        raise AttributeError(attr)\n"
+    ),
+    "tabled/mail/__init__.py": (
+        "import warnings\n\n"
+        "from tabled.mail.message import EmailMessage\n\n"
+        "__all__ = ['EmailMessage', 'BadHeaderError', 'SafeMIMEText']\n\n"
+        "_deprecate_on_import = {\n"
+        "    'BadHeaderError': 'BadHeaderError is deprecated. Replace with ValueError.',\n"
+        "    'SafeMIMEText': 'SafeMIMEText is deprecated.',\n"
+        "}\n\n\n"
+        "def __getattr__(name):\n"
+        "    try:\n"
+        "        msg = _deprecate_on_import[name]\n"
+        "    except KeyError:\n"
+        "        raise AttributeError(name) from None\n"
+        "    else:\n"
+        "        from tabled.mail import message\n\n"
+        "        warnings.warn(msg, category=RemovedInTabled2Warning)\n"
+        "        return getattr(message, name)\n"
+    ),
+    "tabled/mail/message.py": (
+        "class EmailMessage:\n    pass\n\n\nclass BadHeaderError(ValueError):\n    pass\n\n\n"
+        "class SafeMIMEText:\n    pass\n"
+    ),
+    "tabled/lazy.py": (
+        "_exports = {'Thing': ('._impl', 'Thing')}\n\n\n"
+        "def __getattr__(name):\n"
+        "    from importlib import import_module\n\n"
+        "    try:\n"
+        "        module_name, attribute = _exports[name]\n"
+        "    except KeyError:\n"
+        "        raise AttributeError(name) from None\n"
+        "    value = getattr(import_module(module_name, __name__), attribute)\n"
+        "    globals()[name] = value\n"
+        "    return value\n"
+    ),
+}
+
+
 def _write(root: Path, files: dict[str, str] = FILES) -> Path:
     for rel, text in files.items():
         p = root / rel
@@ -630,6 +716,40 @@ def test_a_getattr_that_forwards_to_a_module_serves_its_names(tmp_path):
     # Private names aren't served; a target with no source serves nothing.
     assert not {"fwd.core.numeric._private", "fwd.core._private"} & set(snap.symbols)
     assert {p for p in snap.symbols if p.startswith("fwd.core.umath.")} == {"fwd.core.umath.__getattr__"}
+
+
+def test_a_getattr_that_looks_names_up_in_a_table_serves_its_keys(tmp_path):
+    # DT-DATA-25: numpy 1.25-1.26's `np.math` and 1.24-1.26's `np.bool8`, `np.int0`... live in a table its
+    # `__getattr__` reads in a `try`; django 6.1's `core.mail.BadHeaderError` looked removed.
+    snap = build_snapshot("tabled", "1.0", ["tabled"], _write(tmp_path, TABLES))
+    bool8 = snap.symbols["tabled.bool8"]
+    assert (bool8.kind, bool8.canonical) == ("getattr", "tabled.__getattr__")
+    assert bool8.deprecated == "`np.bool8` is a deprecated alias for `np.bool_`.  (Deprecated NumPy 1.24)"
+    assert snap.symbols["tabled.int0"].deprecated == (
+        "`np.int0` is a deprecated alias for `np.intp`.  (Deprecated NumPy 1.24)"
+    )
+    # `str.format` fills only fields its arguments name; text a value brings along stays as it is.
+    assert snap.symbols["tabled.str0"].deprecated == (
+        "`np.str0` is a deprecated alias for `{0}`.  (Deprecated NumPy 1.24)"
+    )
+    # The module imports `math` and deletes it again, so the name reaches `__getattr__`.
+    math = snap.symbols["tabled.math"]
+    assert (math.kind, math.deprecated) == (
+        "getattr",
+        "`np.math` is a deprecated alias for the standard library `math` module (Deprecated Numpy 1.25). "
+        "Replace usages of `np.math` with `math`",
+    )
+    # A dummy that raises when called (numpy's expired financial functions) and a raising branch serve nothing.
+    assert not {"tabled.fv", "tabled.pmt", "tabled.object", "tabled.bool"} & set(snap.symbols)
+    header = snap.symbols["tabled.mail.BadHeaderError"]
+    assert (header.kind, header.deprecated) == (
+        "getattr",
+        "BadHeaderError is deprecated. Replace with ValueError.",
+    )
+    assert snap.symbols["tabled.mail.SafeMIMEText"].deprecated == "SafeMIMEText is deprecated."
+    assert snap.symbols["tabled.mail.EmailMessage"].kind == "class"
+    thing = snap.symbols["tabled.lazy.Thing"]
+    assert (thing.kind, thing.deprecated) == ("getattr", None)
 
 
 def test_a_build_leaves_no_griffe_objects_alive(tmp_path):

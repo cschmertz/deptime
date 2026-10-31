@@ -44,9 +44,9 @@ WHEELS = {
 }
 
 
-def _simple_index() -> dict:
+def _project_page(project: str, wheels: dict[str, bytes]) -> dict:
     files = []
-    for i, (name, data) in enumerate(WHEELS.items()):
+    for i, (name, data) in enumerate(wheels.items()):
         files.append(
             {
                 "filename": name,
@@ -56,7 +56,11 @@ def _simple_index() -> dict:
                 "yanked": False,
             }
         )
-    return {"name": "fakepkg", "files": files, "meta": {"api-version": "1.4"}}
+    return {"name": project, "files": files, "meta": {"api-version": "1.4"}}
+
+
+def _simple_index() -> dict:
+    return _project_page("fakepkg", WHEELS)
 
 
 def _client(serve_files: bool = True, only: tuple[str, ...] = ()) -> httpx.Client:
@@ -314,3 +318,72 @@ def test_cached_only_never_downloads_and_keeps_published_releases(tmp_path):
         "1.0.0": "fakepkg-1.0.0-py3-none-any.whl",
         "2.0.0": "fakepkg-2.0.0-py3-none-any.whl",
     }
+
+
+def _zip(files: dict[str, str]) -> bytes:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        for name, text in files.items():
+            zf.writestr(name, text)
+    return buf.getvalue()
+
+
+def _wrapper(name: str, version: str, *requires: str) -> bytes:
+    """A wheel with no code: only metadata that requires other distributions (fastmcp 3.3+, typer-cli)."""
+    lines = [f"Metadata-Version: 2.1\nName: {name}\nVersion: {version}\n"]
+    lines += [f"Requires-Dist: {r}\n" for r in requires]
+    return _zip({f"{name.replace('-', '_')}-{version}.dist-info/METADATA": "".join(lines)})
+
+
+WRAPPED = PackageSpec(name="wrapped", import_names=("wrapped",), tier="B")
+WRAPPED_PROJECTS = {
+    "wrapped": {
+        "wrapped-1.0.0-py3-none-any.whl": _zip({"wrapped/__init__.py": "class Old:\n    pass\n"}),
+        # typer 0.12.0 pins typer-cli (empty too) before typer-slim (the code), both at its own version.
+        "wrapped-2.0.0-py3-none-any.whl": _wrapper(
+            "wrapped", "2.0.0", "wrapped-cli (==2.0.0)", "wrapped-slim[server]==2.0.0", "rich>=13"
+        ),
+        # dspy 0.1.5 pins dspy-ai==2.4.5: another version's code isn't this release's API.
+        "wrapped-3.0.0-py3-none-any.whl": _wrapper("wrapped", "3.0.0", "wrapped-slim==2.0.0"),
+    },
+    "wrapped-cli": {
+        "wrapped_cli-2.0.0-py3-none-any.whl": _wrapper("wrapped-cli", "2.0.0", "wrapped-slim==2.0.0")
+    },
+    "wrapped-slim": {
+        "wrapped_slim-2.0.0-py3-none-any.whl": _zip({"wrapped/__init__.py": "class New:\n    pass\n"})
+    },
+}
+
+
+def _wrapped_client() -> httpx.Client:
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        for project, wheels in WRAPPED_PROJECTS.items():
+            if url == f"https://pypi.org/simple/{project}/":
+                return httpx.Response(200, json=_project_page(project, wheels))
+            if (name := url.rsplit("/", 1)[-1]) in wheels:
+                return httpx.Response(200, content=wheels[name])
+        return httpx.Response(404)
+
+    return httpx.Client(transport=httpx.MockTransport(handler))
+
+
+def test_wrapper_release_is_analysed_from_the_distribution_it_pins(tmp_path):
+    """DT-DATA-17: fastmcp 3.3+ is an empty wheel that pins fastmcp-slim at the same version."""
+    store = IndexStore.memory()
+    with _wrapped_client() as client:
+        report = ingest_package(WRAPPED, POLICY, store, tmp_path, client=client, today=TODAY, log=_quiet)
+    assert report.built == ["1.0.0", "2.0.0"] and list(report.failed) == ["3.0.0"]
+    assert "wrapped.New" in ApiSnapshot.load(snapshot_path(tmp_path, "wrapped", "2.0.0")).symbols
+    expected = {"1.0.0": "wrapped-1.0.0-py3-none-any.whl", "2.0.0": "wrapped_slim-2.0.0-py3-none-any.whl"}
+    assert {r["version"]: r["source_file"] for r in store.releases("wrapped")} == expected
+    assert [p for p in tmp_path.rglob("*") if p.is_file() and "snapshots" not in p.parts] == []
+
+    # CI's publish job assembles from cached snapshots and records the same source files.
+    fresh = IndexStore.memory()
+    with _wrapped_client() as client:
+        again = ingest_package(
+            WRAPPED, POLICY, fresh, tmp_path, client=client, today=TODAY, cached_only=True, log=_quiet
+        )
+    assert again.cached == ["1.0.0", "2.0.0"]
+    assert {r["version"]: r["source_file"] for r in fresh.releases("wrapped")} == expected

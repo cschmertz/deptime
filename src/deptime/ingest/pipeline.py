@@ -10,12 +10,14 @@ import shutil
 import sqlite3
 import sys
 from collections.abc import Callable
+from contextlib import ExitStack
 from dataclasses import dataclass, field
 from datetime import date
-from functools import partial
+from functools import cache, partial
 from pathlib import Path
 
 import httpx
+from packaging.version import Version
 
 from deptime.config import PackageSpec, VersionPolicy
 from deptime.index.store import IndexStore, RebuildStats
@@ -84,6 +86,47 @@ def _discard(artifact: Path, extract_dir: Path) -> None:
     artifact.unlink(missing_ok=True)
     artifact.with_name(artifact.name + ".part").unlink(missing_ok=True)
     shutil.rmtree(extract_dir, ignore_errors=True)
+
+
+def _fetch(
+    dist: str, version: str, file: pypi.ReleaseFile, client: httpx.Client, cache_dir: Path, cleanup: ExitStack
+) -> Path:
+    """Download and unpack one artifact; `cleanup` deletes both when the snapshot is built."""
+    artifact_path = cache_dir / "artifacts" / dist / file.filename
+    extract_dir = cache_dir / "extracted" / dist / version
+    cleanup.callback(_discard, artifact_path, extract_dir)
+    return pypi.extract(pypi.download(file, artifact_path, client), extract_dir)
+
+
+def _build(
+    spec: PackageSpec,
+    version: str,
+    file: pypi.ReleaseFile,
+    client: httpx.Client,
+    cache_dir: Path,
+    releases_of: Callable[[str], list[pypi.Release]],
+) -> ApiSnapshot:
+    """Snapshot one release from its artifact.
+
+    A release with no code for its import names is analysed from the first distribution it pins at the same
+    version that has it: fastmcp 3.3+ (`fastmcp-slim`), pinecone 2.2.2-5.0.1 (`pinecone-client`), typer
+    0.12.0 (`typer-cli`, itself empty, then `typer-slim`) (DT-DATA-17).
+    """
+    with ExitStack() as cleanup:
+        root = _fetch(spec.name, version, file, client, cache_dir, cleanup)
+        if not pypi.has_code(root, spec.import_names):
+            for dist in pypi.same_version_pins(root, version):
+                pinned = next((r for r in releases_of(dist) if r.version == Version(version)), None)
+                pinned_file = pypi.pick_file(pinned) if pinned else None
+                if pinned_file is None:
+                    continue
+                pinned_root = _fetch(dist, version, pinned_file, client, cache_dir, cleanup)
+                if pypi.has_code(pinned_root, spec.import_names):
+                    root, file = pinned_root, pinned_file
+                    break
+        snap = build_snapshot(spec.name, version, list(spec.import_names), root)
+    snap.source_file = file.filename
+    return snap
 
 
 def _previous_release_info(
@@ -157,15 +200,19 @@ def ingest_package(
         snapshots: list[LazySnapshot] = []
         released_at: dict[str, str | None] = {}
         source_files: dict[str, str] = {}
+        releases_of = cache(partial(pypi.fetch_releases, client=client))  # distributions wrappers pin
         for rel in selected:
             version = str(rel.version)
             released_at[version] = rel.uploaded_at.isoformat() if rel.uploaded_at else None
             file = pypi.pick_file(rel)
-            # Loaded here only to check its format; the rebuild loads it again when it gets there.
-            if _cached_snapshot(cache_dir, spec, version) is not None:
+            # Loaded here only for its format and source file; the rebuild loads it again when it gets there.
+            cached = _cached_snapshot(cache_dir, spec, version)
+            if cached is not None:
+                source = cached.source_file or (file.filename if file else None)
+                del cached  # not held while the next release loads (DT-DATA-03)
                 snapshots.append(_lazy_cached(cache_dir, spec, version))
-                if file is not None:
-                    source_files[version] = file.filename
+                if source:
+                    source_files[version] = source
                 report.cached.append(version)
                 continue
             if cached_only:
@@ -174,26 +221,23 @@ def ingest_package(
             if file is None:
                 report.failed[version] = "no wheel or sdist"
                 continue
-            artifact_path = cache_dir / "artifacts" / spec.name / file.filename
-            extract_dir = cache_dir / "extracted" / spec.name / version
             try:
-                artifact = pypi.download(file, artifact_path, client)
-                root = pypi.extract(artifact, extract_dir)
-                snap = build_snapshot(spec.name, version, list(spec.import_names), root)
+                snap = _build(spec, version, file, client, cache_dir, releases_of)
             except Exception as exc:  # keep going; the failure is reported and retried next run
                 report.failed[version] = f"{type(exc).__name__}: {exc}"
                 log(f"[{spec.name}] {version}: FAILED {report.failed[version]}")
                 continue
-            finally:
-                _discard(artifact_path, extract_dir)
             if not snap.symbols:
                 report.failed[version] = "no public symbols extracted: " + "; ".join(snap.errors[:3])
                 continue
             snap.save(snapshot_path(cache_dir, spec.name, version))
             snapshots.append(_lazy_cached(cache_dir, spec, version))
-            source_files[version] = file.filename
+            source_files[version] = snap.source_file
             report.built.append(version)
-            log(f"[{spec.name}] {version}: {len(snap.symbols)} public symbols ({len(snap.errors)} warnings)")
+            via = f" from {snap.source_file}" if snap.source_file != file.filename else ""
+            log(
+                f"[{spec.name}] {version}: {len(snap.symbols)} public symbols{via} ({len(snap.errors)} warnings)"
+            )
 
         if not snapshots:
             # Never replace a working index with nothing (PyPI outage, network failure, bad artifact run).

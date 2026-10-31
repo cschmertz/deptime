@@ -4,7 +4,14 @@ from datetime import UTC, date, datetime
 from packaging.version import Version
 
 from deptime.config import VersionPolicy, load_coverage
-from deptime.ingest.pypi import Release, ReleaseFile, parse_simple_index, pick_file, select_versions
+from deptime.ingest.pypi import (
+    Release,
+    ReleaseFile,
+    parse_simple_index,
+    pick_file,
+    same_version_pins,
+    select_versions,
+)
 
 
 def _rel(v: str, day: str, *, yanked: bool = False, files: tuple[ReleaseFile, ...] | None = None) -> Release:
@@ -109,3 +116,20 @@ def test_parse_simple_index_groups_files_by_version():
     assert [str(r.version) for r in releases] == ["1.0", "1.1"]
     assert releases[0].files[0].pure_python is True
     assert releases[1].yanked is True
+
+
+def test_same_version_pins_reads_unconditional_exact_pins(tmp_path):
+    info = tmp_path / "w-2.0.0.dist-info"
+    info.mkdir()
+    (info / "METADATA").write_text(
+        "Metadata-Version: 2.1\nName: w\nVersion: 2.0.0\n"
+        "Requires-Dist: w-cli (==2.0.0)\n"  # pinecone 2.2.2-5.0.1 still wrote the parentheses
+        "Requires-Dist: W_Slim[server]==2.0\n"
+        "Requires-Dist: w-tasks==2.0.0; extra == 'tasks'\n"
+        "Requires-Dist: w-win==2.0.0; sys_platform == 'win32'\n"
+        "Requires-Dist: w-ai==1.5.0\n"
+        "Requires-Dist: w-star==2.0.*\n"
+        "Requires-Dist: rich>=13\n"
+    )
+    assert same_version_pins(tmp_path, "2.0.0") == ["w-cli", "w-slim"]
+    assert same_version_pins(tmp_path / "w-2.0.0.dist-info", "2.0.0") == []  # no metadata there

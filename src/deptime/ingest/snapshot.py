@@ -53,6 +53,8 @@ class ApiSnapshot:
     symbols: dict[str, SymbolRecord] = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
     format: int = SNAPSHOT_FORMAT
+    # The artifact analysed: another distribution's for a wrapper release (DT-DATA-17). None in older snapshots.
+    source_file: str | None = None
 
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)

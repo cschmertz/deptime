@@ -6,11 +6,14 @@ import hashlib
 import tarfile
 import zipfile
 from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
+from email.parser import HeaderParser
 from pathlib import Path
 
 import httpx
+from packaging.requirements import InvalidRequirement, Requirement
 from packaging.utils import (
     InvalidSdistFilename,
     InvalidWheelFilename,
@@ -18,7 +21,7 @@ from packaging.utils import (
     parse_sdist_filename,
     parse_wheel_filename,
 )
-from packaging.version import Version
+from packaging.version import InvalidVersion, Version
 
 from deptime import __version__
 from deptime.config import VersionPolicy
@@ -203,3 +206,43 @@ def _search_root(dest: Path, artifact: Path) -> Path:
     tops = [p for p in dest.iterdir() if p.is_dir()]
     top = tops[0] if len(tops) == 1 else dest
     return top / "src" if (top / "src").is_dir() else top
+
+
+def has_code(root: Path, import_names: Iterable[str]) -> bool:
+    """Whether an extracted artifact contains one of `import_names` as a package or module."""
+    for name in import_names:
+        base = root.joinpath(*name.split("."))
+        if base.is_dir() or base.with_suffix(".py").is_file() or base.with_suffix(".pyi").is_file():
+            return True
+    return False
+
+
+def _is_exact_pin(req: Requirement, version: Version) -> bool:
+    specs = list(req.specifier)
+    if len(specs) != 1 or specs[0].operator != "==" or specs[0].version.endswith(".*"):
+        return False
+    try:
+        return Version(specs[0].version) == version
+    except InvalidVersion:
+        return False
+
+
+def same_version_pins(root: Path, version: str) -> list[str]:
+    """Distributions an extracted wheel always requires at exactly its own version, in metadata order.
+
+    A wrapper release with no code of its own pins the distribution that has it: fastmcp 3.3+ requires
+    `fastmcp-slim==<same>`, pinecone 2.2.2-5.0.1 `pinecone-client (==<same>)` (DT-DATA-17). Requirements
+    behind an extra or another marker don't count; sdists aren't read.
+    """
+    wanted, pins = Version(version), []
+    for metadata in sorted(root.glob("*.dist-info/METADATA")):
+        headers = HeaderParser().parsestr(metadata.read_text(encoding="utf-8", errors="replace"))
+        for line in headers.get_all("Requires-Dist") or []:
+            try:
+                req = Requirement(line)
+            except InvalidRequirement:
+                continue
+            name = canonicalize_name(req.name)
+            if req.marker is None and _is_exact_pin(req, wanted) and name not in pins:
+                pins.append(name)
+    return pins

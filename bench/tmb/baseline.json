@@ -1,29 +1,29 @@
 {
-  "index_built_at": "2026-10-31T13:04:30+00:00",
+  "index_built_at": "2026-10-31T16:24:49+00:00",
   "summary": {
     "cases": 29,
-    "known_gap_share": 27.6,
+    "known_gap_share": 24.1,
     "overall": {
-      "root_cause": 82.8,
-      "root_cause_and_boundary": 72.4,
-      "boundary": 72.4,
+      "root_cause": 86.2,
+      "root_cause_and_boundary": 75.9,
+      "boundary": 75.9,
       "replacement": 0.0
     },
     "by_tier": {
       "B": {
         "cases": 29,
-        "root_cause": 82.8,
-        "root_cause_and_boundary": 72.4,
-        "boundary": 72.4,
+        "root_cause": 86.2,
+        "root_cause_and_boundary": 75.9,
+        "boundary": 75.9,
         "replacement": 0.0
       }
     },
     "by_origin": {
       "reported": {
         "cases": 29,
-        "root_cause": 82.8,
-        "root_cause_and_boundary": 72.4,
-        "boundary": 72.4,
+        "root_cause": 86.2,
+        "root_cause_and_boundary": 75.9,
+        "boundary": 75.9,
         "replacement": 0.0
       }
     }
@@ -120,8 +120,8 @@
       "replacement": false
     },
     "tmb-numpy-ndarray-itemset-pynite": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": null
     },
     "tmb-numpy-ndarray-tostring-sonipy": {

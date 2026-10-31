@@ -227,6 +227,34 @@ def test_library_migration_errors_name_the_removed_api():
         assert (s.kind, s.module, s.name) == expected, text
 
 
+def test_numpy_2_class_member_removals_read_like_the_standard_message():
+    # DT-CORE-21: numpy 2.0.0-2.3.5 raise these from C (strings in _multiarray_umath); from 2.4.0 the same access
+    # raises "'numpy.ndarray' object has no attribute 'itemset'", so both must give the same signal.
+    cases = {
+        "AttributeError: `itemset` was removed from the ndarray class in NumPy 2.0. Use `arr[index] = value` instead.": (
+            "numpy.ndarray",
+            "itemset",
+        ),
+        "AttributeError: `ptp` was removed from the ndarray class in NumPy 2.0. Use np.ptp(arr, ...) instead.": (
+            "numpy.ndarray",
+            "ptp",
+        ),
+        "AttributeError: `newbyteorder` was removed from scalar types in NumPy 2.0. "
+        "Use `sc.view(sc.dtype.newbyteorder(order))` instead.": ("numpy.generic", "newbyteorder"),
+        "E   AttributeError: `itemset` was removed from scalar types in NumPy 2.0 because scalars are immutable.": (
+            "numpy.generic",
+            "itemset",
+        ),
+    }
+    for text, (owner, name) in cases.items():
+        s = parse_traceback(text)
+        assert s is not None, text
+        assert (s.kind, s.owner, s.name, s.module) == ("object_attribute", owner, name, None), text
+        assert s.exception_type == "AttributeError"
+    standard = parse_traceback("AttributeError: 'numpy.ndarray' object has no attribute 'itemset'")
+    assert (standard.kind, standard.owner, standard.name) == ("object_attribute", "numpy.ndarray", "itemset")
+
+
 def test_pydantic_removed_kwargs_take_the_raising_function():
     s = parse_traceback(
         "Traceback (most recent call last):\n"

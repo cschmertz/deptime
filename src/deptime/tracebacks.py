@@ -45,6 +45,11 @@ TOO_MANY_POS_RE = re.compile(
 )
 # Libraries that name a removed API in their own words (DT-CORE-05); templates copied from their wheels.
 NUMPY_EXPIRED_RE = re.compile(r"`np\.(?P<name>\w+)` was removed in the NumPy 2\.0 release")
+# numpy 2.0.0-2.3.5 only; 2.4.0 raises the standard "'numpy.ndarray' object has no attribute" message (DT-CORE-21).
+NUMPY_MEMBER_REMOVED_RE = re.compile(
+    r"`(?P<name>\w+)` was removed from (?P<owner>the ndarray class|scalar types) in NumPy 2\.0"
+)
+NUMPY_MEMBER_OWNERS = {"the ndarray class": "numpy.ndarray", "scalar types": "numpy.generic"}
 PYDANTIC_REMOVED_RE = re.compile(r"`(?P<module>[\w.]+):(?P<name>\w+)` has been removed in V2")
 PYDANTIC_MOVED_RE = re.compile(r"`(?P<name>BaseSettings)` has been moved to the `pydantic-settings` package")
 PYDANTIC_REMOVED_KWARG_RE = re.compile(r"`(?P<kwarg>\w+)` is removed[.,] use ")
@@ -243,6 +248,9 @@ def _classify_library(signal: ErrorSignal, text: str) -> None:
     exc = signal.exception_type
     if exc == "AttributeError" and (m := NUMPY_EXPIRED_RE.search(text)):
         signal.kind, signal.module, signal.name = "module_attribute", "numpy", m.group("name")
+    elif exc == "AttributeError" and (m := NUMPY_MEMBER_REMOVED_RE.search(text)):
+        signal.kind, signal.name = "object_attribute", m.group("name")
+        signal.owner = NUMPY_MEMBER_OWNERS[m.group("owner")]
     elif exc == "PydanticImportError" and (m := PYDANTIC_REMOVED_RE.search(text)):
         signal.kind, signal.module, signal.name = "import_name", m.group("module"), m.group("name")
     elif exc == "PydanticImportError" and (m := PYDANTIC_MOVED_RE.search(text)):

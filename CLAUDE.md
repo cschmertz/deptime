@@ -58,5 +58,5 @@ The default home is `~/.cache/deptime` (override with `DEPTIME_HOME`). Set `DEPT
   - `streamable_http_app(stateless_http=True, json_response=True)`;
   - `ServerMiddleware` = `async (ctx, call_next)`;
   - tests: `mcp.Client(server)` in-process, or `mcp.Client(StdioServerParameters(command=..., args=[...], env=...))`.
-- **griffe 2.3:** `griffe.load(name, search_paths=[...], allow_inspection=False, resolve_aliases=True, resolve_external=None)` (`None` loads only a private `_<package>` sibling such as `_pytest`, from `search_paths` alone); aliases expose `final_target`; `Class.all_members` includes inherited members.
+- **griffe 2.4 (re-checked 2026-10-31):** `griffe.load(name, search_paths=[...], allow_inspection=False, resolve_aliases=True, resolve_external=None)` (`None` loads only a private `_<package>` sibling such as `_pytest`, from `search_paths` alone); aliases expose `final_target`; `Class.all_members` includes inherited members.
 - **Claude Code plugins:** `claude plugin validate integrations/claude-code` passes on 2.1.281. Failed Bash commands fire `PostToolUseFailure`.

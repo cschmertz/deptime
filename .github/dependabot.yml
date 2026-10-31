@@ -20,10 +20,10 @@ updates:
     schedule:
       interval: weekly
     # The cache and artifact actions run only in build-index and s1, which a PR doesn't trigger, so each pair moves as
-    # one PR, majors included; start build-index by hand after merging one. An update joins the first group it matches.
+    # one PR, majors included; start build-index by hand after merging one.
     groups:
       actions-cache:
-        patterns: ["actions/cache*"]
+        patterns: [actions/cache/restore, actions/cache/save] # exact names: a wildcard loses to the group below
       actions-artifact:
         patterns: [actions/upload-artifact, actions/download-artifact]
       actions-minor-and-patch:

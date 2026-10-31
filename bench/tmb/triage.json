@@ -1,0 +1,670 @@
+[
+ {
+  "repo": "alexdaniel654/Segmentation_Metrics",
+  "category": "in_scope",
+  "breaks": [
+   {
+    "package": "numpy",
+    "symbol_suffix": "numpy.Inf",
+    "issue": "symbol_removed",
+    "last_version_with": "1.26"
+   },
+   {
+    "package": "numpy",
+    "symbol_suffix": "numpy.NaN",
+    "issue": "symbol_removed",
+    "last_version_with": "1.26"
+   }
+  ],
+  "other": "",
+  "license": "Apache-2.0",
+  "difficulty": "Easy",
+  "case": "tmb-numpy-inf-segmentation-metrics"
+ },
+ {
+  "repo": "angulito/the-real-devops-challenge",
+  "category": "in_scope",
+  "breaks": [
+   {
+    "package": "flask",
+    "symbol_suffix": "flask.json.JSONEncoder",
+    "issue": "symbol_removed",
+    "last_version_with": "2.2"
+   }
+  ],
+  "other": "",
+  "license": "Apache-2.0",
+  "difficulty": "Easy",
+  "case": "tmb-flask-json-jsonencoder-the-real-devops-challenge"
+ },
+ {
+  "repo": "aothman/hiscore",
+  "category": "in_scope",
+  "breaks": [
+   {
+    "package": "numpy",
+    "symbol_suffix": "numpy.NINF",
+    "issue": "symbol_removed",
+    "last_version_with": "1.26"
+   }
+  ],
+  "other": "",
+  "license": "BSD-3-Clause",
+  "difficulty": "Easy",
+  "case": "tmb-numpy-ninf-hiscore"
+ },
+ {
+  "repo": "Arkenan/fiuba_opiniones_de_curso",
+  "category": "in_scope",
+  "breaks": [
+   {
+    "package": "numpy",
+    "symbol_suffix": "numpy.NaN",
+    "issue": "symbol_removed",
+    "last_version_with": "1.26"
+   }
+  ],
+  "other": "",
+  "license": null,
+  "difficulty": "Easy",
+  "case": "tmb-numpy-nan-fiuba-opiniones-de-curso"
+ },
+ {
+  "repo": "arthurcgusmao/py-mcc-f1",
+  "category": "in_scope",
+  "breaks": [
+   {
+    "package": "scikit-learn",
+    "symbol_suffix": "sklearn.utils.check_matplotlib_support",
+    "issue": "symbol_removed",
+    "last_version_with": "1.4"
+   }
+  ],
+  "other": "",
+  "license": "MIT",
+  "difficulty": "Medium",
+  "case": "tmb-scikit-learn-utils-check-matplotlib-support-py-mcc-f1"
+ },
+ {
+  "repo": "bmat/rice",
+  "category": "behaviour_change",
+  "breaks": [],
+  "other": "marshmallow 3.0 load() returns data, no .data (also pre-index)",
+  "license": "Apache-2.0",
+  "difficulty": "Easy"
+ },
+ {
+  "repo": "byt3-m3/connector",
+  "category": "in_scope_mixed",
+  "breaks": [
+   {
+    "package": "marshmallow",
+    "symbol_suffix": "Field.__init__(default)",
+    "issue": "param_removed",
+    "last_version_with": "3.26"
+   }
+  ],
+  "other": "pysnmp.hlapi + netmiko.ssh_exception imports (uncovered)",
+  "license": null,
+  "difficulty": "Medium",
+  "no_case": "tests fail first on pysnmp (not covered)"
+ },
+ {
+  "repo": "chanedwin/pydistinct",
+  "category": "in_scope",
+  "breaks": [
+   {
+    "package": "numpy",
+    "symbol_suffix": "numpy.math",
+    "issue": "symbol_removed",
+    "last_version_with": "1.26"
+   }
+  ],
+  "other": "",
+  "license": "MIT",
+  "difficulty": "Easy",
+  "case": "tmb-numpy-math-pydistinct"
+ },
+ {
+  "repo": "clbarnes/h5py_like",
+  "category": "in_scope",
+  "breaks": [
+   {
+    "package": "numpy",
+    "symbol_suffix": "numpy.product",
+    "issue": "symbol_removed",
+    "last_version_with": "1.26"
+   }
+  ],
+  "other": "",
+  "license": "MIT",
+  "difficulty": "Easy",
+  "case": "tmb-numpy-product-h5py-like"
+ },
+ {
+  "repo": "dakrauth/django-swingtime",
+  "category": "behaviour_change",
+  "breaks": [],
+  "other": "USE_TZ default True in 5.0",
+  "license": "MIT",
+  "difficulty": "Medium"
+ },
+ {
+  "repo": "dan-stone/canal",
+  "category": "removed_before_index",
+  "breaks": [],
+  "other": "DataFrame.from_items, removed 1.0",
+  "license": "MIT",
+  "difficulty": "Easy"
+ },
+ {
+  "repo": "demorest/sdmpy",
+  "category": "in_scope",
+  "breaks": [
+   {
+    "package": "numpy",
+    "symbol_suffix": "numpy.product",
+    "issue": "symbol_removed",
+    "last_version_with": "1.26"
+   }
+  ],
+  "other": "",
+  "license": null,
+  "difficulty": "Easy",
+  "case": "tmb-numpy-product-sdmpy"
+ },
+ {
+  "repo": "EBISPOT/gwas-sumstats-validator",
+  "category": "in_scope",
+  "breaks": [
+   {
+    "package": "pandas",
+    "symbol_suffix": "DataFrame.append",
+    "issue": "symbol_removed",
+    "last_version_with": "1.5"
+   },
+   {
+    "package": "pandas",
+    "symbol_suffix": "read_csv(error_bad_lines)",
+    "issue": "param_removed",
+    "last_version_with": "1.5"
+   }
+  ],
+  "other": "",
+  "license": "Apache-2.0",
+  "difficulty": "Easy",
+  "case": "tmb-pandas-read-csv-error-bad-lines-gwas-sumstats-validator"
+ },
+ {
+  "repo": "exa-analytics/exa",
+  "category": "removed_before_index",
+  "breaks": [],
+  "other": "np.int, removed 1.24.0",
+  "license": "Apache-2.0",
+  "difficulty": "Easy"
+ },
+ {
+  "repo": "exleym/Flask-Filter",
+  "category": "in_scope_mixed",
+  "breaks": [
+   {
+    "package": "marshmallow",
+    "symbol_suffix": "marshmallow.__version_info__",
+    "issue": "symbol_removed",
+    "last_version_with": "3.26"
+   }
+  ],
+  "other": "flask_sqlalchemy.Model import (uncovered)",
+  "license": "BSD-3-Clause",
+  "difficulty": "Easy",
+  "no_case": "tests fail first on flask_sqlalchemy (not covered)"
+ },
+ {
+  "repo": "fides-dev/fides",
+  "category": "in_scope",
+  "breaks": [
+   {
+    "package": "numpy",
+    "symbol_suffix": "numpy.NaN",
+    "issue": "symbol_removed",
+    "last_version_with": "1.26"
+   }
+  ],
+  "other": "",
+  "license": "BSD-3-Clause",
+  "difficulty": "Easy",
+  "case": "tmb-numpy-nan-fides"
+ },
+ {
+  "repo": "flatironinstitute/inferelator",
+  "category": "in_scope_mixed",
+  "breaks": [
+   {
+    "package": "numpy",
+    "symbol_suffix": "numpy.NaN",
+    "issue": "symbol_removed",
+    "last_version_with": "1.26"
+   }
+  ],
+  "other": "scipy sparse .A, anndata.read, pandas merge order",
+  "license": "BSD-2-Clause",
+  "difficulty": "Hard",
+  "case": "tmb-numpy-nan-inferelator"
+ },
+ {
+  "repo": "Gunnstein/fatpack",
+  "category": "in_scope",
+  "breaks": [
+   {
+    "package": "numpy",
+    "symbol_suffix": "numpy.asfarray",
+    "issue": "symbol_removed",
+    "last_version_with": "1.26"
+   }
+  ],
+  "other": "",
+  "license": "ISC",
+  "difficulty": "Easy",
+  "case": "tmb-numpy-asfarray-fatpack"
+ },
+ {
+  "repo": "hauser-group/pyQChem",
+  "category": "removed_before_index",
+  "breaks": [],
+  "other": "np.float, removed 1.24.0",
+  "license": "BSD-2-Clause",
+  "difficulty": "Easy"
+ },
+ {
+  "repo": "home-assistant-libs/pytradfri",
+  "category": "behaviour_change",
+  "breaks": [],
+  "other": "pydantic 2: Optional field without default is required",
+  "license": "MIT",
+  "difficulty": "Medium"
+ },
+ {
+  "repo": "italomaia/flask-rev",
+  "category": "removed_before_index",
+  "breaks": [],
+  "other": "flask.helpers.safe_join, removed 2.1",
+  "license": null,
+  "difficulty": "Easy"
+ },
+ {
+  "repo": "jakemcaferty/insurapy",
+  "category": "in_scope",
+  "breaks": [
+   {
+    "package": "numpy",
+    "symbol_suffix": "numpy.product",
+    "issue": "symbol_removed",
+    "last_version_with": "1.26"
+   }
+  ],
+  "other": "",
+  "license": "MIT",
+  "difficulty": "Easy",
+  "case": "tmb-numpy-product-insurapy"
+ },
+ {
+  "repo": "jatinchowdhury18/audio_dspy",
+  "category": "in_scope",
+  "breaks": [
+   {
+    "package": "numpy",
+    "symbol_suffix": "numpy.mat",
+    "issue": "symbol_removed",
+    "last_version_with": "1.26"
+   }
+  ],
+  "other": "",
+  "license": "MIT",
+  "difficulty": "Easy",
+  "case": "tmb-numpy-mat-audio-dspy"
+ },
+ {
+  "repo": "jhags/routely",
+  "category": "removed_before_index",
+  "breaks": [],
+  "other": "np.int/np.float, removed 1.24.0",
+  "license": "MIT",
+  "difficulty": "Easy"
+ },
+ {
+  "repo": "joway/lemon",
+  "category": "in_scope",
+  "breaks": [
+   {
+    "package": "werkzeug",
+    "symbol_suffix": "werkzeug.urls.url_decode",
+    "issue": "symbol_removed",
+    "last_version_with": "2.3"
+   }
+  ],
+  "other": "",
+  "license": "MIT",
+  "difficulty": "Easy",
+  "case": "tmb-werkzeug-urls-url-decode-lemon"
+ },
+ {
+  "repo": "JWock82/PyNite",
+  "category": "in_scope",
+  "breaks": [
+   {
+    "package": "numpy",
+    "symbol_suffix": "ndarray.itemset",
+    "issue": "symbol_removed",
+    "last_version_with": "1.26"
+   }
+  ],
+  "other": "",
+  "license": "MIT",
+  "difficulty": "Easy",
+  "case": "tmb-numpy-ndarray-itemset-pynite"
+ },
+ {
+  "repo": "Kyligence/kylinpy",
+  "category": "in_scope_mixed",
+  "breaks": [
+   {
+    "package": "sqlalchemy",
+    "symbol_suffix": "Connection.connect",
+    "issue": "symbol_removed",
+    "last_version_with": "1.4"
+   }
+  ],
+  "other": "inspect.getargspec removed in Python 3.11 (builtin)",
+  "license": "MIT",
+  "difficulty": "Medium",
+  "case": "tmb-sqlalchemy-connection-connect-kylinpy"
+ },
+ {
+  "repo": "lccruz/helloflask",
+  "category": "in_scope",
+  "breaks": [
+   {
+    "package": "flask",
+    "symbol_suffix": "Flask.before_first_request",
+    "issue": "symbol_removed",
+    "last_version_with": "2.2"
+   }
+  ],
+  "other": "",
+  "license": null,
+  "difficulty": "Medium",
+  "case": "tmb-flask-before-first-request-helloflask"
+ },
+ {
+  "repo": "LedgerHQ/marshmallow_dataclass",
+  "category": "in_scope_mixed",
+  "breaks": [
+   {
+    "package": "marshmallow",
+    "symbol_suffix": "Field.__init__(default)",
+    "issue": "param_removed",
+    "last_version_with": "3.26"
+   },
+   {
+    "package": "marshmallow",
+    "symbol_suffix": "Field.__init__(missing)",
+    "issue": "param_removed",
+    "last_version_with": "3.26"
+   }
+  ],
+  "other": "typing.NewType is a class on 3.10+ (builtin)",
+  "license": "MIT",
+  "difficulty": "Hard",
+  "case": "tmb-marshmallow-field-init-default-marshmallow-dataclass"
+ },
+ {
+  "repo": "ljvmiranda921/pyswarms",
+  "category": "behaviour_change",
+  "breaks": [],
+  "other": "numpy 1.24 ragged-array ValueError (needs dtype=object)",
+  "license": "MIT",
+  "difficulty": "Medium"
+ },
+ {
+  "repo": "lockepatton/sonipy",
+  "category": "in_scope",
+  "breaks": [
+   {
+    "package": "numpy",
+    "symbol_suffix": "ndarray.tostring",
+    "issue": "symbol_removed",
+    "last_version_with": "2.2"
+   }
+  ],
+  "other": "",
+  "license": "MIT",
+  "difficulty": "Easy",
+  "case": "tmb-numpy-ndarray-tostring-sonipy"
+ },
+ {
+  "repo": "lookandhate/Bugtracker",
+  "category": "in_scope_mixed",
+  "breaks": [
+   {
+    "package": "sqlalchemy",
+    "symbol_suffix": "sqlalchemy.orm.relation",
+    "issue": "symbol_removed",
+    "last_version_with": "1.4"
+   }
+  ],
+  "other": "select([...]) call shape (C); flask_restful reqparse location (uncovered)",
+  "license": "MIT",
+  "difficulty": "Hard",
+  "case": "tmb-sqlalchemy-orm-relation-bugtracker"
+ },
+ {
+  "repo": "marshmallow-code/django-rest-marshmallow",
+  "category": "in_scope",
+  "breaks": [
+   {
+    "package": "marshmallow",
+    "symbol_suffix": "marshmallow.__version__",
+    "issue": "symbol_removed",
+    "last_version_with": "3.26"
+   },
+   {
+    "package": "marshmallow",
+    "symbol_suffix": "Schema.__init__(context)",
+    "issue": "param_removed",
+    "last_version_with": "3.26"
+   }
+  ],
+  "other": "",
+  "license": "ISC",
+  "difficulty": "Medium",
+  "case": "tmb-marshmallow-version-django-rest-marshmallow"
+ },
+ {
+  "repo": "mirandrom/PyS2",
+  "category": "behaviour_change",
+  "breaks": [],
+  "other": "pydantic 2: Optional field without default is required",
+  "license": "MIT",
+  "difficulty": "Easy"
+ },
+ {
+  "repo": "mixkorshun/django-antispam",
+  "category": "in_scope",
+  "breaks": [
+   {
+    "package": "django",
+    "symbol_suffix": "translation.ugettext_lazy",
+    "issue": "symbol_removed",
+    "last_version_with": "3.2"
+   }
+  ],
+  "other": "",
+  "license": "MIT",
+  "difficulty": "Easy",
+  "case": "tmb-django-translation-ugettext-lazy-django-antispam"
+ },
+ {
+  "repo": "mp4096/blockschaltbilder",
+  "category": "removed_before_index",
+  "breaks": [],
+  "other": "np.int, removed 1.24.0 (first indexed)",
+  "license": "MIT",
+  "difficulty": "Easy"
+ },
+ {
+  "repo": "ovh/interpretability-engine",
+  "category": "not_covered_api",
+  "breaks": [],
+  "other": "private sklearn.utils._get_column_indices + private _grid_from_X signature",
+  "license": "BSD-3-Clause",
+  "difficulty": "Medium"
+ },
+ {
+  "repo": "pylhc/optics_functions",
+  "category": "in_scope",
+  "breaks": [
+   {
+    "package": "numpy",
+    "symbol_suffix": "numpy.NaN",
+    "issue": "symbol_removed",
+    "last_version_with": "1.26"
+   }
+  ],
+  "other": "",
+  "license": "MIT",
+  "difficulty": "Easy",
+  "case": "tmb-numpy-nan-optics-functions"
+ },
+ {
+  "repo": "PytLab/VASPy",
+  "category": "removed_before_index",
+  "breaks": [],
+  "other": "np.str, removed 1.24.0",
+  "license": "MIT",
+  "difficulty": "Easy"
+ },
+ {
+  "repo": "rclement/flask-language",
+  "category": "in_scope",
+  "breaks": [
+   {
+    "package": "flask",
+    "symbol_suffix": "flask._request_ctx_stack",
+    "issue": "symbol_removed",
+    "last_version_with": "2.3"
+   }
+  ],
+  "other": "",
+  "license": "MIT",
+  "difficulty": "Easy",
+  "case": "tmb-flask-request-ctx-stack-flask-language"
+ },
+ {
+  "repo": "rebuy-de/ds-pub-utils",
+  "category": "in_scope_mixed",
+  "breaks": [
+   {
+    "package": "pandas",
+    "symbol_suffix": "pandas.datetime",
+    "issue": "symbol_removed",
+    "last_version_with": "1.5"
+   }
+  ],
+  "other": "OneHotEncoder(n_values) removed sklearn 0.22 (B); Series name behaviour (C)",
+  "license": "MIT",
+  "difficulty": "Hard",
+  "no_case": "tests fail first on scikit-learn OneHotEncoder(n_values), removed in 0.22 (before the index)"
+ },
+ {
+  "repo": "ricco386/django-faktura",
+  "category": "in_scope",
+  "breaks": [
+   {
+    "package": "django",
+    "symbol_suffix": "django.conf.urls.url",
+    "issue": "symbol_removed",
+    "last_version_with": "3.2"
+   }
+  ],
+  "other": "",
+  "license": "MIT",
+  "difficulty": "Easy",
+  "case": "tmb-django-conf-urls-url-django-faktura"
+ },
+ {
+  "repo": "ronikobrosly/causal-curve",
+  "category": "behaviour_change",
+  "breaks": [],
+  "other": "numpy 1.24 ragged-array ValueError",
+  "license": "MIT",
+  "difficulty": "Easy"
+ },
+ {
+  "repo": "senaps/chosnale",
+  "category": "not_covered_api",
+  "breaks": [],
+  "other": "Flask-SQLAlchemy 3 create_all(app=) (labelled flask)",
+  "license": "MIT",
+  "difficulty": "Easy"
+ },
+ {
+  "repo": "Shokr/orderingSystem",
+  "category": "in_scope",
+  "breaks": [
+   {
+    "package": "django",
+    "symbol_suffix": "django.conf.urls.url",
+    "issue": "symbol_removed",
+    "last_version_with": "3.2"
+   },
+   {
+    "package": "django",
+    "symbol_suffix": "translation.ugettext_lazy",
+    "issue": "symbol_removed",
+    "last_version_with": "3.2"
+   }
+  ],
+  "other": "",
+  "license": null,
+  "difficulty": "Easy",
+  "case": "tmb-django-conf-urls-url-orderingsystem"
+ },
+ {
+  "repo": "socialwifi/queue-messaging",
+  "category": "in_scope_mixed",
+  "breaks": [
+   {
+    "package": "marshmallow",
+    "symbol_suffix": "Field.fail",
+    "issue": "symbol_removed",
+    "last_version_with": "3.26"
+   }
+  ],
+  "other": "marshmallow 3.0 result objects / unknown=EXCLUDE (C, pre-index)",
+  "license": "BSD-3-Clause",
+  "difficulty": "Hard",
+  "case": "tmb-marshmallow-field-fail-queue-messaging"
+ },
+ {
+  "repo": "uichathurika/laptimize",
+  "category": "in_scope",
+  "breaks": [
+   {
+    "package": "numpy",
+    "symbol_suffix": "numpy.Infinity",
+    "issue": "symbol_removed",
+    "last_version_with": "1.26"
+   },
+   {
+    "package": "pandas",
+    "symbol_suffix": "DataFrame.append",
+    "issue": "symbol_removed",
+    "last_version_with": "1.5"
+   }
+  ],
+  "other": "",
+  "license": "MIT",
+  "difficulty": "Easy",
+  "case": "tmb-numpy-infinity-laptimize"
+ }
+]

@@ -7,6 +7,7 @@ evidence it came from and a confidence the caller can threshold. Patterns are pi
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass
 
 IDENT = r"`?'?\"?(?P<t>[A-Za-z_][\w.]*(?:\(\))?)`?'?\"?"
@@ -18,6 +19,12 @@ PATTERNS: list[tuple[re.Pattern[str], float]] = [
     (re.compile(rf"\bplease\s+use\s+{IDENT}", re.I), 0.75),
     (re.compile(rf"\buse\s+{IDENT}", re.I), 0.6),
 ]
+# "`BaseSettings` has been moved to the `pydantic-settings` package": the target is a distribution (DT-CORE-06).
+PACKAGE_MOVE_RE = re.compile(
+    r"\bmoved\s+to\s+the\s+[`'\"]?(?P<dist>[A-Za-z0-9][\w.-]*)[`'\"]?\s+(?:package|distribution|library)\b",
+    re.I,
+)
+MAX_EVIDENCE_CHARS = 300
 LANGCHAIN_ALTERNATIVE_RE = re.compile(r"alternative(?:_import)?\s*=\s*['\"](?P<t>[\w.]+)['\"]")
 QUOTED_IDENT_RE = re.compile(r"['`\"](?P<t>[A-Za-z_]\w*)['`\"]")
 STOPWORDS = {"the", "a", "an", "this", "that", "it", "instead", "of", "or", "and"}
@@ -49,8 +56,25 @@ def _private(target: str) -> bool:
     return any(part.startswith("_") and not part.endswith("__") for part in target.split("."))
 
 
-def mine(message: str | None) -> list[Hint]:
-    """Replacement candidates for a whole symbol, best first, deduplicated."""
+def clean_evidence(text: str) -> str:
+    """Untrusted text as evidence: control and format characters (bidi overrides, NULs) dropped, whitespace
+    collapsed, length capped."""
+    kept = "".join(" " if unicodedata.category(c) in ("Cc", "Cf") else c for c in text)
+    return " ".join(kept.split())[:MAX_EVIDENCE_CHARS]
+
+
+def moved_to_package(message: str | None) -> str | None:
+    """The distribution a message says a name moved to, if it says so in these words."""
+    m = PACKAGE_MOVE_RE.search(message or "")
+    return m.group("dist") if m else None
+
+
+def mine(message: str | None, *, skip_expressions: bool = False) -> list[Hint]:
+    """Replacement candidates for a whole symbol, best first, deduplicated.
+
+    `skip_expressions` drops a target that is only the head of a longer expression: `np.dtype` in "Use
+    `np.dtype(obj).type` instead", `arr` in "Use `arr[index] = value` instead".
+    """
     if not message:
         return []
     hints: dict[str, Hint] = {}
@@ -60,6 +84,8 @@ def mine(message: str | None) -> list[Hint]:
             hints.setdefault(t, Hint(t, 0.9, evidence))
     for pattern, conf in PATTERNS:
         for m in pattern.finditer(message):
+            if skip_expressions and message[m.end("t") : m.end("t") + 1] in ("(", "[", "."):
+                continue
             t = _clean(m.group("t"))
             if t and t.lower() not in STOPWORDS and t not in hints and not _private(t):
                 hints[t] = Hint(t, conf, evidence)

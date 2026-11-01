@@ -65,7 +65,7 @@ All tools are read-only and idempotent, and return structured output (pydantic m
   - `issue`: `symbol_removed`, `param_removed`, `never_existed`, `symbol_not_yet_added`, `param_not_yet_added`, `param_now_required`, `module_removed`, or `present_in_installed_version`
   - `last_version_with` and `first_version_without`
   - `deprecated_in` and `deprecation_message`
-  - `replacements[]`, each with `confidence`, `source` and `evidence`
+  - `replacements[]`, each with `confidence`, `source` and `evidence`. Sources: the library's deprecation text (`deprecation_message`), a removal paired with an addition in the same release (`moved_heuristic`), a reviewed map (`curated`), or the error text itself (`error_message`), as in numpy 2's "Use `np.nan` instead". A target named by the error text is kept only if the index has it: a public path of the package at the installed release or the first release without the old name, a parameter of the same function, or the name in the covered package the message says it moved to.
   - `pin_to_restore`
   - `confidence`
   - `explanation`
@@ -120,7 +120,7 @@ All tools are read-only and idempotent, and return structured output (pydantic m
    - `pin_to_restore` therefore uses `<=last_version_with`, which is always correct, rather than `<first_version_without`.
    - `deprecated_in = "<=X"` when the deprecation already existed in the earliest indexed release X.
 5. **Say "don't know" instead of guessing.** A package outside coverage goes into `not_covered`. Unsupported error shapes return a `note`, not a guess.
-6. **Mined text is untrusted data.** Deprecation messages come from third-party source code: they're length-capped and must be quoted, never followed ([08-privacy-and-security.md](08-privacy-and-security.md)).
+6. **Mined text is untrusted data.** Deprecation messages come from third-party source code: they're length-capped and must be quoted, never followed ([08-privacy-and-security.md](08-privacy-and-security.md)). The traceback passed to `explain_error` is untrusted too: a replacement it names counts only once the index confirms it.
 
 ## Coverage v1
 
@@ -157,4 +157,3 @@ All tools are read-only and idempotent, and return structured output (pydantic m
 ## Open questions
 
 - Should rename maps also be exposed as MCP *resources* for clients that prefetch context?
-- Should `explain_error` also mine replacement hints from the live error text? Some libraries now embed migration hints in the exception itself; `mcp` 2.x does (DT-CORE-06).

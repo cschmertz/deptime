@@ -1,4 +1,4 @@
-from deptime.ingest.replacements import mine, param_deprecations
+from deptime.ingest.replacements import clean_evidence, mine, moved_to_package, param_deprecations
 
 
 def test_use_x_instead():
@@ -79,3 +79,35 @@ def test_private_names_are_never_advice():
     assert [h.target for h in mine(msg)] == ["numpy.linalg.det"]
     assert mine("numpy.core is deprecated and has been renamed to numpy._core.") == []
     assert mine("Use `Client.__call__` instead.")[0].target == "Client.__call__"  # a dunder isn't private
+
+
+def test_moved_to_a_package_names_the_distribution():
+    # DT-CORE-06: pydantic 2's PydanticImportError text names a distribution, not a dotted path.
+    msg = (
+        "`BaseSettings` has been moved to the `pydantic-settings` package. See "
+        "https://docs.pydantic.dev/2.6/migration/#basesettings-has-moved-to-pydantic-settings for more details."
+    )
+    assert moved_to_package(msg) == "pydantic-settings"
+    assert mine(msg) == []  # "moved to the" isn't a target, and the URL's "-moved-to-" isn't a sentence
+    assert moved_to_package("`Foo` has been moved to `pkg.core.Foo`.") is None
+
+
+def test_evidence_from_an_error_message_is_capped_and_has_no_control_characters():
+    # DT-CORE-08 (first part): the traceback is untrusted input, and evidence is echoed back to the agent.
+    assert clean_evidence("  Use `np.nan`\x00 instead.\u202e\n") == "Use `np.nan` instead."
+    assert len(clean_evidence("x" * 1000)) == 300
+
+
+def test_the_head_of_a_longer_expression_can_be_skipped():
+    # numpy 2's "Use `np.dtype(obj).type` instead": `np.dtype` alone isn't the replacement.
+    for msg in (
+        "Use `np.dtype(obj).type` instead.",
+        "Use `arr[index] = value` instead.",
+        "Use `a.b().c` instead.",
+    ):
+        assert mine(msg, skip_expressions=True) == [], msg
+    assert mine("Use `np.dtype(obj).type` instead.")[0].target == "np.dtype"  # deprecation text: unchanged
+    assert [
+        h.target for h in mine("Use `np.asarray` with a proper dtype instead.", skip_expressions=True)
+    ] == ["np.asarray"]
+    assert mine("Use `np.foo()` instead.", skip_expressions=True)[0].target == "np.foo"

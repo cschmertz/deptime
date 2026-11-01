@@ -386,3 +386,141 @@ def test_error_raised_inside_a_dependency_finds_the_called_package(store):
     # httpx missing from installed_versions: still found, from the latest indexed release, at lower confidence
     res = dt.explain_error(OPENAI_INTERNAL_TB, {"openai": "1.55.0"})
     assert [(f.package, f.issue, f.confidence) for f in res.findings] == [("httpx", "param_removed", "low")]
+
+
+def _rec(path: str, kind: str = "attribute", params: list[dict] | None = None) -> SymbolRecord:
+    return SymbolRecord(path, kind, path, params)
+
+
+def _dt(specs_and_snaps: list[tuple[PackageSpec, list[ApiSnapshot]]], extra=()) -> DepTime:
+    store = IndexStore.memory()
+    for spec, snaps in specs_and_snaps:
+        store.rebuild_package(spec, snaps)
+    return DepTime(store, Coverage(POLICY, tuple(s for s, _ in specs_and_snaps) + tuple(extra)))
+
+
+NUMPY = PackageSpec(name="numpy", import_names=("numpy",), tier="B")
+
+
+def _numpy() -> DepTime:
+    old = {p: _rec(p) for p in ("numpy.NaN", "numpy.nan", "numpy.obj2sctype")} | {
+        "numpy.dtype": _rec("numpy.dtype", "class")
+    }
+    old |= {
+        "numpy.ndarray": _rec("numpy.ndarray", "class"),
+        "numpy.ndarray.itemset": _rec("numpy.ndarray.itemset", "function", []),
+    }
+    new = {
+        p: r for p, r in old.items() if p not in ("numpy.NaN", "numpy.obj2sctype", "numpy.ndarray.itemset")
+    }
+    mod = {"numpy": _rec("numpy", "module")}
+    return _dt(
+        [
+            (
+                NUMPY,
+                [
+                    ApiSnapshot("numpy", "1.26.4", ["numpy"], mod | old),
+                    ApiSnapshot("numpy", "2.0.0", ["numpy"], mod | new),
+                ],
+            )
+        ]
+    )
+
+
+def test_a_replacement_named_by_the_error_message_is_checked_against_the_index():
+    # DT-CORE-06: numpy 2's own message names the fix; `np.` is how numpy's messages spell `numpy.`.
+    dt = _numpy()
+    tb = "AttributeError: `np.NaN` was removed in the NumPy 2.0 release. Use `np.nan` instead.. Did you mean: 'nan'?"
+    f = dt.explain_error(tb, {"numpy": "2.0.0"}).findings[0]
+    assert (f.symbol, f.issue) == ("numpy.NaN", "symbol_removed")
+    assert [(r.target, r.confidence, r.source) for r in f.replacements] == [
+        ("numpy.nan", 0.85, "error_message")
+    ]
+    assert f.replacements[0].evidence.startswith(
+        "`np.NaN` was removed in the NumPy 2.0 release. Use `np.nan`"
+    )
+    assert "Use numpy.nan instead." in f.explanation
+    # Not a path in the index: never offered, so text in a traceback can't become advice on its own.
+    for msg in ("Use `np.evil` instead.", "Use `os.system` instead."):
+        f = dt.explain_error(
+            f"AttributeError: `np.NaN` was removed in the NumPy 2.0 release. {msg}", {"numpy": "2.0.0"}
+        ).findings[0]
+        assert (f.issue, f.replacements) == ("symbol_removed", [])
+    # The head of an expression isn't the replacement, though `numpy.dtype` is in the index.
+    tb = "AttributeError: `np.obj2sctype` was removed in the NumPy 2.0 release. Use `np.dtype(obj).type` instead."
+    f = dt.explain_error(tb, {"numpy": "2.0.0"}).findings[0]
+    assert (f.symbol, f.replacements) == ("numpy.obj2sctype", [])
+    # "Use `arr[index] = value` instead" names no symbol (the miner reads `arr`).
+    tb = "AttributeError: `itemset` was removed from the ndarray class in NumPy 2.0. Use `arr[index] = value` instead."
+    f = dt.explain_error(tb, {"numpy": "2.0.0"}).findings[0]
+    assert (f.symbol, f.issue, f.replacements) == ("numpy.ndarray.itemset", "symbol_removed", [])
+
+
+def test_an_error_message_hint_and_an_indexed_hint_for_the_same_target_are_one(dt):
+    tb = "AttributeError: module 'httpx' has no attribute 'OldThing'. Use httpx.NewThing instead."
+    f = dt.explain_error(tb, {"httpx": "0.28.1"}).findings[0]
+    assert [(r.target, r.source) for r in f.replacements] == [("httpx.NewThing", "error_message")]
+
+
+def test_a_parameter_named_by_the_error_message_must_be_a_parameter():
+    # DT-CORE-06: pydantic 2's `removed-kwargs` error, "`regex` is removed. use `pattern` instead".
+    spec = PackageSpec(name="pyd", import_names=("pyd",), tier="B")
+    mod = {"pyd": _rec("pyd", "module")}
+    v1 = mod | {"pyd.Field": _rec("pyd.Field", "function", [_param("default"), _param("regex")])}
+    extra = _param("extra", "variadic keyword", None)
+    v2 = mod | {"pyd.Field": _rec("pyd.Field", "function", [_param("default"), _param("pattern"), extra])}
+    dt = _dt([(spec, [ApiSnapshot("pyd", "1.0", ["pyd"], v1), ApiSnapshot("pyd", "2.0", ["pyd"], v2)])])
+
+    def explain(use: str):
+        tb = f"pydantic.errors.PydanticUserError: `regex` is removed. use `{use}` instead"
+        return dt.explain_error(tb, {"pyd": "2.0"}).findings[0]
+
+    f = explain("pattern")
+    assert (f.symbol, f.issue) == ("pyd.Field(regex)", "param_removed")
+    assert [(r.target, r.source) for r in f.replacements] == [("pattern", "error_message")]
+    assert "Use `pattern` instead" in f.explanation
+    assert explain("default").replacements[0].target == "default"  # any parameter the function has
+    for use in ("nonexistent", "pyd.Field", "regex"):
+        assert explain(use).replacements == []
+
+
+def test_a_name_moved_to_another_package_is_offered_when_that_package_has_it():
+    # DT-CORE-06: "`BaseSettings` has been moved to the `pydantic-settings` package."
+    pyd = PackageSpec(name="pydantic", import_names=("pydantic",), tier="A")
+    settings = PackageSpec(name="pydantic-settings", import_names=("pydantic_settings",), tier="A")
+    mod = {"pydantic": _rec("pydantic", "module")}
+    pyd_snaps = [
+        ApiSnapshot(
+            "pydantic",
+            "1.10.0",
+            ["pydantic"],
+            mod | {"pydantic.BaseSettings": _rec("pydantic.BaseSettings", "class")},
+        ),
+        ApiSnapshot("pydantic", "2.0", ["pydantic"], mod),
+    ]
+    settings_snap = ApiSnapshot(
+        "pydantic-settings",
+        "2.0.0",
+        ["pydantic_settings"],
+        {
+            "pydantic_settings": _rec("pydantic_settings", "module"),
+            "pydantic_settings.BaseSettings": _rec("pydantic_settings.BaseSettings", "class"),
+        },
+    )
+    tb = (
+        "pydantic.errors.PydanticImportError: `BaseSettings` has been moved to the `pydantic-settings` package. "
+        "See https://docs.pydantic.dev/2.6/migration/#basesettings-has-moved-to-pydantic-settings for more details."
+    )
+    f = (
+        _dt([(pyd, pyd_snaps), (settings, [settings_snap])])
+        .explain_error(tb, {"pydantic": "2.0"})
+        .findings[0]
+    )
+    assert (f.symbol, f.issue) == ("pydantic.BaseSettings", "symbol_removed")
+    assert [(r.target, r.source) for r in f.replacements] == [
+        ("pydantic_settings.BaseSettings", "error_message")
+    ]
+    assert "Use pydantic_settings.BaseSettings instead." in f.explanation
+    # Configured but not indexed: nothing to check the name against, so no hint.
+    f = _dt([(pyd, pyd_snaps)], extra=[settings]).explain_error(tb, {"pydantic": "2.0"}).findings[0]
+    assert (f.issue, f.replacements) == ("symbol_removed", [])

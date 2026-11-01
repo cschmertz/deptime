@@ -27,7 +27,11 @@ class Replacement(BaseModel):
         description="Suggested replacement: a dotted path, or a parameter name for parameter-level changes."
     )
     confidence: float = Field(ge=0, le=1)
-    source: Literal["deprecation_message", "moved_heuristic", "curated"]
+    source: Literal["deprecation_message", "moved_heuristic", "curated", "error_message"] = Field(
+        description="deprecation_message: the library's deprecation text; moved_heuristic: a removal paired with an"
+        " addition in the same release; curated: reviewed by hand; error_message: named by the error text you passed,"
+        " and found in the index."
+    )
     evidence: str | None = Field(
         default=None, description="The text or observation the suggestion is based on."
     )

@@ -1,5 +1,5 @@
 {
-  "index_built_at": "2026-11-01T13:32:17+00:00",
+  "index_built_at": "2026-11-01T15:44:25+00:00",
   "summary": {
     "cases": 167,
     "known_gap_share": 5.4,
@@ -7,7 +7,7 @@
       "root_cause": 94.6,
       "root_cause_and_boundary": 94.6,
       "boundary": 94.5,
-      "replacement": 21.8
+      "replacement": 31.0
     },
     "by_tier": {
       "A": {
@@ -15,14 +15,14 @@
         "root_cause": 96.3,
         "root_cause_and_boundary": 96.3,
         "boundary": 96.1,
-        "replacement": 22.2
+        "replacement": 36.1
       },
       "B": {
         "cases": 86,
         "root_cause": 93.0,
         "root_cause_and_boundary": 93.0,
         "boundary": 93.0,
-        "replacement": 21.6
+        "replacement": 27.5
       }
     },
     "by_origin": {
@@ -31,14 +31,14 @@
         "root_cause": 75.0,
         "root_cause_and_boundary": 75.0,
         "boundary": 66.7,
-        "replacement": 60.0
+        "replacement": 80.0
       },
       "reported": {
         "cases": 159,
         "root_cause": 95.6,
         "root_cause_and_boundary": 95.6,
         "boundary": 95.5,
-        "replacement": 19.5
+        "replacement": 28.0
       }
     }
   },
@@ -476,17 +476,17 @@
     "numpy-float-underscore-sceptre": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true
     },
     "numpy-nan-uppercase-sksurgerycore": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true
     },
     "numpy-string-underscore-cnvpytor": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true
     },
     "numpy-product-chaospy": {
       "root_cause": true,
@@ -616,12 +616,12 @@
     "pydantic-basesettings-moved-mlserver": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true
     },
     "pydantic-basesettings-moved-pydantic-6777": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true
     },
     "pydantic-modelfield-removed-fastapi-jsonapi": {
       "root_cause": true,
@@ -631,12 +631,12 @@
     "pydantic-field-regex-removed-bagel-cli": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true
     },
     "pydantic-field-regex-removed-odmantic": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true
     },
     "pymongo-database-check-name-mongoengine": {
       "root_cause": false,
@@ -746,7 +746,7 @@
     "pydantic-basesettings-moved": {
       "root_cause": true,
       "boundary": null,
-      "replacement": false
+      "replacement": true
     },
     "openai-httpx-proxies-internal": {
       "root_cause": true,

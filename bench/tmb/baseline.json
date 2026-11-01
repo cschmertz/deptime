@@ -1,5 +1,5 @@
 {
-  "index_built_at": "2026-11-01T13:32:17+00:00",
+  "index_built_at": "2026-11-01T15:44:25+00:00",
   "summary": {
     "cases": 29,
     "known_gap_share": 10.3,
@@ -7,7 +7,7 @@
       "root_cause": 89.7,
       "root_cause_and_boundary": 89.7,
       "boundary": 89.7,
-      "replacement": 0.0
+      "replacement": 31.8
     },
     "by_tier": {
       "B": {
@@ -15,7 +15,7 @@
         "root_cause": 89.7,
         "root_cause_and_boundary": 89.7,
         "boundary": 89.7,
-        "replacement": 0.0
+        "replacement": 31.8
       }
     },
     "by_origin": {
@@ -24,7 +24,7 @@
         "root_cause": 89.7,
         "root_cause_and_boundary": 89.7,
         "boundary": 89.7,
-        "replacement": 0.0
+        "replacement": 31.8
       }
     }
   },
@@ -77,22 +77,22 @@
     "tmb-numpy-asfarray-fatpack": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true
     },
     "tmb-numpy-inf-segmentation-metrics": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true
     },
     "tmb-numpy-infinity-laptimize": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true
     },
     "tmb-numpy-mat-audio-dspy": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true
     },
     "tmb-numpy-math-pydistinct": {
       "root_cause": true,
@@ -102,7 +102,7 @@
     "tmb-numpy-nan-fides": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true
     },
     "tmb-numpy-nan-fiuba-opiniones-de-curso": {
       "root_cause": true,
@@ -112,12 +112,12 @@
     "tmb-numpy-nan-inferelator": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true
     },
     "tmb-numpy-nan-optics-functions": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true
     },
     "tmb-numpy-ndarray-itemset-pynite": {
       "root_cause": true,

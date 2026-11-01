@@ -16,6 +16,7 @@ from packaging.utils import canonicalize_name
 from deptime.config import Coverage, PackageSpec
 from deptime.index.store import IndexStore
 from deptime.ingest.diff import is_required
+from deptime.ingest.replacements import clean_evidence, mine, moved_to_package
 from deptime.models import (
     CheckSymbolsResult,
     Confidence,
@@ -38,6 +39,9 @@ MAX_FINDINGS_PER_PACKAGE = 5
 # Replacement hints below this stay in the structured `replacements` list (with their confidence) but are never
 # stated as advice in prose: agents read `explanation` as fact. Matches spike S2's precision threshold.
 EXPLAIN_MIN_CONFIDENCE = 0.75
+# How libraries' own error text spells their import name: numpy 2's "Use `np.nan` instead".
+ERROR_TEXT_ALIASES = {"np": "numpy", "pd": "pandas"}
+PACKAGE_MOVE_CONFIDENCE = 0.85  # "moved to the `X` package", once X is found to have the name
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 FREEZE_RE = re.compile(r"^\s*([A-Za-z0-9][\w.-]*)\s*(?:\[[^\]]*\])?\s*==\s*([^\s;#]+)")
 PIP_LIST_RE = re.compile(r"^\s*([A-Za-z0-9][\w.-]*)\s+(\d[\w.+!-]*)\s*$")
@@ -97,6 +101,27 @@ def _requires(raw: str | None, param: str) -> bool:
 def _before_index(rels: list[sqlite3.Row]) -> str:
     """The index starts at a release, so a name removed before it looks the same as one that never existed."""
     return f" If it was removed before {rels[0]['version']}, the earliest release DepTime indexes, it won't show here."
+
+
+def _error_hint_paths(spec: PackageSpec, path: str, target: str) -> list[str]:
+    """Where a target named in error text may live, most literal first: `np.nan` -> `numpy.nan`; as written; next to
+    the missing name; at the package's top level."""
+    head, _, rest = target.partition(".")
+    candidates = []
+    if rest and ERROR_TEXT_ALIASES.get(head) in spec.import_names:
+        candidates.append(f"{ERROR_TEXT_ALIASES[head]}.{rest}")
+    if any(target == n or target.startswith(n + ".") for n in spec.import_names):
+        candidates.append(target)
+    if owner := path.rpartition(".")[0]:
+        candidates.append(f"{owner}.{target}")
+    candidates += [f"{n}.{target}" for n in spec.import_names]
+    return [c for c in dict.fromkeys(candidates) if c != path]
+
+
+def _merge(live: list[Replacement], indexed: list[Replacement]) -> list[Replacement]:
+    """Best first; a target the error text names (and the index confirmed) wins a tie and replaces its duplicate."""
+    named = {r.target for r in live}
+    return sorted([*live, *(r for r in indexed if r.target not in named)], key=lambda r: -r.confidence)
 
 
 def _accepts_kwarg(raw: str | None, kwarg: str) -> bool:
@@ -502,23 +527,46 @@ class DepTime:
         if signal.kind in {"import_name", "module_attribute"}:
             return [
                 self._symbol_finding(
-                    spec, f"{signal.module}.{signal.name}", resolved, exact, installed_version
+                    spec,
+                    f"{signal.module}.{signal.name}",
+                    resolved,
+                    exact,
+                    installed_version,
+                    message=signal.message,
                 )
             ]
         if signal.kind == "module_missing":
             return [
                 self._symbol_finding(
-                    spec, signal.module or "", resolved, exact, installed_version, module=True
+                    spec,
+                    signal.module or "",
+                    resolved,
+                    exact,
+                    installed_version,
+                    module=True,
+                    message=signal.message,
                 )
             ]
         if signal.kind in {"object_attribute", "class_attribute"} and signal.owner and signal.name:
             owner_leaf = signal.owner.rsplit(".", 1)[-1]
             paths = self._rank(self.store.find_by_suffix([name], f"{owner_leaf}.{signal.name}"), signal)
             if paths:
-                return [self._symbol_finding(spec, p, resolved, exact, installed_version) for p in paths]
+                return [
+                    self._symbol_finding(spec, p, resolved, exact, installed_version, message=signal.message)
+                    for p in paths
+                ]
             owners = self._rank(self.store.find_by_suffix([name], owner_leaf), signal)
             return (
-                [self._symbol_finding(spec, f"{owners[0]}.{signal.name}", resolved, exact, installed_version)]
+                [
+                    self._symbol_finding(
+                        spec,
+                        f"{owners[0]}.{signal.name}",
+                        resolved,
+                        exact,
+                        installed_version,
+                        message=signal.message,
+                    )
+                ]
                 if owners
                 else []
             )
@@ -526,7 +574,9 @@ class DepTime:
             paths = self._rank(self.store.find_by_suffix([name], signal.owner), signal)
             param = signal.kwarg if signal.kind == "unexpected_kwarg" else (signal.missing_args or [None])[0]
             out = [
-                self._param_finding(spec, p, param, signal.kind, resolved, exact, installed_version)
+                self._param_finding(
+                    spec, p, param, signal.kind, resolved, exact, installed_version, message=signal.message
+                )
                 for p in paths
                 if param
             ]
@@ -564,6 +614,54 @@ class DepTime:
             f"between {name} {lo} and {upper} (your {installed} is in that window and not indexed)",
         )
 
+    def _error_hints(
+        self, spec: PackageSpec, path: str, ordinals: list[int], message: str | None, param: str | None = None
+    ) -> list[Replacement]:
+        """Replacements the error text itself names (DT-CORE-06), kept only when the index has them.
+
+        The traceback is untrusted input, so a named target counts only as a public path of this package at one of
+        `ordinals` (the release the installed version resolves to, and the first release without the old name), or
+        of the covered package the message says the name moved to; a parameter only if the function takes it there.
+        """
+        assert self.store is not None
+        if not message:
+            return []
+        name, evidence = spec.name, clean_evidence(message)
+        found: dict[str, Replacement] = {}
+
+        def keep(target: str, confidence: float) -> None:
+            found.setdefault(
+                target,
+                Replacement(target=target, confidence=confidence, source="error_message", evidence=evidence),
+            )
+
+        params = (
+            set().union(
+                *(_param_names(s["params"]) for o in ordinals if (s := self.store.span_at(name, path, o)))
+            )
+            if param is not None
+            else set()
+        )
+        for hint in mine(message, skip_expressions=True):
+            t = hint.target
+            if param is not None:
+                if t != param and t.isidentifier() and t in params:
+                    keep(t, hint.confidence)
+                continue
+            for candidate in _error_hint_paths(spec, path, t):
+                if any(self.store.span_at(name, candidate, o) is not None for o in ordinals):
+                    keep(candidate, hint.confidence)
+                    break
+        if param is None and (dist := moved_to_package(message)):
+            other = self.coverage.get(dist)
+            if other is not None and self._indexed(other.name):
+                leaf = path.rpartition(".")[2]
+                for n in other.import_names:
+                    if self.store.spans(other.name, f"{n}.{leaf}"):
+                        keep(f"{n}.{leaf}", PACKAGE_MOVE_CONFIDENCE)
+                        break
+        return list(found.values())
+
     def _deprecation(self, name: str, path: str, param: str | None = None) -> tuple[str | None, str | None]:
         """(version, message) of the first observed deprecation.
 
@@ -590,6 +688,7 @@ class DepTime:
         installed: str | None,
         *,
         module: bool = False,
+        message: str | None = None,
     ) -> Finding:
         assert self.store is not None
         name = spec.name
@@ -626,13 +725,14 @@ class DepTime:
                 + _before_index(rels),
             )
         dep_version, dep_message = self._deprecation(name, path)
-        replacements = [self._replacement(r) for r in self.store.replacements(name, path)]
+        indexed = [self._replacement(r) for r in self.store.replacements(name, path)]
         if self.store.span_at(name, path, ordinal) is not None:
             window = self._window(
                 name, resolved, exact, installed, lambda o: self.store.span_at(name, path, o) is None
             )
             if window:
                 lo, hi, text = window
+                live = self._error_hints(spec, path, [ordinal, ordinal + 1], message)
                 return Finding(
                     **base,
                     issue="module_removed" if module else "symbol_removed",
@@ -640,7 +740,7 @@ class DepTime:
                     first_version_without=hi,
                     deprecated_in=dep_version,
                     deprecation_message=dep_message,
-                    replacements=replacements,
+                    replacements=_merge(live, indexed),
                     pin_to_restore=f"{name}<={lo}",
                     confidence="medium",
                     explanation=f"{path} disappears {text}.",
@@ -658,6 +758,7 @@ class DepTime:
         if before:
             last_ord = max(s["last_ordinal"] for s in before)
             last_with, first_without = self._version(name, last_ord), self._version(name, last_ord + 1)
+            replacements = _merge(self._error_hints(spec, path, [ordinal, last_ord + 1], message), indexed)
             strong = [r for r in replacements if r.confidence >= EXPLAIN_MIN_CONFIDENCE]
             hint = f" Use {strong[0].target} instead." if strong else ""
             return Finding(
@@ -691,6 +792,8 @@ class DepTime:
         resolved: sqlite3.Row | None,
         exact: bool,
         installed: str | None,
+        *,
+        message: str | None = None,
     ) -> Finding | None:
         assert self.store is not None
         name = spec.name
@@ -769,6 +872,7 @@ class DepTime:
             if window is None:
                 return None  # kwarg is valid at this version; not a version-change explanation
             lo, hi, text = window
+            live = self._error_hints(spec, path, [ordinal, ordinal + 1], message, param)
             return Finding(
                 **base,
                 issue="param_removed",
@@ -776,7 +880,7 @@ class DepTime:
                 first_version_without=hi,
                 deprecated_in=dep_version,
                 deprecation_message=dep_message,
-                replacements=replacements,
+                replacements=_merge(live, replacements),
                 pin_to_restore=f"{name}<={lo}",
                 confidence="medium",
                 explanation=f"{path} stops accepting `{param}` {text}.",
@@ -796,6 +900,8 @@ class DepTime:
         if earlier:
             last_ord = max(s["last_ordinal"] for s in earlier)
             last_with, first_without = self._version(name, last_ord), self._version(name, last_ord + 1)
+            live = self._error_hints(spec, path, [ordinal, last_ord + 1], message, param)
+            replacements = _merge(live, replacements)
             since = (
                 f"in or before {dep_version[2:]}"
                 if dep_version and dep_version.startswith("<=")

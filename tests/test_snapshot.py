@@ -479,6 +479,28 @@ PARENT_STAR = {
     "pstar/v1/main.py": "from pstar.main import *\n",
 }
 
+# mcp 2.x keeps `mcp/server/fastmcp.py` only to raise `ModuleNotFoundError` with a migration hint, and dspy 3.4's
+# `dspy/core/types.py` raises `ImportError` the same way. Raises under `if` or `try` (optional extras) don't count.
+RAISES = {
+    "rpkg/__init__.py": "from rpkg.server import Server\n",
+    "rpkg/server/__init__.py": "class Server:\n    def run(self):\n        pass\n",
+    "rpkg/server/legacy.py": (
+        '"""Removed in rpkg 2: `Legacy` is now `rpkg.server.Server`."""\n\n'
+        '_MESSAGE = (\n    "No module named \'rpkg.server.legacy\'. "\n    "Legacy was renamed to Server."\n)\n\n'
+        "raise ModuleNotFoundError(_MESSAGE, name=__name__)\n"
+    ),
+    "rpkg/types/__init__.py": 'raise ImportError("rpkg 1.3 types were removed; use rpkg.server")\n',
+    "rpkg/types/parts.py": "class Part:\n    pass\n",
+    "rpkg/optional.py": (
+        "try:\n    import numpy\nexcept ImportError:\n"
+        '    raise ImportError("install rpkg[numpy]")\n\n\ndef fast():\n    pass\n'
+    ),
+    "rpkg/gated.py": (
+        "import sys\n\nif sys.version_info < (3, 9):\n"
+        '    raise RuntimeError("rpkg needs Python 3.9")\n\n\ndef run():\n    raise ValueError("no")\n'
+    ),
+}
+
 
 def _write(root: Path, files: dict[str, str] = FILES) -> Path:
     for rel, text in files.items():
@@ -789,6 +811,18 @@ def test_a_subpackage_that_star_imports_its_package_gets_all_of_it(tmp_path):
     # What griffe expanded already is unchanged.
     assert snap.symbols["pstar.v1.main.BaseModel"].canonical == "pstar.main.BaseModel"
     assert "pstar.v1.main.helper" not in snap.symbols
+
+
+def test_a_module_whose_top_level_always_raises_is_absent(tmp_path):
+    # DT-DATA-34: mcp 2.x's `mcp.server.fastmcp` placeholder read present, so "No module named
+    # 'mcp.server.fastmcp'" on mcp 2.3.0 got no "removed in 2.0.0" answer.
+    snap = build_snapshot("rpkg", "2.0", ["rpkg"], _write(tmp_path, RAISES))
+    assert not [p for p in snap.symbols if p.startswith("rpkg.server.legacy")]
+    # Nothing below a package that raises can be imported either.
+    assert not [p for p in snap.symbols if p.startswith("rpkg.types")]
+    assert {"rpkg", "rpkg.Server", "rpkg.server", "rpkg.server.Server.run"} <= set(snap.symbols)
+    # A raise under `if` or `try` is conditional, and one inside a function runs only when it is called.
+    assert {"rpkg.optional", "rpkg.optional.fast", "rpkg.gated", "rpkg.gated.run"} <= set(snap.symbols)
 
 
 def test_a_build_leaves_no_griffe_objects_alive(tmp_path):

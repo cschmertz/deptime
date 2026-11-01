@@ -20,7 +20,7 @@ from typing import Any
 
 import griffe
 
-SNAPSHOT_FORMAT = 8  # bump when extraction changes: cached snapshots in another format are rebuilt
+SNAPSHOT_FORMAT = 9  # bump when extraction changes: cached snapshots in another format are rebuilt
 MAX_DEPTH = 12  # guards pathological re-export cycles
 
 DEPRECATED_DECORATOR_RE = re.compile(r"^(?:[\w.]+\.)?deprecated\b(?:\((?P<args>.*)\))?$", re.S)
@@ -917,6 +917,7 @@ class _Imports:
     plain: frozenset[str]  # `from x import y`, with x outside the standard library
     imports_only: bool  # nothing but imports and a docstring, like sqlalchemy 1.4's `schema.py`
     stars: tuple[str, ...] = ()  # the modules `from x import *` statements name, absolute, in order
+    raises: bool = False  # a top-level `raise`: importing the module always fails (mcp 2.x's `fastmcp.py`)
 
 
 def _is_docstring(st: ast.stmt) -> bool:
@@ -939,7 +940,8 @@ def module_imports(mod: griffe.Module) -> _Imports:
     imports_only = bool(body) and all(
         isinstance(st, (ast.Import, ast.ImportFrom)) or _is_docstring(st) for st in body
     )
-    return _Imports(frozenset(redundant), frozenset(plain), imports_only, tuple(stars))
+    raises = any(isinstance(st, ast.Raise) for st in body)
+    return _Imports(frozenset(redundant), frozenset(plain), imports_only, tuple(stars), raises)
 
 
 # `__all__` built by code rather than written out: a method call, `+=`, or a value that isn't a literal.
@@ -1281,7 +1283,7 @@ class _Walker:
 
     def module(self, mod: griffe.Module, public_path: str, depth: int = 0, forwarded: bool = False) -> None:
         key = (mod.path, public_path)
-        if key in self.visiting or depth > MAX_DEPTH:
+        if key in self.visiting or depth > MAX_DEPTH or self._shapes(mod).raises:
             return
         self.visiting.add(key)
         self._finish_stars(mod)
@@ -1405,7 +1407,10 @@ class _Walker:
             self.record(SymbolRecord(public_path, "alias", getattr(member, "target_path", None)))
             return
         if target.is_module:
-            if _is_test_module(target.path):
+            # A module that always raises on import isn't API, and neither is anything below it (DT-DATA-34): mcp
+            # 2.x keeps `mcp/server/fastmcp.py` only to raise "FastMCP was renamed to MCPServer", dspy 3.4 keeps
+            # `dspy/core/types.py` to say where its 3.3 types went. A raise under `if` or `try` doesn't count.
+            if _is_test_module(target.path) or self._shapes(target).raises:  # type: ignore[arg-type]
                 return
             if self._internal(target.path) and self._walks(target.path, public_path, reexporter):
                 self.module(target, public_path, depth + 1)  # type: ignore[arg-type]

@@ -460,6 +460,26 @@ TABLES = {
 }
 
 
+# pydantic 1.10.17's `pydantic/v1/__init__.py` is one line, `from pydantic import *`, and `pydantic` star-imports
+# most of its own API from its submodules.
+PARENT_STAR = {
+    "pstar/__init__.py": (
+        "from pstar.config import BaseConfig\n"
+        "from pstar.main import *\n\n"
+        "__all__ = ['BaseConfig', 'BaseModel', 'create_model']\n"
+    ),
+    "pstar/config.py": "class BaseConfig:\n    pass\n",
+    "pstar/main.py": (
+        "__all__ = ['BaseModel', 'create_model']\n\n\n"
+        "class BaseModel:\n    def dict(self, exclude=None):\n        pass\n\n\n"
+        "def create_model(name, **fields):\n    pass\n\n\n"
+        "def helper():\n    pass\n"
+    ),
+    "pstar/v1/__init__.py": "from pstar import *\n",
+    "pstar/v1/main.py": "from pstar.main import *\n",
+}
+
+
 def _write(root: Path, files: dict[str, str] = FILES) -> Path:
     for rel, text in files.items():
         p = root / rel
@@ -750,6 +770,25 @@ def test_a_getattr_that_looks_names_up_in_a_table_serves_its_keys(tmp_path):
     assert snap.symbols["tabled.mail.EmailMessage"].kind == "class"
     thing = snap.symbols["tabled.lazy.Thing"]
     assert (thing.kind, thing.deprecated) == ("getattr", None)
+
+
+def test_a_subpackage_that_star_imports_its_package_gets_all_of_it(tmp_path):
+    # DT-DATA-33: griffe merges a package's own star imports only after it has expanded its submodules', so
+    # pydantic 1.10.17-1.10.26's `pydantic.v1` got only the names `pydantic` imports by name, and
+    # `pydantic.v1.BaseModel` read removed in 1.10.17 and added again in 2.0.
+    snap = build_snapshot("pstar", "1.0", ["pstar"], _write(tmp_path, PARENT_STAR))
+    model = snap.symbols["pstar.v1.BaseModel"]
+    assert (model.kind, model.canonical) == ("class", "pstar.main.BaseModel")
+    assert "pstar.v1.BaseModel.dict" in snap.symbols
+    create = snap.symbols["pstar.v1.create_model"]
+    assert (create.kind, create.canonical) == ("function", "pstar.main.create_model")
+    assert [p["name"] for p in create.params] == ["name", "fields"]
+    assert snap.symbols["pstar.v1.BaseConfig"].canonical == "pstar.config.BaseConfig"
+    # Only what `from pstar import *` binds: `pstar.__all__`.
+    assert "pstar.v1.helper" not in snap.symbols
+    # What griffe expanded already is unchanged.
+    assert snap.symbols["pstar.v1.main.BaseModel"].canonical == "pstar.main.BaseModel"
+    assert "pstar.v1.main.helper" not in snap.symbols
 
 
 def test_a_build_leaves_no_griffe_objects_alive(tmp_path):

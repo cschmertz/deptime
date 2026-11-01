@@ -20,7 +20,7 @@ from typing import Any
 
 import griffe
 
-SNAPSHOT_FORMAT = 7  # bump when extraction changes: cached snapshots in another format are rebuilt
+SNAPSHOT_FORMAT = 8  # bump when extraction changes: cached snapshots in another format are rebuilt
 MAX_DEPTH = 12  # guards pathological re-export cycles
 
 DEPRECATED_DECORATOR_RE = re.compile(r"^(?:[\w.]+\.)?deprecated\b(?:\((?P<args>.*)\))?$", re.S)
@@ -916,6 +916,7 @@ class _Imports:
     redundant: frozenset[str]  # `from x import y as y`, the explicit re-export convention
     plain: frozenset[str]  # `from x import y`, with x outside the standard library
     imports_only: bool  # nothing but imports and a docstring, like sqlalchemy 1.4's `schema.py`
+    stars: tuple[str, ...] = ()  # the modules `from x import *` statements name, absolute, in order
 
 
 def _is_docstring(st: ast.stmt) -> bool:
@@ -927,15 +928,18 @@ def module_imports(mod: griffe.Module) -> _Imports:
     body = tree.body if tree is not None else []
     redundant: set[str] = set()
     plain: set[str] = set()
+    stars: list[str] = []
     for st in body:
         if isinstance(st, ast.ImportFrom):
             stdlib = st.level == 0 and (st.module or "").split(".")[0] in STDLIB_MODULES
             redundant.update(a.name for a in st.names if a.asname == a.name)
             plain.update(a.name for a in st.names if a.asname is None and a.name != "*" and not stdlib)
+            if any(a.name == "*" for a in st.names):
+                stars.append(_absolute(mod.path, mod.is_init_module, st.level, st.module))
     imports_only = bool(body) and all(
         isinstance(st, (ast.Import, ast.ImportFrom)) or _is_docstring(st) for st in body
     )
-    return _Imports(frozenset(redundant), frozenset(plain), imports_only)
+    return _Imports(frozenset(redundant), frozenset(plain), imports_only, tuple(stars))
 
 
 # `__all__` built by code rather than written out: a method call, `+=`, or a value that isn't a literal.
@@ -1197,6 +1201,42 @@ class _Walker:
         self.imports: dict[str, _Imports] = {}
         self.runtime_all = _RuntimeAll()
         self.exported: dict[str, frozenset[str]] = {}
+        self.finished: set[str] = set()
+
+    def _shapes(self, mod: griffe.Module) -> _Imports:
+        if mod.path not in self.imports:
+            self.imports[mod.path] = module_imports(mod)
+        return self.imports[mod.path]
+
+    def _finish_stars(self, mod: griffe.Module) -> None:
+        """Add the names `mod`'s star imports bind that griffe left out (DT-DATA-33), by griffe's own rule.
+
+        griffe expands a package's star imports, but merges what they bring only after it has recursed into the
+        package's submodules. A submodule that star-imports the package itself then gets only the names the
+        package imports by name: pydantic 1.10.17's `pydantic/v1/__init__.py` is `from pydantic import *`, and
+        `pydantic.v1.BaseModel` read removed in 1.10.17 and added again in 2.0. Names griffe already bound stay.
+        """
+        if mod.path in self.finished:
+            return
+        self.finished.add(mod.path)
+        for source in reversed(self._shapes(mod).stars):  # the last star import wins, as at runtime
+            target = _module_at(mod, source)
+            if target is None or target.path == mod.path:
+                continue  # compiled, another distribution (griffe leaves a marker), or itself
+            self._finish_stars(target)
+            for name, member in list(target.members.items()):
+                if name in mod.members:
+                    continue
+                try:
+                    exposed = member.is_wildcard_exposed
+                    loops = member.is_alias and member.target_path == f"{mod.path}.{name}"  # type: ignore[union-attr]
+                except (griffe.AliasResolutionError, griffe.CyclicAliasError):
+                    continue
+                if exposed and not loops:
+                    # Point past an alias, so one griffe can't resolve keeps the path it names (numpy 2.2's
+                    # `numpy.matlib.array2string` -> `numpy._core.array2string`, like `numpy.array2string`).
+                    to = member.target_path if member.is_alias else member  # type: ignore[union-attr]
+                    mod.set_member(name, griffe.Alias(name, to, parent=mod, wildcard_imported=True))
 
     def _internal(self, canonical: str) -> bool:
         return any(canonical == r or canonical.startswith(r + ".") for r in self.roots)
@@ -1244,6 +1284,7 @@ class _Walker:
         if key in self.visiting or depth > MAX_DEPTH:
             return
         self.visiting.add(key)
+        self._finish_stars(mod)
         self.record(SymbolRecord(public_path, "module", mod.path))
         # A module another one forwards to is public as at its own path, but its submodules aren't walked again.
         reexporter = mod.path if (public_path == mod.path or forwarded) and mod.is_init_module else None
@@ -1333,9 +1374,7 @@ class _Walker:
         source = member.target_path if member.is_alias else mod.imports.get(name)  # type: ignore[union-attr]
         if source is None or mod.exports or name.startswith("_"):
             return False
-        if mod.path not in self.imports:
-            self.imports[mod.path] = module_imports(mod)
-        shapes = self.imports[mod.path]
+        shapes = self._shapes(mod)
         if name in shapes.redundant or (shapes.imports_only and name in shapes.plain):
             return True
         if reexporter is None:

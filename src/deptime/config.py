@@ -42,7 +42,7 @@ class Settings:
     index_path: Path  # the SQLite index the tools read
     cache_dir: Path  # ingestion build cache: artifacts, extracted wheels, snapshots
     coverage_file: Path | None  # None = the coverage list packaged with deptime
-    index_url: str  # base URL serving manifest.json + index.sqlite.gz
+    index_url: str  # base URL serving manifest.json + index.sqlite.xz (+ .gz for older clients)
     index_max_age_hours: int  # how stale a *downloaded* index may get before a refresh check
     offline: bool  # never touch the network (no index download/refresh)
     # --- hosted mode only (local stdio mode never meters) ---

@@ -4,7 +4,7 @@
 
 `deptime mcp` and the CLI answer every question from a local SQLite file.
 
-- **The only network request:** downloading `manifest.json` / `index.sqlite.gz` from this repo's GitHub Releases, at most once a day. Like any download, it reveals the user's IP address to GitHub.
+- **The only network request:** downloading `manifest.json` and the index (`index.sqlite.xz`; deptime 0.1.3 and earlier fetch the same file as `index.sqlite.gz`) from this repo's GitHub Releases, at most once a day. Like any download, it reveals the user's IP address to GitHub.
 - **No telemetry,** analytics or crash reporting.
 - **`DEPTIME_OFFLINE=1`** disables all network access.
 - **Tracebacks and `pip freeze` output** are processed in memory and never written to disk.

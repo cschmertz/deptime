@@ -6,7 +6,7 @@ Everyday use (local, private):
   deptime index pull|status       manage the prebuilt index (downloaded from GitHub Releases)
 Building the index yourself / CI:
   deptime ingest <pkg>|--all      analyse PyPI releases into a locally built index
-  deptime index pack --out DIR    produce index.sqlite.gz + manifest.json for publishing
+  deptime index pack --out DIR    produce index.sqlite.xz + .gz + manifest.json for publishing
 Hosting (optional):
   deptime serve                   MCP over HTTP at /mcp plus a JSON API at /v1/*
 """

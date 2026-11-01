@@ -1,7 +1,8 @@
 name: build-index
 
 # Nightly: analyse new PyPI releases and publish the prebuilt index to the rolling `index` pre-release.
-# Local installs download <repo>/releases/download/index/{manifest.json,index.sqlite.gz} (see config.DEFAULT_INDEX_URL).
+# Local installs download <repo>/releases/download/index/{manifest.json,index.sqlite.xz} (see config.DEFAULT_INDEX_URL);
+# index.sqlite.gz holds the same file for clients released before DT-DATA-35.
 #
 # One job per covered package builds that package's snapshots on its own runner, with its own snapshot cache and
 # log, so a heavy package can only fail itself (DT-DATA-03). The publish job then assembles the index from those
@@ -144,7 +145,13 @@ jobs:
           du -sh .deptime/build/snapshots .deptime/*.sqlite 2>/dev/null || true
 
       - name: Pack
-        run: uv run deptime index pack --out dist
+        run: |
+          uv run deptime index pack --out dist
+          ls -l dist
+          xz_size=$(jq .xz_size dist/manifest.json)
+          if [ "$xz_size" -gt 100000000 ]; then
+            echo "::warning::index.sqlite.xz is $xz_size bytes, above the 100 MB target"
+          fi
 
       - name: Guard against publishing a shrunken index
         run: |
@@ -163,4 +170,6 @@ jobs:
           gh release view index >/dev/null 2>&1 || gh release create index --prerelease \
             --title "DepTime index (rolling)" \
             --notes "Nightly prebuilt index, downloaded automatically by \`deptime mcp\` and \`deptime index pull\`."
-          gh release upload index dist/index.sqlite.gz dist/manifest.json --clobber
+          # The manifest goes last, so it never describes files that aren't uploaded yet.
+          gh release upload index dist/index.sqlite.xz dist/index.sqlite.gz --clobber
+          gh release upload index dist/manifest.json --clobber

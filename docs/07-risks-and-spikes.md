@@ -39,12 +39,12 @@
 
 ### S4 — Index size, build time, download size
 - **Method:** build the full policy history for Tier A + B in GitHub Actions. Measure:
-  - `index.sqlite` and `.gz` sizes;
+  - `index.sqlite`, `.xz` and `.gz` sizes;
   - cold build minutes;
   - nightly incremental minutes;
   - p95 query latency.
 - **Pass:**
-  - `.gz` under 100 MB, so a first-run download takes seconds;
+  - `.xz` under 100 MB, so a first-run download takes seconds (the `.gz` beside it is only for older clients);
   - nightly incremental under 30 min;
   - p95 under 20 ms;
   - a cold build fits a 6-hour Actions job, otherwise split it into a matrix.

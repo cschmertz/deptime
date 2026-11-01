@@ -13,7 +13,7 @@ DepTime is **local-first** ([ADR 0007](adr/0007-open-source-local-first.md)). Th
  │      snapshot cache (actions/cache) ◄── snapshots/<pkg>/<ver>.json.gz ◄───────────────────────────┘             │
  │                       │                                                                                         │
  │                       └─► diff consecutive releases ─► spans + events + replacements ─► index.sqlite            │
- │                                                     deptime index pack ─► index.sqlite.gz + manifest.json       │
+ │                                                     deptime index pack ─► index.sqlite.{xz,gz} + manifest.json  │
  │                                          guard: refuse to publish if packages drop > 10% vs. previous           │
  └──────────────────────────────────────────────────────────────────────────────┬──────────────────────────────────┘
                                                                                 │ gh release upload index --clobber
@@ -74,15 +74,16 @@ The full schema is in `src/deptime/index/schema.sql`.
 
 | Asset (rolling release `index`) | Contents |
 |---|---|
-| `manifest.json` | `schema_version`, `built_at`, `sha256` and `size` of the `.gz`, package/release counts, `deptime_version` |
-| `index.sqlite.gz` | The VACUUMed SQLite index (gzip, deterministic header) |
+| `manifest.json` | `schema_version`, `built_at`, `sha256` and `size` of the `.gz`, `xz_sha256` and `xz_size` of the `.xz`, package/release counts, `deptime_version`. Uploaded after the other two. |
+| `index.sqlite.xz` | The VACUUMed SQLite index (xz, preset 6). What deptime downloads when the manifest lists it. |
+| `index.sqlite.gz` | The same file (gzip, deterministic header), about 60% larger. Kept for deptime 0.1.3 and earlier, which read only the manifest keys they know, and for a Python built without `lzma`. |
 
 The client logic lives in `distribution.ensure_index`:
 
 - **Offline mode:** use whatever exists.
 - **Locally built index** (no `index.sqlite.meta.json`): never touched.
 - **Downloaded index:** fresh within `DEPTIME_INDEX_MAX_AGE_HOURS` (24) means no network at all. Otherwise fetch the manifest, and download only if the sha256 changed.
-- **Every download:** stream with a size cap → verify the sha256 → gunzip to a temp file → validate it opens with a matching `schema_version` → `os.replace` into place → write the meta file.
+- **Every download:** stream the `.xz` (or the `.gz`) with a size cap → verify that file's sha256 → decompress to a temp file → validate it opens with a matching `schema_version` → `os.replace` into place → write the meta file.
 - **Any failure** keeps the current index.
 - **`deptime mcp` and `deptime serve`** run this in a background thread and hot-swap the store, so first-run start-up is never blocked. Until the index lands, tools return a note saying it's downloading.
 

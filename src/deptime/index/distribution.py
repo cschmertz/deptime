@@ -1,14 +1,18 @@
 """Prebuilt index distribution: CI packs and publishes it; local installs download it.
 
 Publish (CI, .github/workflows/build-index.yml):
-    deptime index pack --out dist/                 -> dist/index.sqlite.gz + dist/manifest.json
-    gh release upload index dist/* --clobber        (rolling pre-release tagged `index`)
+    deptime index pack --out dist/      -> dist/index.sqlite.xz + dist/index.sqlite.gz + dist/manifest.json
+    gh release upload index ... --clobber   (rolling pre-release tagged `index`; the manifest goes last)
 Consume (users): `deptime index pull`, or automatically in the background when `deptime mcp` / `deptime serve`
-start. Stable URLs: <index_url>/manifest.json and <index_url>/index.sqlite.gz.
+start. Stable URLs: <index_url>/manifest.json, <index_url>/index.sqlite.xz and <index_url>/index.sqlite.gz.
+
+The same file is published twice. The `.xz` is about 37% smaller and is what this client downloads when the
+manifest lists it (DT-DATA-35). The `.gz` is for released clients, which read only the manifest keys they know
+(`sha256` and `size` describe the `.gz`), and for a Python built without `lzma`.
 
 Safety rules:
-- the download is verified against the manifest's sha256, decompressed to a temp file, validated, then
-  atomically renamed into place; a failed download never damages the current index;
+- the download is verified against the manifest's sha256 for that file, decompressed to a temp file, validated,
+  then atomically renamed into place; a failed download never damages the current index;
 - an index built locally with `deptime ingest` carries no download metadata and is never replaced automatically.
 """
 
@@ -26,7 +30,7 @@ from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import IO, TYPE_CHECKING
 
 import httpx
 
@@ -34,12 +38,19 @@ from deptime import __version__
 from deptime.config import Settings
 from deptime.index.store import SCHEMA_VERSION, IndexStore
 
+try:
+    import lzma
+except ImportError:  # CPython built without liblzma: publish and download the .gz only
+    lzma = None  # type: ignore[assignment]
+
 if TYPE_CHECKING:
     from deptime.query import DepTime
 
 INDEX_ASSET = "index.sqlite.gz"
+XZ_ASSET = "index.sqlite.xz"
 MANIFEST_ASSET = "manifest.json"
 MAX_DOWNLOAD_BYTES = 2 * 1024**3
+XZ_PRESET = 6  # 9 saves ~1% for a 64 MB decompression dictionary
 
 
 class IndexIncompatible(RuntimeError):
@@ -55,10 +66,12 @@ class Manifest:
     packages: int
     releases: int
     deptime_version: str
+    xz_sha256: str | None = None  # of index.sqlite.xz; absent in manifests published before DT-DATA-35
+    xz_size: int | None = None  # bytes of index.sqlite.xz
 
     @classmethod
     def from_dict(cls, data: dict) -> Manifest:
-        return cls(**{name: data[name] for name in cls.__dataclass_fields__})
+        return cls(**{name: data[name] for name in cls.__dataclass_fields__ if name in data})
 
 
 @dataclass(frozen=True)
@@ -114,7 +127,7 @@ def mark_locally_built(index_path: Path) -> None:
 
 # ---------------------------------------------------------------- publish side
 def pack(index_path: Path, out_dir: Path) -> Manifest:
-    """Snapshot (SQLite backup API), VACUUM, gzip, and describe the index for publishing."""
+    """Snapshot (SQLite backup API), VACUUM, compress (xz and gzip), and describe the index for publishing."""
     out_dir.mkdir(parents=True, exist_ok=True)
     tmp = out_dir / "index.sqlite.tmp"
     tmp.unlink(missing_ok=True)
@@ -129,10 +142,17 @@ def pack(index_path: Path, out_dir: Path) -> Manifest:
     finally:
         dst.close()
         src.close()
-    gz_path = out_dir / INDEX_ASSET
+    gz_path, xz_path = out_dir / INDEX_ASSET, out_dir / XZ_ASSET
     with tmp.open("rb") as raw, gzip.GzipFile(gz_path, "wb", compresslevel=9, mtime=0) as gz:
         shutil.copyfileobj(raw, gz, 1 << 20)
+    xz_path.unlink(missing_ok=True)
+    if lzma is not None:
+        with tmp.open("rb") as raw, lzma.open(xz_path, "wb", preset=XZ_PRESET) as xz:
+            shutil.copyfileobj(raw, xz, 1 << 20)
+    else:
+        _stderr("deptime: this Python has no lzma module; packing the .gz only")
     tmp.unlink()
+    has_xz = xz_path.exists()
     manifest = Manifest(
         schema_version=meta.get("schema_version", "?"),
         built_at=meta.get("built_at", _now().isoformat()),
@@ -141,6 +161,8 @@ def pack(index_path: Path, out_dir: Path) -> Manifest:
         packages=packages,
         releases=releases,
         deptime_version=__version__,
+        xz_sha256=_sha256(xz_path) if has_xz else None,
+        xz_size=xz_path.stat().st_size if has_xz else None,
     )
     (out_dir / MANIFEST_ASSET).write_text(json.dumps(asdict(manifest), indent=2) + "\n", encoding="utf-8")
     return manifest
@@ -171,6 +193,13 @@ def _validate(path: Path) -> None:
         store.close()
 
 
+def _asset(manifest: Manifest) -> tuple[str, str, int, Callable[[Path], IO[bytes]]]:
+    """Which file to download: the .xz when the manifest lists it and this Python can read it, else the .gz."""
+    if lzma is not None and manifest.xz_sha256 and manifest.xz_size is not None:
+        return XZ_ASSET, manifest.xz_sha256, manifest.xz_size, lzma.open
+    return INDEX_ASSET, manifest.sha256, manifest.size, gzip.open
+
+
 def download(
     base_url: str, dest: Path, client: httpx.Client, *, manifest: Manifest | None = None
 ) -> Manifest:
@@ -181,14 +210,15 @@ def download(
             f"the published index uses schema {manifest.schema_version}; deptime {__version__} reads schema "
             f"{SCHEMA_VERSION}. Upgrade deptime (for example `uvx deptime@latest`)."
         )
-    if manifest.size > MAX_DOWNLOAD_BYTES:
-        raise ValueError(f"published index is {manifest.size} bytes, above the {MAX_DOWNLOAD_BYTES}-byte cap")
+    asset, expected_sha256, expected_size, opener = _asset(manifest)
+    if expected_size > MAX_DOWNLOAD_BYTES:
+        raise ValueError(f"published index is {expected_size} bytes, above the {MAX_DOWNLOAD_BYTES}-byte cap")
     dest.parent.mkdir(parents=True, exist_ok=True)
-    gz_tmp = dest.with_name(dest.name + ".download.gz")
+    packed_tmp = dest.with_name(f"{dest.name}.download{Path(asset).suffix}")
     db_tmp = dest.with_name(dest.name + ".download")
     try:
         digest, size = hashlib.sha256(), 0
-        with client.stream("GET", f"{base_url}/{INDEX_ASSET}") as resp, gz_tmp.open("wb") as out:
+        with client.stream("GET", f"{base_url}/{asset}") as resp, packed_tmp.open("wb") as out:
             resp.raise_for_status()
             for chunk in resp.iter_bytes():
                 size += len(chunk)
@@ -196,20 +226,26 @@ def download(
                     raise ValueError("index download exceeded the size cap")
                 digest.update(chunk)
                 out.write(chunk)
-        if digest.hexdigest() != manifest.sha256:
+        if digest.hexdigest() != expected_sha256:
             raise ValueError("index checksum mismatch; refusing to install it")
-        with gzip.open(gz_tmp, "rb") as gz, db_tmp.open("wb") as out:
-            shutil.copyfileobj(gz, out, 1 << 20)
+        with opener(packed_tmp) as packed, db_tmp.open("wb") as out:
+            shutil.copyfileobj(packed, out, 1 << 20)
         _validate(db_tmp)
         os.replace(db_tmp, dest)
         now = _now().isoformat()
         _write_local_meta(
             dest,
-            {"manifest": asdict(manifest), "source_url": base_url, "downloaded_at": now, "checked_at": now},
+            {
+                "manifest": asdict(manifest),
+                "asset": asset,
+                "source_url": base_url,
+                "downloaded_at": now,
+                "checked_at": now,
+            },
         )
         return manifest
     finally:
-        gz_tmp.unlink(missing_ok=True)
+        packed_tmp.unlink(missing_ok=True)
         db_tmp.unlink(missing_ok=True)
 
 

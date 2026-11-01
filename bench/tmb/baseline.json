@@ -1,29 +1,29 @@
 {
-  "index_built_at": "2026-10-31T16:24:49+00:00",
+  "index_built_at": "2026-11-01T13:32:17+00:00",
   "summary": {
     "cases": 29,
-    "known_gap_share": 24.1,
+    "known_gap_share": 10.3,
     "overall": {
-      "root_cause": 86.2,
-      "root_cause_and_boundary": 75.9,
-      "boundary": 75.9,
+      "root_cause": 89.7,
+      "root_cause_and_boundary": 89.7,
+      "boundary": 89.7,
       "replacement": 0.0
     },
     "by_tier": {
       "B": {
         "cases": 29,
-        "root_cause": 86.2,
-        "root_cause_and_boundary": 75.9,
-        "boundary": 75.9,
+        "root_cause": 89.7,
+        "root_cause_and_boundary": 89.7,
+        "boundary": 89.7,
         "replacement": 0.0
       }
     },
     "by_origin": {
       "reported": {
         "cases": 29,
-        "root_cause": 86.2,
-        "root_cause_and_boundary": 75.9,
-        "boundary": 75.9,
+        "root_cause": 89.7,
+        "root_cause_and_boundary": 89.7,
+        "boundary": 89.7,
         "replacement": 0.0
       }
     }
@@ -95,8 +95,8 @@
       "replacement": false
     },
     "tmb-numpy-math-pydistinct": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": null
     },
     "tmb-numpy-nan-fides": {
@@ -136,17 +136,17 @@
     },
     "tmb-numpy-product-h5py-like": {
       "root_cause": true,
-      "boundary": false,
+      "boundary": true,
       "replacement": false
     },
     "tmb-numpy-product-insurapy": {
       "root_cause": true,
-      "boundary": false,
+      "boundary": true,
       "replacement": false
     },
     "tmb-numpy-product-sdmpy": {
       "root_cause": true,
-      "boundary": false,
+      "boundary": true,
       "replacement": false
     },
     "tmb-pandas-read-csv-error-bad-lines-gwas-sumstats-validator": {

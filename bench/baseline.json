@@ -1,21 +1,21 @@
 {
-  "index_built_at": "2026-11-01T15:44:25+00:00",
+  "index_built_at": "2026-11-01T18:31:23+00:00",
   "summary": {
     "cases": 167,
-    "known_gap_share": 5.4,
+    "known_gap_share": 4.8,
     "overall": {
-      "root_cause": 94.6,
-      "root_cause_and_boundary": 94.6,
-      "boundary": 94.5,
-      "replacement": 31.0
+      "root_cause": 95.2,
+      "root_cause_and_boundary": 95.2,
+      "boundary": 95.1,
+      "replacement": 32.2
     },
     "by_tier": {
       "A": {
         "cases": 81,
-        "root_cause": 96.3,
-        "root_cause_and_boundary": 96.3,
-        "boundary": 96.1,
-        "replacement": 36.1
+        "root_cause": 97.5,
+        "root_cause_and_boundary": 97.5,
+        "boundary": 97.4,
+        "replacement": 38.9
       },
       "B": {
         "cases": 86,
@@ -28,10 +28,10 @@
     "by_origin": {
       "constructed": {
         "cases": 8,
-        "root_cause": 75.0,
-        "root_cause_and_boundary": 75.0,
-        "boundary": 66.7,
-        "replacement": 80.0
+        "root_cause": 87.5,
+        "root_cause_and_boundary": 87.5,
+        "boundary": 83.3,
+        "replacement": 100.0
       },
       "reported": {
         "cases": 159,
@@ -734,9 +734,9 @@
       "replacement": null
     },
     "mcp-fastmcp-module": {
-      "root_cause": false,
-      "boundary": false,
-      "replacement": false
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true
     },
     "openai-v1-chatcompletion": {
       "root_cause": true,

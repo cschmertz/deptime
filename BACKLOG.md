@@ -18,7 +18,7 @@
 
 ---
 
-## Current state: public alpha, v0.1.3 (since 2026-10-29)
+## Current state: public alpha, v0.1.4 (since 2026-11-01)
 
 - The repo is public. `uvx deptime mcp` installs from PyPI, and pushing a `v*` tag publishes through trusted publishing (`release.yml`).
 - `build-index` runs nightly at 04:17 UTC and replaces the rolling `index` release. The first full builds (2026-10-28) indexed 52 packages and 3,371 releases into a 78.9 MB `.gz`. The first `SNAPSHOT_FORMAT` 4 build (cold, 2026-10-29) took 40 minutes and holds 3,377 releases in 79.8 MB. The first whole-series build (DT-DATA-19, warm caches, 2026-10-29) took 38 minutes and holds 6,508 releases in 92.9 MB. The first `SNAPSHOT_FORMAT` 5 build (cold, 2026-10-30, DT-DATA-26 and DT-DATA-27) took 53 minutes and holds 6,513 releases in 92.9 MB. The first build with DT-DATA-17 (warm caches, 2026-10-31) took 26 minutes and holds 6,564 releases in 93.3 MB. The first `SNAPSHOT_FORMAT` 6 build (cold, 2026-10-31, DT-DATA-29) took 48 minutes and holds 6,564 releases in 93.7 MB. The first `SNAPSHOT_FORMAT` 7 build (cold, 2026-11-01, DT-DATA-25) took 50 minutes and holds 6,564 releases in 94.6 MB. The first `SNAPSHOT_FORMAT` 8 build (cold, 2026-11-01, DT-DATA-33) took 49 minutes and holds 6,564 releases in 94.6 MB. The first `SNAPSHOT_FORMAT` 9 build (cold, 2026-11-01, DT-DATA-34) took 52 minutes and holds 6,564 releases in 94.6 MB. The first build that also publishes the `.xz` (DT-DATA-35, warm caches, 2026-11-01) took 31 minutes: `index.sqlite.xz` is 59.2 MB beside the 94.7 MB `.gz`.

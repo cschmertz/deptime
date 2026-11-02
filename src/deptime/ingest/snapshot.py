@@ -608,7 +608,23 @@ def _table_keys(node: ast.expr, tables: dict[str, dict[str, Any]]) -> frozenset[
     return frozenset(tables[node.id]) if isinstance(node, ast.Name) and node.id in tables else None
 
 
-_TableValue = str | tuple[str | None, ...] | None  # what a table maps a key to, as far as the source says
+@dataclass(frozen=True)
+class _Const:
+    """A table value that is a constant other than text: starlette's `"HTTP_413_REQUEST_ENTITY_TOO_LARGE": 413`,
+    or `None` for "removed, no replacement"."""
+
+    value: Any
+
+
+@dataclass(frozen=True)
+class _Ref:
+    """A table value that is a bare name: pandas 3.1's `"RollingGroupby": RollingGroupBy`."""
+
+    name: str
+
+
+# What a table maps a key to, as far as the source says.
+_TableValue = str | tuple[str | None, ...] | _Const | _Ref | None
 _MAX_TEXT = 4000  # deprecation messages are cut at 400; longer text isn't worth building
 _MAX_ITEMS = 10_000
 
@@ -704,6 +720,15 @@ class _Literals:
     def bind(self, name: str, node: ast.expr) -> None:
         self.values[name] = self.value(node)
 
+    def cell(self, node: ast.expr, local: dict[str, Any] | None = None) -> _TableValue:
+        """What a table maps a key to: text or a row of it as `value` reads it, or a constant or a bare name."""
+        if isinstance(node, ast.Constant) and not isinstance(node.value, str):
+            return _Const(node.value)
+        found = _row(self.value(node, local))
+        if found is None and isinstance(node, ast.Name) and (local is None or node.id not in local):
+            return _Ref(node.id)
+        return found
+
     @staticmethod
     def _unpack(target: ast.expr, item: Any) -> dict[str, Any] | None:
         if isinstance(target, ast.Name):
@@ -726,7 +751,7 @@ class _Literals:
         if isinstance(node, ast.Dict):
             if not all(isinstance(k, ast.Constant) and isinstance(k.value, str) for k in node.keys):
                 return None
-            return {k.value: _row(self.value(v)) for k, v in zip(node.keys, node.values, strict=True)}  # type: ignore[union-attr]
+            return {k.value: self.cell(v) for k, v in zip(node.keys, node.values, strict=True)}  # type: ignore[union-attr]
         if isinstance(node, (ast.Set, ast.List, ast.Tuple)):
             if not all(isinstance(e, ast.Constant) and isinstance(e.value, str) for e in node.elts):
                 return None
@@ -745,8 +770,23 @@ class _Literals:
             )
             if not isinstance(key, str):
                 return None
-            out[key] = _row(self.value(node.value, local)) if isinstance(node, ast.DictComp) else None
+            out[key] = self.cell(node.value, local) if isinstance(node, ast.DictComp) else None
         return out
+
+
+def _is_none(node: ast.expr) -> bool:
+    return isinstance(node, ast.Constant) and node.value is None
+
+
+def _is_none_cell(value: _TableValue) -> bool:
+    return isinstance(value, _Const) and value.value is None
+
+
+def _truthy(value: _TableValue) -> bool:
+    """Whether a table value is true, counting what the source doesn't say (a name, a call) as true."""
+    if isinstance(value, _Const):
+        return bool(value.value)
+    return value is None or isinstance(value, _Ref) or bool(value)
 
 
 def _fill_table(tables: dict[str, dict[str, _TableValue]], literals: _Literals, st: ast.stmt) -> bool:
@@ -768,7 +808,7 @@ def _fill_table(tables: dict[str, dict[str, _TableValue]], literals: _Literals, 
             del tables[name]
         else:
             tables[name].update(extra)
-            tables[name].update({k.arg: _row(literals.value(k.value)) for k in call.keywords if k.arg})
+            tables[name].update({k.arg: literals.cell(k.value) for k in call.keywords if k.arg})
         return True
     targets = st.targets if isinstance(st, (ast.Assign, ast.Delete)) else []
     if len(targets) != 1 or not isinstance(sub := targets[0], ast.Subscript):
@@ -779,7 +819,7 @@ def _fill_table(tables: dict[str, dict[str, _TableValue]], literals: _Literals, 
     if not (isinstance(sub.slice, ast.Constant) and isinstance(sub.slice.value, str)):
         del tables[name]
     elif isinstance(st, ast.Assign):
-        tables[name][sub.slice.value] = _row(literals.value(st.value))
+        tables[name][sub.slice.value] = literals.cell(st.value)
     else:
         tables[name].pop(sub.slice.value, None)
     return True
@@ -789,11 +829,61 @@ def _fill_table(tables: dict[str, dict[str, _TableValue]], literals: _Literals, 
 class _Shim:
     module: str
     param: str
-    tables: dict[str, dict[str, _TableValue]]  # module-level literal collections, by name
+    tables: dict[str, dict[str, _TableValue]]  # literal collections in scope, by name
     exports: frozenset[str] = frozenset()  # what `__all__` lists, when the source says so statically
     mod: griffe.Module | None = None
     bound: dict[str, str] = field(default_factory=dict)  # module-level imports: local name -> dotted path
     helpers: dict[str, ast.FunctionDef | None] = field(default_factory=dict)
+    literals: _Literals = field(default_factory=_Literals)
+    # Names bound to `TABLE.get(name)`, with that table: starlette's `deprecated = __deprecated__.get(name)`.
+    lookups: dict[str, dict[str, _TableValue]] = field(default_factory=dict)
+
+    def scoped(self, st: ast.stmt) -> _Shim:
+        """The shim after a statement of the function's body (DT-DATA-43). A literal table bound to a local name
+        is read like a module-level one (starlette 0.48's `status`, pandas 3.1's `api.typing`), a name bound to
+        `TABLE.get(name)` tests the table's keys (starlette's `deprecated = __deprecated__.get(name)`), and
+        binding the name to anything else ends either."""
+        if isinstance(st, ast.Assign) and len(st.targets) == 1:
+            target, value = st.targets[0], st.value
+        elif isinstance(st, ast.AnnAssign) and st.value is not None:
+            target, value = st.target, st.value
+        else:
+            return self
+        if not isinstance(target, ast.Name):
+            return self
+        got = self.got(value)
+        keys = self.literals.table(value) if got is None else None
+        if got is None and keys is None and target.id not in self.tables and target.id not in self.lookups:
+            return self
+        tables = {k: v for k, v in self.tables.items() if k != target.id}
+        lookups = {k: v for k, v in self.lookups.items() if k != target.id}
+        if got is not None:
+            lookups[target.id] = got
+        elif keys is not None:
+            tables[target.id] = keys
+        return replace(self, tables=tables, lookups=lookups)
+
+    def got(self, node: ast.expr) -> dict[str, _TableValue] | None:
+        """The table `node` looks the attribute name up in, when it is `TABLE.get(name)` or `TABLE.get(name,
+        None)`, possibly bound to a name (`x`, `x := ...`): the table's keys give a value, every other name None."""
+        if isinstance(node, ast.Name):
+            return self.lookups.get(node.id)
+        if isinstance(node, ast.NamedExpr):
+            return self.got(node.value)
+        if not (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "get"
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id in self.tables
+            and not node.keywords
+            and 1 <= len(node.args) <= 2
+            and isinstance(node.args[0], ast.Name)
+            and node.args[0].id == self.param
+            and (len(node.args) == 1 or _is_none(node.args[1]))
+        ):
+            return None
+        return self.tables[node.func.value.id]
 
     def helper(self, local: str, bound: dict[str, str]) -> ast.FunctionDef | None:
         """The function a call to `local` runs, when it is defined in this module or imported from one griffe
@@ -886,9 +976,15 @@ def _tested(test: ast.expr, shim: _Shim) -> tuple[frozenset[str], bool] | None:
         if any(p is None or p[1] != positive for p in parts):
             return None
         return frozenset().union(*(p[0] for p in parts if p)), positive
+    inner = test.operand if isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not) else test
+    if (rows := shim.got(inner)) is not None:
+        # `if x:` after `x = TABLE.get(name)`, or `if x := TABLE.get(name):` (huggingface-hub 2.4's `utils`)
+        return frozenset(k for k, v in rows.items() if _truthy(v)), inner is test
     if not (isinstance(test, ast.Compare) and len(test.ops) == 1):
         return None
     left, op, right = test.left, test.ops[0], test.comparators[0]
+    if isinstance(op, (ast.Is, ast.IsNot)) and _is_none(right) and (rows := shim.got(left)) is not None:
+        return frozenset(k for k, v in rows.items() if not _is_none_cell(v)), isinstance(op, ast.IsNot)
     if isinstance(op, (ast.Eq, ast.NotEq)) and isinstance(right, ast.Name) and right.id == shim.param:
         left, right = right, left
     if not (isinstance(left, ast.Name) and left.id == shim.param):
@@ -905,6 +1001,20 @@ def _tested(test: ast.expr, shim: _Shim) -> tuple[frozenset[str], bool] | None:
         right = right.func.value
     keys = shim.tables.get(right.id) if isinstance(right, ast.Name) else _string_keys(right)
     return (frozenset(keys), isinstance(op, ast.In)) if keys is not None else None
+
+
+def _walrus_bindings(test: ast.expr) -> list[ast.Assign]:
+    """The `x := value` bindings a condition makes, as the assignments they are, so the branch's warning can use
+    `x`. Only at the top of the test, of `not`, of a comparison's left side, or of `and`/`or`."""
+    if isinstance(test, ast.BoolOp):
+        return [b for v in test.values for b in _walrus_bindings(v)]
+    if isinstance(test, ast.UnaryOp):
+        test = test.operand
+    elif isinstance(test, ast.Compare):
+        test = test.left
+    if isinstance(test, ast.NamedExpr):
+        return [ast.Assign(targets=[ast.Name(test.target.id, ast.Store())], value=test.value, lineno=0)]
+    return []
 
 
 def _lookup(st: ast.Try, shim: _Shim) -> tuple[frozenset[str], ast.ExceptHandler] | None:
@@ -980,6 +1090,8 @@ def _reach(
             else:
                 names, positive = tested
                 yes, no = (live & names, live - names) if positive else (live - names, live & names)
+                for bound in _walrus_bindings(st.test):  # `if (new := TABLE.get(name)) is not None:`
+                    trail, shim = [*trail, bound], shim.scoped(bound)
                 after = _union(
                     _reach(st.body, yes, trail, shim, served), _reach(st.orelse, no, trail, shim, served)
                 )
@@ -1001,9 +1113,12 @@ def _reach(
             if after is None:
                 return None
             live = after
+            # The lookup ran for the keys that get past: a warning after the `try` can use what it bound.
+            trail, shim = [*trail, *st.body], shim.scoped(st.body[0])
             continue
         # Other `try`, `with` and `match` bodies aren't followed: their returns don't count.
         trail = [*trail, st]
+        shim = shim.scoped(st)
     return live
 
 
@@ -1026,7 +1141,10 @@ def _mapped(node: ast.expr, name: str, shim: _Shim) -> _TableValue:
     return shim.tables.get(table.id, {}).get(name) if isinstance(table, ast.Name) else None
 
 
-def _warning_text(node: ast.expr, name: str, env: dict[str, str]) -> str | None:
+def _warning_text(
+    node: ast.expr, env: dict[str, str], lookup: Callable[[ast.expr], str | None] | None = None
+) -> str | None:
+    """A warning's text; a placeholder `lookup` doesn't fill (`{TABLE[name]}`, `{new.__name__}`) reads "…"."""
     if isinstance(node, ast.Constant) and isinstance(node.value, str):
         return node.value
     if isinstance(node, ast.Name):  # `warn(msg)` with `msg` looked up in a table (django 6.1's `core.mail`)
@@ -1039,6 +1157,8 @@ def _warning_text(node: ast.expr, name: str, env: dict[str, str]) -> str | None:
             parts.append(str(v.value))
         elif isinstance(v, ast.FormattedValue) and isinstance(v.value, ast.Name):
             parts.append(env.get(v.value.id, "…"))
+        elif isinstance(v, ast.FormattedValue) and lookup is not None and (text := lookup(v.value)):
+            parts.append(text)
         else:
             parts.append("…")
     return "".join(parts)
@@ -1058,9 +1178,11 @@ def _warn_call(st: ast.stmt) -> ast.Call | None:
     return call if named else None
 
 
-def _deprecation_text(call: ast.Call, env: dict[str, str]) -> str | None:
+def _deprecation_text(
+    call: ast.Call, env: dict[str, str], lookup: Callable[[ast.expr], str | None] | None = None
+) -> str | None:
     """A `warn(...)` call's message, when the text or the category says it is a deprecation."""
-    text = _warning_text(call.args[0], "", env)
+    text = _warning_text(call.args[0], env, lookup)
     category = (
         call.args[1]
         if len(call.args) > 1
@@ -1084,7 +1206,7 @@ def _text_value(node: ast.expr | None, env: dict[str, str | None]) -> str | None
         return node.value
     if isinstance(node, ast.Name):
         return env.get(node.id, _UNKNOWN)
-    text = _warning_text(node, "", _known(env)) if node is not None else None
+    text = _warning_text(node, _known(env)) if node is not None else None
     return _UNKNOWN if text is None else text
 
 
@@ -1137,13 +1259,30 @@ def _helper_warning(call: ast.Call, helper: ast.FunctionDef, env: dict[str, str 
 def _shim_message(trail: list[ast.stmt], name: str, shim: _Shim) -> str | None:
     """The deprecation warning a shim's branch emits for `name`, with the f-string filled in where the source
     says what goes there (the name itself, the module, a rename table's target). A call to a helper of the same
-    package whose body warns counts as that warning."""
+    package whose body warns counts as that warning.
+
+    Tables the function defines itself fill it too (DT-DATA-43: starlette 0.48's `{deprecation_changes[name]}`),
+    and so does the `__name__` of a table's bare-name value (pandas 3.1's `new = deprecated[name]` ...
+    `{new.__name__}`)."""
     env = {shim.param: name, "__name__": shim.module}
+    refs: dict[str, str] = {}  # local name -> the bare name a table value bound it to
+
+    def lookup(node: ast.expr) -> str | None:  # reads `shim` as the loop below has scoped it
+        if isinstance(node, ast.Attribute) and node.attr == "__name__":
+            ref = refs.get(node.value.id) if isinstance(node.value, ast.Name) else None
+            mapped = _mapped(node.value, name, shim)
+            ref = ref or (mapped.name if isinstance(mapped, _Ref) else None)
+            return _object_name(ref, _bindings(trail, shim), shim) if ref else None
+        mapped = _mapped(node, name, shim)
+        return mapped if isinstance(mapped, str) else None
+
     for st in trail:
         if isinstance(st, ast.Assign) and len(st.targets) == 1:
             target, mapped = st.targets[0], _mapped(st.value, name, shim)
             if isinstance(target, ast.Name) and isinstance(mapped, str):
                 env[target.id] = mapped
+            elif isinstance(target, ast.Name) and isinstance(mapped, _Ref):
+                refs[target.id] = mapped.name
             elif (
                 isinstance(target, ast.Tuple)
                 and isinstance(mapped, tuple)
@@ -1157,7 +1296,7 @@ def _shim_message(trail: list[ast.stmt], name: str, shim: _Shim) -> str | None:
                     }
                 )
         elif call := _warn_call(st):
-            return _deprecation_text(call, env)
+            return _deprecation_text(call, env, lookup)
         elif (
             isinstance(st, ast.Expr)
             and isinstance(st.value, ast.Call)
@@ -1166,7 +1305,20 @@ def _shim_message(trail: list[ast.stmt], name: str, shim: _Shim) -> str | None:
             and (text := _helper_warning(st.value, helper, dict(env))) is not None
         ):
             return text
+        shim = shim.scoped(st)
     return None
+
+
+def _object_name(local: str, bound: dict[str, str], shim: _Shim) -> str | None:
+    """`x.__name__` for a name the module binds or imports, when griffe finds what it is: a class's or a
+    function's own name (what `from pandas.core.window import RollingGroupBy` imports keeps it), or a module's
+    dotted path. Names from other distributions stay unknown."""
+    found = _object_at(shim.mod, bound.get(local, f"{shim.module}.{local}")) if shim.mod is not None else None
+    if found is None:
+        return None
+    if found.is_module:
+        return found.path
+    return found.name if found.is_class or found.is_function else None
 
 
 def _find_getattr(stmts: list[ast.stmt]) -> tuple[ast.FunctionDef, list[ast.stmt]] | None:
@@ -1308,7 +1460,7 @@ def getattr_served(mod: griffe.Module) -> _GetattrShim:
         else:
             tables.pop(target.id, None)
         literals.bind(target.id, value)
-    shim = _Shim(mod.path, args[0].arg, tables, exports, mod, bound)
+    shim = _Shim(mod.path, args[0].arg, tables, exports, mod, bound, literals=literals)
     served = _Served()
     _reach(func.body, _Names(frozenset(), exclude=True), [], shim, served)
     names = {
@@ -1370,11 +1522,15 @@ class _Exports:
     stars: tuple[str, ...]  # modules the source star-imports, in order
 
 
-def _module_at(mod: griffe.Module, path: str) -> griffe.Module | None:
+def _object_at(mod: griffe.Module, path: str) -> griffe.Object | None:
     try:
-        found = _resolve(mod.modules_collection.get_member(path))
+        return _resolve(mod.modules_collection.get_member(path))
     except (KeyError, ValueError, griffe.AliasResolutionError, griffe.CyclicAliasError):
         return None
+
+
+def _module_at(mod: griffe.Module, path: str) -> griffe.Module | None:
+    found = _object_at(mod, path)
     return found if found is not None and found.is_module else None  # type: ignore[return-value]
 
 
@@ -1732,8 +1888,10 @@ class _Walker:
                 self.forward(mod, public_path, depth, forward, shim)
             canonical = f"{mod.path}.__getattr__"
             for name, message in shim.names.items():
-                # A real attribute never reaches __getattr__; one the module deletes again does.
-                if name not in mod.members or name in shim.deleted:
+                # A real attribute never reaches __getattr__; one the module deletes again does, and so does one
+                # it binds only for type checkers (pandas 3.1's `RollingGroupby`, under `if TYPE_CHECKING:`).
+                member = mod.members.get(name)
+                if member is None or name in shim.deleted or not member.runtime:
                     self.record(SymbolRecord(f"{public_path}.{name}", "getattr", canonical, None, message))
 
     def forward(

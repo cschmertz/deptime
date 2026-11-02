@@ -119,6 +119,15 @@ def test_the_head_of_a_longer_expression_can_be_skipped():
     assert mine("Use `np.foo()` instead.", skip_expressions=True)[0].target == "np.foo"
 
 
+def test_a_name_the_snapshot_could_not_read_to_the_end_is_no_hint():
+    # DT-DATA-43: "…" stands for an f-string part the source doesn't say statically; `pandas.api.typing` isn't it.
+    msg = "pandas.api.typing.Elsewhere is deprecated. Use pandas.api.typing.… instead."
+    assert mine(msg) == []
+    assert (
+        mine("Use pandas.api.typing.RollingGroupBy instead.")[0].target == "pandas.api.typing.RollingGroupBy"
+    )
+
+
 def test_param_alternatives_named_after_a_cue():
     # DT-DATA-42: the new argument is often unquoted, or quoted with more than its name.
     def alts(msg, params):

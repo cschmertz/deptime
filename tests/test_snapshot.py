@@ -461,6 +461,73 @@ TABLES = {
 }
 
 
+# starlette 0.48's `status.__getattr__` and pandas 3.1's `api.typing.__getattr__` read tables they define themselves.
+LOCAL_TABLES = {
+    "localt/__init__.py": "",
+    "localt/status.py": (
+        "import warnings\n\n"
+        "__all__ = ['HTTP_413_CONTENT_TOO_LARGE']\n\n"
+        "HTTP_413_CONTENT_TOO_LARGE = 413\n\n"
+        "__deprecated__ = {'HTTP_413_REQUEST_ENTITY_TOO_LARGE': 413, 'HTTP_000_ZERO': 0, 'HTTP_NONE': None}\n\n\n"
+        "def __getattr__(name: str) -> int:\n"
+        "    deprecation_changes = {\n"
+        "        'HTTP_413_REQUEST_ENTITY_TOO_LARGE': 'HTTP_413_CONTENT_TOO_LARGE',\n"
+        "    }\n\n"
+        "    deprecated = __deprecated__.get(name)\n"
+        "    if deprecated:\n"
+        "        warnings.warn(\n"
+        "            f\"'{name}' is deprecated. Use '{deprecation_changes[name]}' instead.\",\n"
+        "            category=DeprecationWarning,\n"
+        "            stacklevel=3,\n"
+        "        )\n"
+        "        return deprecated\n\n"
+        "    raise AttributeError(f\"module 'localt.status' has no attribute '{name}'\")\n"
+    ),
+    "localt/window.py": "class RollingGroupBy:\n    pass\n",
+    "localt/typing.py": (
+        "from typing import TYPE_CHECKING\n\n"
+        "from localt.window import RollingGroupBy\n\n"
+        "__all__ = ['RollingGroupBy', 'Listed']\n\n"
+        "if TYPE_CHECKING:\n"
+        "    from localt.window import RollingGroupBy as Listed\n\n"
+        "    RollingGroupby = RollingGroupBy\n\n\n"
+        "def __getattr__(name: str) -> object:\n"
+        "    deprecated = {'RollingGroupby': RollingGroupBy, 'Elsewhere': Unknown, 'Listed': RollingGroupBy}\n"
+        "    if name in deprecated:\n"
+        "        import warnings\n\n"
+        "        new = deprecated[name]\n"
+        "        warnings.warn(\n"
+        "            f'localt.typing.{name} is deprecated. Use localt.typing.{new.__name__} instead.',\n"
+        "            FutureWarning,\n"
+        "        )\n"
+        "        return new\n"
+        "    raise AttributeError(name)\n"
+    ),
+    "localt/rename.py": (
+        "import warnings\n\n"
+        "_renamed = {'old_name': 'new_name', 'gone': None}\n"
+        "new_name = 1\n\n\n"
+        "def __getattr__(name):\n"
+        "    if (new := _renamed.get(name)) is not None:\n"
+        "        warnings.warn(f'{name} is deprecated, use {new} instead', DeprecationWarning)\n"
+        "        return globals()[new]\n"
+        "    raise AttributeError(name)\n"
+    ),
+    "localt/moved.py": (
+        "import warnings\n\n"
+        "_moved = {'Shadowed': 'localt.window.RollingGroupBy'}\n\n\n"
+        "def __getattr__(name):\n"
+        "    _moved = {'Mover': 'localt.window.RollingGroupBy'}\n"
+        "    try:\n"
+        "        target = _moved[name]\n"
+        "    except KeyError:\n"
+        "        raise AttributeError(name) from None\n"
+        "    warnings.warn(f'{name} has moved to {target}', DeprecationWarning)\n"
+        "    return target\n"
+    ),
+}
+
+
 # pydantic 1.10.17's `pydantic/v1/__init__.py` is one line, `from pydantic import *`, and `pydantic` star-imports
 # most of its own API from its submodules.
 PARENT_STAR = {
@@ -1049,6 +1116,42 @@ def test_a_getattr_that_looks_names_up_in_a_table_serves_its_keys(tmp_path):
     assert snap.symbols["tabled.mail.EmailMessage"].kind == "class"
     thing = snap.symbols["tabled.lazy.Thing"]
     assert (thing.kind, thing.deprecated) == ("getattr", None)
+
+
+def test_a_getattr_that_defines_its_own_table_serves_its_keys(tmp_path):
+    # DT-DATA-43: starlette 0.48's old status-code names and pandas 3.1's `api.typing.RollingGroupby` read removed.
+    snap = build_snapshot("localt", "1.0", ["localt"], _write(tmp_path, LOCAL_TABLES))
+    old = snap.symbols["localt.status.HTTP_413_REQUEST_ENTITY_TOO_LARGE"]
+    assert (old.kind, old.canonical) == ("getattr", "localt.status.__getattr__")
+    assert (
+        old.deprecated
+        == "'HTTP_413_REQUEST_ENTITY_TOO_LARGE' is deprecated. Use 'HTTP_413_CONTENT_TOO_LARGE' instead."
+    )
+    # `if deprecated:` holds only for a true value; a `None` value is no value at all.
+    assert not {"localt.status.HTTP_000_ZERO", "localt.status.HTTP_NONE"} & set(snap.symbols)
+    # A name bound only for type checkers reaches `__getattr__` at runtime; `__name__` of a class is its own name.
+    rolling = snap.symbols["localt.typing.RollingGroupby"]
+    assert (rolling.kind, rolling.deprecated) == (
+        "getattr",
+        "localt.typing.RollingGroupby is deprecated. Use localt.typing.RollingGroupBy instead.",
+    )
+    # One `__all__` lists keeps the walker's record of it.
+    listed = snap.symbols["localt.typing.Listed"]
+    assert (listed.kind, listed.canonical, listed.deprecated) == (
+        "class",
+        "localt.window.RollingGroupBy",
+        None,
+    )
+    # A name griffe can't find leaves its `__name__` unknown.
+    assert snap.symbols["localt.typing.Elsewhere"].deprecated == (
+        "localt.typing.Elsewhere is deprecated. Use localt.typing.… instead."
+    )
+    # `(new := table.get(name)) is not None` binds `new` for the warning; a key mapped to None isn't served.
+    assert snap.symbols["localt.rename.old_name"].deprecated == "old_name is deprecated, use new_name instead"
+    assert "localt.rename.gone" not in snap.symbols
+    # The function's own table shadows the module's.
+    assert snap.symbols["localt.moved.Mover"].deprecated == "Mover has moved to localt.window.RollingGroupBy"
+    assert "localt.moved.Shadowed" not in snap.symbols
 
 
 def test_a_subpackage_that_star_imports_its_package_gets_all_of_it(tmp_path):

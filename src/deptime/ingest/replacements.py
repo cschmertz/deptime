@@ -120,8 +120,9 @@ def mine(message: str | None, *, skip_expressions: bool = False) -> list[Hint]:
             hints.setdefault(t, Hint(t, 0.9, evidence))
     for pattern, conf in PATTERNS:
         for m in pattern.finditer(message):
-            if skip_expressions and message[m.end("t") : m.end("t") + 1] in ("(", "[", "."):
-                continue
+            after = message[m.end("t") : m.end("t") + 1]
+            if after == "…" or (skip_expressions and after in ("(", "[", ".")):
+                continue  # "Use pandas.api.typing.… instead": the snapshot couldn't read the rest of the name
             t = _clean(m.group("t"))
             if t and t.lower() not in STOPWORDS and t not in hints and not _private(t):
                 hints[t] = Hint(t, conf, evidence)

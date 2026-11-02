@@ -20,13 +20,14 @@ from __future__ import annotations
 
 import gzip
 import hashlib
+import itertools
 import json
 import os
 import shutil
 import sqlite3
 import sys
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -293,21 +294,55 @@ def ensure_index(
             client.close()
 
 
+# Seconds between attempts while there is no index at all (DT-OSS-10); the last one repeats.
+RETRY_DELAYS = (30, 60, 120, 300, 600, 1800)
+
+
+def _in_words(seconds: float) -> str:
+    return f"{seconds / 60:.0f} min" if seconds >= 60 else f"{seconds:.0f} s"
+
+
 def start_background_refresh(
     dt: DepTime,
     settings: Settings,
     *,
     log: Callable[[str], None] = _stderr,
     client: httpx.Client | None = None,
+    delays: Sequence[float] = RETRY_DELAYS,
+    stop: threading.Event | None = None,
 ) -> threading.Thread:
-    """Ensure/refresh the index without delaying server start-up; hot-swap the store when a new file lands."""
+    """Ensure/refresh the index without delaying server start-up; hot-swap the store when a new file lands.
+
+    While there is no index, the download is retried with backoff until one lands (or another process puts
+    one on disk), and answers say why there is none (DT-OSS-10). `stop` ends the retries.
+    """
+    stop = stop or threading.Event()
 
     def run() -> None:
-        result = ensure_index(settings, client=client)
-        if result.path is not None and (result.changed or dt.store is None):
-            dt.set_store(IndexStore.open(result.path))
-        if result.changed or result.path is None:
+        for attempt in itertools.count():
+            result = ensure_index(settings, client=client)
+            if result.path is not None:
+                if result.changed or dt.store is None:
+                    dt.set_store(IndexStore.open(result.path))
+                dt.index_problem = None
+                if result.changed:
+                    log(f"deptime: {result.message}")
+                return
             log(f"deptime: {result.message}")
+            if settings.offline:
+                dt.index_problem = (
+                    "DEPTIME_OFFLINE is set, so it isn't downloaded; run `deptime index pull` once online."
+                )
+                return
+            delay = delays[min(attempt, len(delays) - 1)]
+            dt.index_problem = (
+                f"{result.message}. DepTime is retrying in the background in {_in_words(delay)}."
+            )
+            if stop.wait(delay):
+                return
+            if dt.store is not None:  # another process downloaded it
+                dt.index_problem = None
+                return
 
     thread = threading.Thread(target=run, name="deptime-index-refresh", daemon=True)
     thread.start()

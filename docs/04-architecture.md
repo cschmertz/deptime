@@ -86,7 +86,7 @@ The client logic lives in `distribution.ensure_index`:
 - **Downloaded index:** fresh within `DEPTIME_INDEX_MAX_AGE_HOURS` (24) means no network at all. Otherwise fetch the manifest, and download only if the sha256 changed.
 - **Every download:** stream the `.xz` (or the `.gz`) with a size cap → verify that file's sha256 → decompress to a temp file → validate it opens with a matching `schema_version` → `os.replace` into place → write the meta file.
 - **Any failure** keeps the current index.
-- **`deptime mcp` and `deptime serve`** run this in a background thread and hot-swap the store, so first-run start-up is never blocked. Until the index lands, tools return a note saying it's downloading.
+- **`deptime mcp` and `deptime serve`** run this in a background thread and hot-swap the store, so first-run start-up is never blocked. Until the index lands, tools return a note saying it's downloading. If the first download fails, the thread retries after 30 s, 1, 2, 5 and 10 minutes, then every 30 minutes, and the note names the error and the next attempt; with `DEPTIME_OFFLINE` set, it says so (DT-OSS-10).
 
 ## Serving
 

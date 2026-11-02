@@ -4,6 +4,8 @@ import gzip
 import hashlib
 import json
 import lzma
+import threading
+import time
 from dataclasses import replace
 from datetime import timedelta
 
@@ -124,6 +126,62 @@ def test_background_refresh_hot_swaps_the_store(tmp_path, settings, coverage):
         )
         thread.join(timeout=10)
     assert dt.symbol_history("httpx", "Client").ever_seen
+
+
+def _flaky_client(dist_dir, failures: int, calls: list[str]):
+    """Refuses the first `failures` requests, as a network that isn't up yet would."""
+    served = _client(dist_dir)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(str(request.url))
+        if len(calls) <= failures:
+            raise httpx.ConnectError("network is unreachable", request=request)
+        return served.send(request)
+
+    return httpx.Client(transport=httpx.MockTransport(handler))
+
+
+def test_failed_first_download_is_retried_until_it_lands(tmp_path, settings, coverage):
+    """DT-OSS-10: a server started without network gets its index once the network is back, without a restart."""
+    out, _ = _published(tmp_path)
+    dt, calls, logged = DepTime(None, coverage), [], []
+    with _flaky_client(out, 2, calls) as client:
+        thread = dist.start_background_refresh(
+            dt, _local(settings, tmp_path), client=client, log=logged.append, delays=(0, 0)
+        )
+        thread.join(timeout=10)
+    assert not thread.is_alive() and dt.symbol_history("httpx", "Client").ever_seen
+    assert sum("could not download" in m for m in logged) == 2 and dt.index_problem is None
+
+
+def test_no_index_note_names_the_cause_while_retrying(tmp_path, settings, coverage):
+    dt, stop = DepTime(None, coverage), threading.Event()
+    with _flaky_client(tmp_path, 10**6, []) as client:
+        thread = dist.start_background_refresh(
+            dt, _local(settings, tmp_path), client=client, log=lambda _m: None, delays=(60,), stop=stop
+        )
+        for _ in range(100):
+            if dt.index_problem:
+                break
+            time.sleep(0.05)
+        note = dt.symbol_history("httpx", "Client").note
+        stop.set()
+        thread.join(timeout=10)
+    assert "could not download the index (ConnectError: network is unreachable)" in note
+    assert "retrying in the background in 1 min" in note
+    assert "network is unreachable" in dt.explain_error(HTTPX_TB, {"httpx": "0.28.1"}).note
+    assert not thread.is_alive()
+
+
+def test_offline_mode_without_an_index_says_so_and_never_retries(tmp_path, settings, coverage):
+    dt, calls = DepTime(None, coverage), []
+    with _flaky_client(tmp_path, 0, calls) as client:
+        thread = dist.start_background_refresh(
+            dt, replace(_local(settings, tmp_path), offline=True), client=client, log=lambda _m: None
+        )
+        thread.join(timeout=10)
+    assert calls == [] and not thread.is_alive()
+    assert "DEPTIME_OFFLINE" in dt.symbol_history("httpx", "Client").note
 
 
 # ---------------------------------------------------------------- .xz beside .gz (DT-DATA-35)

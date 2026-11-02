@@ -141,6 +141,8 @@ class DepTime:
         # Opened lazily if it appears after start-up, e.g. another process finished the first download.
         self.index_path = index_path
         self._open_lock = threading.Lock()
+        # Why there is no index, once the background download has tried (DT-OSS-10).
+        self.index_problem: str | None = None
 
     @property
     def store(self) -> IndexStore | None:
@@ -206,9 +208,12 @@ class DepTime:
             target=row["target"], confidence=row["confidence"], source=row["source"], evidence=row["evidence"]
         )
 
+    def _no_index_note(self) -> str:
+        return f"DepTime has no index yet: {self.index_problem}" if self.index_problem else NO_INDEX_NOTE
+
     def _not_indexed_note(self, name: str) -> str:
         if self.store is None:
-            return NO_INDEX_NOTE
+            return self._no_index_note()
         configured = self.coverage.get(name) is not None
         return (
             f"{name} is configured but not indexed yet."
@@ -427,7 +432,7 @@ class DepTime:
         if self.store is None:
             # Without an index every package would look "not covered", which teaches the agent the opposite of
             # the truth on its very first call.
-            return ExplainResult(signal=signal.to_model(), findings=[], note=NO_INDEX_NOTE)
+            return ExplainResult(signal=signal.to_model(), findings=[], note=self._no_index_note())
         installed = parse_installed(installed_versions, pip_freeze)
         candidates = self._candidates(signal, installed)
         findings: list[Finding] = []

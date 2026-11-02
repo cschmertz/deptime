@@ -825,6 +825,102 @@ WARNINGS = {
 }
 
 
+# DT-DATA-40: numpy 1.25-1.26 warn about `product`, `alltrue`... in the dispatcher their decorator is given, and the
+# function itself only forwards to `prod`. pandas' `@doc(where)` passes a function for its docstring.
+DISPATCHED = {
+    "dispy/__init__.py": "from dispy.fromnumeric import *\nfrom dispy.frame import *\n",
+    "dispy/fromnumeric.py": textwrap.dedent(
+        '''\
+        import functools
+        import warnings
+
+        from dispy import overrides
+
+        __all__ = ["prod", "product", "sum"]
+
+        array_function_dispatch = functools.partial(overrides.array_function_dispatch, module="dispy")
+
+
+        def _prod_dispatcher(a, axis=None, dtype=None, out=None):
+            return (a, out)
+
+
+        @array_function_dispatch(_prod_dispatcher)
+        def prod(a, axis=None, dtype=None, out=None):
+            return a
+
+
+        def _product_dispatcher(a, axis=None, dtype=None, out=None):
+            # 2023-03-02, 1.25.0
+            warnings.warn("`product` is deprecated as of NumPy 1.25.0, and will be "
+                          "removed in NumPy 2.0. Please use `prod` instead.",
+                          DeprecationWarning, stacklevel=3)
+            return (a, out)
+
+
+        @array_function_dispatch(_product_dispatcher, verify=False)
+        def product(*args, **kwargs):
+            """
+            Return the product of array elements over a given axis.
+            """
+            return prod(*args, **kwargs)
+
+
+        def _sum_dispatcher(a, axis=None, out=None):
+            warnings.warn("passing `out` positionally is deprecated", DeprecationWarning)
+            return (a, out)
+
+
+        @array_function_dispatch(_sum_dispatcher)
+        def sum(a, axis=None, out=None):
+            return a
+        '''
+    ),
+    "dispy/overrides.py": textwrap.dedent(
+        """\
+        def array_function_dispatch(dispatcher=None, module=None, verify=True):
+            def decorator(implementation):
+                return implementation
+            return decorator
+        """
+    ),
+    "dispy/frame.py": textwrap.dedent(
+        """\
+        import warnings
+
+        __all__ = ["where", "mask", "lookup", "select"]
+
+
+        def doc(*docstrings):
+            def decorator(func):
+                return func
+            return decorator
+
+
+        def where(cond, other=None, try_cast=None):
+            if try_cast is not None:
+                warnings.warn("try_cast keyword is deprecated and will be removed.", FutureWarning)
+            return cond
+
+
+        @doc(where)
+        def mask(cond, other=None, try_cast=None):
+            return where(cond, other, try_cast)
+
+
+        def lookup(row_labels, col_labels):
+            warnings.warn("lookup() is deprecated, use select() instead.", FutureWarning)
+            return row_labels
+
+
+        @doc(lookup)
+        def select(row_labels, col_labels):
+            return row_labels
+        """
+    ),
+}
+
+
 def _write(root: Path, files: dict[str, str] = FILES) -> Path:
     for rel, text in files.items():
         p = root / rel
@@ -1319,6 +1415,28 @@ def test_every_warning_in_a_function_is_read(tmp_path):
         'Use pd.to_datetime({"year": year_col, "month": month_col}) instead.',
         None,
     )
+
+
+def test_a_function_takes_the_deprecation_its_dispatcher_warns(tmp_path):
+    # DT-DATA-40: numpy 1.25's `product` forwards to `prod`; the warning is in `_product_dispatcher`, which
+    # `@array_function_dispatch(...)` is given. The index recorded no deprecation for `product`.
+    snap = build_snapshot("dispy", "1.25.0", ["dispy"], _write(tmp_path, DISPATCHED))
+
+    def dep(path):
+        rec = snap.symbols[f"dispy.{path}"]
+        return rec.deprecated, rec.deprecated_params
+
+    assert dep("product") == (
+        "`product` is deprecated as of NumPy 1.25.0, and will be removed in NumPy 2.0. Please use `prod` instead.",
+        None,
+    )
+    assert dep("prod") == (None, None)
+    # A dispatcher warning that doesn't name the function, or a function passed for its docstring whose warning
+    # deprecates one of its arguments or names itself, isn't the decorated function's deprecation.
+    assert dep("sum") == (None, None)
+    assert dep("mask") == (None, None)
+    assert dep("select") == (None, None)
+    assert dep("lookup") == ("lookup() is deprecated, use select() instead.", None)
 
 
 def test_a_build_leaves_no_griffe_objects_alive(tmp_path):

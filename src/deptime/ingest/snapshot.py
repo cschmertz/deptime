@@ -129,7 +129,8 @@ def deprecation_message(obj: griffe.Object) -> str | None:
 
 def deprecations(obj: griffe.Object) -> tuple[str | None, dict[str, str] | None]:
     """Best-effort deprecation detection: griffe extensions and `@deprecated` decorators deprecate the object;
-    for a function, every warning in its body is read (`_BodyWarnings`)."""
+    for a function, every warning in its body is read (`_BodyWarnings`), and else its dispatcher's
+    (`_dispatcher_deprecation`)."""
     flagged = getattr(obj, "deprecated", None)
     if flagged:
         return (flagged if isinstance(flagged, str) else "deprecated"), None
@@ -139,8 +140,16 @@ def deprecations(obj: griffe.Object) -> tuple[str | None, dict[str, str] | None]
             return (m.group("args") or "deprecated").strip()[:400], None
     if not isinstance(obj, griffe.Function):
         return None, None
+    whole, params = _function_warnings(obj, obj)
+    return whole or _dispatcher_deprecation(obj), params
+
+
+def _function_warnings(
+    func: griffe.Function, reader: griffe.Function
+) -> tuple[str | None, dict[str, str] | None]:
+    """The warnings in `func`'s body, read as `reader`'s: its own name and class decide what they deprecate."""
     try:
-        source = obj.source
+        source = func.source
     except (OSError, ValueError, AttributeError):
         return None, None
     if "warn" not in source or not (CALL_CATEGORY_RE.search(source) or "deprecat" in source.lower()):
@@ -152,17 +161,51 @@ def deprecations(obj: griffe.Object) -> tuple[str | None, dict[str, str] | None]
             (
                 n
                 for n in ast.walk(tree)
-                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == obj.name
+                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == func.name
             ),
             None,
         )
         if node is None:  # griffe made it up (a dataclass's `__init__`): its source is someone else's
             return None, None
         try:
-            return _BodyWarnings(node, text, obj).read()
+            return _BodyWarnings(node, text, reader).read()
         except RecursionError:  # a pathologically nested expression
             pass
     return _first_notice(source), None
+
+
+def _dispatcher_deprecation(func: griffe.Function) -> str | None:
+    """numpy 1.25-1.26 warn about `product`, `alltrue`, `round_`... in the dispatcher their decorator is given,
+    `@array_function_dispatch(_product_dispatcher)`, and the function itself only forwards to `prod`
+    (DT-DATA-40). A function of the same scope passed to a decorator call deprecates the decorated function when
+    its warnings, read as the decorated function's, deprecate it as a whole and name it other than as what to use
+    instead, and don't name the helper itself: pandas' `@doc(lookup)` passes a function for its docstring, and
+    "lookup() is deprecated, use select() instead" is about `lookup`."""
+    scope = func.parent
+    if scope is None:
+        return None
+    for dec in func.decorators or []:
+        try:
+            call = ast.parse(str(dec.value), mode="eval").body
+        except (SyntaxError, ValueError):
+            continue
+        if not isinstance(call, ast.Call):
+            continue
+        for arg in [*call.args, *(k.value for k in call.keywords)]:
+            if not isinstance(arg, ast.Name) or arg.id == func.name:
+                continue
+            helper = scope.members.get(arg.id)
+            if not isinstance(helper, griffe.Function):
+                continue
+            whole, _ = _function_warnings(helper, func)
+            if (
+                whole
+                and whole != UNRECOVERABLE
+                and names_argument(whole, func.name)
+                and not re.search(rf"\b{re.escape(helper.name)}\b", whole)
+            ):
+                return whole
+    return None
 
 
 def _first_notice(source: str) -> str | None:
@@ -301,7 +344,7 @@ class _BodyWarnings:
         self.kwargs = args.kwarg.arg if args.kwarg else None
         self.varargs = args.vararg.arg if args.vararg else None
         parent = func.parent
-        self.own = {node.name} | ({parent.name} if parent is not None and parent.is_class else set())
+        self.own = {func.name} | ({parent.name} if parent is not None and parent.is_class else set())
         # Loop variables that run over the names passed in **kwargs.
         self.kwarg_keys = {
             name

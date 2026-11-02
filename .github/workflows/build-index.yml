@@ -26,7 +26,9 @@ env:
 
 jobs:
   plan:
-    runs-on: ubuntu-latest
+    # A fixed image: snapshots built on another OS image can differ in small ways (DT-DATA-30), and cached
+    # ones are only rebuilt on a SNAPSHOT_FORMAT bump, so a silent ubuntu-latest switch would mix builds.
+    runs-on: ubuntu-24.04
     outputs:
       packages: ${{ steps.list.outputs.packages }}
       snapshot_format: ${{ steps.list.outputs.snapshot_format }}
@@ -44,7 +46,7 @@ jobs:
   snapshots:
     name: snapshots (${{ matrix.package }})
     needs: plan
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 350
     strategy:
       fail-fast: false
@@ -108,7 +110,7 @@ jobs:
     needs: [plan, snapshots]
     # Runs even when some package jobs failed: those packages keep their published releases.
     if: ${{ !cancelled() && needs.plan.result == 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
       contents: write # upload release assets
@@ -134,8 +136,8 @@ jobs:
 
       - name: Assemble the index from the snapshots (never downloads or analyses a release)
         run: |
-          uv run deptime ingest --all --into-downloaded --cached-only \
-            || echo "::warning::some releases have no snapshot tonight; see the log above"
+          uv run deptime ingest --all --into-downloaded --cached-only --summary "$GITHUB_STEP_SUMMARY" \
+            || echo "::warning::some releases have no snapshot tonight; see the run summary"
 
       - name: Resources used
         if: always()

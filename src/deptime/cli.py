@@ -46,7 +46,7 @@ def _print(model) -> None:
 
 def cmd_ingest(args: argparse.Namespace, settings: Settings) -> int:
     from deptime.index.distribution import mark_locally_built, read_local_meta
-    from deptime.ingest.pipeline import ingest_package
+    from deptime.ingest.pipeline import IngestReport, coverage_summary, ingest_package
 
     coverage = load_coverage(settings.coverage_file)
     names = [p.name for p in coverage.packages] if args.all else args.packages
@@ -63,6 +63,7 @@ def cmd_ingest(args: argparse.Namespace, settings: Settings) -> int:
     store = IndexStore.open(settings.index_path, readonly=False)
     marked = False
     failures = 0
+    reports: list[IngestReport] = []
     for name in names:
         spec = coverage.get(name)
         if spec is None:
@@ -82,7 +83,9 @@ def cmd_ingest(args: argparse.Namespace, settings: Settings) -> int:
         except Exception as exc:  # one broken package must not stop the rest of the run
             _err(f"[{name}] FAILED: {type(exc).__name__}: {exc}")
             failures += 1
+            reports.append(IngestReport(name, failed={"*": f"{type(exc).__name__}: {exc}"}))
             continue
+        reports.append(report)
         if report.stats is not None and not marked:
             mark_locally_built(
                 settings.index_path
@@ -92,6 +95,9 @@ def cmd_ingest(args: argparse.Namespace, settings: Settings) -> int:
         if report.failed:
             _err(json.dumps({"package": name, "failed": report.failed}, indent=2))
     store.close()
+    if args.summary:  # appended, as $GITHUB_STEP_SUMMARY expects
+        with open(args.summary, "a", encoding="utf-8") as fh:
+            fh.write(coverage_summary(reports))
     return 1 if failures else 0
 
 
@@ -268,6 +274,11 @@ def main(argv: list[str] | None = None) -> int:
         "--cached-only",
         action="store_true",
         help="use only cached snapshots: never download or analyse a release (CI's publish job)",
+    )
+    p.add_argument(
+        "--summary",
+        metavar="FILE",
+        help="append a Markdown coverage summary (indexed share and failures per package) to FILE",
     )
     p.set_defaults(func=cmd_ingest)
 

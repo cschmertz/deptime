@@ -37,6 +37,58 @@ class IngestReport:
     stats: RebuildStats | None = None
 
 
+COVERAGE_BAR = 0.9  # DT-DATA-01: share of each package's selected releases the index must hold
+_CACHED_ONLY_MISS = "no cached snapshot (cached-only run)"
+
+
+def _cell(text: str, limit: int = 200) -> str:
+    """Untrusted text (exception messages) as one Markdown table cell."""
+    text = " ".join(text.split()).replace("|", "\\|").replace("`", "'")
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+def coverage_summary(reports: list[IngestReport], max_listed: int = 5) -> str:
+    """A Markdown summary of a run for CI's workflow page: totals, then a row per package with a failure."""
+    counted = [r for r in reports if r.selected]
+    selected = sum(len(r.selected) for r in counted)
+    indexed = {r.package: len(set(r.selected) & {*r.cached, *r.built, *r.carried}) for r in counted}
+    total = sum(indexed.values())
+    share = f" ({100 * total / selected:.2f}%)" if selected else ""
+    below = [r.package for r in counted if indexed[r.package] < COVERAGE_BAR * len(r.selected)]
+    verdict = f"Below it: {', '.join(below)}." if below else "Every counted package meets it."
+    lines = [
+        "### Index coverage",
+        "",
+        f"{len(reports)} packages: {total} of {selected} selected releases indexed{share}. "
+        f"Bar: {COVERAGE_BAR:.0%} of each package's selected releases. {verdict}",
+    ]
+    rows = []
+    for r in reports:
+        if not r.failed:
+            continue
+        if r.selected:
+            n = indexed[r.package]
+            cell = f"{n} of {len(r.selected)} ({100 * n / len(r.selected):.1f}%)"
+            if r.package in below:
+                cell += f" **below {COVERAGE_BAR:.0%}**"
+        else:
+            cell = "not counted"
+        failed = sorted(r.failed.items())
+        listed = [f"`{_cell(v, 40)}`: {_cell(why)}" for v, why in failed[:max_listed]]
+        if len(failed) > max_listed:
+            listed.append(f"and {len(failed) - max_listed} more")
+        rows.append(f"| {r.package} | {cell} | {'<br>'.join(listed)} |")
+    if rows:
+        lines += ["", "| Package | Indexed | Not indexed in this run |", "|---|---|---|", *rows]
+        if any(why == _CACHED_ONLY_MISS for r in reports for why in r.failed.values()):
+            lines += [
+                "",
+                "A release without a cached snapshot failed to build in its package's snapshots job; "
+                "that job's log has the cause.",
+            ]
+    return "\n".join(lines) + "\n"
+
+
 def snapshot_path(cache_dir: Path, package: str, version: str) -> Path:
     return cache_dir / "snapshots" / package / f"{version}.json.gz"
 
@@ -216,7 +268,7 @@ def ingest_package(
                 report.cached.append(version)
                 continue
             if cached_only:
-                report.failed[version] = "no cached snapshot (cached-only run)"
+                report.failed[version] = _CACHED_ONLY_MISS
                 continue
             if file is None:
                 report.failed[version] = "no wheel or sdist"

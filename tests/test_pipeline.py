@@ -13,7 +13,7 @@ from deptime import cli
 from deptime.config import Coverage, PackageSpec, VersionPolicy
 from deptime.index.store import IndexStore
 from deptime.ingest import pipeline
-from deptime.ingest.pipeline import IngestReport, ingest_package, snapshot_path
+from deptime.ingest.pipeline import IngestReport, coverage_summary, ingest_package, snapshot_path
 from deptime.ingest.snapshot import ApiSnapshot, LazySnapshot
 from deptime.query import DepTime
 from tests.conftest import HTTPX, RELEASED_AT, SNAPSHOTS
@@ -242,6 +242,38 @@ def test_ingest_into_downloaded_keeps_it_downloaded_until_something_is_rebuilt(t
     meta, calls = _cli_home(tmp_path, monkeypatch)
     assert cli.main(["ingest", "httpx", "--into-downloaded"]) == 1
     assert calls == ["httpx"] and meta.exists()
+
+
+def test_ingest_appends_a_coverage_summary(tmp_path, monkeypatch):
+    """DT-DATA-01: CI passes $GITHUB_STEP_SUMMARY, so a run's failures show on the workflow's page."""
+    _cli_home(tmp_path, monkeypatch)
+    summary = tmp_path / "summary.md"
+    summary.write_text("earlier step\n")
+    assert cli.main(["ingest", "httpx", "--into-downloaded", "--summary", str(summary)]) == 1
+    text = summary.read_text()
+    assert text.startswith("earlier step\n") and "| httpx |" in text and "PyPI unavailable" in text
+
+
+def test_coverage_summary_lists_failures_and_packages_below_the_bar():
+    """DT-DATA-01: at least 90% of each package's selected releases are indexed; failures are listed."""
+    full = IngestReport("full", selected=["1", "2"], cached=["1", "2"])
+    kept = IngestReport("kept", selected=["1", "2"], cached=["1"], carried=["2"], failed={"2": "boom"})
+    low = IngestReport(
+        "low",
+        selected=[str(v) for v in range(10)],
+        cached=[str(v) for v in range(8)],
+        failed={"8": "no cached snapshot (cached-only run)", "9": "ValueError: a | b\nsecond line"},
+    )
+    down = IngestReport("down", failed={"*": "PyPI unavailable (ConnectError); used 0 cached snapshots"})
+    text = coverage_summary([full, kept, low, down])
+
+    assert "12 of 14 selected releases indexed" in text  # `kept` still serves 2 from the existing index
+    assert "Below it: low." in text and "| low | 8 of 10 (80.0%) **below 90%** |" in text
+    assert "| kept | 2 of 2 (100.0%) |" in text and "`2`: boom" in text
+    assert "| full |" not in text  # only packages with something to report get a row
+    assert "| down | not counted |" in text and "PyPI unavailable" in text
+    assert "a \\| b second line" in text  # one table cell: pipes escaped, newlines folded
+    assert "snapshots job" in text  # where to find why a release had no snapshot
 
 
 def test_ingest_keeps_only_snapshots_on_disk(tmp_path):

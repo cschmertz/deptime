@@ -33,6 +33,7 @@ from deptime.models import (
     SymbolQuery,
 )
 from deptime.tracebacks import ErrorSignal, parse_traceback
+from deptime.untrusted import instruction_like, untrusted_text
 
 MAX_DIFF_EVENTS = 500
 MAX_FINDINGS_PER_PACKAGE = 5
@@ -188,6 +189,17 @@ class DepTime:
             detail=json.loads(row["detail"]),
         )
 
+    # Hints mined from text that reads like instructions are dropped with the text (DT-CORE-08).
+    def _hints(self, name: str, path: str) -> list[sqlite3.Row]:
+        assert self.store is not None
+        return [r for r in self.store.replacements(name, path) if not instruction_like(r["evidence"])]
+
+    def _param_hints(self, name: str, func_path: str) -> list[sqlite3.Row]:
+        assert self.store is not None
+        return [
+            r for r in self.store.param_replacements(name, func_path) if not instruction_like(r["evidence"])
+        ]
+
     @staticmethod
     def _replacement(row: sqlite3.Row) -> Replacement:
         return Replacement(
@@ -252,10 +264,10 @@ class DepTime:
                 ),
             )
         last_ordinal = max(s["last_ordinal"] for s in spans)
-        replacements = [self._replacement(r) for r in self.store.replacements(name, full)]
+        replacements = [self._replacement(r) for r in self._hints(name, full)]
         replacements += [
             self._replacement(r).model_copy(update={"target": f"{r['path']} -> {r['target']}"})
-            for r in self.store.param_replacements(name, full)
+            for r in self._param_hints(name, full)
         ]
         return SymbolHistory(
             package=name,
@@ -308,11 +320,7 @@ class DepTime:
                     seen = f"seen in {self._version(name, spans[0]['first_ordinal'])}..{self._version(name, max(s['last_ordinal'] for s in spans))}"
                 else:
                     seen = "never seen in any indexed release"
-                repl = [
-                    r
-                    for r in self.store.replacements(name, full)
-                    if r["confidence"] >= EXPLAIN_MIN_CONFIDENCE
-                ]
+                repl = [r for r in self._hints(name, full) if r["confidence"] >= EXPLAIN_MIN_CONFIDENCE]
                 hint = seen + (f"; try {repl[0]['target']}" if repl else "")
                 results.append(SymbolCheck(path=full, status="missing", hint=hint))
                 continue
@@ -676,7 +684,8 @@ class DepTime:
             )
             if wanted:
                 version = self._version(name, row["ordinal"])
-                return (f"<={version}" if row["prev_ordinal"] is None else version), detail.get("message")
+                message = untrusted_text(detail.get("message"))  # it is quoted in explanations too
+                return (f"<={version}" if row["prev_ordinal"] is None else version), message
         return None, None
 
     def _symbol_finding(
@@ -725,7 +734,7 @@ class DepTime:
                 + _before_index(rels),
             )
         dep_version, dep_message = self._deprecation(name, path)
-        indexed = [self._replacement(r) for r in self.store.replacements(name, path)]
+        indexed = [self._replacement(r) for r in self._hints(name, path)]
         if self.store.span_at(name, path, ordinal) is not None:
             window = self._window(
                 name, resolved, exact, installed, lambda o: self.store.span_at(name, path, o) is None
@@ -848,7 +857,7 @@ class DepTime:
             )
 
         dep_version, dep_message = self._deprecation(name, path, param)
-        replacements = [self._replacement(r) for r in self.store.replacements(name, symbol)]
+        replacements = [self._replacement(r) for r in self._hints(name, symbol)]
         current = self.store.span_at(name, path, ordinal)
         if current is not None and current["params"] is None:
             return None  # no signature at this version (an unresolved alias, a class); no parameter verdict

@@ -14,6 +14,8 @@ import keyword
 import re
 import string
 import sys
+import textwrap
+import warnings
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
@@ -21,20 +23,26 @@ from typing import Any
 
 import griffe
 
-SNAPSHOT_FORMAT = 10  # bump when extraction changes: cached snapshots in another format are rebuilt
+from deptime.ingest.replacements import DEPRECATION_WORDS_RE, names_argument, worded_deprecated
+
+SNAPSHOT_FORMAT = 11  # bump when extraction changes: cached snapshots in another format are rebuilt
 MAX_DEPTH = 12  # guards pathological re-export cycles
 
 DEPRECATED_DECORATOR_RE = re.compile(r"^(?:[\w.]+\.)?deprecated\b(?:\((?P<args>.*)\))?$", re.S)
 STRING_LITERAL_RE = re.compile(r"""(?P<q>["'])(?P<s>(?:\\.|(?!(?P=q)).)*)(?P=q)""")
 # One or more adjacent single-line literals (implicit concatenation may span lines via the \s* gap).
 ADJACENT_LITERALS_RE = re.compile(r"""(?:f?(["'])(?:\\.|(?!\1).)*\1\s*)+""")
-DEPRECATION_WORDS_RE = re.compile(r"deprecat|will be removed|no longer supported|use .+ instead", re.I)
 WARNING_CATEGORY_RE = re.compile(
     r"\b(?:DeprecationWarning|PendingDeprecationWarning|FutureWarning|\w*Deprecat\w*Warning)\b"
 )
 # A warning category that marks a deprecation, including django's RemovedInDjango50Warning and marshmallow's
 # RemovedInMarshmallow4Warning (DT-DATA-36).
 DEPRECATION_CATEGORY_RE = re.compile(rf"{WARNING_CATEGORY_RE.pattern}|\bRemovedIn\w*Warning\b")
+# The category of one `warn(...)` call (DT-DATA-42): also subclasses whose names don't end in "Warning", such as
+# pydantic's `PydanticDeprecatedSince20` and langgraph's `LangGraphDeprecatedSinceV10`.
+CALL_CATEGORY_RE = re.compile(r"deprecat|\bFutureWarning\b|\bRemovedIn\w*Warning\b", re.I)
+UNRECOVERABLE = "deprecated (warning emitted; message not statically recoverable)"
+PLACEHOLDER_RE = re.compile(r"\{[^{}]*\}")  # an f-string's `{expression}`
 # Builds run on the pinned interpreter (.python-version), so this list doesn't vary between index builds.
 # distutils left the stdlib in 3.12; typing_extensions is a backport of it.
 STDLIB_MODULES = frozenset(sys.stdlib_module_names) | {"distutils", "typing_extensions"}
@@ -46,7 +54,9 @@ class SymbolRecord:
     kind: str  # module | class | function | attribute | type alias | alias (unresolved/external) | getattr (module __getattr__)
     canonical: str | None = None
     params: list[dict[str, Any]] | None = None
-    deprecated: str | None = None
+    deprecated: str | None = None  # the whole symbol's deprecation
+    # Arguments a warning deprecates, with its text (DT-DATA-42): named parameters, or names taken out of **kwargs.
+    deprecated_params: dict[str, str] | None = None
 
 
 @dataclass
@@ -113,28 +123,430 @@ def _literal_text(chunk: str) -> str:
 
 
 def deprecation_message(obj: griffe.Object) -> str | None:
-    """Best-effort deprecation detection: griffe extensions, @deprecated decorators, warnings in the body."""
+    """The whole object's deprecation: see `deprecations`."""
+    return deprecations(obj)[0]
+
+
+def deprecations(obj: griffe.Object) -> tuple[str | None, dict[str, str] | None]:
+    """Best-effort deprecation detection: griffe extensions and `@deprecated` decorators deprecate the object;
+    for a function, every warning in its body is read (`_BodyWarnings`)."""
     flagged = getattr(obj, "deprecated", None)
     if flagged:
-        return flagged if isinstance(flagged, str) else "deprecated"
+        return (flagged if isinstance(flagged, str) else "deprecated"), None
     for dec in getattr(obj, "decorators", []) or []:
         m = DEPRECATED_DECORATOR_RE.match(str(dec.value))
         if m:
-            return (m.group("args") or "deprecated").strip()[:400]
+            return (m.group("args") or "deprecated").strip()[:400], None
     if not isinstance(obj, griffe.Function):
-        return None
+        return None, None
     try:
         source = obj.source
     except (OSError, ValueError, AttributeError):
+        return None, None
+    if "warn" not in source or not (CALL_CATEGORY_RE.search(source) or "deprecat" in source.lower()):
+        return None, None
+    parsed = _parse_function(source)
+    if parsed is not None:
+        tree, text = parsed
+        node = next(
+            (
+                n
+                for n in ast.walk(tree)
+                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == obj.name
+            ),
+            None,
+        )
+        if node is None:  # griffe made it up (a dataclass's `__init__`): its source is someone else's
+            return None, None
+        try:
+            return _BodyWarnings(node, text, obj).read()
+        except RecursionError:  # a pathologically nested expression
+            pass
+    return _first_notice(source), None
+
+
+def _first_notice(source: str) -> str | None:
+    """The reading before DT-DATA-42, for a function whose source doesn't parse on its own: the first string that
+    reads like a deprecation, for the whole function."""
+    if not DEPRECATION_CATEGORY_RE.search(source):
         return None
-    if "warn" not in source or not DEPRECATION_CATEGORY_RE.search(source):
-        return None
-    # Join implicitly-concatenated string literals, keep the ones that read like deprecation notices.
-    for m in ADJACENT_LITERALS_RE.finditer(source):
-        text = _literal_text(m.group(0))
-        if DEPRECATION_WORDS_RE.search(text):
-            return text.strip()[:400]
-    return "deprecated (warning emitted; message not statically recoverable)"
+    return _notice(source) or UNRECOVERABLE
+
+
+def _notice(text: str) -> str | None:
+    """Joined implicitly concatenated string literals in `text`: the first that reads like a deprecation."""
+    for m in ADJACENT_LITERALS_RE.finditer(text):
+        literal = _literal_text(m.group(0))
+        if DEPRECATION_WORDS_RE.search(literal):
+            return literal.strip()[:400]
+    return None
+
+
+def _literal_message(text: str) -> str | None:
+    """A warning's text from the code that builds it: the literal that reads like a deprecation, else all of them."""
+    joined = " ".join(_literal_text(m.group(0)) for m in ADJACENT_LITERALS_RE.finditer(text))
+    return _notice(text) or joined.strip()[:400] or None
+
+
+def _parse_function(source: str) -> tuple[ast.AST, str] | None:
+    """A function's own source, parsed, and the text it was parsed from. A method whose docstring has lines
+    indented less than the method doesn't dedent, so it is parsed as the body of an `if`."""
+    for text in (textwrap.dedent(source), "if True:\n" + source):
+        try:
+            return _quiet_parse(text), text
+        except (SyntaxError, ValueError):
+            continue
+    return None
+
+
+def _quiet_parse(text: str, mode: str = "exec") -> ast.AST:
+    """`ast.parse` without the SyntaxWarnings old code raises (invalid escape sequences) on stderr."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", SyntaxWarning)
+        return ast.parse(text, mode=mode)
+
+
+_KWARGS = "**"  # the condition reads the **kwargs mapping itself
+_VARARGS = "*"
+_SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)
+_KWARGS_LOOKUPS = {"get", "pop", "setdefault"}
+
+
+def _own_nodes(node: ast.AST):
+    """`node` and what it contains, without entering nested functions, classes or lambdas."""
+    yield node
+    for child in ast.iter_child_nodes(node):
+        if not isinstance(child, _SCOPES):
+            yield from _own_nodes(child)
+
+
+def _warn_calls(st: ast.stmt):
+    for node in _own_nodes(st):
+        if isinstance(node, ast.Call) and (
+            (isinstance(node.func, ast.Name) and node.func.id == "warn")
+            or (isinstance(node.func, ast.Attribute) and node.func.attr == "warn")
+        ):
+            yield node
+
+
+def _bound_names(target: ast.expr) -> list[str]:
+    """The local names an assignment target binds: `x`, `a, *b`; not `self.x` or `d[k]`."""
+    if isinstance(target, ast.Name):
+        return [target.id]
+    if isinstance(target, ast.Starred):
+        return _bound_names(target.value)
+    if isinstance(target, (ast.Tuple, ast.List)):
+        return [n for e in target.elts for n in _bound_names(e)]
+    return []
+
+
+def _str(node: ast.AST | None) -> str | None:
+    return node.value if isinstance(node, ast.Constant) and isinstance(node.value, str) else None
+
+
+def _render(node: ast.expr | None) -> str | None:
+    """A message as the code builds it: a literal, an f-string, `+`, or the template of `%` and `.format()`; the
+    parts that aren't literal as `{expression}`."""
+    if (text := _str(node)) is not None:
+        return text
+    if isinstance(node, ast.JoinedStr):
+        return "".join(
+            v.value if isinstance(v, ast.Constant) else "{" + ast.unparse(v.value) + "}"  # type: ignore[attr-defined]
+            for v in node.values
+        )
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        left, right = _render(node.left), _render(node.right)
+        if left is None and right is None:
+            return None
+        return (left if left is not None else "{" + ast.unparse(node.left) + "}") + (
+            right if right is not None else "{" + ast.unparse(node.right) + "}"
+        )
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mod):
+        return _render(node.left)
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "format":
+        return _render(node.func.value)
+    return None
+
+
+class _BodyWarnings:
+    """Every warning a function's body emits (DT-DATA-42), each read for what it deprecates.
+
+    A warning counts when its category reads like a deprecation (`CALL_CATEGORY_RE`), or, with any other category
+    or none (gradio), when its text says "deprecat". Its text is what the code builds (`_render`), from the call
+    itself, the nearest earlier string the function binds to the name it passes, or a module-level constant.
+
+    - A warning guarded by a condition on an argument, whose text names that argument, deprecates the argument:
+      `if proxies: warn("The 'proxies' argument is deprecated…")`. A name the condition looks up in **kwargs
+      counts as an argument (`if "result_type" in kwargs`, `x = kwargs.pop("x")`, and `for key in kwargs: if key
+      in (…)`, where the text may name it as `{key}`); `self`, `*args` and the **kwargs mapping itself don't. A
+      condition that tests the argument's absence (`if x is None`) doesn't deprecate it.
+    - A warning whose wording deprecates a named parameter ("'x' is deprecated") deprecates it, guarded or not.
+    - Any other warning deprecates the function when nothing about an argument guards it, unless its wording
+      deprecates a quoted name that is neither an argument nor the function's or its class's own name (another
+      function's argument, an attribute); when something guards it, it says nothing that can be placed, and is
+      left out.
+
+    Warnings in nested functions are theirs (a decorator factory's `wrapper`), not the function's.
+    """
+
+    def __init__(self, node: ast.FunctionDef | ast.AsyncFunctionDef, text: str, func: griffe.Function):
+        self.node, self.text, self.func = node, text, func
+        args = node.args
+        own = list(_own_nodes(node))[1:]
+        loops = [n for n in own if isinstance(n, (ast.For, ast.AsyncFor))]
+        loop_vars = {n for loop in loops for n in _bound_names(loop.target)}
+        # A loop variable that reuses a parameter's name (`for key, val in kwargs.items()`) isn't the parameter.
+        named = {a.arg for a in args.posonlyargs + args.args + args.kwonlyargs} - {"self", "cls"}
+        self.named = named - loop_vars
+        self.kwargs = args.kwarg.arg if args.kwarg else None
+        self.varargs = args.vararg.arg if args.vararg else None
+        parent = func.parent
+        self.own = {node.name} | ({parent.name} if parent is not None and parent.is_class else set())
+        # Loop variables that run over the names passed in **kwargs.
+        self.kwarg_keys = {
+            name
+            for loop in loops
+            if self._iterates_kwargs(loop.iter)
+            for name in [
+                loop.target.id
+                if isinstance(loop.target, ast.Name)
+                else getattr(loop.target.elts[0], "id", None)
+                if isinstance(loop.target, ast.Tuple) and loop.target.elts
+                else None
+            ]
+            if name
+        }
+        self.strings: dict[
+            str, list[tuple[tuple[int, int], ast.expr]]
+        ] = {}  # name -> where a string is bound
+        self.derived: dict[str, frozenset[str]] = {}  # local name -> the arguments its value comes from
+        self.found: list[tuple[str | None, frozenset[str]]] = []
+        for sub in own:
+            if (
+                isinstance(sub, ast.Assign)
+                and len(sub.targets) == 1
+                and isinstance(sub.targets[0], ast.Name)
+                and any(_str(c) is not None for c in _own_nodes(sub.value))
+            ):
+                self.strings.setdefault(sub.targets[0].id, []).append(
+                    ((sub.lineno, sub.col_offset), sub.value)
+                )
+        for _ in range(2):  # a second pass picks up chains (`a = kwargs.pop("a")`, `b = a or …`)
+            for sub in own:
+                self._bind(sub)
+
+    def _iterates_kwargs(self, it: ast.expr) -> bool:
+        """`kwargs`, `kwargs.keys()`, `kwargs.items()`, `list(kwargs)`, `sorted(kwargs)`."""
+        if isinstance(it, ast.Call) and not it.keywords and len(it.args) <= 1:
+            if isinstance(it.func, ast.Attribute) and it.func.attr in ("keys", "items") and not it.args:
+                it = it.func.value
+            elif isinstance(it.func, ast.Name) and it.func.id in ("list", "sorted", "set") and it.args:
+                it = it.args[0]
+        return isinstance(it, ast.Name) and it.id == self.kwargs
+
+    def _bind(self, node: ast.AST) -> None:
+        if isinstance(node, ast.Assign):
+            targets, value = node.targets, node.value
+        elif isinstance(node, (ast.AnnAssign, ast.AugAssign, ast.NamedExpr)) and node.value is not None:
+            targets, value = [node.target], node.value
+        elif isinstance(node, (ast.For, ast.AsyncFor)):
+            targets, value = [node.target], node.iter
+        else:
+            return
+        keys = self._keys(value)
+        if not keys:
+            return
+        for name in (n for t in targets for n in _bound_names(t)):
+            self.derived[name] = self.derived.get(name, frozenset()) | keys
+
+    def _kwargs_names(self, expr: ast.AST) -> set[str]:
+        """Names `expr` looks up in **kwargs: `"x" in kwargs`, `kwargs.get("x")`, `kwargs["x"]`, and, for a loop
+        variable over its names, `key == "x"` or `key in ("x", "y")`."""
+        found: set[str] = set()
+        for n in _own_nodes(expr):
+            if isinstance(n, ast.Compare) and len(n.ops) == 1:
+                left, op, right = n.left, n.ops[0], n.comparators[0]
+                if (
+                    isinstance(op, (ast.In, ast.NotIn))
+                    and isinstance(right, ast.Name)
+                    and right.id == self.kwargs
+                ):
+                    found.add(_str(left) or "")
+                elif isinstance(left, ast.Name) and left.id in self.kwarg_keys:
+                    if isinstance(op, ast.Eq):
+                        found.add(_str(right) or "")
+                    elif isinstance(op, ast.In) and isinstance(right, (ast.List, ast.Tuple, ast.Set)):
+                        found |= {_str(e) or "" for e in right.elts}
+            elif (
+                isinstance(n, ast.Call)
+                and isinstance(n.func, ast.Attribute)
+                and n.func.attr in _KWARGS_LOOKUPS
+                and isinstance(n.func.value, ast.Name)
+                and n.func.value.id == self.kwargs
+                and n.args
+            ):
+                found.add(_str(n.args[0]) or "")
+            elif isinstance(n, ast.Subscript) and isinstance(n.value, ast.Name) and n.value.id == self.kwargs:
+                found.add(_str(n.slice) or "")
+        return {f for f in found if f.isidentifier() and not keyword.iskeyword(f) and f not in self.named}
+
+    def _keys(self, expr: ast.AST) -> frozenset[str]:
+        """The arguments `expr` reads: named parameters, names it looks up in **kwargs, and `_KWARGS` / `_VARARGS`
+        for the mappings themselves."""
+        keys: set[str] = set()
+        for n in _own_nodes(expr):
+            if not isinstance(n, ast.Name):
+                continue
+            if n.id in self.named:
+                keys.add(n.id)
+            elif n.id == self.kwargs or n.id in self.kwarg_keys:
+                keys.add(_KWARGS)
+            elif n.id == self.varargs:
+                keys.add(_VARARGS)
+            elif n.id in self.derived:
+                keys |= self.derived[n.id]
+        return frozenset(keys | self._kwargs_names(expr)) if keys else frozenset()
+
+    def _absent(self, test: ast.expr) -> bool:
+        """`x is None`, `x is NOT_PASSED` (a sentinel default), `not x`, `"x" not in kwargs`: the branch runs when an
+        argument is left out."""
+        if isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not):
+            return isinstance(test.operand, ast.Name)
+        if not (isinstance(test, ast.Compare) and len(test.ops) == 1):
+            return False
+        op, right = test.ops[0], test.comparators[0]
+        if isinstance(op, (ast.Is, ast.Eq)) and isinstance(test.left, ast.Name):
+            return (isinstance(right, ast.Constant) and right.value is None) or (
+                isinstance(op, ast.Is) and isinstance(right, (ast.Name, ast.Attribute))
+            )
+        return isinstance(op, ast.NotIn) and isinstance(right, ast.Name) and right.id == self.kwargs
+
+    def _valued(self, test: ast.expr) -> bool:
+        """`x == "auto"`, `x is True`, `x in ("a", "b")`, `x > 1`, `isinstance(x, bool)`: the branch runs for some
+        values of an argument, so what is deprecated is passing those values, not the argument. A comparison with
+        None or a sentinel (`x is not NOT_PASSED`, `x != "deprecated"`), `if x` and lookups in **kwargs test that
+        it was passed."""
+        if isinstance(test, ast.Call):
+            return isinstance(test.func, ast.Name) and test.func.id in ("isinstance", "callable")
+        if not (isinstance(test, ast.Compare) and len(test.ops) == 1 and isinstance(test.left, ast.Name)):
+            return False
+        if test.left.id in self.kwarg_keys:  # `key in ("x", "y")`: names passed in **kwargs
+            return False
+        op, right = test.ops[0], test.comparators[0]
+        if isinstance(op, (ast.IsNot, ast.NotEq, ast.NotIn)):
+            return False
+        literal = isinstance(right, ast.Constant) and right.value is not None
+        return literal or isinstance(right, (ast.List, ast.Tuple, ast.Set))
+
+    def _condition(self, test: ast.expr, holds: bool) -> frozenset[str]:
+        if holds and isinstance(test, ast.BoolOp):
+            return frozenset().union(*(self._condition(v, True) for v in test.values))
+        keys = self._keys(test)
+        # Guarded by an argument, but not by its being passed: its absence, or (either way) some of its values.
+        if keys and ((holds and self._absent(test)) or self._valued(test)):
+            return frozenset({_KWARGS})
+        return keys
+
+    def _visit(self, stmts: list[ast.stmt], guard: frozenset[str]) -> None:
+        for st in stmts:
+            if isinstance(st, _SCOPES):
+                continue
+            if isinstance(st, ast.If):
+                self._visit(st.body, guard | self._condition(st.test, True))
+                self._visit(st.orelse, guard | self._condition(st.test, False))
+            elif isinstance(st, ast.While):
+                self._visit(st.body, guard | self._condition(st.test, True))
+                self._visit(st.orelse, guard)
+            elif isinstance(st, (ast.For, ast.AsyncFor)):
+                self._visit(st.body, guard | self._keys(st.iter))
+                self._visit(st.orelse, guard)
+            elif isinstance(st, (ast.With, ast.AsyncWith)):
+                self._visit(st.body, guard)
+            elif isinstance(st, (ast.Try, getattr(ast, "TryStar", ast.Try))):
+                for block in (st.body, *(h.body for h in st.handlers), st.orelse, st.finalbody):
+                    self._visit(block, guard)
+            elif isinstance(st, ast.Match):
+                for case in st.cases:
+                    self._visit(case.body, guard | self._keys(st.subject))
+            else:
+                for call in _warn_calls(st):
+                    self._warning(call, guard)
+
+    def _warning(self, call: ast.Call, guard: frozenset[str]) -> None:
+        keywords = {k.arg: k.value for k in call.keywords if k.arg}
+        message = call.args[0] if call.args else keywords.get("message")
+        category = call.args[1] if len(call.args) > 1 else keywords.get("category")
+        if (
+            category is None
+            and isinstance(message, ast.Call)
+            and re.search(r"Warning$|Deprecat", ast.unparse(message.func))
+        ):  # warn(DeprecationWarning("…"))
+            category, message = message.func, (message.args[0] if message.args else None)
+        text = self._text(message, call)
+        if CALL_CATEGORY_RE.search(ast.unparse(category) if category is not None else "") or (
+            text and re.search("deprecat", text, re.I)
+        ):
+            self.found.append((text, guard))
+
+    def _text(self, node: ast.expr | None, at: ast.AST) -> str | None:
+        if isinstance(node, ast.Name):
+            where = (at.lineno, at.col_offset)  # type: ignore[attr-defined]
+            bound = [value for pos, value in self.strings.get(node.id, []) if pos < where]
+            if not bound:
+                return self._constant(node.id)
+            node = bound[-1]
+        if node is None:
+            return None
+        rendered = _render(node)
+        if rendered is None:  # `_("…")`, a conditional expression: the literal that reads like a deprecation
+            segment = ast.get_source_segment(self.text, node)
+            return _notice(segment) if segment else None
+        return " ".join(rendered.split())[:400] or None
+
+    def _constant(self, name: str) -> str | None:
+        """A module-level string constant: pydantic's `warn(_ALLOW_REUSE_WARNING_MESSAGE, DeprecationWarning)`."""
+        try:
+            member = self.func.module.members.get(name)
+            target = _resolve(member) if member is not None else None
+            value = getattr(target, "value", None) if target is not None and target.is_attribute else None
+            rendered = _render(_quiet_parse(str(value), "eval").body) if value is not None else None  # type: ignore[attr-defined]
+        except Exception:  # griffe raises several resolution errors; a value may not parse
+            return None
+        return " ".join(rendered.split())[:400] or None if rendered else None
+
+    def read(self) -> tuple[str | None, dict[str, str] | None]:
+        self._visit(self.node.body, frozenset())
+        whole: str | None = None
+        params: dict[str, str] = {}
+        for text, guard in self.found:
+            if text is None:
+                if not guard and whole is None:
+                    whole = UNRECOVERABLE
+                continue
+            candidates = guard - {_KWARGS, _VARARGS}
+            # Wording that deprecates a name ("`y_pred` was renamed to `y_proba`") decides; else a guarded argument
+            # the text mentions, outside `{…}` placeholders and other than as what to use instead.
+            marked = {n: text for n in worded_deprecated(text) if n in self.named or n in candidates}
+            plain = PLACEHOLDER_RE.sub(" ", text)
+            for name in sorted(candidates) if not marked else ():
+                if names_argument(plain, name):
+                    marked[name] = text
+                elif (
+                    name not in self.named
+                ):  # `for key in kwargs: if key in (…): warn(f"'{key}' is deprecated")`
+                    placeholder = next((k for k in self.kwarg_keys if "{" + k + "}" in text), None)
+                    if placeholder:
+                        marked[name] = text.replace("{" + placeholder + "}", name)
+            for name, message in marked.items():
+                params.setdefault(name, message)
+            # A warning that deprecates some other quoted name (scikit-learn's `fit` on its constructor's
+            # "`base_estimator` was renamed to `estimator`") isn't this function's deprecation.
+            elsewhere = (
+                not marked and bool(worded_deprecated(text)) and not set(worded_deprecated(text)) & self.own
+            )
+            if not marked and not guard and not elsewhere and whole in (None, UNRECOVERABLE):
+                whole = text
+        return whole, params or None
 
 
 @dataclass(frozen=True)
@@ -1428,9 +1840,7 @@ class _Walker:
             self.cls(target, public_path)  # type: ignore[arg-type]
         elif target.is_function:
             self.record(
-                SymbolRecord(
-                    public_path, "function", target.path, _params(target), deprecation_message(target)
-                )
+                SymbolRecord(public_path, "function", target.path, _params(target), *deprecations(target))
             )  # type: ignore[arg-type]
         else:
             self.record(
@@ -1453,7 +1863,7 @@ class _Walker:
             path = f"{public_path}.{name}"
             if target.is_function:
                 self.record(
-                    SymbolRecord(path, "function", target.path, _params(target), deprecation_message(target))
+                    SymbolRecord(path, "function", target.path, _params(target), *deprecations(target))
                 )  # type: ignore[arg-type]
             elif target.is_attribute:
                 self.record(SymbolRecord(path, "attribute", target.path, None, None))

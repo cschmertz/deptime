@@ -1,6 +1,7 @@
 """griffe extraction against a tiny on-disk package (no network)."""
 
 import gc
+import textwrap
 from pathlib import Path
 
 import griffe
@@ -536,6 +537,227 @@ REMOVED_IN = {
 }
 
 
+# DT-DATA-42: the shapes of S2's misses. Only the first deprecation-like string in a function was read, and the
+# function then read deprecated as a whole: `Field` "`const` is removed, use `Literal` instead" (from a raise).
+WARNINGS = {
+    "warny/__init__.py": textwrap.dedent(
+        '''\
+        import warnings
+
+        REUSE_MSG = "`allow_reuse` is deprecated and does nothing."
+        MISSING = object()
+        NOT_PROVIDED = object()
+
+
+        class WarnyDeprecatedSince20(DeprecationWarning):
+            pass
+
+
+        def validator(field, *, pre=False, allow_reuse=False):
+            """Decorate a validator."""
+            if allow_reuse is True:
+                warnings.warn(REUSE_MSG, DeprecationWarning)
+            warnings.warn(
+                "V1 style `@validator` validators are deprecated."
+                " You should migrate to V2 style `@field_validator` validators.",
+                WarnyDeprecatedSince20,
+                stacklevel=2,
+            )
+
+
+        def Field(default=None, *, min_length=None, json_schema_extra=None, **extra):
+            if extra.get("const") is not None:
+                raise TypeError("`const` is removed, use `Literal` instead")
+            min_items = extra.pop("min_items", None)
+            if min_items is not None:
+                warnings.warn(
+                    "`min_items` is deprecated and will be removed, use `min_length` instead",
+                    DeprecationWarning,
+                )
+            if extra:
+                warnings.warn(
+                    "Using extra keyword arguments on `Field` is deprecated and will be removed."
+                    " Use `json_schema_extra` instead.",
+                    DeprecationWarning,
+                )
+
+
+        class StateGraph:
+            def __init__(self, state_schema=None, context_schema=None, **kwargs):
+                if (config_schema := kwargs.get("config_schema", MISSING)) is not MISSING:
+                    warnings.warn(
+                        "`config_schema` is deprecated and will be removed. Please use `context_schema` instead.",
+                        category=WarnyDeprecatedSince20,
+                    )
+                if state_schema is None:
+                    warnings.warn("Initializing StateGraph without state_schema is deprecated.", DeprecationWarning)
+
+
+        class Agent:
+            def __init__(self, model=None, *, output_type=str, **_deprecated_kwargs):
+                if "result_type" in _deprecated_kwargs:
+                    warnings.warn("`result_type` is deprecated, use `output_type` instead", DeprecationWarning)
+
+
+        class Interface:
+            def __init__(self, fn, flagging_mode=None, allow_flagging=None, cache_examples=False):
+                if cache_examples:
+                    warnings.warn("Cache examples cannot be used with state. Setting cache_examples to False.")
+                if allow_flagging is not None:
+                    warnings.warn(
+                        "The `allow_flagging` parameter in `Interface` is deprecated."
+                        "Use `flagging_mode` instead."
+                    )
+
+
+        class CheckConstraint:
+            def __init__(self, *args, name, condition=None, check=None):
+                if args:
+                    warnings.warn("Passing positional arguments is deprecated.", DeprecationWarning)
+                if check is not None:
+                    warnings.warn(
+                        "CheckConstraint.check is deprecated in favor of `.condition`.", DeprecationWarning
+                    )
+
+
+        def old_api():
+            warnings.warn(DeprecationWarning("old_api() is deprecated, use new_api() instead"))
+
+
+        def unreadable(x):
+            warnings.warn(_message(), DeprecationWarning)
+
+
+        def unreadable_param(x=None):
+            if x is not None:
+                warnings.warn(_message(x), DeprecationWarning)
+
+
+        def deprecate_kwarg(old, new):
+            def wrapper(func):
+                def inner(*args, **kwargs):
+                    if old in kwargs:
+                        warnings.warn(f"{old} is deprecated, use {new}", DeprecationWarning)
+                    return func(*args, **kwargs)
+
+                return inner
+
+            return wrapper
+
+
+        def quiet():
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", DeprecationWarning)
+                return 1
+
+
+        def create_ssl_context(verify=True, cert=None):
+            if verify is True:
+                pass
+            elif isinstance(verify, str):
+                message = "`verify=<str>` is deprecated. Use `verify=ssl.create_default_context(cafile=...)`."
+                warnings.warn(message, DeprecationWarning)
+            if cert:
+                message = "`cert=...` is deprecated. Use `verify=<ssl_context>` instead."
+                warnings.warn(message, DeprecationWarning)
+
+
+        class BarPlot:
+            def __init__(self, value=None, key=None, **kwargs):
+                for key, val in kwargs.items():
+                    if key in ["x_label_angle", "show_actions_button"]:
+                        warnings.warn(f"Argument '{key}' has been deprecated.", DeprecationWarning)
+
+
+        def d2_log_loss_score(y_true, y_proba=None, y_pred="deprecated", sample_weight=None):
+            if y_pred != "deprecated":
+                warnings.warn(
+                    "`y_pred` was renamed to `y_proba` in version 1.9. Use `y_proba` instead.", FutureWarning
+                )
+
+
+        def endpoint(values):
+            if values["endpoint_type"] != "search":
+                warnings.warn(f"`endpoint_type={values['endpoint_type']}` is deprecated.", DeprecationWarning)
+
+
+        class ExclusionConstraint:
+            def __init__(self, *, name, expressions, opclasses=()):
+                if opclasses and len(expressions) != len(opclasses):
+                    warnings.warn(
+                        "The opclasses argument is deprecated in favor of using OpClass in"
+                        " ExclusionConstraint.expressions.",
+                        DeprecationWarning,
+                    )
+
+
+        _Default = object()
+
+
+        class Retry:
+            def __init__(self, total=10, allowed_methods=_Default, method_whitelist=_Default):
+                if method_whitelist is not _Default:
+                    warnings.warn(
+                        "Using 'method_whitelist' with Retry is deprecated. Use 'allowed_methods' instead",
+                        DeprecationWarning,
+                    )
+
+
+        class Store:
+            def __init__(self, **kwargs):
+                self._configuration = kwargs
+                if self._configuration.get("textfield"):
+                    warnings.warn("Store is deprecated, use NewStore instead.", DeprecationWarning)
+
+
+        class Encoder:
+            def __init__(self, sparse="deprecated", sparse_output=True):
+                self.sparse = sparse
+
+            def fit(self, X):
+                if self.sparse != "deprecated":
+                    warnings.warn("`sparse` was renamed to `sparse_output` in version 1.2.", FutureWarning)
+                return self
+
+
+        class Legacy:
+            def __init__(self):
+                warnings.warn("`Legacy` is deprecated, use `Modern` instead.", DeprecationWarning)
+
+
+        def make_aware(value, timezone=None, is_dst=NOT_PROVIDED):
+            if is_dst is NOT_PROVIDED:
+                is_dst = None
+            else:
+                warnings.warn("The is_dst argument to make_aware() is deprecated.", DeprecationWarning)
+
+
+        def enable_chunked_encoding(chunk_size=None):
+            if chunk_size is not None:
+                warnings.warn("Chunk size is deprecated #1615", DeprecationWarning)
+
+
+        def get_random_string(length=NOT_PROVIDED):
+            if length is NOT_PROVIDED:
+                warnings.warn("Not providing a length argument is deprecated.", DeprecationWarning)
+
+
+        def parse_all_fields(year_col, month_col):
+            warnings.warn(
+                """
+                Use pd.to_datetime({"year": year_col, "month": month_col}) instead.
+        """,
+                FutureWarning,
+            )
+
+
+        def _message(x=None):
+            return "deprecated"
+        '''
+    ),
+}
+
+
 def _write(root: Path, files: dict[str, str] = FILES) -> Path:
     for rel, text in files.items():
         p = root / rel
@@ -561,7 +783,8 @@ def test_public_paths_signatures_and_deprecations(tmp_path):
     init = snap.symbols["fakepkg.Client.__init__"]
     assert [p["name"] for p in init.params] == ["proxy", "proxies", "timeout"]
     assert init.canonical == "fakepkg._impl.Client.__init__"
-    assert "'proxies' argument is now deprecated" in init.deprecated
+    assert init.deprecated is None  # only the argument is (DT-DATA-42)
+    assert "'proxies' argument is now deprecated" in init.deprecated_params["proxies"]
 
 
 def test_reexported_modules_are_walked_once_and_test_suites_skipped(tmp_path):
@@ -896,6 +1119,103 @@ def test_function_warnings_with_a_removed_in_category_are_deprecations(tmp_path)
         == "force_text() is deprecated in favor of force_str()."
     )
     assert snap.symbols["djangoish.force_str"].deprecated is None
+
+
+def test_every_warning_in_a_function_is_read(tmp_path):
+    # DT-DATA-42: each warning counts. One that a condition on an argument guards, and whose text names that
+    # argument, deprecates the argument; one emitted unconditionally deprecates the function.
+    snap = build_snapshot("warny", "2.0", ["warny"], _write(tmp_path, WARNINGS))
+
+    def dep(path):
+        rec = snap.symbols[f"warny.{path}"]
+        return rec.deprecated, rec.deprecated_params
+
+    assert dep("validator") == (
+        "V1 style `@validator` validators are deprecated. You should migrate to V2 style `@field_validator`"
+        " validators.",
+        {"allow_reuse": "`allow_reuse` is deprecated and does nothing."},
+    )
+    # A raise isn't a warning, and `extra` (the **kwargs itself) isn't an argument anyone passes by name.
+    assert dep("Field") == (
+        None,
+        {"min_items": "`min_items` is deprecated and will be removed, use `min_length` instead"},
+    )
+    # Names taken out of **kwargs count; a warning about leaving an argument out doesn't deprecate it.
+    assert dep("StateGraph.__init__") == (
+        None,
+        {
+            "config_schema": "`config_schema` is deprecated and will be removed. Please use `context_schema` instead."
+        },
+    )
+    assert dep("Agent.__init__") == (
+        None,
+        {"result_type": "`result_type` is deprecated, use `output_type` instead"},
+    )
+    # A warning without a category counts when its text says "deprecated".
+    assert dep("Interface.__init__") == (
+        None,
+        {
+            "allow_flagging": "The `allow_flagging` parameter in `Interface` is deprecated.Use `flagging_mode` instead."
+        },
+    )
+    # *args isn't a parameter to deprecate either; a bare mention of the argument is enough under its condition.
+    assert dep("CheckConstraint.__init__") == (
+        None,
+        {"check": "CheckConstraint.check is deprecated in favor of `.condition`."},
+    )
+    assert dep("old_api") == ("old_api() is deprecated, use new_api() instead", None)
+    assert dep("unreadable") == ("deprecated (warning emitted; message not statically recoverable)", None)
+    # Unreadable text under a condition on an argument: which argument it deprecates is unknown, so nothing.
+    assert dep("unreadable_param") == (None, None)
+    # Warnings in nested functions are their own; filtering warnings isn't warning.
+    assert dep("deprecate_kwarg") == (None, None)
+    assert dep("quiet") == (None, None)
+    # The text a name holds where the warning is emitted, not where it was last bound. A warning for some values
+    # of an argument (`isinstance(verify, str)`) doesn't deprecate the argument.
+    assert dep("create_ssl_context") == (
+        None,
+        {"cert": "`cert=...` is deprecated. Use `verify=<ssl_context>` instead."},
+    )
+    # The loop variable `key` isn't the parameter `key`; the names it is compared with are deprecated kwargs.
+    assert dep("BarPlot.__init__") == (
+        None,
+        {
+            "show_actions_button": "Argument 'show_actions_button' has been deprecated.",
+            "x_label_angle": "Argument 'x_label_angle' has been deprecated.",
+        },
+    )
+    # A comparison with a sentinel default tests whether the argument was passed.
+    assert dep("Retry.__init__") == (
+        None,
+        {
+            "method_whitelist": "Using 'method_whitelist' with Retry is deprecated. Use 'allowed_methods' instead"
+        },
+    )
+    # Setting an attribute from an argument doesn't make every later `if self.…` a condition on that argument.
+    assert dep("Store.__init__") == ("Store is deprecated, use NewStore instead.", None)
+    # A warning about another function's argument isn't this one's deprecation; one naming its own class is.
+    assert dep("Encoder.fit") == (None, None)
+    assert dep("Legacy.__init__") == ("`Legacy` is deprecated, use `Modern` instead.", None)
+    assert dep("make_aware") == (None, {"is_dst": "The is_dst argument to make_aware() is deprecated."})
+    assert dep("enable_chunked_encoding") == (None, {"chunk_size": "Chunk size is deprecated #1615"})
+    assert dep("get_random_string") == (None, None)  # leaving it out is what's deprecated
+    # The wording says which name is deprecated; the other is what to use instead, a placeholder isn't text.
+    assert dep("d2_log_loss_score") == (
+        None,
+        {"y_pred": "`y_pred` was renamed to `y_proba` in version 1.9. Use `y_proba` instead."},
+    )
+    assert dep("endpoint") == (None, None)
+    assert dep("ExclusionConstraint.__init__") == (
+        None,
+        {
+            "opclasses": "The opclasses argument is deprecated in favor of using OpClass in"
+            " ExclusionConstraint.expressions."
+        },
+    )
+    assert dep("parse_all_fields") == (
+        'Use pd.to_datetime({"year": year_col, "month": month_col}) instead.',
+        None,
+    )
 
 
 def test_a_build_leaves_no_griffe_objects_alive(tmp_path):

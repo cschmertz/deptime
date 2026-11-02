@@ -63,6 +63,11 @@ class IndexStore:
     def _init_schema(self) -> None:
         with self.conn:
             self.conn.executescript(_schema_sql())
+            # Columns added since an index file was created (the nightly adds to the published index). Readers
+            # never need them, so the schema version doesn't change.
+            spans = {r[1] for r in self.conn.execute("PRAGMA table_info(spans)")}
+            if "deprecated_params" not in spans:
+                self.conn.execute("ALTER TABLE spans ADD COLUMN deprecated_params TEXT")
             self.conn.execute(
                 "INSERT OR REPLACE INTO meta(key, value) VALUES ('schema_version', ?)", (SCHEMA_VERSION,)
             )
@@ -116,6 +121,9 @@ class IndexStore:
                     rec.canonical,
                     None if rec.params is None else json.dumps(rec.params),
                     rec.deprecated,
+                    None
+                    if rec.deprecated_params is None
+                    else json.dumps(rec.deprecated_params, sort_keys=True),
                 )
                 cur = open_spans.get(path)
                 if cur and cur[2] == state and cur[1] == i - 1:
@@ -188,7 +196,7 @@ class IndexStore:
                 release_rows,
             )
             self.conn.executemany(
-                "INSERT INTO spans(package, path, tail, first_ordinal, last_ordinal, kind, canonical, params, deprecated) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO spans(package, path, tail, first_ordinal, last_ordinal, kind, canonical, params, deprecated, deprecated_params) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [
                     (name, path, path.rsplit(".", 1)[-1], first, last, *state)
                     for path, first, last, state in span_rows
@@ -254,7 +262,7 @@ class IndexStore:
         if rel is None:
             return None
         rows = self.conn.execute(
-            "SELECT path, kind, canonical, params, deprecated FROM spans "
+            "SELECT path, kind, canonical, params, deprecated, deprecated_params FROM spans "
             "WHERE package = ? AND first_ordinal <= ? AND last_ordinal >= ?",
             (spec.name, rel["ordinal"], rel["ordinal"]),
         ).fetchall()
@@ -265,6 +273,7 @@ class IndexStore:
                 r["canonical"],
                 None if r["params"] is None else json.loads(r["params"]),
                 r["deprecated"],
+                None if r["deprecated_params"] is None else json.loads(r["deprecated_params"]),
             )
             for r in rows
         }

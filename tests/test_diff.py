@@ -77,3 +77,29 @@ def test_moved_too_many_candidates_is_no_evidence():
     old = _snap("1", ("p", "module"), ("p.run", "function"))
     new = _snap("2", ("p", "module"), *mods)
     assert _moves(old, new) == set()
+
+
+def _warned(
+    version: str, deprecated_params: dict[str, str] | None, deprecated: str | None = None
+) -> ApiSnapshot:
+    params = [
+        {"name": n, "kind": "keyword-only", "default": "None", "annotation": None}
+        for n in ("check", "condition")
+    ]
+    rec = SymbolRecord("p.C.__init__", "function", "p.C.__init__", params, deprecated, deprecated_params)
+    return ApiSnapshot("p", version, ["p"], {rec.path: rec})
+
+
+def test_argument_deprecations_are_events_of_their_own():
+    # DT-DATA-42: a warning that deprecates one argument is an event for that argument, with its hint, and the
+    # function stays undeprecated.
+    msg = "CheckConstraint.check is deprecated in favor of `.condition`."
+    first = initial_events(_warned("5.1", {"check": msg}))
+    assert [(e.kind, e.detail["param"], e.detail["alternatives"]) for e in first] == [
+        ("param_deprecated", "check", [{"target": "condition", "confidence": 0.8}])
+    ]
+    assert diff_snapshots(_warned("5.1", {"check": msg}), _warned("5.2", {"check": msg})) == []  # unchanged
+    later = diff_snapshots(
+        _warned("5.1", {"check": msg}), _warned("5.2", {"check": msg}, "C() is deprecated.")
+    )
+    assert [(e.kind, e.detail.get("param")) for e in later] == [("deprecated", None)]  # only what is new

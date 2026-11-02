@@ -35,7 +35,8 @@ CREATE TABLE IF NOT EXISTS spans (
   kind          TEXT NOT NULL,
   canonical     TEXT,                      -- definition path, e.g. httpx._client.Client.__init__
   params        TEXT,                      -- JSON [{name, kind, default, annotation}] for callables
-  deprecated    TEXT,                      -- deprecation text, if detected
+  deprecated    TEXT,                      -- the whole symbol's deprecation text, if detected
+  deprecated_params TEXT,                  -- JSON {argument: text} for arguments a warning deprecates (DT-DATA-42)
   PRIMARY KEY (package, path, first_ordinal)
 );
 CREATE INDEX IF NOT EXISTS spans_by_tail ON spans(tail, package);

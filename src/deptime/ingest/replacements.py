@@ -15,7 +15,7 @@ PATTERNS: list[tuple[re.Pattern[str], float]] = [
     (re.compile(rf"\buse\s+{IDENT}\s+instead", re.I), 0.85),
     (re.compile(rf"\b(?:moved|renamed)\s+to\s+{IDENT}", re.I), 0.85),
     (re.compile(rf"\b(?:replaced|superseded)\s+(?:by|with)\s+{IDENT}", re.I), 0.8),
-    (re.compile(rf"\bin\s+favou?r\s+of\s+{IDENT}", re.I), 0.8),
+    (re.compile(rf"\bin\s+favou?r\s+of\s+(?:using\s+)?{IDENT}", re.I), 0.8),
     (re.compile(rf"\bplease\s+use\s+{IDENT}", re.I), 0.75),
     (re.compile(rf"\buse\s+{IDENT}", re.I), 0.6),
 ]
@@ -27,7 +27,23 @@ PACKAGE_MOVE_RE = re.compile(
 MAX_EVIDENCE_CHARS = 300
 LANGCHAIN_ALTERNATIVE_RE = re.compile(r"alternative(?:_import)?\s*=\s*['\"](?P<t>[\w.]+)['\"]")
 QUOTED_IDENT_RE = re.compile(r"['`\"](?P<t>[A-Za-z_]\w*)['`\"]")
-STOPWORDS = {"the", "a", "an", "this", "that", "it", "instead", "of", "or", "and"}
+# Not names: "use one of …", "use `from x import y`" (DT-DATA-42 made such text readable).
+STOPWORDS = {
+    "the",
+    "a",
+    "an",
+    "this",
+    "that",
+    "it",
+    "instead",
+    "of",
+    "or",
+    "and",
+    "one",
+    "from",
+    "import",
+    "using",
+}
 # Cues that a quoted parameter is the deprecated one: "instead of 'x'", "deprecated argument 'x'",
 # "'x' (argument) is (now) deprecated / will be removed / is no longer ...".
 _PARAM_NOUN = r"(?:keyword\s+argument|argument|parameter|keyword|kwarg|option)"
@@ -37,6 +53,26 @@ DEPRECATED_AFTER_RE = re.compile(
     r"(?:deprecated|no\s+longer|removed|renamed|ignored)",
     re.I,
 )
+# A parameter named after a cue, quoted or not, behind a leading dot or before an `=` (DT-DATA-42): "please use
+# log_output", "in favor of `.condition`", "Use `verify=<ssl_context>` instead".
+PARAM_CUE_RE = re.compile(
+    r"\b(?:use|using|pass|favou?r\s+of|replaced\s+(?:by|with)|renamed\s+to)\s+[`'\"]?\.?(?P<t>[A-Za-z_]\w*)",
+    re.I,
+)
+# Wording about leaving an argument out: "without state_schema", "Not providing a length argument", "without
+# specifying the encoding argument".
+WITHOUT_RE = re.compile(
+    r"\b(?:without(?:\s+(?:passing|providing|specifying|setting))?|omitting|leaving"
+    r"|not\s+(?:passing|providing|specifying|setting))\s+(?:an?\s+|the\s+)?[`'\"]?$",
+    re.I,
+)
+# A replacement cue earlier in the same sentence: "… in favor of using … ExclusionConstraint.expressions". Not
+# "Using 'method_whitelist' with Retry is deprecated" or "Use of `x` is deprecated".
+CUE_BEFORE_RE = re.compile(
+    r"\b(?:use(?!\s+of\b)|pass|instead|favou?r\s+of|replaced\s+(?:by|with)|renamed\s+to)\b(?:[^.!?;]|\.(?!\s))*$",
+    re.I,
+)
+DEPRECATION_WORDS_RE = re.compile(r"deprecat|will be removed|no longer supported|use .+ instead", re.I)
 
 
 @dataclass(frozen=True)
@@ -92,6 +128,49 @@ def mine(message: str | None, *, skip_expressions: bool = False) -> list[Hint]:
     return sorted(hints.values(), key=lambda h: -h.confidence)
 
 
+def _deprecated_at(message: str, start: int, end: int) -> bool:
+    return bool(DEPRECATED_BEFORE_RE.search(message[:start]) or DEPRECATED_AFTER_RE.match(message[end:]))
+
+
+def worded_deprecated(message: str | None) -> list[str]:
+    """Quoted names the wording itself deprecates: "'x' is deprecated", "instead of 'x'", in order."""
+    return list(
+        dict.fromkeys(
+            m.group("t")
+            for m in QUOTED_IDENT_RE.finditer(message or "")
+            if _deprecated_at(message or "", m.start(), m.end())
+        )
+    )
+
+
+def names_argument(message: str, name: str) -> bool:
+    """Whether a deprecation notice mentions `name`, quoted or bare (`CheckConstraint.check`), other than as
+    something left out ("without state_schema") or after a cue for what to use instead in the same sentence
+    ("use `y_proba`")."""
+    if not DEPRECATION_WORDS_RE.search(message):
+        return False
+    mentions = list(re.finditer(rf"\b{re.escape(name)}\b", message))
+    if "_" in name:  # "Chunk size is deprecated" for `chunk_size`
+        mentions += re.finditer(rf"\b{re.escape(name.replace('_', ' '))}\b", message, re.I)
+    return any(
+        not WITHOUT_RE.search(message[: m.start()]) and not CUE_BEFORE_RE.search(message[: m.start()])
+        for m in mentions
+    )
+
+
+def param_alternatives(message: str, deprecated: list[str], params: list[str]) -> list[Hint]:
+    """What to pass instead of the `deprecated` arguments: every other quoted name, and parameters named after a
+    cue ("please use log_output", "in favor of `.condition`"), in the message's order. A parameter of the
+    function scores 0.8, another quoted name 0.6; ties keep the message's order ("Use 'proxy' or 'mounts'")."""
+    found = [(m.start(), m.group("t")) for m in QUOTED_IDENT_RE.finditer(message)]
+    found += [(m.start("t"), m.group("t")) for m in PARAM_CUE_RE.finditer(message) if m.group("t") in params]
+    names = [n for n in dict.fromkeys(n for _, n in sorted(found)) if n not in deprecated]
+    evidence = message.strip()[:300]
+    return [
+        Hint(n, round((0.8 if n in params else 0.6) - 0.01 * i, 2), evidence) for i, n in enumerate(names)
+    ]
+
+
 def param_deprecations(message: str | None, params: list[str]) -> dict[str, list[Hint]]:
     """Parameter-level reading of a function's deprecation text.
 
@@ -104,25 +183,8 @@ def param_deprecations(message: str | None, params: list[str]) -> dict[str, list
     """
     if not message:
         return {}
-    matches = list(QUOTED_IDENT_RE.finditer(message))
-    deprecated = list(
-        dict.fromkeys(
-            m.group("t")
-            for m in matches
-            if m.group("t") in params
-            and (
-                DEPRECATED_BEFORE_RE.search(message[: m.start()])
-                or DEPRECATED_AFTER_RE.match(message[m.end() :])
-            )
-        )
-    )
+    deprecated = [n for n in worded_deprecated(message) if n in params]
     if not deprecated:
         return {}
-    evidence = message.strip()[:300]
-    alternatives = [q for q in dict.fromkeys(m.group("t") for m in matches) if q not in deprecated]
-    # Ties keep the message's own order ("Use 'proxy' or 'mounts'" -> proxy first).
-    hints = [
-        Hint(a, round((0.8 if a in params else 0.6) - 0.01 * i, 2), evidence)
-        for i, a in enumerate(alternatives)
-    ]
+    hints = param_alternatives(message, deprecated, params)
     return {p: list(hints) for p in deprecated}

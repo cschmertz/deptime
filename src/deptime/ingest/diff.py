@@ -10,7 +10,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any
 
-from deptime.ingest.replacements import param_deprecations
+from deptime.ingest.replacements import Hint, param_alternatives, param_deprecations
 from deptime.ingest.snapshot import ApiSnapshot, SymbolRecord
 
 MAX_MOVED_CANDIDATES = 3
@@ -37,22 +37,40 @@ def accepts_var_keyword(rec: SymbolRecord) -> bool:
     return any(p.get("kind") == "variadic keyword" for p in rec.params or [])
 
 
-def _deprecation_events(path: str, rec: SymbolRecord) -> list[ChangeEvent]:
-    per_param = param_deprecations(rec.deprecated, list(_params(rec)))
-    if per_param:
-        return [
-            ChangeEvent(
-                path,
-                "param_deprecated",
-                {
-                    "param": p,
-                    "message": rec.deprecated,
-                    "alternatives": [{"target": h.target, "confidence": h.confidence} for h in hints],
-                },
-            )
-            for p, hints in per_param.items()
-        ]
-    return [ChangeEvent(path, "deprecated", {"message": rec.deprecated})]
+def _param_event(path: str, param: str, message: str | None, hints: list[Hint]) -> ChangeEvent:
+    return ChangeEvent(
+        path,
+        "param_deprecated",
+        {
+            "param": param,
+            "message": message,
+            "alternatives": [{"target": h.target, "confidence": h.confidence} for h in hints],
+        },
+    )
+
+
+def _deprecation_events(path: str, rec: SymbolRecord, old: SymbolRecord | None = None) -> list[ChangeEvent]:
+    """What `rec` deprecates that `old` (the previous release's record, if any) didn't, or said differently.
+
+    The whole symbol's text can still deprecate arguments by its wording (a decorator's "'x' is deprecated");
+    `deprecated_params` are the arguments the function's own warnings deprecate (DT-DATA-42)."""
+    events: list[ChangeEvent] = []
+    names = list(_params(rec))
+    if rec.deprecated and (old is None or rec.deprecated != old.deprecated):
+        per_param = param_deprecations(rec.deprecated, names)
+        if per_param:
+            events.extend(_param_event(path, p, rec.deprecated, hints) for p, hints in per_param.items())
+        else:
+            events.append(ChangeEvent(path, "deprecated", {"message": rec.deprecated}))
+    current = rec.deprecated_params or {}
+    before = (old.deprecated_params or {}) if old is not None else {}
+    done = {e.detail["param"] for e in events if e.kind == "param_deprecated"}
+    for param, message in current.items():
+        if param in done or before.get(param) == message:
+            continue
+        siblings = [p for p, m in current.items() if m == message]  # "'a' and 'b' are deprecated"
+        events.append(_param_event(path, param, message, param_alternatives(message, siblings, names)))
+    return events
 
 
 def _module_level(snap: ApiSnapshot, path: str) -> bool:
@@ -65,9 +83,7 @@ def initial_events(snapshot: ApiSnapshot) -> list[ChangeEvent]:
     """Deprecations already present in the first indexed release (no previous release to diff against)."""
     events: list[ChangeEvent] = []
     for path in sorted(snapshot.symbols):
-        rec = snapshot.symbols[path]
-        if rec.deprecated:
-            events.extend(_deprecation_events(path, rec))
+        events.extend(_deprecation_events(path, snapshot.symbols[path]))
     return events
 
 
@@ -136,6 +152,5 @@ def diff_snapshots(old: ApiSnapshot, new: ApiSnapshot) -> list[ChangeEvent]:
                             },
                         )
                     )
-        if b.deprecated and b.deprecated != a.deprecated:
-            events.extend(_deprecation_events(path, b))
+        events.extend(_deprecation_events(path, b, a))
     return events

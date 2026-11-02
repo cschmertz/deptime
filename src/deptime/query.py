@@ -91,6 +91,14 @@ def _params(raw: str | None) -> list[ParamInfo] | None:
     return None if raw is None else [ParamInfo(**p) for p in json.loads(raw)]
 
 
+def _deprecated_params(span: sqlite3.Row | None) -> dict[str, str]:
+    """{argument: text} a span's warnings deprecate; an index built before DT-DATA-42 has no such column."""
+    # `in` on a sqlite3.Row tests its values, not its column names.
+    if span is None or "deprecated_params" not in span.keys() or not span["deprecated_params"]:  # noqa: SIM118
+        return {}
+    return json.loads(span["deprecated_params"])
+
+
 def _param_names(raw: str | None) -> set[str]:
     return {p["name"] for p in json.loads(raw)} if raw else set()
 
@@ -329,15 +337,16 @@ class DepTime:
                 hint = seen + (f"; try {repl[0]['target']}" if repl else "")
                 results.append(SymbolCheck(path=full, status="missing", hint=hint))
                 continue
-            params_raw = span["params"]
+            params_raw, callable_span = span["params"], span
             if params_raw is None and span["kind"] == "class":
                 init = self.store.span_at(name, full + ".__init__", row["ordinal"])
-                params_raw = init["params"] if init else None
+                params_raw, callable_span = (init["params"], init) if init else (None, None)
             rejected = [k for k in q.kwargs if params_raw is not None and not _accepts_kwarg(params_raw, k)]
+            # The whole symbol's deprecation, else that of an argument the caller passes (DT-DATA-42).
+            by_param = _deprecated_params(callable_span)
+            deprecated = span["deprecated"] or next((by_param[k] for k in q.kwargs if k in by_param), None)
             results.append(
-                SymbolCheck(
-                    path=full, status="present", rejected_kwargs=rejected, deprecated=span["deprecated"]
-                )
+                SymbolCheck(path=full, status="present", rejected_kwargs=rejected, deprecated=deprecated)
             )
         return CheckSymbolsResult(
             package=name,

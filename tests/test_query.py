@@ -524,3 +524,74 @@ def test_a_name_moved_to_another_package_is_offered_when_that_package_has_it():
     # Configured but not indexed: nothing to check the name against, so no hint.
     f = _dt([(pyd, pyd_snaps)], extra=[settings]).explain_error(tb, {"pydantic": "2.0"}).findings[0]
     assert (f.issue, f.replacements) == ("symbol_removed", [])
+
+
+def _constraints() -> tuple[PackageSpec, list[ApiSnapshot]]:
+    # DT-DATA-42: django 5.1 deprecates CheckConstraint(check=...) for `condition`; the class itself isn't deprecated.
+    spec = PackageSpec(name="dj", import_names=("dj",), tier="B")
+    msg = "CheckConstraint.check is deprecated in favor of `.condition`."
+
+    def snap(version: str, check: bool) -> ApiSnapshot:
+        params = [_param("name"), _param("condition")] + ([_param("check")] if check else [])
+        init = SymbolRecord(
+            "dj.CheckConstraint.__init__",
+            "function",
+            "dj.c.CheckConstraint.__init__",
+            params,
+            None,
+            {"check": msg} if check else None,
+        )
+        cls = SymbolRecord("dj.CheckConstraint", "class", "dj.c.CheckConstraint")
+        return ApiSnapshot(
+            "dj", version, ["dj"], {"dj": SymbolRecord("dj", "module", "dj"), cls.path: cls, init.path: init}
+        )
+
+    return spec, [snap("5.0", False), snap("5.1", True), snap("6.0", False)]
+
+
+def test_argument_deprecations_round_trip_and_reach_answers(tmp_path):
+    spec, snaps = _constraints()
+    store = IndexStore.memory()
+    store.rebuild_package(spec, snaps)
+    assert store.snapshot_at(spec, "5.1").symbols == snaps[1].symbols
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+
+    f = dt.explain_error(
+        "TypeError: CheckConstraint.__init__() got an unexpected keyword argument 'check'", {"dj": "6.0"}
+    )
+    assert (f.findings[0].symbol, f.findings[0].deprecated_in) == (
+        "dj.CheckConstraint.__init__(check)",
+        "5.1",
+    )
+    assert [r.target for r in f.findings[0].replacements] == ["condition"]
+
+    passing = dt.check_symbols(
+        "dj", "5.1", [SymbolQuery(path="dj.CheckConstraint", kwargs=["check"])]
+    ).results[0]
+    assert passing.deprecated == "CheckConstraint.check is deprecated in favor of `.condition`."
+    other = dt.check_symbols(
+        "dj", "5.1", [SymbolQuery(path="dj.CheckConstraint", kwargs=["condition"])]
+    ).results[0]
+    assert other.deprecated is None
+
+
+def test_an_index_from_before_argument_deprecations_still_opens(tmp_path):
+    # Released clients read the published index; the nightly adds to it. Neither may trip over the new column.
+    spec, snaps = _constraints()
+    path = tmp_path / "index.sqlite"
+    store = IndexStore.open(path, readonly=False)
+    store.rebuild_package(spec, snaps)
+    store.conn.execute("ALTER TABLE spans DROP COLUMN deprecated_params")
+    store.close()
+    old = IndexStore.open(path)
+    dt = DepTime(old, Coverage(POLICY, (spec,)))
+    assert (
+        dt.check_symbols("dj", "5.1", [SymbolQuery(path="dj.CheckConstraint", kwargs=["check"])])
+        .results[0]
+        .status
+        == "present"
+    )
+    old.close()
+    again = IndexStore.open(path, readonly=False)
+    again.rebuild_package(spec, snaps)
+    assert again.snapshot_at(spec, "5.1").symbols == snaps[1].symbols

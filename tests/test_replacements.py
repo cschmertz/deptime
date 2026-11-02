@@ -1,4 +1,10 @@
-from deptime.ingest.replacements import clean_evidence, mine, moved_to_package, param_deprecations
+from deptime.ingest.replacements import (
+    clean_evidence,
+    mine,
+    moved_to_package,
+    param_alternatives,
+    param_deprecations,
+)
 
 
 def test_use_x_instead():
@@ -111,3 +117,29 @@ def test_the_head_of_a_longer_expression_can_be_skipped():
         h.target for h in mine("Use `np.asarray` with a proper dtype instead.", skip_expressions=True)
     ] == ["np.asarray"]
     assert mine("Use `np.foo()` instead.", skip_expressions=True)[0].target == "np.foo"
+
+
+def test_param_alternatives_named_after_a_cue():
+    # DT-DATA-42: the new argument is often unquoted, or quoted with more than its name.
+    def alts(msg, params):
+        return [(h.target, h.confidence) for h in param_alternatives(msg, ["old"], params)]
+
+    assert alts("log_path has been deprecated, please use log_output", ["log_path", "log_output"]) == [
+        ("log_output", 0.8)
+    ]
+    assert alts("CheckConstraint.check is deprecated in favor of `.condition`.", ["check", "condition"]) == [
+        ("condition", 0.8)
+    ]
+    assert alts("`cert=...` is deprecated. Use `verify=<ssl_context>` instead.", ["verify", "cert"]) == [
+        ("verify", 0.8)
+    ]
+    # A cue followed by a word that isn't a parameter adds nothing; quoted names keep their old scores.
+    assert alts("`old` is deprecated, use the 'new' one", ["old"]) == [("new", 0.6)]
+
+
+def test_words_that_are_not_names_are_never_hints():
+    # DT-DATA-42 made these readable (django 4.2, google-genai, langchain-community).
+    msg = "django.core.files.storage.get_storage_class is deprecated in favor of using django.core.files.storage.storages."
+    assert [h.target for h in mine(msg)] == ["django.core.files.storage.storages"]
+    assert mine("Please use one of the more specific methods: `send_client_content` instead.") == []
+    assert mine("Please use `from langchain_community.chat_models import ChatAnthropic` instead") == []

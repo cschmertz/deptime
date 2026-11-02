@@ -5,6 +5,8 @@
 # `import_names` = top-level import paths the distribution provides. Used to map tracebacks to packages.
 # `tier`         = A (AI/agent stack, highest churn) | B (classic libraries with documented breaks).
 # `notes`        = known analysis caveats; see docs/07-risks-and-spikes.md.
+# `namespace_skip` = modules below which folders without `__init__.py` stay unloaded (DT-DATA-23); other such
+#                  folders under an import root load as packages, as Python imports them.
 
 [policy]
 # For every minor series (X.Y) that has a release on/after `since`, index every release: a patch-level break
@@ -48,6 +50,9 @@ tier = "A"
 name = "litellm"
 import_names = ["litellm"]
 tier = "A"
+# The bundled proxy server would multiply litellm's rows by 5.4 (191k of 307k names in 1.106.6); its
+# packages with an `__init__.py` are still indexed.
+namespace_skip = ["litellm.proxy"]
 
 [[package]]
 name = "langchain"
@@ -269,6 +274,9 @@ tier = "B"
 name = "selenium"
 import_names = ["selenium"]
 tier = "B"
+# Generated Chrome DevTools bindings, ~7,700 names per Chrome version, three versions per release, one
+# swapped each release: hundreds of thousands of rows of churn for code few people import.
+namespace_skip = ["selenium.webdriver.common.devtools"]
 
 [[package]]
 name = "urllib3"

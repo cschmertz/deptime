@@ -194,6 +194,19 @@ def test_cached_snapshot_for_other_import_names_is_rebuilt(tmp_path):
     ]
 
 
+def test_cached_snapshot_with_other_namespace_skips_is_rebuilt(tmp_path):
+    """DT-DATA-23: a coverage.toml edit to `namespace_skip` changes what is loaded, like `import_names`."""
+    store = IndexStore.memory()
+    _full_ingest(store, tmp_path)
+    skipping = PackageSpec(
+        name="fakepkg", import_names=("fakepkg",), tier="B", namespace_skip=("fakepkg.vendor",)
+    )
+    with _client() as client:
+        report = ingest_package(skipping, POLICY, store, tmp_path, client=client, today=TODAY, log=_quiet)
+    assert report.cached == [] and report.built == ["1.0.0", "2.0.0"]
+    assert ApiSnapshot.load(snapshot_path(tmp_path, "fakepkg", "1.0.0")).namespace_skip == ["fakepkg.vendor"]
+
+
 def test_versions_run_adds_to_indexed_releases(tmp_path):
     """I-02: `ingest --versions 2.0.0` adds 2.0.0; it doesn't narrow the package to it."""
     store = IndexStore.memory()

@@ -10,6 +10,7 @@ import ast
 import copy
 import gzip
 import json
+import keyword
 import re
 import string
 import sys
@@ -20,7 +21,7 @@ from typing import Any
 
 import griffe
 
-SNAPSHOT_FORMAT = 9  # bump when extraction changes: cached snapshots in another format are rebuilt
+SNAPSHOT_FORMAT = 10  # bump when extraction changes: cached snapshots in another format are rebuilt
 MAX_DEPTH = 12  # guards pathological re-export cycles
 
 DEPRECATED_DECORATOR_RE = re.compile(r"^(?:[\w.]+\.)?deprecated\b(?:\((?P<args>.*)\))?$", re.S)
@@ -31,8 +32,9 @@ DEPRECATION_WORDS_RE = re.compile(r"deprecat|will be removed|no longer supported
 WARNING_CATEGORY_RE = re.compile(
     r"\b(?:DeprecationWarning|PendingDeprecationWarning|FutureWarning|\w*Deprecat\w*Warning)\b"
 )
-# A shim's warning category that marks a deprecation, including django's RemovedInDjango50Warning.
-SHIM_CATEGORY_RE = re.compile(rf"{WARNING_CATEGORY_RE.pattern}|\bRemovedIn\w*Warning\b")
+# A warning category that marks a deprecation, including django's RemovedInDjango50Warning and marshmallow's
+# RemovedInMarshmallow4Warning (DT-DATA-36).
+DEPRECATION_CATEGORY_RE = re.compile(rf"{WARNING_CATEGORY_RE.pattern}|\bRemovedIn\w*Warning\b")
 # Builds run on the pinned interpreter (.python-version), so this list doesn't vary between index builds.
 # distutils left the stdlib in 3.12; typing_extensions is a backport of it.
 STDLIB_MODULES = frozenset(sys.stdlib_module_names) | {"distutils", "typing_extensions"}
@@ -57,6 +59,8 @@ class ApiSnapshot:
     format: int = SNAPSHOT_FORMAT
     # The artifact analysed: another distribution's for a wrapper release (DT-DATA-17). None in older snapshots.
     source_file: str | None = None
+    # Modules below which folders without `__init__.py` weren't loaded (coverage.toml, DT-DATA-23).
+    namespace_skip: list[str] = field(default_factory=list)
 
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -123,7 +127,7 @@ def deprecation_message(obj: griffe.Object) -> str | None:
         source = obj.source
     except (OSError, ValueError, AttributeError):
         return None
-    if "warn" not in source or not WARNING_CATEGORY_RE.search(source):
+    if "warn" not in source or not DEPRECATION_CATEGORY_RE.search(source):
         return None
     # Join implicitly-concatenated string literals, keep the ones that read like deprecation notices.
     for m in ADJACENT_LITERALS_RE.finditer(source):
@@ -651,7 +655,7 @@ def _deprecation_text(call: ast.Call, env: dict[str, str]) -> str | None:
         else next((k.value for k in call.keywords if k.arg == "category"), None)
     )
     category_name = ast.unparse(category) if category is not None else ""
-    deprecation = DEPRECATION_WORDS_RE.search(text or "") or SHIM_CATEGORY_RE.search(category_name)
+    deprecation = DEPRECATION_WORDS_RE.search(text or "") or DEPRECATION_CATEGORY_RE.search(category_name)
     return text.strip()[:400] if text and deprecation else None
 
 
@@ -1180,9 +1184,13 @@ def _within(path: str, prefix: str) -> bool:
     return path == prefix or path.startswith(prefix + ".")
 
 
+def _is_test_name(part: str) -> bool:
+    return part in {"tests", "conftest"} or part.startswith("test_")
+
+
 def _is_test_module(path: str) -> bool:
     """Bundled test suites (`numpy.lib.tests.test_shape_base`) aren't API; `numpy.testing` and `django.test` are."""
-    return any(part in {"tests", "conftest"} or part.startswith("test_") for part in path.split("."))
+    return any(_is_test_name(part) for part in path.split("."))
 
 
 def _resolve(member: griffe.Object | griffe.Alias) -> griffe.Object | None:
@@ -1577,8 +1585,58 @@ def _clear_griffe_caches() -> None:
                     value.cache_clear()
 
 
-def build_snapshot(package: str, version: str, import_names: list[str], search_path: Path) -> ApiSnapshot:
-    snap = ApiSnapshot(package=package, version=version, import_names=list(import_names))
+def add_namespace_inits(search_path: Path, import_names: list[str], skip: list[str] = ()) -> list[str]:
+    """Write an empty `__init__.py` into each folder below an import root that Python imports as a namespace
+    package, so griffe loads it (DT-DATA-23). `search_path` must be a private copy: it is changed in place.
+
+    A folder qualifies when its name is an identifier, it isn't a test suite, no same-name module next to it
+    takes precedence, it holds Python source somewhere below, and it isn't at or below a module in `skip`.
+    Returns the module paths of the folders it made into packages."""
+    made: list[str] = []
+    skipped = tuple(skip)
+
+    def holds_python(folder: Path) -> bool:
+        return any(p.suffix in {".py", ".pyi"} for p in folder.rglob("*") if p.is_file())
+
+    def shadowed(folder: Path, name: str) -> bool:  # a module of the same name wins over a namespace package
+        return any(next(folder.glob(f"{name}{ext}"), None) for ext in (".py", ".pyi", ".*.so", ".*.pyd"))
+
+    def visit(folder: Path, module: str) -> None:
+        for child in sorted(folder.iterdir()):
+            name = child.name
+            sub = f"{module}.{name}"
+            if (
+                not child.is_dir()
+                or not name.isidentifier()
+                or keyword.iskeyword(name)
+                or _is_test_name(name)
+            ):
+                continue
+            if sub in skipped or sub.startswith(tuple(s + "." for s in skipped)):
+                continue
+            if not ((child / "__init__.py").exists() or (child / "__init__.pyi").exists()):
+                if shadowed(folder, name) or not holds_python(child):
+                    continue
+                (child / "__init__.py").write_text("")
+                made.append(sub)
+            visit(child, sub)
+
+    for import_name in import_names:
+        root = search_path.joinpath(*import_name.split("."))
+        if root.is_dir() and import_name not in skipped:
+            visit(root, import_name)
+    return made
+
+
+def build_snapshot(
+    package: str, version: str, import_names: list[str], search_path: Path, namespace_skip: list[str] = ()
+) -> ApiSnapshot:
+    """Snapshot the public API under `search_path`, a private extraction of one release: folders without
+    `__init__.py` get an empty one first (see `add_namespace_inits`)."""
+    snap = ApiSnapshot(
+        package=package, version=version, import_names=list(import_names), namespace_skip=list(namespace_skip)
+    )
+    add_namespace_inits(search_path, list(import_names), list(namespace_skip))
     walker = _Walker(snap, tuple(import_names))
     try:
         for import_name in import_names:

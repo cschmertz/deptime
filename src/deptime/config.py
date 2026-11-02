@@ -109,6 +109,8 @@ class PackageSpec:
     import_names: tuple[str, ...]
     tier: str
     notes: str = ""
+    # Modules below which folders without `__init__.py` aren't loaded as packages (DT-DATA-23).
+    namespace_skip: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -160,6 +162,7 @@ def load_coverage(path: Path | None = None) -> Coverage:
             import_names=tuple(p.get("import_names") or [canonicalize_name(p["name"]).replace("-", "_")]),
             tier=p.get("tier", "B"),
             notes=p.get("notes", ""),
+            namespace_skip=tuple(p.get("namespace_skip", ())),
         )
         for p in raw.get("package", [])
     )

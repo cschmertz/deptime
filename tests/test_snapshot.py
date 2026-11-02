@@ -502,6 +502,40 @@ RAISES = {
 }
 
 
+# Folders without `__init__.py` are namespace packages to Python; griffe refuses to load them (DT-DATA-23).
+NAMESPACES = {
+    "nspkg/__init__.py": "from nspkg.types.utils import *\nfrom nspkg.llms.base import Model\n",
+    "nspkg/types/utils.py": "class ModelResponse:\n    pass\n",
+    "nspkg/llms/base.py": "class Model:\n    def run(self, prompt):\n        pass\n",
+    "nspkg/llms/openai/chat.py": "def complete():\n    pass\n",
+    "nspkg/contrib/real/__init__.py": "def tool():\n    pass\n",  # a folder with no files above a package
+    "nspkg/proxy/__init__.py": "def serve():\n    pass\n",
+    "nspkg/proxy/routes/admin.py": "def route():\n    pass\n",  # below a module coverage.toml skips
+    "nspkg/tests/test_x.py": "def test_x():\n    pass\n",
+    "nspkg/bad-name/mod.py": "def f():\n    pass\n",
+    "nspkg/shadow.py": "def g():\n    pass\n",
+    "nspkg/shadow/inner.py": "def h():\n    pass\n",  # Python imports the module, not the folder
+    "nspkg/static/app.js": "x = 1\n",  # no Python below: not a package
+}
+
+# django and marshmallow warn with their own categories, `RemovedInDjango40Warning` (DT-DATA-36).
+REMOVED_IN = {
+    "djangoish/__init__.py": (
+        "import warnings\n"
+        "from djangoish.deprecation import RemovedInDjangoish40Warning\n\n\n"
+        "def force_str(s):\n    return s\n\n\n"
+        "def force_text(s):\n"
+        "    warnings.warn(\n"
+        "        'force_text() is deprecated in favor of force_str().',\n"
+        "        RemovedInDjangoish40Warning,\n"
+        "        stacklevel=2,\n"
+        "    )\n"
+        "    return force_str(s)\n"
+    ),
+    "djangoish/deprecation.py": "class RemovedInDjangoish40Warning(PendingDeprecationWarning):\n    pass\n",
+}
+
+
 def _write(root: Path, files: dict[str, str] = FILES) -> Path:
     for rel, text in files.items():
         p = root / rel
@@ -823,6 +857,45 @@ def test_a_module_whose_top_level_always_raises_is_absent(tmp_path):
     assert {"rpkg", "rpkg.Server", "rpkg.server", "rpkg.server.Server.run"} <= set(snap.symbols)
     # A raise under `if` or `try` is conditional, and one inside a function runs only when it is called.
     assert {"rpkg.optional", "rpkg.optional.fast", "rpkg.gated", "rpkg.gated.run"} <= set(snap.symbols)
+
+
+def test_folders_without_init_load_as_packages(tmp_path):
+    # DT-DATA-23: litellm's `types` and most of `llms` have no `__init__.py`, so `litellm.types.utils.ModelResponse`
+    # and the top-level names `litellm/__init__.py` star-imports from there read absent.
+    snap = build_snapshot(
+        "nspkg", "1.0", ["nspkg"], _write(tmp_path, NAMESPACES), namespace_skip=["nspkg.proxy"]
+    )
+    assert {
+        "nspkg.types.utils.ModelResponse",
+        "nspkg.ModelResponse",
+        "nspkg.Model",
+        "nspkg.llms.base.Model.run",
+        "nspkg.llms.openai.chat.complete",
+        "nspkg.contrib.real.tool",
+        "nspkg.proxy.serve",
+    } <= set(snap.symbols)
+    for absent in ("nspkg.proxy.routes", "nspkg.tests", "nspkg.static", "nspkg.bad"):
+        assert not [p for p in snap.symbols if p.startswith(absent)], absent
+    # `shadow.py` stays the module. (griffe itself attaches `shadow/inner.py` to it, as it did before.)
+    assert snap.symbols["nspkg.shadow.g"].kind == "function"
+    made = sorted(str(p.relative_to(tmp_path)) for p in tmp_path.rglob("__init__.py") if not p.read_text())
+    assert made == [
+        "nspkg/contrib/__init__.py",
+        "nspkg/llms/__init__.py",
+        "nspkg/llms/openai/__init__.py",
+        "nspkg/types/__init__.py",
+    ]
+    assert snap.namespace_skip == ["nspkg.proxy"]
+
+
+def test_function_warnings_with_a_removed_in_category_are_deprecations(tmp_path):
+    # DT-DATA-36: django 3.2's `force_text` warns with `RemovedInDjango40Warning` and read as not deprecated.
+    snap = build_snapshot("djangoish", "3.2", ["djangoish"], _write(tmp_path, REMOVED_IN))
+    assert (
+        snap.symbols["djangoish.force_text"].deprecated
+        == "force_text() is deprecated in favor of force_str()."
+    )
+    assert snap.symbols["djangoish.force_str"].deprecated is None
 
 
 def test_a_build_leaves_no_griffe_objects_alive(tmp_path):

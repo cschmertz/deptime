@@ -98,8 +98,12 @@ def _cached_snapshot(cache_dir: Path, spec: PackageSpec, version: str) -> ApiSna
     if not path.exists():
         return None
     snap = ApiSnapshot.load(path)
-    # Another extractor's, or built for other import names (a coverage.toml edit): rebuild it.
-    current = snap.format == SNAPSHOT_FORMAT and snap.import_names == list(spec.import_names)
+    # Another extractor's, or built for other import names or namespace skips (a coverage.toml edit): rebuild it.
+    current = (
+        snap.format == SNAPSHOT_FORMAT
+        and snap.import_names == list(spec.import_names)
+        and snap.namespace_skip == list(spec.namespace_skip)
+    )
     return snap if current else None
 
 
@@ -176,7 +180,7 @@ def _build(
                 if pypi.has_code(pinned_root, spec.import_names):
                     root, file = pinned_root, pinned_file
                     break
-        snap = build_snapshot(spec.name, version, list(spec.import_names), root)
+        snap = build_snapshot(spec.name, version, list(spec.import_names), root, list(spec.namespace_skip))
     snap.source_file = file.filename
     return snap
 

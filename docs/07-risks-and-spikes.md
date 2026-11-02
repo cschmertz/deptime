@@ -28,10 +28,14 @@
   - **Sandbox:** runtime names were sampled only in a GitHub Actions sandbox (`.github/workflows/s1.yml`).
   - **Gate amendment:** the gate leaves out a plain module's imports from elsewhere in its package, which the index excludes by design (22.4% with them; see `bench/s1/README.md`).
   - **Misses:** lazy loaders were nearly clean (langchain-community 0 of 14,813 runtime names). The misses are mostly numpy's computed `__all__` (DT-DATA-25) and litellm's `litellm.types` (DT-DATA-23).
+  - **Re-scored** with the same probes as those fixes shipped: 4.2% (2026-10-30), 2.4% (2026-11-01), 1.2% (2026-11-02, litellm 15.6% → 1.5%).
 
 ### S2 — Replacement precision
 - **Method:** 50 known migrations from changelogs and migration guides.
 - **Pass:** ≥ 80% precision at confidence ≥ 0.75. Misses feed pattern fixes or the curated map (DT-DATA-08).
+- **Result (2026-11-02): passed, 11 of 11 hints at confidence ≥ 0.75 right** (`bench/s2/results-2026-11-02.md`).
+  - **Set:** 50 migrations (34 symbols, 16 parameters, 41 packages), each with a primary source naming the old and the new API, collected without running DepTime and pre-registered with the scorer (`bench/s2/`).
+  - **Recall is the gap:** only 11 of the 50 get a hint at all. The misses are assigned in `BACKLOG.md` under DT-SPIKE-02; the largest group is functions with several warnings, of which only the first is read (DT-DATA-42). With 11 hints the precision estimate is loose, so it is re-scored after each extraction fix.
 
 ### S3 — Traceback → package/version mapping
 - **Method:** 100 tracebacks spanning Python 3.10–3.14, pytest output, chained exceptions, and library-specific exceptions (openai `APIRemovedInV1`, pydantic `PydanticImportError`, mcp 2.x's annotated `ModuleNotFoundError`).

@@ -1,5 +1,5 @@
 {
-  "index_built_at": "2026-11-01T15:44:25+00:00",
+  "index_built_at": "2026-11-02T16:41:42+00:00",
   "summary": {
     "cases": 29,
     "known_gap_share": 10.3,
@@ -7,7 +7,7 @@
       "root_cause": 89.7,
       "root_cause_and_boundary": 89.7,
       "boundary": 89.7,
-      "replacement": 31.8
+      "replacement": 45.5
     },
     "by_tier": {
       "B": {
@@ -15,7 +15,7 @@
         "root_cause": 89.7,
         "root_cause_and_boundary": 89.7,
         "boundary": 89.7,
-        "replacement": 31.8
+        "replacement": 45.5
       }
     },
     "by_origin": {
@@ -24,7 +24,7 @@
         "root_cause": 89.7,
         "root_cause_and_boundary": 89.7,
         "boundary": 89.7,
-        "replacement": 31.8
+        "replacement": 45.5
       }
     }
   },
@@ -32,17 +32,17 @@
     "tmb-django-conf-urls-url-django-faktura": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true
     },
     "tmb-django-conf-urls-url-orderingsystem": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true
     },
     "tmb-django-translation-ugettext-lazy-django-antispam": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true
     },
     "tmb-flask-before-first-request-helloflask": {
       "root_cause": true,

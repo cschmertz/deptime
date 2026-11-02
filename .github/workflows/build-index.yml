@@ -139,6 +139,7 @@ jobs:
         run: |
           uv run deptime ingest --all --into-downloaded --cached-only --summary "$GITHUB_STEP_SUMMARY" \
             || echo "::warning::some releases have no snapshot tonight; see the run summary"
+          cat "$GITHUB_STEP_SUMMARY" # also in the log: the API and signed-out viewers can't read summaries
 
       - name: Resources used
         if: always()

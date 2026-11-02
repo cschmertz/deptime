@@ -60,3 +60,11 @@ CREATE TABLE IF NOT EXISTS replacements (
   evidence   TEXT,
   PRIMARY KEY (package, path, target)
 );
+
+-- What each package's rows were assembled from (DT-DATA-41): a hash of its snapshot files, release dates, spec
+-- and the assembly code. The nightly keeps a package's rows when tonight's inputs hash the same. Clients don't
+-- read it; rows rebuilt from anything but snapshots alone have none, so they are always rebuilt.
+CREATE TABLE IF NOT EXISTS assembly (
+  package     TEXT PRIMARY KEY,
+  fingerprint TEXT NOT NULL
+);

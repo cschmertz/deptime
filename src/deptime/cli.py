@@ -78,6 +78,7 @@ def cmd_ingest(args: argparse.Namespace, settings: Settings) -> int:
                 settings.cache_dir,
                 versions=args.versions or None,
                 cached_only=args.cached_only,
+                assemble=not args.snapshots_only,
                 log=_err,
             )
         except Exception as exc:  # one broken package must not stop the rest of the run
@@ -86,7 +87,7 @@ def cmd_ingest(args: argparse.Namespace, settings: Settings) -> int:
             reports.append(IngestReport(name, failed={"*": f"{type(exc).__name__}: {exc}"}))
             continue
         reports.append(report)
-        if report.stats is not None and not marked:
+        if (report.stats is not None or report.unchanged) and not marked:
             mark_locally_built(
                 settings.index_path
             )  # from now on this index is yours; it is never auto-replaced
@@ -274,6 +275,11 @@ def main(argv: list[str] | None = None) -> int:
         "--cached-only",
         action="store_true",
         help="use only cached snapshots: never download or analyse a release (CI's publish job)",
+    )
+    p.add_argument(
+        "--snapshots-only",
+        action="store_true",
+        help="build and cache snapshots, but leave the index alone (CI's per-package jobs)",
     )
     p.add_argument(
         "--summary",

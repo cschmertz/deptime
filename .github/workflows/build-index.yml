@@ -7,7 +7,8 @@ name: build-index
 # One job per covered package builds that package's snapshots on its own runner, with its own snapshot cache and
 # log, so a heavy package can only fail itself (DT-DATA-03). The publish job then assembles the index from those
 # snapshots without downloading or analysing anything. It starts from the published index, so a package whose job
-# failed tonight keeps the releases it already had (DT-DATA-12).
+# failed tonight keeps the releases it already had (DT-DATA-12), and a package whose snapshots and assembly code
+# haven't changed keeps its rows as they are (DT-DATA-41).
 on:
   schedule:
     - cron: "17 4 * * *" # daily at 04:17 UTC
@@ -74,7 +75,7 @@ jobs:
           # Memory use every minute, so a runner that dies mid-build still leaves a trace in the log.
           ( while sleep 60; do free -m | awk 'NR==2 {print "[memory] " $3 " MB used of " $2}'; done ) &
           trap "kill $!" EXIT
-          uv run deptime ingest "${{ matrix.package }}"
+          uv run deptime ingest --snapshots-only "${{ matrix.package }}"
 
       - name: Resources used
         if: always()

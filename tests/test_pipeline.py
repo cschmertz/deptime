@@ -1,11 +1,13 @@
 """Offline end-to-end: real wheel zips served through httpx.MockTransport -> pipeline -> index -> explain_error."""
 
+import ast
 import hashlib
 import io
 import sys
 import weakref
 import zipfile
 from datetime import date
+from importlib import resources
 
 import httpx
 
@@ -14,7 +16,7 @@ from deptime.config import Coverage, PackageSpec, VersionPolicy
 from deptime.index.store import IndexStore
 from deptime.ingest import pipeline
 from deptime.ingest.pipeline import IngestReport, coverage_summary, ingest_package, snapshot_path
-from deptime.ingest.snapshot import ApiSnapshot, LazySnapshot
+from deptime.ingest.snapshot import ApiSnapshot, LazySnapshot, SymbolRecord
 from deptime.query import DepTime
 from tests.conftest import HTTPX, RELEASED_AT, SNAPSHOTS
 
@@ -363,6 +365,137 @@ def test_cached_only_never_downloads_and_keeps_published_releases(tmp_path):
         "1.0.0": "fakepkg-1.0.0-py3-none-any.whl",
         "2.0.0": "fakepkg-2.0.0-py3-none-any.whl",
     }
+
+
+def _rows(store: IndexStore) -> dict[str, list]:
+    """Every table's rows, without the times they were written."""
+    columns = {"packages": "name, import_names, tier", "releases": "*", "spans": "*", "events": "*"}
+    columns |= {"replacements": "*", "assembly": "*"}
+    return {
+        table: sorted(map(tuple, store.conn.execute(f"SELECT {cols} FROM {table}")), key=repr)
+        for table, cols in columns.items()
+    }
+
+
+def _assemble(store: IndexStore, cache_dir) -> IngestReport:
+    """What CI's publish job runs: assemble from cached snapshots only."""
+    with _client(serve_files=False) as client:
+        return ingest_package(
+            SPEC, POLICY, store, cache_dir, client=client, today=TODAY, cached_only=True, log=_quiet
+        )
+
+
+def test_unchanged_package_keeps_its_rows(tmp_path):
+    """DT-DATA-41: the nightly assembles only the packages whose snapshots or assembly code changed."""
+    store = IndexStore.memory()
+    _full_ingest(store, tmp_path)
+    before = _rows(store)
+    assert before["assembly"]  # the rows' fingerprint is stored with them
+
+    report = _assemble(store, tmp_path)
+    assert report.unchanged and report.stats is None
+    assert report.cached == ["1.0.0", "2.0.0"] and report.failed == {}
+    assert _rows(store) == before
+
+    fresh = IndexStore.memory()  # the rows kept are the rows a full assembly writes
+    assert _assemble(fresh, tmp_path).stats.releases == 2
+    assert _rows(fresh) == before
+
+
+def test_changed_snapshot_or_assembly_code_rebuilds_the_package(tmp_path, monkeypatch):
+    store = IndexStore.memory()
+    _full_ingest(store, tmp_path)
+    path = snapshot_path(tmp_path, "fakepkg", "2.0.0")
+    snap = ApiSnapshot.load(path)
+    snap.symbols["fakepkg.added"] = SymbolRecord(
+        "fakepkg.added", "function", "fakepkg._client.added", [], None
+    )
+    snap.save(path)
+
+    report = _assemble(store, tmp_path)
+    assert not report.unchanged and report.stats.releases == 2
+    assert store.spans("fakepkg", "fakepkg.added")
+    fresh = IndexStore.memory()
+    _assemble(fresh, tmp_path)
+    assert _rows(store) == _rows(fresh)
+
+    monkeypatch.setattr(pipeline, "assembly_code_digest", lambda: "after an edit to diff.py")
+    assert _assemble(store, tmp_path).stats is not None
+    assert _assemble(store, tmp_path).unchanged
+
+
+def test_rows_not_assembled_from_snapshots_alone_are_always_rebuilt(tmp_path):
+    """Any doubt rebuilds: a release carried over from the index, or a `--versions` run, stores no fingerprint."""
+    store = IndexStore.memory()
+    _full_ingest(store, tmp_path / "a")
+    with _client() as client:
+        ingest_package(SPEC, POLICY, store, tmp_path / "a", versions=["2.0.0"], client=client, log=_quiet)
+    assert _assemble(store, tmp_path / "a").stats is not None
+
+    snapshot_path(tmp_path / "a", "fakepkg", "2.0.0").unlink()  # its per-package job failed tonight
+    for _ in range(2):
+        report = _assemble(store, tmp_path / "a")
+        assert report.carried == ["2.0.0"] and report.stats.releases == 2
+
+
+def test_assembly_digest_covers_the_code_that_assembles():
+    """An import the assembly code adds must join ASSEMBLY_SOURCES, or an edit to it would keep stale rows."""
+    covered = {
+        "deptime." + source.removesuffix(".py").replace("/", ".")
+        for source in pipeline.ASSEMBLY_SOURCES
+        if source.endswith(".py")
+    }
+    # Only their results reach the fingerprint: the selected releases, their files and dates, the package spec.
+    inputs_only = {"deptime.config", "deptime.ingest.pypi"}
+    allowed = covered | inputs_only
+    root = resources.files("deptime")
+    for module in sorted(covered):
+        tree = ast.parse(root.joinpath(module.removeprefix("deptime.").replace(".", "/") + ".py").read_text())
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imported = [a.name for a in node.names if a.name.split(".")[0] == "deptime"]
+            elif isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] == "deptime":
+                assert node.level == 0, module
+                # `from deptime.ingest import pypi` imports a module; `from deptime.config import X`, names.
+                if node.module in allowed:
+                    continue
+                imported = [f"{node.module}.{a.name}" for a in node.names]
+            else:
+                continue
+            for name in imported:
+                assert name in allowed, f"{module} imports {name}"
+    assert "index/schema.sql" in pipeline.ASSEMBLY_SOURCES
+
+
+def test_snapshots_only_leaves_the_index_alone(tmp_path):
+    """CI's per-package jobs only build snapshots; the publish job assembles them (DT-DATA-41)."""
+    store = IndexStore.memory()
+    with _client() as client:
+        report = ingest_package(
+            SPEC, POLICY, store, tmp_path, client=client, today=TODAY, assemble=False, log=_quiet
+        )
+    assert report.built == ["1.0.0", "2.0.0"] and report.stats is None
+    assert _versions(store) == [] and snapshot_path(tmp_path, "fakepkg", "2.0.0").exists()
+
+
+def test_ingest_cli_snapshots_only_and_kept_rows(tmp_path, monkeypatch):
+    meta, _calls = _cli_home(tmp_path, monkeypatch)
+    seen: dict = {}
+
+    def unchanged(spec, *args, **kwargs):
+        seen.update(kwargs)
+        return IngestReport(spec.name, selected=["1"], cached=["1"], unchanged=True)
+
+    monkeypatch.setattr("deptime.ingest.pipeline.ingest_package", unchanged)
+    assert cli.main(["ingest", "httpx", "--into-downloaded", "--snapshots-only"]) == 0
+    assert seen["assemble"] is False
+    assert not meta.exists()  # kept rows still stamp `built_at`: the index is no longer the downloaded file
+
+
+def test_coverage_summary_counts_unchanged_packages():
+    same = IngestReport("same", selected=["1"], cached=["1"], unchanged=True)
+    text = coverage_summary([same, IngestReport("new", selected=["1", "2"], cached=["1", "2"])])
+    assert "1 of 2 packages were unchanged since the index was last assembled and kept their rows." in text
 
 
 def _zip(files: dict[str, str]) -> bytes:

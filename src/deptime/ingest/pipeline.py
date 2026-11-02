@@ -6,6 +6,8 @@ Snapshots are cached as immutable `snapshots/<package>/<version>.json.gz` files 
 
 from __future__ import annotations
 
+import hashlib
+import json
 import shutil
 import sqlite3
 import sys
@@ -14,9 +16,11 @@ from contextlib import ExitStack
 from dataclasses import dataclass, field
 from datetime import date
 from functools import cache, partial
+from importlib import resources
 from pathlib import Path
 
 import httpx
+import packaging
 from packaging.version import Version
 
 from deptime.config import PackageSpec, VersionPolicy
@@ -35,6 +39,8 @@ class IngestReport:
     carried: list[str] = field(default_factory=list)
     failed: dict[str, str] = field(default_factory=dict)
     stats: RebuildStats | None = None
+    # Its rows were kept: nothing they are assembled from changed since they were written (DT-DATA-41).
+    unchanged: bool = False
 
 
 COVERAGE_BAR = 0.9  # DT-DATA-01: share of each package's selected releases the index must hold
@@ -62,6 +68,12 @@ def coverage_summary(reports: list[IngestReport], max_listed: int = 5) -> str:
         f"{len(reports)} packages: {total} of {selected} selected releases indexed{share}. "
         f"Bar: {COVERAGE_BAR:.0%} of each package's selected releases. {verdict}",
     ]
+    if unchanged := sum(r.unchanged for r in reports):
+        lines += [
+            "",
+            f"{unchanged} of {len(reports)} packages were unchanged since the index was last assembled "
+            "and kept their rows.",
+        ]
     rows = []
     for r in reports:
         if not r.failed:
@@ -105,6 +117,51 @@ def _cached_snapshot(cache_dir: Path, spec: PackageSpec, version: str) -> ApiSna
         and snap.namespace_skip == list(spec.namespace_skip)
     )
     return snap if current else None
+
+
+# The code that turns a package's snapshots into its index rows (DT-DATA-41). Editing any of these files changes
+# every package's fingerprint, so the next run rebuilds them all rather than keep rows older code wrote.
+ASSEMBLY_SOURCES = (
+    "index/schema.sql",
+    "index/store.py",
+    "ingest/diff.py",
+    "ingest/pipeline.py",
+    "ingest/replacements.py",
+    "ingest/snapshot.py",
+)
+
+
+@cache
+def assembly_code_digest() -> str:
+    digest = hashlib.sha256(f"python {sys.version}; packaging {packaging.__version__}".encode())
+    root = resources.files("deptime")
+    for source in ASSEMBLY_SOURCES:
+        digest.update(f"\0{source}\0".encode())
+        digest.update(root.joinpath(source).read_bytes())
+    return digest.hexdigest()
+
+
+def _released_at(rel: pypi.Release) -> str | None:
+    return rel.uploaded_at.isoformat() if rel.uploaded_at else None
+
+
+def assembly_fingerprint(
+    spec: PackageSpec, selected: list[pypi.Release], cache_dir: Path, used: set[str]
+) -> str:
+    """A hash of everything `spec`'s rows are assembled from (DT-DATA-41): the assembly code, the package's
+    spec, and for each selected release its upload date, its artifact's name and, if in `used`, the bytes
+    of its snapshot file. The files are hashed, not loaded: deciding to keep litellm's rows takes ~1 s."""
+    releases = []
+    for rel in selected:
+        version, file = str(rel.version), pypi.pick_file(rel)
+        snap = None
+        if version in used:
+            with snapshot_path(cache_dir, spec.name, version).open("rb") as fh:
+                snap = hashlib.file_digest(fh, "sha256").hexdigest()
+        releases.append([version, snap, _released_at(rel), file.filename if file else None])
+    spec_inputs = [spec.name, list(spec.import_names), list(spec.namespace_skip), spec.tier]
+    payload = {"code": assembly_code_digest(), "spec": spec_inputs, "releases": releases}
+    return hashlib.sha256(json.dumps(payload).encode()).hexdigest()
 
 
 def _lazy_cached(cache_dir: Path, spec: PackageSpec, version: str) -> LazySnapshot:
@@ -196,6 +253,35 @@ def _previous_release_info(
     )
 
 
+def _on_disk(cache_dir: Path, spec: PackageSpec, versions: list[str]) -> set[str]:
+    return {v for v in versions if snapshot_path(cache_dir, spec.name, v).exists()}
+
+
+def _keep_rows(
+    spec: PackageSpec,
+    selected: list[pypi.Release],
+    store: IndexStore,
+    cache_dir: Path,
+    indexed: dict[str, sqlite3.Row],
+    cached_only: bool,
+) -> bool:
+    """True when `spec`'s rows were assembled from exactly tonight's inputs (DT-DATA-41).
+
+    Every selected release needs its snapshot on disk, except, in a cached-only run, one that isn't indexed
+    either (it failed before too); an indexed one would be carried over from the index, which isn't
+    fingerprinted. Snapshots aren't loaded: a cached file of another format changes the fingerprint.
+    """
+    stored = store.fingerprint(spec.name)
+    if stored is None:
+        return False
+    versions = [str(r.version) for r in selected]
+    on_disk = _on_disk(cache_dir, spec, versions)
+    missing = [v for v in versions if v not in on_disk]
+    if missing and (not cached_only or any(v in indexed for v in missing)):
+        return False
+    return stored == assembly_fingerprint(spec, selected, cache_dir, on_disk)
+
+
 def ingest_package(
     spec: PackageSpec,
     policy: VersionPolicy,
@@ -206,13 +292,15 @@ def ingest_package(
     client: httpx.Client | None = None,
     today: date | None = None,
     cached_only: bool = False,
+    assemble: bool = True,
     log: Callable[[str], None] = print,
 ) -> IngestReport:
     """Index `spec`'s selected releases, building any snapshot that isn't cached yet.
 
     `cached_only` never downloads or analyses a release: one without a cached snapshot is reported as failed,
     so an already-indexed copy is kept. CI's publish job uses it to assemble the index from the snapshots the
-    per-package jobs built.
+    per-package jobs built. Those jobs pass `assemble=False`: they build snapshots and leave the index alone.
+    Rows assembled from the same inputs as tonight's are kept as they are (DT-DATA-41).
     """
     report = IngestReport(spec.name)
     # Releases already in the index are only dropped on purpose (yanked, or no longer selected by the policy),
@@ -236,7 +324,7 @@ def ingest_package(
             report.cached = [s.version for s in snaps]
             carried = _carry_forward(spec, store, cache_dir, [v for v in indexed if v not in report.cached])
             report.carried = [s.version for s in carried]
-            if snaps or carried:
+            if assemble and (snaps or carried):
                 report.stats = store.rebuild_package(
                     spec, snaps + carried, *_previous_release_info(indexed, list(indexed))
                 )
@@ -251,6 +339,14 @@ def ingest_package(
             selected = pypi.select_versions(releases, policy, today)
         report.selected = [str(r.version) for r in selected]
         log(f"[{spec.name}] {len(selected)} releases selected")
+        if assemble and not versions and _keep_rows(spec, selected, store, cache_dir, indexed, cached_only):
+            on_disk = _on_disk(cache_dir, spec, report.selected)
+            report.cached = [v for v in report.selected if v in on_disk]
+            report.failed = {v: _CACHED_ONLY_MISS for v in report.selected if v not in on_disk}
+            report.unchanged = True
+            store.stamp_built_at()
+            log(f"[{spec.name}] unchanged since its rows were assembled; kept them")
+            return report
 
         # Snapshots stay on disk until the rebuild streams through them (see LazySnapshot).
         snapshots: list[LazySnapshot] = []
@@ -259,7 +355,7 @@ def ingest_package(
         releases_of = cache(partial(pypi.fetch_releases, client=client))  # distributions wrappers pin
         for rel in selected:
             version = str(rel.version)
-            released_at[version] = rel.uploaded_at.isoformat() if rel.uploaded_at else None
+            released_at[version] = _released_at(rel)
             file = pypi.pick_file(rel)
             # Loaded here only for its format and source file; the rebuild loads it again when it gets there.
             cached = _cached_snapshot(cache_dir, spec, version)
@@ -295,6 +391,8 @@ def ingest_package(
                 f"[{spec.name}] {version}: {len(snap.symbols)} public symbols{via} ({len(snap.errors)} warnings)"
             )
 
+        if not assemble:
+            return report
         if not snapshots:
             # Never replace a working index with nothing (PyPI outage, network failure, bad artifact run).
             log(f"[{spec.name}] no snapshots available; existing index rows left untouched")
@@ -314,11 +412,15 @@ def ingest_package(
         if carried:
             log(f"[{spec.name}] kept {len(carried)} already-indexed releases: {', '.join(report.carried)}")
         prev_released_at, prev_source_files = _previous_release_info(indexed, report.carried)
+        # Rows that take anything from the index itself, or only some releases, aren't fingerprinted: the
+        # next run rebuilds them.
+        fingerprint = None if versions or carried else assembly_fingerprint(spec, selected, cache_dir, done)
         report.stats = store.rebuild_package(
             spec,
             snapshots + carried,
             {**prev_released_at, **released_at},
             {**prev_source_files, **source_files},
+            fingerprint,
         )
         peak = _peak_memory_mb()
         log(f"[{spec.name}] index rebuilt: {report.stats}" + (f"; peak memory {peak:.0f} MB" if peak else ""))

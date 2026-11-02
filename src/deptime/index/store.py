@@ -77,11 +77,13 @@ class IndexStore:
         snapshots: Sequence[ApiSnapshot | LazySnapshot],
         released_at: dict[str, str | None] | None = None,
         source_files: dict[str, str] | None = None,
+        fingerprint: str | None = None,
     ) -> RebuildStats:
         """Replace everything stored for `spec.name` with data derived from `snapshots` (any order).
 
         Releases are visited once, in version order, holding at most two snapshots, so memory doesn't grow
         with the number of releases (DT-DATA-03). A `LazySnapshot` that loads as None is skipped.
+        `fingerprint` describes the inputs (DT-DATA-41); it isn't stored if any snapshot was skipped.
         """
         released_at, source_files = released_at or {}, source_files or {}
         ordered = sorted(snapshots, key=lambda s: Version(s.version))
@@ -95,6 +97,7 @@ class IndexStore:
         for item in ordered:
             snap = item.load() if isinstance(item, LazySnapshot) else item
             if snap is None:
+                fingerprint = None  # the rows no longer match the inputs it describes
                 continue
             i = len(release_rows)
             release_rows.append(
@@ -164,6 +167,7 @@ class IndexStore:
 
         with self.conn:
             for table, col in (
+                ("assembly", "package"),
                 ("replacements", "package"),
                 ("events", "package"),
                 ("spans", "package"),
@@ -171,6 +175,10 @@ class IndexStore:
                 ("packages", "name"),
             ):
                 self.conn.execute(f"DELETE FROM {table} WHERE {col} = ?", (name,))
+            if fingerprint:
+                self.conn.execute(
+                    "INSERT INTO assembly(package, fingerprint) VALUES (?, ?)", (name, fingerprint)
+                )
             self.conn.execute(
                 "INSERT INTO packages(name, import_names, tier, indexed_at) VALUES (?, ?, ?, ?)",
                 (name, json.dumps(list(spec.import_names)), spec.tier, _now()),
@@ -202,6 +210,19 @@ class IndexStore:
             )
             self.conn.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('built_at', ?)", (_now(),))
         return RebuildStats(name, len(release_rows), len(span_rows), len(events), len(repl))
+
+    def stamp_built_at(self) -> None:
+        """Rows kept as they were (DT-DATA-41) are still current as of this run."""
+        with self.conn:
+            self.conn.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('built_at', ?)", (_now(),))
+
+    def fingerprint(self, name: str) -> str | None:
+        """The inputs `name`'s rows were assembled from (DT-DATA-41), if they came from snapshots alone."""
+        try:
+            row = self.conn.execute("SELECT fingerprint FROM assembly WHERE package = ?", (name,)).fetchone()
+        except sqlite3.OperationalError:  # an index from before DT-DATA-41, opened read-only
+            return None
+        return row["fingerprint"] if row else None
 
     # ------------------------------------------------------------------ read path
     def built_at(self) -> str | None:

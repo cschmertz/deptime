@@ -32,8 +32,20 @@
 
 **M1:** the benchmark bar (≥ 70%) now holds on fresh cases: 72.4% on the holdout.
 
-**Next up**
-1. litellm's folders without `__init__.py` (DT-DATA-23): now the worst package in S1, and 1 miss in `bench/cases`. Measured; the `.xz` (DT-DATA-35) leaves room for it.
+**Next up**, in order. Extraction fixes that are ready together share one `SNAPSHOT_FORMAT` bump, because each bump means a cold build of about an hour.
+1. DT-DATA-23 and DT-DATA-36, one bump: litellm's folders without `__init__.py` (the worst package in S1, and 1 miss in `bench/cases`; the `.xz` leaves room for it), and function warnings with a `RemovedIn…Warning` category (django, marshmallow).
+2. DT-DATA-41: assemble only the packages that changed, so the nightly stays under 30 minutes (DT-SPIKE-04) before the index grows further.
+3. The small safety items: DT-CORE-08, DT-OSS-10.
+4. Replacement accuracy (28.0% on real cases; the 1.0 target is 60%):
+   1. DT-SPIKE-02, to measure precision (wrong hints) as well as recall;
+   2. DT-CORE-12, so every hint is checked against the index;
+   3. extraction: DT-DATA-40, DT-DATA-37, DT-DATA-38, DT-CORE-23, DT-DATA-31;
+   4. then DT-DATA-39, DT-CORE-22, DT-DATA-07 and DT-DATA-08.
+5. Answer wording: DT-CORE-18, DT-CORE-16.
+6. Evidence: DT-SPIKE-03, DT-QA-01, DT-SPIKE-05, then DT-OSS-02.
+7. Coverage: DT-DATA-16 (transformers, after DT-DATA-41), DT-DATA-04, DT-DATA-05, then the `P2` gaps.
+8. Distribution: DT-GTM-01, DT-SPIKE-06 and DT-GTM-04, DT-GTM-02, DT-GTM-05, DT-OSS-06; Windows: DT-SPIKE-07, DT-OSS-08.
+9. The optional hosted instance (M3).
 
 ---
 
@@ -74,6 +86,7 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
   - AC: `.xz` under 100 MB (the `.gz` until DT-DATA-35); nightly incremental under 30 min; p95 under 20 ms; cold build fits Actions limits (or a matrix plan).
   - Measured 2026-10-28 (52 packages, 3,371 releases): `.gz` 78.9 MB (773 MB unpacked); cold build 35–61 min as one job per package. Nightly incremental and p95 not measured yet.
   - 2026-11-01 (52 packages, 6,564 releases): `.xz` 59.2 MB, `.gz` 94.7 MB (939 MB unpacked); cold build 52 min, a warm build 31 min.
+  - 2026-11-02 (6,568 releases): the nightly took 30 min, 21 of them assembling all 52 packages, though only 4 had a new release (DT-DATA-41). p95 in-process, on the published index (macOS, warm, over the 196 bench and holdout tracebacks): `explain_error` 25.5 ms (p50 2.8 ms; 42.4 ms on the first pass), `symbol_history` 8.9 ms, `coverage` 8.3 ms. The slowest call by far is `openai-httpx-proxies-internal` at 560 ms, the search of other packages for an error raised inside a dependency (DT-CORE-16). Size and cold build pass; p95 and the nightly don't yet.
 - [ ] **DT-SPIKE-05**: S5 client compatibility matrix (local and hosted) · `P0` `M`
   - AC: Claude Code, Cursor, Codex CLI, VS Code and Claude Desktop with `uvx deptime mcp`; handshake-era clients against hosted mode; the matrix published in the README.
 - [ ] **DT-SPIKE-06**: S6 do agents call it unprompted (plugin vs. no plugin)? · `P1` `M`
@@ -111,6 +124,7 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
 ### Data (DT-DATA)
 - [ ] **DT-DATA-01**: Index Tier A with the coverage policy · `P0` `M` · deps: SPIKE-01, SPIKE-04
   - AC: ≥ 90% of selected releases indexed for each package; failures listed in the workflow summary.
+  - Done so far (2026-11-02): 6,568 of 6,569 selected releases are indexed; the lowest package is dspy at 87 of 88 (0.1.5 has no module `dspy`). `deptime ingest --summary` writes each package's share and failures to the run summary, and the publish job uses it. To close: check the summary on a published run.
 - [ ] **DT-DATA-02**: Index Tier B · `P1` `M` · deps: DATA-01
   - AC: same bar as DATA-01; numpy indexed via its `.pyi` stubs; compiled-only gaps noted in `coverage.toml`.
   - Done so far: names numpy's `__init__.py` imports and `__init__.pyi` defines (`add`, `float64`) are indexed for 2.0 and 2.1 too. `numpy.emath.sqrt` is indexed for 2.x once a `SNAPSHOT_FORMAT` 4 index is published (DT-DATA-24); in 1.x `numpy.emath` is still only an attribute from the stub.
@@ -220,10 +234,29 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
   - Why: the `.gz` is 94.6 MB of a 100 MB target, and DT-DATA-23 (litellm's folders without `__init__.py`) and DT-DATA-16 (transformers) both need more room. xz, through the standard library's `lzma`, packs the same 939 MB file into 59.1 MB, 37% smaller, in about 2.5 minutes, and Python decompresses it in under 3 seconds. No new dependency.
   - AC: `pack` writes `index.sqlite.xz` next to `index.sqlite.gz`, and the manifest describes both with new keys only (released clients keep only the fields they know, so they still download the `.gz`, which may then pass 100 MB but stays far below their 2 GB cap); the client downloads the `.xz` when the manifest lists it, with the same checks (sha256, size cap, schema, atomic replace, a failed download leaves the current index alone); the self-hosting docs name both files; the 100 MB target applies to the `.xz`.
   - Done 2026-11-01: `pack` writes both files from the same VACUUMed copy (xz preset 6), and the manifest adds `xz_sha256` and `xz_size`; `sha256` and `size` still describe the `.gz`. The client downloads the `.xz` when the manifest lists it and falls back to the `.gz` only on a Python built without `lzma`. `build-index` uploads both files and then the manifest, and warns when the `.xz` passes 100 MB. The first build that publishes it (2026-11-01, warm, 31 minutes, about 3 of them packing the `.xz`) gives a 59.2 MB `.xz` beside the 94.7 MB `.gz`. Checked against the published files: `deptime index pull` from `main` fetches the `.xz` (13 s with decompression), and the result is byte-identical to the `.gz`'s content. The released 0.1.3 wheel, run against files packed by the new code, still fetches the `.gz`. Benches unchanged.
+- [ ] **DT-DATA-36**: Function warnings with a `RemovedIn…Warning` category aren't read (django, marshmallow) · `P0` `S`
+  - Why: `deprecation_message` reads a `warnings.warn` in a function body only when the category's name contains `Deprecat` (or is `FutureWarning`). The module `__getattr__` reader also accepts `RemovedIn…Warning`; the function reader doesn't. django flags deprecations with `RemovedInDjangoNNWarning`, marshmallow with `RemovedInMarshmallow4Warning`. In the published index, 5 of django's 106,629 spans carry a deprecation and 3 of marshmallow's 1,693; django 3.2's `force_text`, `smart_text`, `ugettext_lazy` and `django.conf.urls.url` carry none, though each warns "… is deprecated in favor of …".
+  - AC: these warnings are read like the others; django 3.2's `force_text` carries its message and the `force_str` hint; the change is measured on the first, middle and latest release of every package; it ships with DT-DATA-23's `SNAPSHOT_FORMAT` bump.
+- [ ] **DT-DATA-37**: Deprecation helpers recognized by name · `P1` `M`
+  - Why: only decorators named `deprecated` count. polars marks renames with `@deprecate_renamed_function("map_elements", ...)`, so `polars.Expr.apply` carries nothing; pandas marks renamed parameters with `@deprecate_kwarg(old_arg_name=..., new_arg_name=...)`; streamlit binds the old name to a wrapper, `experimental_rerun = deprecate_func_name(rerun, ...)`, which the index records as a plain attribute.
+  - AC: survey such helpers' names and argument shapes across the covered packages first; decorators and wrapper calls whose name starts with `deprecate` mark the name or parameter deprecated; a new name among their arguments becomes a replacement hint, checked against the index (DT-CORE-12); both benchmarks measured.
+- [ ] **DT-DATA-38**: Deprecated parameters marked in the signature or the docstring · `P1` `M`
+  - Why: scikit-learn deprecates a parameter by changing its default to the string `'deprecated'` and warning later, in `fit`: `OneHotEncoder(sparse='deprecated')` in 1.2–1.3, with the replacement (`sparse_output`) only in the docstring's `.. deprecated::` note. 93 indexed signatures have that default. Sphinx's `.. deprecated::` directive is common (numpy, scikit-learn, matplotlib, pandas).
+  - AC: a parameter whose default is the string `'deprecated'` reads deprecated; a `.. deprecated::` note in a function's docstring, or under a parameter in it, becomes deprecation text; precision is checked on a sample before shipping.
+- [ ] **DT-DATA-39**: Warnings raised one call away · `P2` `M`
+  - Why: some deprecations warn from code that `deprecation_message` doesn't read: a helper whose message is a constant in another module (pytest's `skip(msg=...)` goes through `_resolve_msg_to_reason`, which warns with `KEYWORD_MSG_ARG` from `_pytest/deprecated.py`), another class (`Starlette(on_startup=...)` warns in `Router.__init__`), or another method (scikit-learn's `fit`).
+  - AC: a function's deprecations include the warnings of same-package helpers it passes the deprecated parameter to (one level, like DT-DATA-25's numpy helper reader), with messages from module constants resolved; false positives are measured first.
+- [ ] **DT-DATA-40**: A function defined in a stub takes its deprecation from the `.py` · `P1` `S`
+  - Why: numpy's names come from its `.pyi` stubs, which don't mark deprecations. numpy 1.25–1.26's `product`, `cumproduct` and `alltrue` warn in `fromnumeric.py` ("`product` is deprecated as of NumPy 1.25.0, … Please use `prod` instead."), but the index records no deprecation for them.
+  - AC: when a stub defines a function that the `.py` also defines, the `.py` body's warning is read; numpy 1.25's `product` carries its message and the `prod` hint.
+- [ ] **DT-DATA-41**: Assemble only the packages that changed · `P1` `M` · deps: SPIKE-04
+  - Why: the publish job rebuilds every package's rows from its snapshots each night: 21 of the 30 minutes on 2026-11-02, when 4 packages had one new release each (django alone takes 3.4 minutes, openai 3.1, langchain 2.9, sqlalchemy 2.1, litellm 2.0). DT-DATA-23 and DT-DATA-16 add more.
+  - AC: a package whose snapshots and assembly code are unchanged since the published index keeps its rows, judged by a fingerprint stored per package in the index (its snapshots' hashes, `SNAPSHOT_FORMAT` and a version of the diff and replacement code); any change or doubt rebuilds it; a test shows the result equals a full assembly; a nightly with a few new releases assembles in a few minutes.
 
 ### Core logic (DT-CORE)
-- [ ] **DT-CORE-01**: Benchmark-driven tuning of candidate selection and ranking · `P0` `M` · deps: QA-01
+- [x] **DT-CORE-01**: Benchmark-driven tuning of candidate selection and ranking · `P0` `M` · deps: QA-01
   - AC: root-cause accuracy ≥ 80% (M1 floor: 70%).
+  - Done 2026-11-02: root cause is 95.6% on the 159 real cases and was 82.8% on the holdout's single pre-registered scoring (DT-QA-04), both above 80%; `bench.yml` fails on a drop of more than 2 points. DT-QA-01 keeps growing the cases.
 - [ ] **DT-CORE-02**: Instance-chain hints for `object_attribute` (prefer frame and referenced-name evidence; show ambiguity) · `P2` `M`
   - Bench: user subclasses of library classes (`LogParam.get_metavar(ctx)` in click 8.2, `ValidatorSchema.context` in marshmallow 4) and an owner-less `sort()` that should be `DataFrame.sort`, not `Expr.sort` (3 cases). Holdout: `'MACAddressField' object has no attribute 'fail'`, a user `marshmallow.fields.Field` subclass in marshmallow 4 (no finding).
 - [ ] **DT-CORE-03**: Import-name collision disambiguation (`agents`) via installed versions · `P1` `S`
@@ -264,12 +297,16 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
 - [ ] **DT-CORE-22**: Suggest the path a removed name is still public under · `P2` `S`
   - Why: pydantic 2.0 removed 44 paths that `pydantic.v1` still serves (`pydantic.ConstrainedBytes`, `pydantic.types.ConstrainedBytes`, `pydantic.tools.parse_obj_as`); 43 of them were the same object under `pydantic.v1` in 1.10.27. The `moved` heuristic pairs a removal only with an addition in the same release, so since DT-DATA-33 these get no hint.
   - AC: when a name is removed, another public path to the same canonical object in the last release that had it, still present in the removing release, is offered as a replacement with that evidence; measure across all packages before shipping.
+- [ ] **DT-CORE-23**: Replacement mining misses on messages the index has · `P1` `S`
+  - Why: the deprecation text is indexed, but it yields no hint or a wrong one. pandas 1.5's `DataFrame.iteritems` says "Use .items instead." (a method with a leading dot); selenium's "please pass in a Service object" names no identifier; werkzeug 3.0's `__version__` ("Use feature detection or 'importlib.metadata.version("werkzeug")' instead") yields `feature` at 0.6. The urllib3 `Retry(method_whitelist)` case also misses although the message names `allowed_methods`: check the parameter-path lookup.
+  - AC: a method named with a leading dot resolves on the same class; prose gives no hint; each case above passes or is explained; measured on both benchmarks, together with DT-CORE-12.
 
 ### Quality (DT-QA)
 - [ ] **DT-QA-01**: 200-traceback benchmark from real GitHub issues (`bench/cases/*.jsonl`) · `P0` `L`
   - Done so far (2026-10-28): 159 real cases from 47 packages; none yet for langchain-openai, pinecone and celery (no verifiable report of a break since 2023). Lesson: verify against the shipped wheel, not the GitHub tag.
-- [ ] **DT-QA-02**: Benchmark runner + CI report (fail on a regression above 2 points) · `P0` `M` · deps: QA-01
+- [x] **DT-QA-02**: Benchmark runner + CI report (fail on a regression above 2 points) · `P0` `M` · deps: QA-01
   - Done so far (2026-10-28): `python -m deptime.bench` scores cases as `bench/README.md` defines; `bench.yml` runs it against the published index on code changes and after each `build-index`, failing on a drop of more than 2 points on the cases `bench/baseline.json` shares with the run. First number, 8 seed cases: root cause + boundary 50% (Tier B 80%, Tier A 0%; 4 of 8 are `known_gap`).
+  - Done: since 2026-10-31 `bench.yml` also checks the holdout cases (`bench/tmb/`) against their own baseline.
 - [ ] **DT-QA-03**: Golden tests per Tier A package against the published index (nightly, network-marked) · `P1` `M`
 - [x] **DT-QA-04**: Cases derived from TimeMachine-bench (Fujii et al., EACL 2026; github.com/tohoku-nlp/timemachine-bench) · `P1` `M` · deps: QA-02
   - Python repos whose tests pass under old dependencies and fail under new ones, with exact versions. Run the failing tests in a sandbox to get real tracebacks; take ground truth from the fix commits, never from DepTime. An outside, published source avoids the selection bias of self-picked cases.

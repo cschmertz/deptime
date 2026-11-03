@@ -1218,6 +1218,359 @@ HELPERS = {
 }
 
 
+# DT-DATA-38: deprecations a docstring's `.. deprecated::` note or a `'deprecated'` default states, in the shapes
+# the covered packages use: scikit-learn documents its constructor parameters in the class docstring, numpy and
+# pandas give a version only, polars notes renames at the top, sqlalchemy names a parameter with `:paramref:`.
+DOCNOTES = {
+    "docky/__init__.py": "from docky.api import *\n",
+    "docky/api.py": textwrap.dedent(
+        '''\
+        import warnings
+
+        __all__ = ["OneHotEncoder", "CodeAct", "percentile", "find_idx_by_name", "to_pydatetime", "Enum",
+                   "connect", "warned", "unreadable", "future_axis", "Session", "create_engine", "binary_repr",
+                   "to_excel", "SGDClassifier", "yield_fixture", "and_", "Client", "ElasticKnnSearch",
+                   "LanguageAuto", "A2AConfig", "helpers", "names"]
+
+
+        class OneHotEncoder:
+            """Encode categorical features as a one-hot numeric array.
+
+            Parameters
+            ----------
+            sparse : bool, default=True
+                Will return sparse matrix if set True else will return an array.
+
+                .. deprecated:: 1.2
+                   `sparse` is deprecated in 1.2 and will be removed in 1.4. Use
+                   `sparse_output` instead.
+
+            sparse_output : bool, default=True
+                Will return sparse matrix if set True.
+
+            max_features : {"sqrt", "log2", None}, int or float, default=1.0
+                The number of features to consider.
+
+                .. deprecated:: 1.1
+                    The `"auto"` option was deprecated in 1.1 and will be removed
+                    in 1.3.
+
+            loss : {'log_loss', 'deviance'}, default='log_loss'
+                The loss function to be optimized.
+
+                .. deprecated:: 1.1
+                    The loss 'deviance' was deprecated in v1.1 and will be removed in
+                    version 1.3. Use `loss='log_loss'` which is equivalent.
+
+            base_estimator : object, default="deprecated"
+                Use `estimator` instead.
+
+            estimator : object, default=None
+                The base estimator.
+
+            use_legacy : bool, default=True
+                .. deprecated:: 1.10
+                   `use_legacy` will be deprecated in version 1.10 and be removed in 1.12.
+
+            random_state : int, default=None
+                ..deprecated:: 1.9
+                  The `random_state` parameter is deprecated and will be removed in 1.11.
+
+            Attributes
+            ----------
+            n_features_ : int
+                .. deprecated:: 1.0
+                   `n_features_` is deprecated and will be removed in 1.2.
+            """
+
+            def __init__(self, sparse="deprecated", sparse_output=True, max_features=1.0, loss="log_loss",
+                         base_estimator="deprecated", estimator=None, use_legacy=True, random_state=None):
+                self.sparse = sparse
+
+
+        class CodeAct:
+            """Run code as actions.
+
+            .. deprecated:: 3.4
+                CodeAct is deprecated. RLM is the preferred replacement.
+            """
+
+            def __init__(self, signature):
+                self.signature = signature
+
+
+        def percentile(a, q, axis=None, interpolation=None, *, kth=None, **kwargs):
+            """
+            Compute the q-th percentile of the data along the specified axis.
+
+            Parameters
+            ----------
+            a : array_like
+                Input array.
+            interpolation : str, optional
+                Deprecated name for the method keyword argument.
+
+                .. deprecated:: 1.22.0
+            kth : int or sequence of ints
+                Element index to partition by.
+
+                .. deprecated:: 1.22.0
+                    Passing booleans as index is deprecated.
+            **kwargs
+                .. deprecated:: 3.1.0
+                    Passing ``**kwargs`` is deprecated.
+            """
+            return a
+
+
+        def find_idx_by_name(name):
+            """
+            Find the index of a column by name.
+
+            .. deprecated:: 0.19.14
+                This method has been renamed to :func:`get_column_index`.
+            """
+            return name
+
+
+        def to_pydatetime(values):
+            """
+            Return the data as an array of datetime objects.
+
+            .. deprecated:: 2.1.0
+                The current behavior of dt.to_pydatetime is deprecated. In a future version this will
+                return a Series containing python datetime objects instead of a ndarray.
+            """
+            return values
+
+
+        class Enum:
+            def __init__(self, *enums, inherit_schema=False, name=None):
+                """Construct an enum.
+
+                .. deprecated:: 2.1  Setting the :paramref:`.Enum.inherit_schema` parameter is deprecated.
+                """
+
+
+        def connect(host, timeout=None, retries=3):
+            """Connect to a host.
+
+            Args:
+                host: The host.
+                timeout (float): Seconds to wait.
+
+                    .. deprecated:: 2.0
+                        Use ``retries`` instead.
+                retries (int): How many times to try.
+            """
+            return host
+
+
+        def warned(old=None, new=None):
+            """Read a value.
+
+            Parameters
+            ----------
+            old : str
+                .. deprecated:: 2.0
+                   Use `new`.
+            """
+            if old is not None:
+                warnings.warn("'old' is deprecated, use 'new' instead", DeprecationWarning)
+            return new
+
+
+        def unreadable(x):
+            """Read x.
+
+            .. deprecated:: 1.5
+               Use ``readable`` instead.
+            """
+            warnings.warn(make_message(x), DeprecationWarning)
+            return x
+
+
+        def future_axis(axis=None):
+            """
+            .. deprecated:: 3.11
+               The *axis* parameter is pending-deprecated. It will be deprecated in 3.13.
+            """
+            return axis
+
+
+        class Session:
+            def flush(self, objects=None):
+                """Flush all the object changes to the database.
+
+                :param objects: Optional; restricts the flush operation to operate
+                  only on elements that are in the given collection.
+
+                  .. deprecated:: 2.1
+                """
+
+            def distinct(self, *expr):
+                r"""Apply a ``DISTINCT`` to the query.
+
+                .. note::
+
+                    The ORM-level :meth:`.distinct` call includes logic that will
+                    automatically add columns from the ORDER BY of the query.
+
+                    .. deprecated:: 2.0  This logic is deprecated and will be removed
+                       in SQLAlchemy 2.0.
+
+                :param \\*expr: optional column expressions.
+
+                 .. deprecated:: 1.4 Using \\*expr in other dialects is deprecated
+                    and will raise :class:`_exc.CompileError` in a future version.
+                """
+
+
+        def create_engine(url, **kwargs):
+            """Create an engine.
+
+            :param convert_unicode=False: if set to True, causes
+                all String datatypes to act as though the
+                :paramref:`.String.convert_unicode` flag has been set to ``True``.
+
+                .. deprecated:: 1.3
+
+                    The :paramref:`_sa.create_engine.convert_unicode` parameter
+                    is deprecated and will be removed in a future release.
+
+            :param echo=False: if True, the Engine will log all statements.
+            """
+
+
+        def binary_repr(num, width=None):
+            """
+            Return the binary representation of the input number as a string.
+
+            Parameters
+            ----------
+            num : int
+                Only an integer decimal number can be used.
+            width : int, optional
+                The length of the returned string. If the width value is insufficient, it will be
+                ignored. This behavior is deprecated and will later raise an error.
+
+                .. deprecated:: 1.12.0
+            """
+
+
+        def to_excel(excel_writer, engine=None, times=None):
+            """
+            Write object to an Excel sheet.
+
+            Parameters
+            ----------
+            engine : str, optional
+                Write engine to use, 'openpyxl' or 'xlsxwriter'.
+
+                .. deprecated:: 1.2.0
+
+                    As the `xlwt <https://pypi.org/project/xlwt/>`__ package is no longer
+                    maintained, the ``xlwt`` engine will be removed in a future version
+                    of pandas.
+            times : str, np.ndarray, Series, default None
+                Times corresponding to the observations.
+
+                .. deprecated:: 1.4.0
+
+                    If str, the name of the column in the DataFrame representing the times.
+            """
+
+
+        class SGDClassifier:
+            """Linear classifiers with SGD training.
+
+            Parameters
+            ----------
+            power_t : float, default=0.5
+                The exponent for inverse scaling learning rate.
+
+                .. deprecated:: 1.8
+                    Negative values for `power_t` are deprecated in version 1.8 and will raise
+                    an error in 1.10.
+            """
+
+            def __init__(self, power_t=0.5):
+                self.power_t = power_t
+
+            def score(self, X, y, sample_weight=None):
+                """Return the score.
+
+                Parameters
+                ----------
+                sample_weight : array-like of shape (n_samples,), default=None
+                    Sample weights.
+
+                    .. deprecated:: 1.9
+                        `sample_weight` needs to be passed as a keyword argument and not as a
+                        positional argument.
+                """
+
+
+        def yield_fixture(fixture_function=None, *args, scope="function"):
+            """(Return a) decorator to mark a yield-fixture factory function.
+
+            .. deprecated:: 3.0
+                Use :py:func:`pytest.fixture` directly instead.
+            """
+
+
+        def and_(*clauses):
+            """Produce a conjunction of expressions joined by ``AND``.
+
+            .. deprecated:: 1.4  The ``and_()`` element now requires that at
+               least one argument is passed; creating the ``and_()`` construct
+               with no arguments is deprecated.
+            """
+
+
+        class Client:
+            def embeddings(self, model="", prompt=""):
+                """
+                Deprecated in favor of `embed`.
+                """
+
+            def embed(self, model="", input=""):
+                """Embed the input."""
+
+
+        class ElasticKnnSearch:
+            """[DEPRECATED] `Elasticsearch` with k-nearest neighbor search (`k-NN`) vector store."""
+
+
+        class LanguageAuto:
+            """Deprecated: Language auto-detection is now the default when language_codes is omitted."""
+
+
+        class A2AConfig:
+            """Configuration for A2A protocol integration.
+
+            Deprecated:
+                Use A2AClientConfig instead. This class will be removed in a future version.
+
+            Attributes:
+                endpoint: A2A agent endpoint URL.
+            """
+
+
+        def helpers():
+            """Deprecation helpers for the package."""
+
+
+        def names():
+            """Return the deprecated names.
+
+            Deprecated names are kept for one release.
+            """
+        '''
+    ),
+}
+
+
 def _write(root: Path, files: dict[str, str] = FILES) -> Path:
     for rel, text in files.items():
         p = root / rel
@@ -1847,6 +2200,97 @@ def test_deprecation_helpers_are_recognized_by_name(tmp_path):
     # The machinery warns as its job; that isn't its own deprecation.
     assert dep("utils.warn_deprecated") == (None, None)
     assert dep("utils.issue_deprecation_warning") == (None, None)
+
+
+def test_docstring_notes_and_deprecated_defaults_are_deprecations(tmp_path):
+    # DT-DATA-38: scikit-learn 1.2-1.3's `OneHotEncoder(sparse='deprecated')` warns only in `fit`, and the
+    # replacement (`sparse_output`) is only in the class docstring's `.. deprecated::` note.
+    snap = build_snapshot("docky", "1.0", ["docky"], _write(tmp_path, DOCNOTES))
+
+    def dep(path):
+        rec = snap.symbols[f"docky.{path}"]
+        return rec.deprecated, rec.deprecated_params
+
+    # A constructor's parameters are documented in the class docstring. A note that deprecates one of the
+    # parameter's values, or says it will be deprecated, isn't the parameter's; a `'deprecated'` default is.
+    assert dep("OneHotEncoder") == (None, None)
+    assert dep("OneHotEncoder.__init__") == (
+        None,
+        {
+            "sparse": "Deprecated since version 1.2: `sparse` is deprecated in 1.2 and will be removed in 1.4. Use"
+            " `sparse_output` instead.",
+            "random_state": "Deprecated since version 1.9: The `random_state` parameter is deprecated and will be"
+            " removed in 1.11.",
+            "base_estimator": "deprecated (marked by its default value)",
+        },
+    )
+    # A note at the top of a docstring deprecates the object; reST roles and literals read as plain text.
+    assert dep("CodeAct") == (
+        "Deprecated since version 3.4: CodeAct is deprecated. RLM is the preferred replacement.",
+        None,
+    )
+    assert dep("CodeAct.__init__") == (None, None)
+    assert dep("find_idx_by_name") == (
+        "Deprecated since version 0.19.14: This method has been renamed to get_column_index().",
+        None,
+    )
+    # A version alone deprecates the parameter it's under; `**kwargs` is never a deprecated parameter.
+    assert dep("percentile") == (None, {"interpolation": "Deprecated since version 1.22.0."})
+    # A deprecated behaviour isn't a deprecated function, and a pending deprecation isn't one yet.
+    assert dep("to_pydatetime") == (None, None)
+    assert dep("future_axis") == (None, None)
+    # A top-level note whose wording deprecates a parameter deprecates that parameter.
+    assert dep("Enum.__init__") == (
+        None,
+        {
+            "inherit_schema": "Deprecated since version 2.1: Setting the Enum.inherit_schema parameter is deprecated."
+        },
+    )
+    assert dep("connect") == (None, {"timeout": "Deprecated since version 2.0: Use `retries` instead."})
+    # The warning the code emits wins over the docstring, unless the snapshot can't read it.
+    assert dep("warned") == (None, {"old": "'old' is deprecated, use 'new' instead"})
+    assert dep("unreadable") == ("Deprecated since version 1.5: Use `readable` instead.", None)
+    # sqlalchemy documents parameters as Sphinx fields; a note inside another directive (`.. note::`) isn't the
+    # object's. An entry can name an argument `**kwargs` takes.
+    assert dep("Session.flush") == (None, {"objects": "Deprecated since version 2.1."})
+    assert dep("Session.distinct") == (None, None)
+    assert dep("create_engine") == (
+        None,
+        {
+            "convert_unicode": "Deprecated since version 1.3: The create_engine.convert_unicode parameter is"
+            " deprecated and will be removed in a future release."
+        },
+    )
+    # What is deprecated is one of the parameter's values, or a way of passing it; numpy says so in the entry's
+    # own text above a bare version.
+    assert dep("binary_repr") == (None, None)
+    assert dep("to_excel") == (None, None)
+    assert dep("SGDClassifier.__init__") == (None, None)
+    assert dep("SGDClassifier.score") == (None, None)
+    assert dep("yield_fixture") == (
+        "Deprecated since version 3.0: Use pytest.fixture() directly instead.",
+        None,
+    )
+    # A note at the top about the arguments or a usage isn't about the whole object.
+    assert dep("and_") == (None, None)
+    # A docstring that opens with "Deprecated", or has a google-style `Deprecated:` section, deprecates the object
+    # whatever the rest says.
+    assert dep("Client.embeddings") == ("Deprecated in favor of `embed`.", None)
+    assert dep("Client.embed") == (None, None)
+    assert dep("ElasticKnnSearch") == (
+        "[DEPRECATED] `Elasticsearch` with k-nearest neighbor search (`k-NN`) vector store.",
+        None,
+    )
+    assert dep("LanguageAuto") == (
+        "Deprecated: Language auto-detection is now the default when language_codes is omitted.",
+        None,
+    )
+    assert dep("A2AConfig") == (
+        "Deprecated: Use A2AClientConfig instead. This class will be removed in a future version.",
+        None,
+    )
+    assert dep("helpers") == (None, None)
+    assert dep("names") == (None, None)
 
 
 def test_a_build_leaves_no_griffe_objects_alive(tmp_path):

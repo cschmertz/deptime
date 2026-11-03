@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections.abc import Callable
 from dataclasses import dataclass
 
 IDENT = r"`?'?\"?(?P<t>[A-Za-z_][\w.]*(?:\(\))?)`?'?\"?"
@@ -143,6 +144,31 @@ def worded_deprecated(message: str | None) -> list[str]:
             if _deprecated_at(message or "", m.start(), m.end())
         )
     )
+
+
+_BARE_DEPRECATED_RE = re.compile(
+    rf"^\s*{_PARAM_NOUN}\s+(?:is|are|was|has\s+been|will\s+be)\s+(?:now\s+)?deprecated", re.I
+)
+_SENTENCE_END_RE = re.compile(r"[.!?;:](?:\s|$)")
+
+
+def deprecates_name(message: str, name: str, before: Callable[[str], bool] | None = None) -> bool:
+    """Whether the wording deprecates `name`: quoted or emphasized as in `worded_deprecated` ("`x` is deprecated",
+    "instead of *x*"), or bare before a parameter noun ("Setting the Enum.inherit_schema parameter is
+    deprecated"). A bare name alone isn't enough: "instead of a list" doesn't deprecate a parameter `a`. With
+    `before`, a mention counts only if it accepts the start of the mention's sentence."""
+    for m in re.finditer(rf"(?P<q>[`'\"*]+)?\b{re.escape(name)}\b(?(q)[`'\"*]+)", message):
+        worded = (m.group("q") and _deprecated_at(message, m.start(), m.end())) or _BARE_DEPRECATED_RE.match(
+            message[m.end() :]
+        )
+        if worded and (before is None or before(message[_sentence_start(message, m.start()) : m.start()])):
+            return True
+    return False
+
+
+def _sentence_start(message: str, at: int) -> int:
+    ends = [m.end() for m in _SENTENCE_END_RE.finditer(message, 0, at)]
+    return ends[-1] if ends else 0
 
 
 def names_argument(message: str, name: str) -> bool:

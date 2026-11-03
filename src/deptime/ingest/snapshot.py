@@ -23,7 +23,12 @@ from typing import Any
 
 import griffe
 
-from deptime.ingest.replacements import DEPRECATION_WORDS_RE, names_argument, worded_deprecated
+from deptime.ingest.replacements import (
+    DEPRECATION_WORDS_RE,
+    deprecates_name,
+    names_argument,
+    worded_deprecated,
+)
 
 SNAPSHOT_FORMAT = 11  # bump when extraction changes: cached snapshots in another format are rebuilt
 MAX_DEPTH = 12  # guards pathological re-export cycles
@@ -132,7 +137,8 @@ def deprecations(obj: griffe.Object) -> tuple[str | None, dict[str, str] | None]
     deprecation helpers recognized by name deprecate it or some of its arguments (`_HELPERS`): as decorators, or
     for an attribute, as the call that binds it. For a function, every warning in its body is read
     (`_BodyWarnings`), and else its dispatcher's (`_dispatcher_deprecation`), unless warning is its job
-    (`_MACHINERY_RE`)."""
+    (`_MACHINERY_RE`). A class's or function's docstring notes and `'deprecated'` defaults fill in what the code
+    doesn't say (`_documented_deprecations`)."""
     flagged = getattr(obj, "deprecated", None)
     if flagged:
         return (flagged if isinstance(flagged, str) else "deprecated"), None
@@ -156,13 +162,18 @@ def deprecations(obj: griffe.Object) -> tuple[str | None, dict[str, str] | None]
                 params.setdefault(name, message)
     if isinstance(obj, griffe.Attribute):
         return _wrapper_deprecation(obj), None
-    if not isinstance(obj, griffe.Function):
-        return whole, params or None
-    if not _MACHINERY_RE.match(obj.name):
+    if isinstance(obj, griffe.Function) and not _MACHINERY_RE.match(obj.name):
         own, own_params = _function_warnings(obj, obj)
         whole = whole or own or _dispatcher_deprecation(obj)
         for name, message in (own_params or {}).items():
             params.setdefault(name, message)
+    # What the code says wins over what the docstring says, unless the snapshot can't read it (DT-DATA-38).
+    doc_whole, doc_params = _documented_deprecations(obj)
+    if doc_whole and whole in (None, UNRECOVERABLE):
+        whole = doc_whole
+    for name, message in doc_params.items():
+        if params.get(name, UNRECOVERABLE) == UNRECOVERABLE:
+            params[name] = message
     return whole, params or None
 
 
@@ -269,7 +280,7 @@ _NAME_RE = re.compile(r"[A-Za-z_][\w.]*(?:\(\))?")
 _VERSION_RE = re.compile(r"^v?\d[\w.\-]*$")  # "3.6", "0.19.0", a removal date "2024-04-01"
 # sqlalchemy's and matplotlib's reST roles, read as sqlalchemy's warnings print them: ":meth:`_orm.Session.get`"
 # is "Session.get()".
-_RST_ROLE_RE = re.compile(r":(\w+):`~?(?:_\w+)?\.?([^`]+?)`")
+_RST_ROLE_RE = re.compile(r":(?:\w+:)?(\w+):`~?(?:_\w+)?\.?([^`]+?)`")  # also `:py:func:`
 _HELPER_HEAD_RE = re.compile(r"(?:[\w.]*\.)?(\w+)\(")
 _WARNING_CLASS_RE = re.compile(r"^[\w.]*Warning$")  # `Pandas4Warning`, `exc.SADeprecationWarning`
 
@@ -552,6 +563,239 @@ def _dispatcher_deprecation(func: griffe.Function) -> str | None:
             ):
                 return whole
     return None
+
+
+# Sphinx's `.. deprecated:: <version> [text]` directive in a docstring (DT-DATA-38); scikit-learn once writes
+# `..deprecated::`.
+_DOC_NOTE_RE = re.compile(r"^(?P<indent>\s*)\.\.\s*deprecated::(?P<rest>.*)$")
+_DOC_UNDERLINE_RE = re.compile(r"^-{3,}\s*$")  # numpy style: `Parameters` over `----------`
+_DOC_GOOGLE_SECTION_RE = re.compile(
+    r"^(Args|Arguments|Parameters|Params|Keyword Args|Keyword Arguments|Other Parameters|Returns?|Yields?|Raises"
+    r"|Attributes|Examples?|Notes?|Warnings?|Warns|See Also|References|Todo|Methods|Deprecated):\s*$"
+)
+# A docstring that opens by saying the object is deprecated: ollama's "Deprecated in favor of `embed`.",
+# "[DEPRECATED] …", "**DEPRECATED** - …", weaviate's "@deprecated in 1.27.0, …".
+_DOC_OPENING_RE = re.compile(r"^\W*deprecated\b", re.I)
+_DOC_PARAM_SECTIONS = frozenset(
+    {"parameters", "params", "other parameters", "args", "arguments", "keyword args", "keyword arguments"}
+)
+# A parameter entry: numpy's `sparse : bool, default=True` or `x1, x2 : array_like`, google's `timeout (float): …`.
+_DOC_ENTRY_RE = re.compile(
+    r"^(?P<names>\*{0,2}[A-Za-z_]\w*(?:\s*,\s*\*{0,2}[A-Za-z_]\w*)*)\s*(?:\([^)]*\))?\s*(?::|$)"
+)
+# A Sphinx field (sqlalchemy): `:param convert_unicode=False:`, `:param \*expr:`, `:return:`.
+_DOC_FIELD_RE = re.compile(r"^:(?P<field>\w+)(?:\s+(?P<arg>[^:]+?))?:(?:\s|$)")
+_DOC_PARAM_FIELDS = frozenset({"param", "parameter", "arg", "argument", "key", "keyword", "kwarg", "kwparam"})
+_PENDING_RE = re.compile(r"\bpending[- ]?deprecat|\b(?:will|to)\s+be\s+deprecated\b", re.I)
+# A note about a value, a default or a way of calling, not about the parameter or the object itself: "The `"auto"`
+# option was deprecated", "The default will change from None to 'infer'", "Passing booleans as index is
+# deprecated", "The current behavior of dt.to_pydatetime is deprecated", "`sample_weight` needs to be passed as a
+# keyword argument and not as a positional argument", "If str, the name of the column …". Read with literals taken
+# out.
+_VALUE_NOTE_RE = re.compile(
+    r"\b(?:options?|values?|defaults?|behaviou?r|passing|must|positional(?:ly)?)\b|^\s*(?:If|When)\b", re.I
+)
+_LITERAL_SPAN_RE = re.compile(r"`[^`]*`")
+# A note at the top about arguments or a usage isn't about the whole object: sqlalchemy's "creating the and_()
+# construct with no arguments is deprecated", "This usage is deprecated", "The following features are deprecated".
+_PARTIAL_NOTE_RE = re.compile(r"\b(?:arguments?|parameters?|keywords?|usages?|features?|patterns?)\b", re.I)
+# "Passing `x` is deprecated" is about `x` itself: the words just before a name don't make it a value.
+_CALLING_BEFORE_RE = re.compile(r"\b(?:passing|using|setting|specifying)\s+(?:the\s+)?[`'\"*]*$", re.I)
+DEPRECATED_DEFAULT = "deprecated (marked by its default value)"
+_VARIADIC = (griffe.ParameterKind.var_positional, griffe.ParameterKind.var_keyword)
+
+
+@dataclass(frozen=True)
+class _DocNote:
+    text: str  # the note as written, reST read as plain text
+    message: str  # "Deprecated since version <v>: <text>", or the opening paragraph as written
+    context: str = ""  # a parameter entry's own text before the note
+    about_object: bool = False  # the docstring opens with "Deprecated" or has a `Deprecated:` section
+
+
+def _plain_doc(text: str) -> str:
+    return _plain_rst(" ".join(text.split())).replace("``", "`")
+
+
+def _doc_note(lines: list[str], context: list[str]) -> _DocNote:
+    """A `.. deprecated::` note from the rest of its first line and the lines of its body."""
+    first, _, inline = lines[0].strip().partition(" ")
+    version = first.rstrip(".,") if _VERSION_RE.match(first) else None
+    if version is None:
+        inline = lines[0]
+    text = _plain_doc(" ".join([inline, *lines[1:]]))
+    head = f"Deprecated since version {version}" if version else "Deprecated"
+    return _DocNote(text, (f"{head}: {text}" if text else f"{head}.")[:400], _plain_doc(" ".join(context)))
+
+
+def _field_entry(line: str) -> tuple[str, ...] | None:
+    """The parameter a Sphinx field documents (`:param convert_unicode=False:` -> convert_unicode), () for another
+    field, None if the line isn't one."""
+    m = _DOC_FIELD_RE.match(line)
+    if m is None:
+        return None
+    if m.group("field") not in _DOC_PARAM_FIELDS or not m.group("arg"):
+        return ()
+    name = m.group("arg").split()[-1].split("=")[0].lstrip("\\*")
+    return (name,) if name.isidentifier() else ()
+
+
+def _doc_notes(doc: str) -> tuple[_DocNote | None, list[tuple[tuple[str, ...], _DocNote]]]:
+    """The `.. deprecated::` notes of a numpy-, google- or Sphinx-style docstring: the first before any section or
+    field, unindented (not inside another directive such as `.. note::`), and each under a parameter entry, with
+    the names the entry documents. Notes anywhere else (Attributes, Returns, Notes, a parameter section outside an
+    entry) are left out. A first paragraph that opens with "Deprecated", or a google-style `Deprecated:` section,
+    is the top note, about the object itself."""
+    lines = doc.splitlines()
+    top: _DocNote | None = None
+    opening = doc.strip().split("\n\n", 1)[0]
+    if _DOC_OPENING_RE.match(opening) and not _DOC_NOTE_RE.match(opening.splitlines()[0]):
+        text = _plain_doc(opening)
+        top = _DocNote(text, text[:400], about_object=True)
+    under: list[tuple[tuple[str, ...], _DocNote]] = []
+    section: str | None = None
+    entry: tuple[str, ...] = ()
+    entry_indent: int | None = None
+    context: list[str] = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        stripped = line.strip()
+        indent = len(line) - len(line.lstrip())
+        if indent == 0 and stripped and i + 1 < len(lines) and _DOC_UNDERLINE_RE.match(lines[i + 1]):
+            section, entry, entry_indent = stripped.lower(), (), None
+            i += 2
+            continue
+        if indent == 0 and _DOC_GOOGLE_SECTION_RE.match(stripped):
+            section, entry, entry_indent = stripped[:-1].lower(), (), None
+            i += 1
+            if section == "deprecated":  # google style: the section's text is the object's deprecation
+                body = []
+                while i < len(lines) and (not lines[i].strip() or lines[i][0].isspace()):
+                    body.append(lines[i])
+                    i += 1
+                if text := _plain_doc(" ".join(body)):
+                    top = top or _DocNote(text, f"Deprecated: {text}"[:400], about_object=True)
+            continue
+        if indent == 0 and (field := _field_entry(stripped)) is not None:
+            section, entry, entry_indent, context = "fields", field, 0, [_DOC_FIELD_RE.sub("", stripped)]
+            i += 1
+            continue
+        if m := _DOC_NOTE_RE.match(line):
+            own = len(m.group("indent"))
+            body = [m.group("rest")]
+            i += 1
+            while i < len(lines) and (not lines[i].strip() or len(lines[i]) - len(lines[i].lstrip()) > own):
+                body.append(lines[i])
+                i += 1
+            note = _doc_note(body, context)
+            if section is None and own == 0:
+                top = top or note
+            elif section is not None and entry and entry_indent is not None and own > entry_indent:
+                under.append((entry, note))
+            continue
+        if section in _DOC_PARAM_SECTIONS and stripped:
+            entry_indent = indent if entry_indent is None else entry_indent
+            if indent == entry_indent:
+                e = _DOC_ENTRY_RE.match(stripped)
+                entry = tuple(n.strip().lstrip("*") for n in e.group("names").split(",")) if e else ()
+                context = []
+        if entry:
+            context.append(stripped)
+        i += 1
+    return top, under
+
+
+def _about_value(text: str) -> bool:
+    return bool(_VALUE_NOTE_RE.search(_LITERAL_SPAN_RE.sub("", text)))
+
+
+def _named(text: str, names: list[str]) -> list[str]:
+    """The names the wording deprecates, unless what comes first in the sentence is a value or a way of calling:
+    "Negative values for `power_t` are deprecated", "Passing integer or float values together with `format` is
+    deprecated"."""
+
+    def plain_prefix(prefix: str) -> bool:
+        return not _about_value(_CALLING_BEFORE_RE.sub("", prefix))
+
+    return [n for n in names if deprecates_name(text, n, before=plain_prefix)]
+
+
+def _valued(text: str, entry: list[str]) -> bool:
+    """A literal named with the parameter is one of its values: "the `xlwt` engine", "The loss 'deviance'", "The
+    loss arguments 'auto', …"."""
+    return any(
+        re.search(rf"[`'\"][^`'\"\s]+[`'\"]\s+{re.escape(n)}\b|\b{re.escape(n)}\s+(?:\w+\s+)?['\"]", text)
+        for n in entry
+    )
+
+
+def _noted_params(note: _DocNote, entry: list[str], names: list[str]) -> list[str]:
+    """The parameters a note under `entry` (the entry's names that are parameters) deprecates: those its wording
+    deprecates, else the entry's, unless it deprecates something else (a value: "The loss 'deviance' was
+    deprecated") or reads as being about a value, a default or a way of calling. A version alone is the entry's,
+    unless the entry's own text says what is deprecated about it: numpy's `binary_repr(width)`, "If the width value
+    is insufficient, it will be ignored … This behavior is deprecated"."""
+    text = note.text
+    if _PENDING_RE.search(text):
+        return []
+    if not text:
+        stated = [s for s in re.split(r"(?<=[.!?])\s+", note.context) if "deprecat" in s.lower()]
+        return [] if any(_about_value(s) for s in stated) else entry
+    named = _named(text, names)
+    if named:
+        return named
+    return [] if worded_deprecated(text) or _valued(text, entry) or _about_value(text) else entry
+
+
+def _documented_deprecations(obj: griffe.Object) -> tuple[str | None, dict[str, str]]:
+    """What a class's or function's docstring says is deprecated, and what a `'deprecated'` default marks
+    (DT-DATA-38). A docstring that opens with "Deprecated" (ollama's "Deprecated in favor of `embed`.") deprecates
+    the object; so does a note before any section, unless its wording names parameters (then those) or it reads as
+    being about arguments, a value or a usage. A note under a parameter entry deprecates that parameter
+    (`_noted_params`). scikit-learn documents a constructor's
+    parameters in the class docstring, so `__init__` reads those too, and it marks a parameter it deprecates with
+    the default `'deprecated'`, warning only later, in `fit`: `OneHotEncoder(sparse='deprecated')`. An entry names
+    a parameter of the signature, or any name when the function takes `**kwargs` (sqlalchemy's
+    `create_engine(convert_unicode)`); `*args` and `**kwargs` themselves are never deprecated parameters."""
+    if not isinstance(obj, (griffe.Function, griffe.Class)):
+        return None, {}
+    func = obj if isinstance(obj, griffe.Function) else None
+    signature = list(func.parameters) if func is not None else []
+    names = [p.name for p in signature if p.kind not in _VARIADIC]
+    variadic = {p.name for p in signature if p.kind in _VARIADIC}
+    open_kwargs = any(p.kind is griffe.ParameterKind.var_keyword for p in signature)
+    docs = [obj.docstring]
+    parent = obj.parent
+    if func is not None and func.name == "__init__" and isinstance(parent, griffe.Class):
+        docs.append(parent.docstring)
+    whole: str | None = None
+    params: dict[str, str] = {}
+    noted: dict[str, str] = {}  # the first note under each parameter, whatever it says
+    for k, docstring in enumerate(docs):
+        doc = docstring.value if docstring is not None else ""
+        if "deprecat" not in doc.lower():
+            continue
+        top, under = _doc_notes(doc)
+        if top is not None and k == 0 and top.about_object:
+            whole = top.message
+        elif top is not None and k == 0 and not _PENDING_RE.search(top.text):
+            named = _named(top.text, names)
+            for n in named:
+                params.setdefault(n, top.message)
+            partial = _PARTIAL_NOTE_RE.search(_LITERAL_SPAN_RE.sub("", top.text))
+            if not named and not partial and not _about_value(top.text):
+                whole = top.message
+        for entry, note in under:
+            documented = [n for n in entry if n in names or (open_kwargs and n not in variadic)]
+            for n in documented:
+                noted.setdefault(n, note.message)
+            for n in _noted_params(note, documented, list(dict.fromkeys([*names, *documented]))):
+                params.setdefault(n, note.message)
+    for p in signature:
+        if p.kind not in _VARIADIC and str(p.default) in ("'deprecated'", '"deprecated"'):
+            params.setdefault(p.name, noted.get(p.name, DEPRECATED_DEFAULT))
+    return whole, params
 
 
 def _first_notice(source: str) -> str | None:

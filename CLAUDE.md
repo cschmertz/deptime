@@ -2,20 +2,14 @@
 
 DepTime is an open-source (MIT), **local-first** MCP server. It answers "what changed in this Python library, in which release, and what replaces it?" from a prebuilt index of static API snapshots.
 
-- **Default mode:** `deptime mcp` over stdio.
-- **The index:** built nightly in GitHub Actions and downloaded from GitHub Releases.
-- **Optional hosted mode:** `deptime serve`.
-
 Read `README.md` first. The plan is in `BACKLOG.md`; put its IDs (e.g. `DT-CORE-05`) in commit messages.
 
 ## Commands
 
 ```bash
-uv sync                                   # Python 3.12, managed by uv
 uv run ruff format src tests && uv run ruff check src tests && uv run pytest     # before every commit
 uv run pytest -m network                  # opt-in: real PyPI (Python sockets may be blocked in some sandboxes)
 uv run deptime mcp                        # local stdio server
-uv run deptime ingest <pkg> [--versions ...] | index pull|status|pack | explain | history | check | diff | coverage | serve
 ```
 
 The default home is `~/.cache/deptime` (override with `DEPTIME_HOME`). Set `DEPTIME_OFFLINE=1` to disable all network access.
@@ -49,7 +43,6 @@ The default home is `~/.cache/deptime` (override with `DEPTIME_HOME`). Set `DEPT
 - Tool behaviour: `query.py`. Tests use the synthetic 3-release httpx index in `tests/conftest.py`.
 - Download, refresh, packing: `index/distribution.py` (`tests/test_distribution.py`, all via `httpx.MockTransport`)
 - Covered packages: `src/deptime/coverage.toml` (ships in the wheel; set correct `import_names`)
-- Benchmark cases: `bench/cases/*.jsonl`
 
 ## Verified external APIs (2026-10-17)
 

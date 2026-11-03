@@ -14,7 +14,7 @@ from packaging.version import InvalidVersion, Version
 
 from deptime.config import PackageSpec
 from deptime.ingest.diff import ChangeEvent, diff_snapshots, initial_events
-from deptime.ingest.replacements import mine
+from deptime.ingest.replacements import PublicNames, mine
 from deptime.ingest.snapshot import ApiSnapshot, LazySnapshot, SymbolRecord
 
 SCHEMA_VERSION = "1"
@@ -150,9 +150,18 @@ class IndexStore:
             if key not in repl or repl[key][0] < conf:
                 repl[key] = (conf, source, evidence)
 
-        for _ordinal, _prev, ev in events:
+        # A mined target is checked against the package's own rows, as of the release that deprecates (DT-CORE-12).
+        names = PublicNames(
+            spec.import_names,
+            (
+                (path, last, None if state[0] == "getattr" else state[1])
+                for path, _first, last, state in span_rows
+            ),
+        )
+        for ordinal, _prev, ev in events:
             if ev.kind == "deprecated":
                 for hint in mine(ev.detail.get("message")):
+                    hint = names.check(hint, ev.path, ordinal)
                     add_repl(ev.path, hint.target, hint.confidence, "deprecation_message", hint.evidence)
             elif ev.kind == "param_deprecated":
                 for alt in ev.detail.get("alternatives", []):

@@ -1,4 +1,5 @@
 from deptime.ingest.replacements import (
+    PublicNames,
     clean_evidence,
     mine,
     moved_to_package,
@@ -165,3 +166,158 @@ def test_words_that_are_not_names_are_never_hints():
     assert [h.target for h in mine(msg)] == ["django.core.files.storage.storages"]
     assert mine("Please use one of the more specific methods: `send_client_content` instead.") == []
     assert mine("Please use `from langchain_community.chat_models import ChatAnthropic` instead") == []
+
+
+def test_a_distribution_name_is_not_a_target():
+    # DT-CORE-12: langchain-community's NeMoEmbeddings says "Please use langchain-nvidia-ai-endpoints …".
+    assert mine("Please use langchain-nvidia-ai-endpoints NVIDIAEmbeddings interface.") == []
+    assert mine("Use built-in generics such as list instead.") == []
+
+
+def test_a_parameter_scores_high_only_after_a_cue():
+    # DT-CORE-12: polars' `top_k(nulls_last)` names `k` in passing, not as what to pass instead.
+    msg = (
+        "The `nulls_last` parameter for `top_k` is deprecated. It will be removed in the next breaking release. "
+        "Null values will be considered lowest priority and will only be included if `k` is larger than the "
+        "number of non-null elements."
+    )
+    assert [
+        (h.target, h.confidence) for h in param_alternatives(msg, ["nulls_last"], ["k", "nulls_last"])
+    ] == [
+        ("top_k", 0.6),
+        ("k", 0.59),
+    ]
+    # A cue earlier in the same sentence covers each name after it.
+    msg = "The 'proxies' argument is now deprecated. Use 'proxy' or 'mounts' instead."
+    assert [
+        (h.target, h.confidence) for h in param_alternatives(msg, ["proxies"], ["proxy", "proxies", "mounts"])
+    ] == [("proxy", 0.8), ("mounts", 0.79)]
+    # So does "instead" later in it (redis, streamlit), and "renamed" without "to" (scikit-learn).
+    for msg, old, new in [
+        (
+            "`read_from_replicas` is deprecated. Please configure the 'load_balancing_strategy' instead",
+            "read_from_replicas",
+            "load_balancing_strategy",
+        ),
+        (
+            "The `use_column_width` parameter has been deprecated and will be removed in a future release. Please"
+            " utilize the `use_container_width` parameter instead.",
+            "use_column_width",
+            "use_container_width",
+        ),
+        (
+            "`dissimilarity` was renamed `metric` in 1.8 and will be removed in 1.10.",
+            "dissimilarity",
+            "metric",
+        ),
+    ]:
+        assert [(h.target, h.confidence) for h in param_alternatives(msg, [old], [old, new])] == [(new, 0.8)]
+    # Not past the end of its sentence: pandas' "replace without 'value' … Explicitly specify the new values instead."
+    msg = "replace without 'value' and with non-dict-like 'to_replace' is deprecated. Explicitly specify the new values instead."
+    assert param_alternatives(msg, ["to_replace"], ["to_replace", "value"])[0].confidence == 0.6
+
+
+# One package's paths as (path, last indexed ordinal, canonical); the deprecation is observed at ordinal 4.
+SPANS = [
+    ("numpy", 9, "numpy"),
+    ("numpy.product", 6, "numpy.core.fromnumeric.product"),
+    ("numpy.prod", 9, "numpy.core.fromnumeric.prod"),
+    ("numpy.core.fromnumeric.product", 6, "numpy.core.fromnumeric.product"),
+    ("numpy.core.fromnumeric.prod", 9, "numpy.core.fromnumeric.prod"),
+    ("numpy.result_type", 9, "numpy.core.multiarray.result_type"),
+    ("numpy.round", 9, "numpy.core.fromnumeric.round"),
+    ("numpy.linalg", 9, "numpy.linalg"),
+    ("numpy.linalg.linalg.transpose", 6, "numpy.linalg.linalg.transpose"),
+    ("numpy.linalg.linalg.det", 6, "numpy.linalg._linalg.det"),
+    ("numpy.linalg.det", 9, "numpy.linalg._linalg.det"),
+    ("numpy.ma.batch_like", 2, "numpy.ma.batch_like"),
+    ("numpy.transpose", 9, "numpy.core.fromnumeric.transpose"),
+    ("numpy.old_name", 3, "numpy.old_name"),
+    ("numpy.ma.MaskedArray.ravel", 9, "numpy.ma.core.MaskedArray.ravel"),
+    ("numpy.ma.core.MaskedArray.ravel", 9, "numpy.ma.core.MaskedArray.ravel"),
+    ("numpy.ndarray.ravel", 9, "numpy.ndarray.ravel"),
+    ("numpy.lib.Arrayterator", 9, "numpy.lib.arrayterator.Arrayterator"),
+    ("numpy.lib.arrayterator.Arrayterator", 9, "numpy.lib.arrayterator.Arrayterator"),
+    ("numpy.char.chararray.find", 9, "numpy.char.chararray.find"),
+    ("numpy.char.chararray.old", 6, "numpy.char.chararray.old"),
+]
+
+
+def test_a_hint_target_is_qualified_from_the_index():
+    # DT-CORE-12: the name a deprecation suggests, as a public path the index has at that release or later.
+    names = PublicNames(["numpy"], SPANS)
+
+    def resolve(target, path="numpy.product"):
+        return names.resolve(target, path, 4)
+
+    assert resolve("prod") == ("numpy.prod", True)  # next to the deprecated name, not the builtin
+    assert resolve("prod", "numpy.core.fromnumeric.product") == ("numpy.core.fromnumeric.prod", True)
+    assert resolve("round") == ("numpy.round", True)
+    assert resolve("np.result_type", "numpy.find_common_type") == ("numpy.result_type", True)
+    assert resolve("find", "numpy.char.chararray.old") == ("numpy.char.chararray.find", True)  # same class
+    # The same object at its public path: numpy 2's shims deprecate where a function is imported from.
+    assert resolve("numpy.linalg.det", "numpy.linalg.linalg.det") == ("numpy.linalg.det", True)
+    assert resolve("chararray.find", "numpy.char.old") == ("numpy.char.chararray.find", True)  # an ancestor's
+    # Not next to it: the one object of that name anywhere in the package, by its shortest path.
+    assert resolve("Arrayterator") == ("numpy.lib.Arrayterator", True)
+    # Several objects of that name: it exists, but which one isn't said.
+    assert resolve("ravel") == ("ravel", True)
+
+
+def test_a_hint_target_the_index_contradicts():
+    names = PublicNames(["numpy"], SPANS)
+
+    def resolve(target, path="numpy.product"):
+        return names.resolve(target, path, 4)
+
+    # numpy 2's `numpy.linalg.linalg` shim suggests `numpy.linalg.<name>` for every name, public or not.
+    assert resolve("numpy.linalg.transpose", "numpy.linalg.linalg.transpose") == (
+        "numpy.linalg.transpose",
+        False,
+    )
+    assert resolve("numpy.old_name") == ("numpy.old_name", False)  # gone before the deprecation
+    assert resolve("newer") == ("newer", False)  # a word, not a name the package has
+    assert resolve("product") == ("product", False)  # only the deprecated name itself
+    # A name the package had before the deprecation but not since isn't contradicted: langchain's `batch`, which
+    # Chain still inherits from langchain-core, where the index doesn't follow it.
+    assert resolve("batch_like") == ("batch_like", None)
+
+
+def test_a_hint_target_outside_the_package_is_not_checked():
+    names = PublicNames(["numpy"], SPANS)
+    for target in (
+        "float",
+        "string",
+        "urllib.parse.quote",
+        "langchain_ollama.ChatOllama",
+        "name.map",
+        "pd.concat",
+    ):
+        assert names.resolve(target, "numpy.product", 4)[1] is None, target
+    assert names.resolve("pd.concat", "numpy.product", 4) == ("pandas.concat", None)
+
+
+def test_a_dotted_target_is_found_under_an_ancestor_or_as_a_sibling():
+    sqla = PublicNames(
+        ["sqlalchemy"],
+        [
+            ("sqlalchemy.orm.query.Query.get", 9, "sqlalchemy.orm.query.Query.get"),
+            ("sqlalchemy.orm.Session.get", 9, "sqlalchemy.orm.session.Session.get"),
+        ],
+    )
+    # sqlalchemy 2.0: "The method is now available as Session.get()".
+    assert sqla.resolve("Session.get", "sqlalchemy.orm.query.Query.get", 4) == (
+        "sqlalchemy.orm.Session.get",
+        True,
+    )
+    # langchain-community names a top-level re-export that doesn't exist; the class is next to the old one.
+    lc = PublicNames(
+        ["langchain_community"],
+        [
+            ("langchain_community.embeddings.ClovaEmbeddings", 9, "x.ClovaEmbeddings"),
+            ("langchain_community.embeddings.ClovaXEmbeddings", 9, "x.ClovaXEmbeddings"),
+        ],
+    )
+    assert lc.resolve(
+        "langchain_community.ClovaXEmbeddings", "langchain_community.embeddings.ClovaEmbeddings", 4
+    ) == ("langchain_community.embeddings.ClovaXEmbeddings", True)

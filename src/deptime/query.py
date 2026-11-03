@@ -16,7 +16,7 @@ from packaging.utils import canonicalize_name
 from deptime.config import Coverage, PackageSpec
 from deptime.index.store import IndexStore
 from deptime.ingest.diff import is_required
-from deptime.ingest.replacements import clean_evidence, mine, moved_to_package
+from deptime.ingest.replacements import clean_evidence, expand_alias, mine, moved_to_package
 from deptime.models import (
     CheckSymbolsResult,
     Confidence,
@@ -40,8 +40,6 @@ MAX_FINDINGS_PER_PACKAGE = 5
 # Replacement hints below this stay in the structured `replacements` list (with their confidence) but are never
 # stated as advice in prose: agents read `explanation` as fact. Matches spike S2's precision threshold.
 EXPLAIN_MIN_CONFIDENCE = 0.75
-# How libraries' own error text spells their import name: numpy 2's "Use `np.nan` instead".
-ERROR_TEXT_ALIASES = {"np": "numpy", "pd": "pandas"}
 PACKAGE_MOVE_CONFIDENCE = 0.85  # "moved to the `X` package", once X is found to have the name
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 FREEZE_RE = re.compile(r"^\s*([A-Za-z0-9][\w.-]*)\s*(?:\[[^\]]*\])?\s*==\s*([^\s;#]+)")
@@ -115,12 +113,10 @@ def _before_index(rels: list[sqlite3.Row]) -> str:
 def _error_hint_paths(spec: PackageSpec, path: str, target: str) -> list[str]:
     """Where a target named in error text may live, most literal first: `np.nan` -> `numpy.nan`; as written; next to
     the missing name; at the package's top level."""
-    head, _, rest = target.partition(".")
     candidates = []
-    if rest and ERROR_TEXT_ALIASES.get(head) in spec.import_names:
-        candidates.append(f"{ERROR_TEXT_ALIASES[head]}.{rest}")
-    if any(target == n or target.startswith(n + ".") for n in spec.import_names):
-        candidates.append(target)
+    for named in dict.fromkeys([expand_alias(target), target]):
+        if any(named == n or named.startswith(n + ".") for n in spec.import_names):
+            candidates.append(named)
     if owner := path.rpartition(".")[0]:
         candidates.append(f"{owner}.{target}")
     candidates += [f"{n}.{target}" for n in spec.import_names]

@@ -640,3 +640,47 @@ def test_an_index_from_before_argument_deprecations_still_opens(tmp_path):
     again = IndexStore.open(path, readonly=False)
     again.rebuild_package(spec, snaps)
     assert again.snapshot_at(spec, "5.1").symbols == snaps[1].symbols
+
+
+def test_an_indexed_hint_names_a_path_the_index_has():
+    # DT-CORE-12: "Please use `prod` instead" means numpy.prod, not the builtin; a target the index contradicts
+    # stays listed with its evidence but isn't stated as advice.
+    mod = {"numpy": _rec("numpy", "module")}
+    product = SymbolRecord(
+        "numpy.product",
+        "function",
+        "numpy.core.fromnumeric.product",
+        [],
+        "`product` is deprecated as of NumPy 1.25.0, and will be removed in NumPy 2.0. Please use `prod` instead.",
+    )
+    typo = SymbolRecord(
+        "numpy.alltrue",
+        "function",
+        "numpy.alltrue",
+        [],
+        "`alltrue` is deprecated. Use `all_true_now` instead.",
+    )
+    prod = _rec("numpy.prod", "function", [])
+    dt = _dt(
+        [
+            (
+                NUMPY,
+                [
+                    ApiSnapshot(
+                        "numpy",
+                        "1.25.2",
+                        ["numpy"],
+                        mod | {"numpy.prod": prod, "numpy.product": product, "numpy.alltrue": typo},
+                    ),
+                    ApiSnapshot("numpy", "2.0.0", ["numpy"], mod | {"numpy.prod": prod}),
+                ],
+            )
+        ]
+    )
+    tb = "ImportError: cannot import name 'product' from 'numpy' (/x.py)"
+    f = dt.explain_error(tb, {"numpy": "2.0.0"}).findings[0]
+    assert [(r.target, r.confidence) for r in f.replacements] == [("numpy.prod", 0.85)]
+    assert "Use numpy.prod instead." in f.explanation
+    assert [(r.target, r.confidence) for r in dt.symbol_history("numpy", "numpy.alltrue").replacements] == [
+        ("all_true_now", 0.5)
+    ]

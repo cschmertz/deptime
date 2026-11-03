@@ -1,5 +1,5 @@
 {
-  "index_built_at": "2026-11-02T16:41:42+00:00",
+  "index_built_at": "2026-11-03T05:04:06+00:00",
   "summary": {
     "cases": 167,
     "known_gap_share": 4.2,
@@ -7,7 +7,7 @@
       "root_cause": 95.8,
       "root_cause_and_boundary": 95.8,
       "boundary": 95.7,
-      "replacement": 36.8
+      "replacement": 51.7
     },
     "by_tier": {
       "A": {
@@ -22,7 +22,7 @@
         "root_cause": 93.0,
         "root_cause_and_boundary": 93.0,
         "boundary": 93.0,
-        "replacement": 33.3
+        "replacement": 58.8
       }
     },
     "by_origin": {
@@ -38,7 +38,7 @@
         "root_cause": 96.2,
         "root_cause_and_boundary": 96.2,
         "boundary": 96.2,
-        "replacement": 32.9
+        "replacement": 48.8
       }
     }
   },
@@ -396,12 +396,12 @@
     "marshmallow-field-default-kwarg-packit": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true
     },
     "marshmallow-field-missing-kwarg-misp": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true
     },
     "marshmallow-schema-context-attr-taxcalc": {
       "root_cause": false,
@@ -491,7 +491,7 @@
     "numpy-product-chaospy": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true
     },
     "ollama-create-modelfile-kwarg-removed": {
       "root_cause": true,
@@ -561,17 +561,17 @@
     "polars-expr-apply-removed": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true
     },
     "polars-expr-map-removed": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true
     },
     "polars-list-lengths-removed": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true
     },
     "polars-dataframe-sort-descending-not-yet-added": {
       "root_cause": false,
@@ -676,7 +676,7 @@
     "redis-errors-kwarg-splitio": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true
     },
     "redis-int-or-none-import-tair": {
       "root_cause": true,
@@ -696,17 +696,17 @@
     "scikit-learn-onehotencoder-sparse-lazypredict": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true
     },
     "scikit-learn-mean-squared-error-squared-relbench": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true
     },
     "scikit-learn-agglomerative-affinity-mdsine2": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true
     },
     "scikit-learn-check-array-ensure-all-finite-not-yet-added-treeple": {
       "root_cause": true,
@@ -821,7 +821,7 @@
     "streamlit-experimental-rerun-spacy-streamlit": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true
     },
     "streamlit-source-util-get-pages-streamlit-extras": {
       "root_cause": true,
@@ -841,12 +841,12 @@
     "urllib3-retry-method-whitelist-pytrends": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true
     },
     "urllib3-retry-method-whitelist-notion-py": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true
     },
     "urllib3-util-ssl-default-ciphers-openzim": {
       "root_cause": true,

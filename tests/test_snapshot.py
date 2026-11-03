@@ -81,6 +81,47 @@ IMPORTS = {
 }
 
 
+# DT-DATA-44: names a module's `__all__` leaves out. pandas' `api/types/__init__.py` star-imports the `is_*` functions
+# and lists six other names; django's `contrib/postgres/indexes.py` defines `OpClass` and leaves it out; openai 1.x
+# defines `api_key` in `__init__.py` and leaves it out.
+UNLISTED = {
+    "listed/__init__.py": "",
+    "listed/api/__init__.py": (
+        "from listed.core.dtypes import *\n"
+        "from listed.core.plain import *\n"
+        "from listed.core.dtypes import CategoricalDtype\n\n"
+        "__all__ = ['CategoricalDtype']\n"
+    ),
+    "listed/core/__init__.py": "",
+    "listed/core/dtypes.py": (
+        "__all__ = ['is_float_dtype', 'CategoricalDtype']\n\n\n"
+        "def is_float_dtype(arr):\n    pass\n\n\n"
+        "def is_hidden(arr):\n    pass\n\n\n"
+        "class CategoricalDtype:\n    pass\n"
+    ),
+    "listed/core/plain.py": (
+        "from typing import Any\nfrom listed.core.dtypes import is_hidden\n\n\ndef made_here():\n    pass\n"
+    ),
+    "listed/indexes.py": (
+        "from typing import TYPE_CHECKING\n"
+        "from listed.core.dtypes import is_float_dtype\n\n"
+        "__all__ = ['BTreeIndex']\n\n"
+        "api_key: str | None = None\n"
+        "timeout: float\n"
+        "if TYPE_CHECKING:\n\n    class Hint:\n        pass\n\n\n"
+        "try:\n"
+        "    from listed._version import version as __version__\n"
+        "except ImportError:\n"
+        "    v = '1.0'\n"
+        "    __version__ = v\n"
+        "    del v\n\n\n"
+        "class BTreeIndex:\n    pass\n\n\n"
+        "class OpClass:\n    def __init__(self, expression, name):\n        pass\n\n\n"
+        "def _private():\n    pass\n"
+    ),
+}
+
+
 # sqlalchemy's `schema.py` (1.4: plain imports only) and `types.py` (2.x: `as` re-exports) are plain modules.
 FACADES = {
     "alchemy/__init__.py": "",
@@ -1671,6 +1712,35 @@ def test_plain_modules_that_reexport(tmp_path):
         "alchemy.engine.Column",
         "alchemy.schema.Any",
         "alchemy.schema._key",
+    } & set(found)
+
+
+def test_names_all_leaves_out_are_public_when_defined_or_star_imported(tmp_path):
+    # `__all__` names what `from m import *` binds. A module's own definitions are public anyway, and so are the
+    # public names a star import brings from inside the package.
+    snap = build_snapshot("listed", "1.0", ["listed"], _write(tmp_path, UNLISTED))
+    found = {p: (r.kind, r.canonical) for p, r in snap.symbols.items()}
+    assert found["listed.api.is_float_dtype"] == ("function", "listed.core.dtypes.is_float_dtype")
+    assert found["listed.api.made_here"] == ("function", "listed.core.plain.made_here")
+    assert found["listed.api.CategoricalDtype"] == ("class", "listed.core.dtypes.CategoricalDtype")
+    assert found["listed.indexes.OpClass"] == ("class", "listed.indexes.OpClass")
+    assert [p["name"] for p in snap.symbols["listed.indexes.OpClass.__init__"].params] == [
+        "expression",
+        "name",
+    ]
+    assert found["listed.indexes.api_key"] == ("attribute", "listed.indexes.api_key")
+    assert found["listed.indexes.BTreeIndex"] == ("class", "listed.indexes.BTreeIndex")
+    # Out: what the star source's `__all__` leaves out, a star source's own imports, imports by name, names bound
+    # only for type checkers, annotations without a value, names the module deletes, and private names.
+    assert not {
+        "listed.api.is_hidden",
+        "listed.api.Any",
+        "listed.indexes.is_float_dtype",
+        "listed.indexes.TYPE_CHECKING",
+        "listed.indexes.Hint",
+        "listed.indexes.timeout",
+        "listed.indexes.v",
+        "listed.indexes._private",
     } & set(found)
 
 

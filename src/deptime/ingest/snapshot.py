@@ -30,7 +30,7 @@ from deptime.ingest.replacements import (
     worded_deprecated,
 )
 
-SNAPSHOT_FORMAT = 11  # bump when extraction changes: cached snapshots in another format are rebuilt
+SNAPSHOT_FORMAT = 12  # bump when extraction changes: cached snapshots in another format are rebuilt
 MAX_DEPTH = 12  # guards pathological re-export cycles
 
 DEPRECATED_DECORATOR_RE = re.compile(r"^(?:[\w.]+\.)?deprecated\b(?:\((?P<args>.*)\))?$", re.S)
@@ -2177,10 +2177,28 @@ class _Imports:
     imports_only: bool  # nothing but imports and a docstring, like sqlalchemy 1.4's `schema.py`
     stars: tuple[str, ...] = ()  # the modules `from x import *` statements name, absolute, in order
     raises: bool = False  # a top-level `raise`: importing the module always fails (mcp 2.x's `fastmcp.py`)
+    deleted: frozenset[str] = frozenset()  # names the module `del`s and doesn't bind again (pandas' `del v`)
 
 
 def _is_docstring(st: ast.stmt) -> bool:
     return isinstance(st, ast.Expr) and isinstance(st.value, ast.Constant) and isinstance(st.value.value, str)
+
+
+def _deleted_names(body: list[ast.stmt]) -> frozenset[str]:
+    """Names a module's top level, or a block under it (`if`, `try`, `with`), deletes and doesn't bind again."""
+    deleted: set[str] = set()
+    for st in body:
+        if isinstance(st, ast.Delete):
+            deleted.update(t.id for t in st.targets if isinstance(t, ast.Name))
+            continue
+        if isinstance(st, (ast.If, ast.Try, ast.With)):
+            nested = [*st.body, *getattr(st, "orelse", []), *getattr(st, "finalbody", [])]
+            nested += [s for h in getattr(st, "handlers", []) for s in h.body]
+            deleted |= _deleted_names(nested)
+            continue
+        bound, _ = _module_names([st])
+        deleted -= bound or set()
+    return frozenset(deleted)
 
 
 def module_imports(mod: griffe.Module) -> _Imports:
@@ -2200,7 +2218,9 @@ def module_imports(mod: griffe.Module) -> _Imports:
         isinstance(st, (ast.Import, ast.ImportFrom)) or _is_docstring(st) for st in body
     )
     raises = any(isinstance(st, ast.Raise) for st in body)
-    return _Imports(frozenset(redundant), frozenset(plain), imports_only, tuple(stars), raises)
+    return _Imports(
+        frozenset(redundant), frozenset(plain), imports_only, tuple(stars), raises, _deleted_names(body)
+    )
 
 
 # `__all__` built by code rather than written out: a method call, `+=`, or a value that isn't a literal.
@@ -2471,6 +2491,7 @@ class _Walker:
         self.runtime_all = _RuntimeAll()
         self.exported: dict[str, frozenset[str]] = {}
         self.finished: set[str] = set()
+        self.unlisting: set[tuple[str, str]] = set()
 
     def _shapes(self, mod: griffe.Module) -> _Imports:
         if mod.path not in self.imports:
@@ -2642,6 +2663,8 @@ class _Walker:
                 return True
         except (griffe.AliasResolutionError, griffe.CyclicAliasError):
             return False
+        if mod.exports and not name.startswith("_") and member.runtime:
+            return self._unlisted(mod, name, member)
         source = member.target_path if member.is_alias else mod.imports.get(name)  # type: ignore[union-attr]
         if source is None or mod.exports or name.startswith("_"):
             return False
@@ -2651,6 +2674,40 @@ class _Walker:
         if reexporter is None:
             return False
         return self._internal(source) or (mod.path in self.roots and name in shapes.plain)
+
+    def _unlisted(self, mod: griffe.Module, name: str, member: griffe.Object | griffe.Alias) -> bool:
+        """Whether a name `mod`'s `__all__` leaves out is public anyway (DT-DATA-44).
+
+        `__all__` says what `from mod import *` binds, and libraries document names it leaves out: django's
+        `django.contrib.postgres.indexes.OpClass`, `django.db.close_old_connections`, openai 1.x's `openai.api_key`
+        (which read removed in 1.0.0). So a module's own definitions count, as they do without `__all__`, unless the
+        module deletes them or only annotates them. So do the public names a star import brings from inside the
+        package: pandas' `pandas/api/types/__init__.py` star-imports its 39 `is_*` functions and lists six other
+        names. Imports by name stay implementation, as `__all__` says.
+        """
+        if not member.is_alias:
+            if member.is_attribute and member.value is None:  # type: ignore[union-attr]  # `timeout: float`
+                return False
+            return name not in self._shapes(mod).deleted
+        if not member.wildcard_imported:  # type: ignore[union-attr]
+            return False
+        key = (mod.path, name)
+        if key in self.unlisting:  # star imports that import each other
+            return False
+        self.unlisting.add(key)
+        try:
+            for source in reversed(self.runtime_all.of(mod).stars):  # the last star import that binds it wins
+                target = _module_at(mod, source)
+                if target is None or target.path == mod.path or not self._star_exports(target, name):
+                    continue
+                found = target.members.get(name)
+                if found is None or not self._internal(target.path):
+                    return False
+                reexporter = target.path if target.is_init_module else None
+                return name in self._exported(target) or self._public(target, name, found, reexporter)
+            return False
+        finally:
+            self.unlisting.discard(key)
 
     @staticmethod
     def _walks(module_path: str, public_path: str, reexporter: str | None) -> bool:

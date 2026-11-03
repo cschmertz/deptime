@@ -119,3 +119,68 @@ def test_argument_deprecations_are_events_of_their_own():
         _warned("5.1", {"check": msg}), _warned("5.2", {"check": msg}, "C() is deprecated.")
     )
     assert [(e.kind, e.detail.get("param")) for e in later] == [("deprecated", None)]  # only what is new
+
+
+def _sig(version: str, *params: tuple[str, str]) -> ApiSnapshot:
+    rec = SymbolRecord(
+        "p.f",
+        "function",
+        "p.f",
+        [{"name": n, "kind": k, "default": "None", "annotation": None} for n, k in params],
+    )
+    return ApiSnapshot("p", version, ["p"], {rec.path: rec})
+
+
+def _renames(old: ApiSnapshot, new: ApiSnapshot) -> dict[str, str | None]:
+    return {
+        e.detail["param"]: e.detail.get("renamed_to")
+        for e in diff_snapshots(old, new)
+        if e.kind == "param_removed"
+    }
+
+
+def test_a_parameter_renamed_in_case_or_underscores_is_a_rename():
+    # DT-CORE-24: mcp 2.0 renamed `ServerSession.elicit(requestedSchema)` to `requested_schema` without a
+    # deprecation, and gradio 4.0 renamed `_js` to `js`: the removal and the addition are one rename.
+    kw, pos, only = "keyword-only", "positional or keyword", "positional-only"
+    old = _sig(
+        "1",
+        ("requestedSchema", pos),
+        ("_js", kw),
+        ("id", kw),
+        ("obj", kw),  # made private: `_obj` is no advice
+        ("name", pos),  # `__name` is positional-only by convention (PEP 484)
+        ("__value", pos),  # nobody passed it by name
+        ("first", pos),  # now positional-only: pass it by position, not as `First`
+        ("a", only),
+        ("kwargs", "variadic keyword"),
+        ("fooBar", kw),  # two candidates: no evidence
+    )
+    new = _sig(
+        "2",
+        ("requested_schema", pos),
+        ("js", kw),
+        ("id_", kw),
+        ("_obj", kw),
+        ("__name", pos),
+        ("value", pos),
+        ("First", only),
+        ("A", pos),
+        ("_kwargs", "variadic keyword"),
+        ("foo_bar", kw),
+        ("foobar", kw),
+    )
+    assert _renames(old, new) == {
+        "requestedSchema": "requested_schema",
+        "_js": "js",
+        "id": "id_",
+        "obj": None,
+        "name": None,
+        "__value": None,
+        "first": None,
+        "a": None,
+        "kwargs": None,
+        "fooBar": None,
+    }
+    removed = next(e for e in diff_snapshots(old, new) if e.detail.get("param") == "obj")
+    assert "renamed_to" not in removed.detail  # other events keep their detail as it was

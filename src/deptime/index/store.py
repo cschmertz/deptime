@@ -18,6 +18,10 @@ from deptime.ingest.replacements import PublicNames, mine
 from deptime.ingest.snapshot import ApiSnapshot, LazySnapshot, SymbolRecord
 
 SCHEMA_VERSION = "1"
+MOVED_CONFIDENCE = 0.6
+# A parameter renamed in case or underscores on the same function (DT-CORE-24): the same name, so stronger
+# evidence than a module-level name that reappears elsewhere.
+RENAMED_PARAM_CONFIDENCE = 0.8
 
 
 def _schema_sql() -> str:
@@ -178,9 +182,18 @@ class IndexStore:
                 add_repl(
                     ev.path,
                     to,
-                    0.6,
+                    MOVED_CONFIDENCE,
                     "moved_heuristic",
                     f"{ev.path} disappeared and {to} appeared in the same release",
+                )
+            elif ev.kind == "param_removed" and ev.detail.get("renamed_to"):
+                param, to = ev.detail["param"], ev.detail["renamed_to"]
+                add_repl(
+                    f"{ev.path}({param})",
+                    to,
+                    RENAMED_PARAM_CONFIDENCE,
+                    "moved_heuristic",
+                    f"{ev.path} lost the parameter {param} and gained {to} in the same release",
                 )
 
         with self.conn:

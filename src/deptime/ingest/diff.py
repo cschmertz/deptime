@@ -15,6 +15,7 @@ from deptime.ingest.snapshot import ApiSnapshot, SymbolRecord
 
 MAX_MOVED_CANDIDATES = 3
 REQUIRED_KINDS = {"positional-only", "positional or keyword", "keyword-only"}
+NAMED_KINDS = {"positional or keyword", "keyword-only"}  # what a caller can pass by name
 
 
 @dataclass
@@ -35,6 +36,38 @@ def is_required(param: dict[str, Any]) -> bool:
 
 def accepts_var_keyword(rec: SymbolRecord) -> bool:
     return any(p.get("kind") == "variadic keyword" for p in rec.params or [])
+
+
+def _by_name(param: dict[str, Any]) -> bool:
+    """A parameter callers pass by name: not variadic, not positional-only, and not named `__x`, PEP 484's
+    convention for positional-only (pydantic's `__value`, starlette's `url_path_for(__name)`)."""
+    name = param["name"]
+    return param.get("kind") in NAMED_KINDS and not (name.startswith("__") and not name.endswith("__"))
+
+
+def _plain(name: str) -> str:
+    return name.lower().replace("_", "")
+
+
+def renamed_params(old: dict[str, dict[str, Any]], new: dict[str, dict[str, Any]]) -> dict[str, str]:
+    """Removed parameters that come back in the same release in another case or with other underscores, old -> new:
+    mcp 2.0's `requestedSchema` -> `requested_schema`, gradio 4.0's `_js` -> `js`, `id` -> `id_` (DT-CORE-24).
+
+    Both must be passed by name, the new one must not be private (`obj` -> `_obj` makes it internal, not
+    renamed), and the match must be one to one."""
+    gone: dict[str, list[str]] = defaultdict(list)
+    came: dict[str, list[str]] = defaultdict(list)
+    for name in old.keys() - new.keys():
+        if _by_name(old[name]):
+            gone[_plain(name)].append(name)
+    for name in new.keys() - old.keys():
+        if _by_name(new[name]) and not name.startswith("_"):
+            came[_plain(name)].append(name)
+    return {
+        names[0]: came[key][0]
+        for key, names in gone.items()
+        if len(names) == 1 and len(came.get(key, ())) == 1
+    }
 
 
 def _param_event(path: str, param: str, message: str | None, hints: list[Hint]) -> ChangeEvent:
@@ -121,14 +154,12 @@ def diff_snapshots(old: ApiSnapshot, new: ApiSnapshot) -> list[ChangeEvent]:
             events.append(ChangeEvent(path, "kind_changed", {"from": a.kind, "to": b.kind}))
         if a.params is not None and b.params is not None:
             pa, pb = _params(a), _params(b)
+            renamed = renamed_params(pa, pb)
             for name in sorted(pa.keys() - pb.keys()):
-                events.append(
-                    ChangeEvent(
-                        path,
-                        "param_removed",
-                        {"param": name, "absorbed_by_var_keyword": accepts_var_keyword(b)},
-                    )
-                )
+                detail: dict[str, Any] = {"param": name, "absorbed_by_var_keyword": accepts_var_keyword(b)}
+                if name in renamed:
+                    detail["renamed_to"] = renamed[name]
+                events.append(ChangeEvent(path, "param_removed", detail))
             for name in sorted(pb.keys() - pa.keys()):
                 events.append(
                     ChangeEvent(path, "param_added", {"param": name, "required": is_required(pb[name])})

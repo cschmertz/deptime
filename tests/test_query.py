@@ -293,6 +293,29 @@ def test_low_confidence_replacements_are_not_stated_as_advice():
     assert check.status == "missing" and "p5.f" not in check.hint
 
 
+def test_a_parameter_renamed_in_case_is_the_replacement():
+    # DT-CORE-24: mcp 2.0 renamed `ServerSession.elicit(requestedSchema)` to `requested_schema` with no
+    # deprecation text; the same-release removal and addition say what to pass instead.
+    spec = PackageSpec(name="p6", import_names=("p6",), tier="B")
+    mod = SymbolRecord("p6", "module", "p6")
+
+    def release(version: str, param: str) -> ApiSnapshot:
+        f = SymbolRecord("p6.elicit", "function", "p6.elicit", [_param(param, "positional or keyword")])
+        return ApiSnapshot("p6", version, ["p6"], {"p6": mod, "p6.elicit": f})
+
+    store = IndexStore.memory()
+    store.rebuild_package(spec, [release("1.0", "requestedSchema"), release("2.0", "requested_schema")])
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+    tb = "TypeError: elicit() got an unexpected keyword argument 'requestedSchema'"
+    par = dt.explain_error(tb, {"p6": "2.0"}).findings[0]
+    assert par.issue == "param_removed" and par.symbol == "p6.elicit(requestedSchema)"
+    assert [(r.target, r.confidence, r.source) for r in par.replacements] == [
+        ("requested_schema", 0.8, "moved_heuristic")
+    ]
+    assert "Use `requested_schema` instead, or pin p6<=1.0." in par.explanation
+    assert "requestedSchema" in par.replacements[0].evidence
+
+
 def _param(name: str, kind: str = "keyword-only", default: str | None = "None") -> dict:
     return {"name": name, "kind": kind, "default": default, "annotation": None}
 

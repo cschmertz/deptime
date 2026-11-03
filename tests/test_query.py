@@ -575,6 +575,51 @@ def test_argument_deprecations_round_trip_and_reach_answers(tmp_path):
     assert other.deprecated is None
 
 
+def test_an_argument_a_decorator_renamed_is_accepted_until_the_decorator_goes(tmp_path):
+    # DT-DATA-37: polars 0.19.11 renamed `Series.shift(periods)` to `n` with
+    # `@deprecate_renamed_parameter("periods", "n")`, which accepts `periods` until 1.0 drops the decorator. The
+    # signature lost `periods` at the rename, so it read "removed in 0.19.11".
+    spec = PackageSpec(name="pl", import_names=("pl",), tier="B")
+    msg = "`periods` is deprecated. Use `n` instead."
+
+    def snap(version: str, params: list[str], renamed: bool) -> ApiSnapshot:
+        shift = SymbolRecord(
+            "pl.Series.shift",
+            "function",
+            "pl.series.Series.shift",
+            [_param(p) for p in params],
+            None,
+            {"periods": msg} if renamed else None,
+        )
+        cls = SymbolRecord("pl.Series", "class", "pl.series.Series")
+        return ApiSnapshot(
+            "pl",
+            version,
+            ["pl"],
+            {"pl": SymbolRecord("pl", "module", "pl"), cls.path: cls, shift.path: shift},
+        )
+
+    store = IndexStore.memory()
+    releases = [("0.19.10", ["periods"], False), ("0.19.11", ["n"], True), ("0.20.31", ["n"], True)]
+    store.rebuild_package(spec, [snap(*r) for r in [*releases, ("1.0.0", ["n"], False)]])
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+    tb = "TypeError: Series.shift() got an unexpected keyword argument 'periods'"
+    f = dt.explain_error(tb, {"pl": "1.0.0"}).findings[0]
+    assert (f.issue, f.last_version_with, f.first_version_without, f.deprecated_in) == (
+        "param_removed",
+        "0.20.31",
+        "1.0.0",
+        "0.19.11",
+    )
+    assert [r.target for r in f.replacements] == ["n"]
+    # Still accepted while the decorator is there: no finding, and check_symbols doesn't reject it.
+    assert dt.explain_error(tb, {"pl": "0.20.31"}).findings == []
+    check = dt.check_symbols(
+        "pl", "0.20.31", [SymbolQuery(path="pl.Series.shift", kwargs=["periods"])]
+    ).results[0]
+    assert (check.rejected_kwargs, check.deprecated) == ([], msg)
+
+
 def test_an_index_from_before_argument_deprecations_still_opens(tmp_path):
     # Released clients read the published index; the nightly adds to it. Neither may trip over the new column.
     spec, snaps = _constraints()

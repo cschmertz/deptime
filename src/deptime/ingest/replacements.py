@@ -16,6 +16,7 @@ PATTERNS: list[tuple[re.Pattern[str], float]] = [
     (re.compile(rf"\b(?:moved|renamed)\s+to\s+{IDENT}", re.I), 0.85),
     (re.compile(rf"\b(?:replaced|superseded)\s+(?:by|with)\s+{IDENT}", re.I), 0.8),
     (re.compile(rf"\bin\s+favou?r\s+of\s+(?:using\s+)?{IDENT}", re.I), 0.8),
+    (re.compile(rf"\bnow\s+available\s+as\s+{IDENT}", re.I), 0.8),  # sqlalchemy's `became_legacy_20`
     (re.compile(rf"\bplease\s+use\s+{IDENT}", re.I), 0.75),
     (re.compile(rf"\buse\s+{IDENT}", re.I), 0.6),
 ]

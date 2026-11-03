@@ -128,20 +128,366 @@ def deprecation_message(obj: griffe.Object) -> str | None:
 
 
 def deprecations(obj: griffe.Object) -> tuple[str | None, dict[str, str] | None]:
-    """Best-effort deprecation detection: griffe extensions and `@deprecated` decorators deprecate the object;
-    for a function, every warning in its body is read (`_BodyWarnings`), and else its dispatcher's
-    (`_dispatcher_deprecation`)."""
+    """Best-effort deprecation detection: griffe extensions and `@deprecated` decorators deprecate the object, and
+    deprecation helpers recognized by name deprecate it or some of its arguments (`_HELPERS`): as decorators, or
+    for an attribute, as the call that binds it. For a function, every warning in its body is read
+    (`_BodyWarnings`), and else its dispatcher's (`_dispatcher_deprecation`), unless warning is its job
+    (`_MACHINERY_RE`)."""
     flagged = getattr(obj, "deprecated", None)
     if flagged:
         return (flagged if isinstance(flagged, str) else "deprecated"), None
+    whole: str | None = None
+    params: dict[str, str] = {}
     for dec in getattr(obj, "decorators", []) or []:
-        m = DEPRECATED_DECORATOR_RE.match(str(dec.value))
+        text = str(dec.value)
+        m = DEPRECATED_DECORATOR_RE.match(text) or DEPRECATED_DECORATOR_RE.match(
+            _renamed_deprecated(dec, text)
+        )
         if m:
             return (m.group("args") or "deprecated").strip()[:400], None
+        call = _helper_call(text)
+        # A constructor's deprecation is its class's: "InferenceApi is deprecated", not "__init__ is deprecated".
+        parent = obj.parent
+        name = parent.name if obj.name == "__init__" and parent is not None and parent.is_class else obj.name
+        found = _helper_reading(call, obj, name) if call is not None else None
+        if found is not None:
+            whole = whole or found[0]
+            for name, message in found[1].items():
+                params.setdefault(name, message)
+    if isinstance(obj, griffe.Attribute):
+        return _wrapper_deprecation(obj), None
     if not isinstance(obj, griffe.Function):
-        return None, None
-    whole, params = _function_warnings(obj, obj)
-    return whole or _dispatcher_deprecation(obj), params
+        return whole, params or None
+    if not _MACHINERY_RE.match(obj.name):
+        own, own_params = _function_warnings(obj, obj)
+        whole = whole or own or _dispatcher_deprecation(obj)
+        for name, message in (own_params or {}).items():
+            params.setdefault(name, message)
+    return whole, params or None
+
+
+# Deprecation helpers recognized by name (DT-DATA-37), from a survey of the decorators and wrapper calls in the
+# covered packages: what each deprecates, `whole` (the function, class or attribute it marks) or `params`
+# (arguments of the function it decorates), and the role of each positional argument. Keywords are read by name
+# (`_KEYWORD_ROLES`). Not here, because they deprecate a way of calling rather than a name or an argument:
+# `deprecate_nonkeyword_arguments`, `_deprecate_positional_args`, `deprecate_parameter_as_positional`,
+# `deprecate_posargs`, `make_keyword_only`, `_deprecate_list_output`.
+@dataclass(frozen=True)
+class _Helper:
+    marks: str  # "whole" | "params"
+    positional: tuple[str, ...] = ()  # roles: message, new, old, name, func, version
+    top_level: bool = False  # the new name is the package's own (streamlit's `st.<name>`)
+
+
+_WRAPS_RENAMED = _Helper("whole", ("func", "name", "version", "message"), top_level=True)
+_WRAPS_OBJECT = _Helper("whole", ("func", "name", "new", "version"), top_level=True)
+_HELPERS: dict[str, _Helper] = {
+    # polars
+    "deprecate_function": _Helper("whole", ("message",)),
+    "deprecate_renamed_function": _Helper("whole", ("new",)),
+    "deprecate_renamed_parameter": _Helper("params", ("old", "new")),
+    "deprecated_alias": _Helper("params"),  # old="new" keywords
+    # pandas (3.x passes the warning class first: a positional warning class takes no role)
+    "deprecate_kwarg": _Helper("params", ("old", "new")),
+    "deprecate": _Helper("whole", ("name", "func", "version", "new")),
+    # redis
+    "deprecated_function": _Helper("whole"),
+    "deprecated_args": _Helper("params"),
+    # sqlalchemy
+    "deprecated_20": _Helper("whole", ("name", "new")),
+    "became_legacy_20": _Helper("whole", ("name", "new")),
+    "moved_20": _Helper("whole", ("message",)),
+    "deprecated_cls": _Helper("whole", ("version", "message")),
+    "deprecated_20_cls": _Helper("whole", ("name", "new")),
+    "deprecated_params": _Helper("params"),  # name=(version, text) keywords
+    # huggingface-hub
+    "_deprecate_method": _Helper("whole"),
+    "_deprecate_arguments": _Helper("params"),
+    # matplotlib
+    "rename_parameter": _Helper("params", ("version", "old", "new")),
+    "delete_parameter": _Helper("params", ("version", "old")),
+    "deprecate_privatize_attribute": _Helper("whole", ("version",)),
+    # langgraph
+    "deprecated_parameter": _Helper("params", ("old", "version", "new")),
+    # streamlit; `make_deprecated_name_warning` builds a message for `show_deprecation_warning`
+    "deprecate_func_name": _WRAPS_RENAMED,
+    "_deprecate_func_name": _WRAPS_RENAMED,
+    "deprecate_obj_name": _WRAPS_OBJECT,
+    "_deprecate_obj_name": _WRAPS_OBJECT,
+    "make_deprecated_name_warning": _Helper("params", ("old", "new", "version", "message"), top_level=True),
+    # weaviate
+    "docstring_deprecated": _Helper("whole", ("message", "version")),
+}
+_KEYWORD_ROLES = {
+    **dict.fromkeys(
+        ("message", "msg", "reason", "details", "custom_message", "extra_message", "addendum", "description"),
+        "message",
+    ),
+    **dict.fromkeys(
+        ("alternative", "alternative_import", "new_name", "new_arg_name", "name_override", "alt_name"), "new"
+    ),
+    **dict.fromkeys(("old_name", "old_arg_name"), "old"),
+    **dict.fromkeys(("deprecated_args", "args_to_warn"), "olds"),
+    **dict.fromkeys(("name", "api_name", "clsname"), "name"),
+}
+# Keywords of a `params` helper that aren't arguments it renames (`deprecated_alias(old="new")`).
+_OPTION_KEYWORDS = frozenset(
+    {
+        "version",
+        "since",
+        "removal",
+        "removal_date",
+        "removal_in",
+        "deprecated_in",
+        "dep_version",
+        "pending",
+        "moved",
+        "obj_type",
+        "package",
+        "stacklevel",
+        "allowed_args",
+        "mapping",
+        "klass",
+        "warning",
+        "category",
+        "code",
+    }
+)
+# Warning helpers called in a function body, read like `warn(...)` (`_BodyWarnings`): matplotlib's and
+# langchain's `warn_deprecated(since, message=…, name=…, alternative=…)`, sqlalchemy's
+# `warn_deprecated(msg, version)`, polars' `issue_deprecation_warning`, streamlit's `show_deprecation_warning`.
+WARNING_HELPER_RE = re.compile(r"^_*(?:warn|issue|show|emit)_?deprecat\w*$")
+# Helpers that build a deprecation message (streamlit): the message is a deprecation however it is then emitted.
+MESSAGE_BUILDERS = frozenset({"make_deprecated_name_warning"})
+# Functions whose job is to warn: the deprecation machinery (redis' `warn_deprecated`, polars'
+# `issue_deprecation_warning`) and checks that warn about something else (pandas' `maybe_warn_args_and_kwargs`).
+# A warning in their body isn't their own deprecation.
+_MACHINERY_RE = re.compile(
+    r"^_*(?:warn_\w+|maybe_warn\w*|(?:issue|show|emit|raise|make)_\w*(?:warning|deprecation)\w*|deprecate_\w+)$"
+)
+_NAME_RE = re.compile(r"[A-Za-z_][\w.]*(?:\(\))?")
+_VERSION_RE = re.compile(r"^v?\d[\w.\-]*$")  # "3.6", "0.19.0", a removal date "2024-04-01"
+# sqlalchemy's and matplotlib's reST roles, read as sqlalchemy's warnings print them: ":meth:`_orm.Session.get`"
+# is "Session.get()".
+_RST_ROLE_RE = re.compile(r":(\w+):`~?(?:_\w+)?\.?([^`]+?)`")
+_HELPER_HEAD_RE = re.compile(r"(?:[\w.]*\.)?(\w+)\(")
+_WARNING_CLASS_RE = re.compile(r"^[\w.]*Warning$")  # `Pandas4Warning`, `exc.SADeprecationWarning`
+
+
+def _callee(call: ast.Call) -> str | None:
+    func = call.func
+    return func.attr if isinstance(func, ast.Attribute) else func.id if isinstance(func, ast.Name) else None
+
+
+def _helper_call(text: str) -> ast.Call | None:
+    """`text` parsed, when it is a call of a helper in `_HELPERS`."""
+    head = _HELPER_HEAD_RE.match(text)
+    if head is None or head.group(1) not in _HELPERS:
+        return None
+    try:
+        node = _quiet_parse(text, "eval").body  # type: ignore[attr-defined]
+    except (SyntaxError, ValueError):
+        return None
+    return node if isinstance(node, ast.Call) else None
+
+
+def _renamed_deprecated(dec: griffe.Decorator, text: str) -> str:
+    """A `deprecated` decorator imported under another name, as if written under its own: weaviate's
+    `@typing_deprecated(…)` (`from typing_extensions import deprecated as typing_deprecated`)."""
+    head = re.match(r"[\w.]+", text)
+    if head is None or head.group(0).rsplit(".", 1)[-1] == "deprecated":
+        return ""
+    try:
+        path = dec.callable_path
+    except Exception:  # griffe raises several resolution errors
+        return ""
+    return "deprecated" + text[head.end() :] if path.rsplit(".", 1)[-1] == "deprecated" else ""
+
+
+def _module_constant(module: griffe.Module | None, name: str) -> str | None:
+    """A module-level string constant: pydantic's `warn(_ALLOW_REUSE_WARNING_MESSAGE, DeprecationWarning)`."""
+    try:
+        member = module.members.get(name) if module is not None else None
+        target = _resolve(member) if member is not None else None
+        value = getattr(target, "value", None) if target is not None and target.is_attribute else None
+        rendered = _render(_quiet_parse(str(value), "eval").body) if value is not None else None  # type: ignore[attr-defined]
+    except Exception:  # griffe raises several resolution errors; a value may not parse
+        return None
+    return " ".join(rendered.split())[:400] or None if rendered else None
+
+
+class _HelperArgs:
+    """A helper call's arguments by role. `positional` gives each positional argument's role; None guesses from the
+    value, for a warning helper called in a body: a version is skipped, a bare name is what is deprecated, and
+    other text is the message. A `params` helper's other keywords are the arguments it renames:
+    `deprecated_alias(stop_after_n_rows="n_rows")`, `deprecated_params(bind=("2.0", "… is deprecated"))`."""
+
+    def __init__(
+        self,
+        call: ast.Call,
+        positional: tuple[str, ...] | None,
+        renames: bool,
+        text: Callable[[ast.expr], str | None],
+    ):
+        self.text = text
+        self.messages: list[str] = []
+        self.new: str | None = None
+        self.name: str | None = None
+        self.func: ast.expr | None = None
+        self.olds: list[str] = []
+        self.renamed: dict[str, tuple[str | None, str | None]] = {}  # old -> (new, message)
+        self.keywords = {k.arg: v for k in call.keywords if k.arg for v in [_str(k.value)] if v is not None}
+        args = [a for a in call.args if not _WARNING_CLASS_RE.search(ast.unparse(a))]
+        for i, arg in enumerate(args):
+            if positional is None:
+                self._take("guess", arg)
+            elif i < len(positional):
+                self._take(positional[i], arg)
+        for kw in call.keywords:
+            if kw.arg is None:
+                continue
+            role = _KEYWORD_ROLES.get(kw.arg)
+            if role is not None:
+                self._take(role, kw.value)
+            elif renames and kw.arg not in _OPTION_KEYWORDS:
+                self._rename(kw.arg, kw.value)
+
+    @property
+    def message(self) -> str | None:
+        return " ".join(self.messages) or None
+
+    def _take(self, role: str, node: ast.expr) -> None:
+        if role == "func":
+            self.func = node
+            return
+        if role == "olds":
+            if isinstance(node, (ast.List, ast.Tuple, ast.Set)):
+                self.olds += [t for e in node.elts if (t := _str(e)) and t.isidentifier()]
+            return
+        if role == "version":
+            return
+        text = self.text(node)
+        if not text:
+            return
+        if role == "guess":
+            if _VERSION_RE.match(text):
+                return
+            role = (
+                "name" if _NAME_RE.fullmatch(text) and self.name is None and not self.messages else "message"
+            )
+        if role == "message":
+            self.messages.append(text)
+        elif (
+            role == "new"
+        ):  # a name, else prose: sqlalchemy's `alternative="The method is now available as …"`
+            if _NAME_RE.fullmatch(text):
+                self.new = self.new or text.removesuffix("()")
+            else:
+                self.messages.append(text)
+        elif role == "old" and text.isidentifier():
+            self.olds.append(text)
+        elif role == "name":
+            self.name = self.name or text
+
+    def _rename(self, old: str, node: ast.expr) -> None:
+        if (text := _str(node)) is not None:
+            self.renamed[old] = (text if text.isidentifier() else None, None)
+        elif isinstance(node, ast.Tuple):
+            texts = [t for e in node.elts if (t := self.text(e)) and not _VERSION_RE.match(t)]
+            self.renamed[old] = (None, texts[0] if texts else None)
+
+
+def _plain_rst(text: str) -> str:
+    def repl(m: re.Match[str]) -> str:
+        return m.group(2) + ("()" if m.group(1) in ("func", "meth") else "")
+
+    return _RST_ROLE_RE.sub(repl, text)
+
+
+def _compose(subject: str | None, name: str | None, message: str | None, new: str | None) -> str | None:
+    """A helper's deprecation as text: "<subject> is deprecated.", unless the message already says `name` is; then
+    "Use `<new>` instead."; then the message."""
+    message = _plain_rst(message) if message else None
+    parts = []
+    if subject and not (message and name and names_argument(message, name)):
+        parts.append(f"{subject} is deprecated.")
+    if new:
+        parts.append(f"Use `{new}` instead.")
+    if message:
+        parts.append(message)
+    return " ".join(" ".join(parts).split())[:400] or None
+
+
+def _known_as(node: ast.expr | None, scope: griffe.Object | None) -> str | None:
+    """The public name a function passed to a wrapper is known by (`__name__`): streamlit's `_rerun`, imported as
+    `from streamlit.commands.execution_control import rerun as _rerun`, is `rerun`."""
+    if isinstance(node, ast.Attribute):
+        leaf = node.attr
+    elif isinstance(node, ast.Name):
+        leaf = node.id
+        member = scope.members.get(node.id) if scope is not None else None
+        if member is not None and member.is_alias:
+            target = _resolve(member)
+            leaf = target.name if target is not None else member.target_path.rsplit(".", 1)[-1]  # type: ignore[union-attr]
+    else:
+        return None
+    return None if leaf.startswith("_") else leaf
+
+
+def _helper_reading(
+    call: ast.Call, obj: griffe.Object, name: str
+) -> tuple[str | None, dict[str, str]] | None:
+    """What a helper call in `_HELPERS` deprecates about `obj`, known as `name`: (whole, {argument: text})."""
+    helper = _HELPERS.get(_callee(call) or "")
+    if helper is None:
+        return None
+    module = obj.module if isinstance(obj, griffe.Object) else None
+
+    def text(node: ast.expr) -> str | None:
+        rendered = _render(node)
+        if rendered is None and isinstance(node, ast.Name):
+            return _module_constant(module, node.id)
+        return " ".join(rendered.split())[:400] or None if rendered else None
+
+    args = _HelperArgs(call, helper.positional, helper.marks == "params", text)
+    if helper.marks == "whole":
+        new = args.new or _known_as(args.func, obj.parent)
+        if new and helper.top_level:
+            new = f"{obj.package.path}.{new}"
+        return _compose(name, name, args.message, new), {}
+    # `*args` and `**kwargs` themselves aren't arguments anyone passes by name (matplotlib's
+    # `@delete_parameter("3.6", "args")`).
+    variadic = {
+        p.name
+        for p in (obj.parameters if isinstance(obj, griffe.Function) else ())
+        if p.kind in (griffe.ParameterKind.var_positional, griffe.ParameterKind.var_keyword)
+    }
+    params: dict[str, str] = {}
+    for old in (o for o in args.olds if o not in variadic):
+        new = args.new if len(args.olds) == 1 else None
+        params.setdefault(old, _compose(f"`{old}`", old, args.message, new) or UNRECOVERABLE)
+    for old, (new, message) in args.renamed.items():
+        if old not in variadic:
+            params.setdefault(old, _compose(f"`{old}`", old, message, new) or UNRECOVERABLE)
+    return None, params
+
+
+def _wrapper_deprecation(attr: griffe.Attribute) -> str | None:
+    """A name bound to what a wrapping helper returns: streamlit's `experimental_rerun =
+    _deprecate_func_name(_rerun, "experimental_rerun", "2024-04-01")`, matplotlib's `patch =
+    _api.deprecate_privatize_attribute("3.5", alternative="ax")` in a class. A name bound to a function of its
+    own scope is that function, and warns as it does: streamlit 1.27-1.36's `experimental_rerun =
+    _experimental_rerun`."""
+    value = attr.value
+    if isinstance(value, griffe.ExprName) and attr.parent is not None:
+        member = attr.parent.members.get(value.name)
+        target = _resolve(member) if member is not None else None
+        return deprecations(target)[0] if isinstance(target, griffe.Function) else None
+    if not isinstance(value, griffe.ExprCall):
+        return None
+    call = _helper_call(str(value))
+    found = _helper_reading(call, attr, attr.name) if call is not None else None
+    return found[0] if found is not None else None
 
 
 def _function_warnings(
@@ -264,10 +610,12 @@ def _own_nodes(node: ast.AST):
 
 
 def _warn_calls(st: ast.stmt):
+    """`warn(...)` calls, calls of warning helpers (`WARNING_HELPER_RE`), and of helpers that only build a
+    deprecation message (`MESSAGE_BUILDERS`): streamlit 1.36's `experimental_rerun` logs one."""
     for node in _own_nodes(st):
         if isinstance(node, ast.Call) and (
-            (isinstance(node.func, ast.Name) and node.func.id == "warn")
-            or (isinstance(node.func, ast.Attribute) and node.func.attr == "warn")
+            (name := _callee(node)) == "warn"
+            or (name and (WARNING_HELPER_RE.match(name) or name in MESSAGE_BUILDERS))
         ):
             yield node
 
@@ -344,7 +692,10 @@ class _BodyWarnings:
         self.kwargs = args.kwarg.arg if args.kwarg else None
         self.varargs = args.vararg.arg if args.vararg else None
         parent = func.parent
-        self.own = {func.name} | ({parent.name} if parent is not None and parent.is_class else set())
+        # `_experimental_rerun`, which streamlit serves as `experimental_rerun`, warns about `experimental_rerun`.
+        self.own = {func.name, func.name.lstrip("_")} | (
+            {parent.name} if parent is not None and parent.is_class else set()
+        )
         # Loop variables that run over the names passed in **kwargs.
         self.kwarg_keys = {
             name
@@ -363,7 +714,8 @@ class _BodyWarnings:
             str, list[tuple[tuple[int, int], ast.expr]]
         ] = {}  # name -> where a string is bound
         self.derived: dict[str, frozenset[str]] = {}  # local name -> the arguments its value comes from
-        self.found: list[tuple[str | None, frozenset[str]]] = []
+        # (text, guard, whether it can deprecate the function as a whole)
+        self.found: list[tuple[str | None, frozenset[str], bool]] = []
         for sub in own:
             if (
                 isinstance(sub, ast.Assign)
@@ -490,32 +842,49 @@ class _BodyWarnings:
             return frozenset({_KWARGS})
         return keys
 
-    def _visit(self, stmts: list[ast.stmt], guard: frozenset[str]) -> None:
+    def _visit(self, stmts: list[ast.stmt], guard: frozenset[str], branched: bool = False) -> None:
+        """`branched`: under an `if`, a loop, an `except` or a `case`, whatever the condition."""
         for st in stmts:
             if isinstance(st, _SCOPES):
                 continue
             if isinstance(st, ast.If):
-                self._visit(st.body, guard | self._condition(st.test, True))
-                self._visit(st.orelse, guard | self._condition(st.test, False))
+                self._visit(st.body, guard | self._condition(st.test, True), True)
+                self._visit(st.orelse, guard | self._condition(st.test, False), True)
             elif isinstance(st, ast.While):
-                self._visit(st.body, guard | self._condition(st.test, True))
-                self._visit(st.orelse, guard)
+                self._visit(st.body, guard | self._condition(st.test, True), True)
+                self._visit(st.orelse, guard, True)
             elif isinstance(st, (ast.For, ast.AsyncFor)):
-                self._visit(st.body, guard | self._keys(st.iter))
-                self._visit(st.orelse, guard)
+                self._visit(st.body, guard | self._keys(st.iter), True)
+                self._visit(st.orelse, guard, True)
             elif isinstance(st, (ast.With, ast.AsyncWith)):
-                self._visit(st.body, guard)
+                self._visit(st.body, guard, branched)
             elif isinstance(st, (ast.Try, getattr(ast, "TryStar", ast.Try))):
-                for block in (st.body, *(h.body for h in st.handlers), st.orelse, st.finalbody):
-                    self._visit(block, guard)
+                self._visit(st.body, guard, branched)
+                for handler in st.handlers:
+                    self._visit(handler.body, guard, True)
+                for block in (st.orelse, st.finalbody):
+                    self._visit(block, guard, branched)
             elif isinstance(st, ast.Match):
                 for case in st.cases:
-                    self._visit(case.body, guard | self._keys(st.subject))
+                    self._visit(case.body, guard | self._keys(st.subject), True)
             else:
                 for call in _warn_calls(st):
-                    self._warning(call, guard)
+                    self._warning(call, guard, branched)
 
-    def _warning(self, call: ast.Call, guard: frozenset[str]) -> None:
+    def _warning(self, call: ast.Call, guard: frozenset[str], branched: bool) -> None:
+        if _callee(call) in MESSAGE_BUILDERS:
+            built = self._built(call, call)
+            if built is not None:
+                self.found.append((built, guard, not branched))
+            return
+        if _callee(call) != "warn":  # a warning helper: a deprecation by its name
+            text, subject = self._helper_text(call)
+            # Under a condition that isn't about an argument, matplotlib's and sqlalchemy's helpers deprecate a
+            # behaviour ("Applying clabel() to filled contours is deprecated"), and a subject that isn't a name is
+            # something else (an rcParam, "encode_kwargs['show_progress_bar']"): neither is the whole function.
+            if text is not None:
+                self.found.append((text, guard, not branched and subject))
+            return
         keywords = {k.arg: k.value for k in call.keywords if k.arg}
         message = call.args[0] if call.args else keywords.get("message")
         category = call.args[1] if len(call.args) > 1 else keywords.get("category")
@@ -529,7 +898,7 @@ class _BodyWarnings:
         if CALL_CATEGORY_RE.search(ast.unparse(category) if category is not None else "") or (
             text and re.search("deprecat", text, re.I)
         ):
-            self.found.append((text, guard))
+            self.found.append((text, guard, True))
 
     def _text(self, node: ast.expr | None, at: ast.AST) -> str | None:
         if isinstance(node, ast.Name):
@@ -547,21 +916,56 @@ class _BodyWarnings:
         return " ".join(rendered.split())[:400] or None
 
     def _constant(self, name: str) -> str | None:
-        """A module-level string constant: pydantic's `warn(_ALLOW_REUSE_WARNING_MESSAGE, DeprecationWarning)`."""
-        try:
-            member = self.func.module.members.get(name)
-            target = _resolve(member) if member is not None else None
-            value = getattr(target, "value", None) if target is not None and target.is_attribute else None
-            rendered = _render(_quiet_parse(str(value), "eval").body) if value is not None else None  # type: ignore[attr-defined]
-        except Exception:  # griffe raises several resolution errors; a value may not parse
-            return None
-        return " ".join(rendered.split())[:400] or None if rendered else None
+        return _module_constant(self.func.module, name)
+
+    def _helper_text(self, call: ast.Call) -> tuple[str | None, bool]:
+        """A warning helper's text, from its arguments by role (`_HelperArgs`): matplotlib's
+        `_api.warn_deprecated("3.5", name="beginarrow", alternative="arrow")` is "`beginarrow` is deprecated. Use
+        `arrow` instead.", and its `%(name)s` placeholders are filled in. A message streamlit builds with
+        `make_deprecated_name_warning(old, new, …)` reads the same way. None when nothing is readable: such a
+        helper often checks the arguments itself (`_warn_deprecated_field_args(**kwargs)`)."""
+
+        def text(node: ast.expr) -> str | None:
+            if isinstance(node, ast.Name):  # `msg = make_deprecated_name_warning(…)`, then `show_…(msg)`
+                where = (call.lineno, call.col_offset)
+                bound = [value for pos, value in self.strings.get(node.id, []) if pos < where]
+                built = bound[-1] if bound and isinstance(bound[-1], ast.Call) else None
+            else:
+                built = node if isinstance(node, ast.Call) else None
+            if built is not None and _callee(built) in MESSAGE_BUILDERS:
+                return self._built(built, call)
+            return self._text(node, call)
+
+        args = _HelperArgs(call, None, False, text)
+        message = args.message
+        for key in ("name", "alternative", "obj_type"):
+            if message and key in args.keywords:
+                message = message.replace(f"%({key})s", args.keywords[key])
+        if message is None and args.name is None:
+            return None, False
+        subject = args.name is None or args.name.isidentifier()
+        return _compose(f"`{args.name}`" if args.name else None, args.name, message, args.new), subject
+
+    def _built(self, built: ast.Call, at: ast.Call) -> str | None:
+        """streamlit's `make_deprecated_name_warning(old, new, …)` as text: "`old` is deprecated. Use `st.new`
+        instead.", with the package's name for `st` unless `include_st_prefix=False` (an argument's new name)."""
+        helper = _HELPERS[_callee(built) or ""]
+        parts = _HelperArgs(built, helper.positional, False, lambda n: self._text(n, at))
+        old = parts.olds[0] if parts.olds else None
+        new = parts.new
+        prefixed = not any(
+            k.arg == "include_st_prefix" and isinstance(k.value, ast.Constant) and k.value.value is False
+            for k in built.keywords
+        )
+        if new and helper.top_level and prefixed:
+            new = f"{self.func.package.path}.{new}"
+        return _compose(f"`{old}`" if old else None, old, parts.message, new)
 
     def read(self) -> tuple[str | None, dict[str, str] | None]:
         self._visit(self.node.body, frozenset())
         whole: str | None = None
         params: dict[str, str] = {}
-        for text, guard in self.found:
+        for text, guard, entire in self.found:
             if text is None:
                 if not guard and whole is None:
                     whole = UNRECOVERABLE
@@ -587,7 +991,7 @@ class _BodyWarnings:
             elsewhere = (
                 not marked and bool(worded_deprecated(text)) and not set(worded_deprecated(text)) & self.own
             )
-            if not marked and not guard and not elsewhere and whole in (None, UNRECOVERABLE):
+            if entire and not marked and not guard and not elsewhere and whole in (None, UNRECOVERABLE):
                 whole = text
         return whole, params or None
 
@@ -2067,7 +2471,7 @@ class _Walker:
                     SymbolRecord(path, "function", target.path, _params(target), *deprecations(target))
                 )  # type: ignore[arg-type]
             elif target.is_attribute:
-                self.record(SymbolRecord(path, "attribute", target.path, None, None))
+                self.record(SymbolRecord(path, "attribute", target.path, None, deprecation_message(target)))
             elif target.is_class:
                 self.record(SymbolRecord(path, "class", target.path, None, deprecation_message(target)))
 

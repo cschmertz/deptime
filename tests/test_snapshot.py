@@ -921,6 +921,303 @@ DISPATCHED = {
 }
 
 
+# DT-DATA-37: deprecation helpers, recognized by name. Decorators (polars, redis, huggingface-hub, matplotlib,
+# sqlalchemy, langgraph, pandas, weaviate), wrapper calls that bind the old name (streamlit, pandas, matplotlib's
+# class attributes) and warning helpers called in a body (polars, matplotlib, streamlit).
+HELPERS = {
+    "helpy/__init__.py": textwrap.dedent(
+        """\
+        from helpy._deprecation import deprecate_func_name as _deprecate_func_name
+        from helpy.api import _experimental_rerun
+        from helpy.execution import get_query_params as _get_query_params
+        from helpy.execution import rerun as _rerun
+
+        _QP_MSG = "Refer to the docs page for more information."
+
+        experimental_rerun = _deprecate_func_name(_rerun, "experimental_rerun", "2024-04-01")
+        older_rerun = _experimental_rerun
+        experimental_get_query_params = _deprecate_func_name(
+            _get_query_params,
+            "experimental_get_query_params",
+            "2024-04-11",
+            _QP_MSG,
+            name_override="query_params",
+        )
+        """
+    ),
+    "helpy/execution.py": "def rerun():\n    pass\n\n\ndef get_query_params():\n    return {}\n",
+    "helpy/_deprecation.py": textwrap.dedent(
+        """\
+        import functools
+        import warnings
+
+
+        def _passthrough(*args, **kwargs):
+            def decorate(function):
+                @functools.wraps(function)
+                def wrapper(*a, **k):
+                    warnings.warn("deprecated", DeprecationWarning)
+                    return function(*a, **k)
+                return wrapper
+            return decorate
+
+
+        deprecate_function = deprecate_renamed_function = deprecate_renamed_parameter = _passthrough
+        deprecate_nonkeyword_arguments = deprecated_function = deprecated_args = _passthrough
+        _deprecate_method = _deprecate_arguments = deprecate_kwarg = deprecated_parameter = _passthrough
+
+
+        def deprecate_func_name(func, old_name, removal_date, extra_message=None, name_override=None):
+            return func
+
+
+        def deprecate(name, alternative, version, alt_name=None):
+            return alternative
+
+
+        def show_deprecation_warning(message, show_in_browser=True):
+            warnings.warn(message, DeprecationWarning)
+
+
+        def make_deprecated_name_warning(old_name, new_name, removal_date, extra_message=None, include_st_prefix=True):
+            return f"Please replace `{old_name}` with `{new_name}`."
+        """
+    ),
+    "helpy/utils.py": textwrap.dedent(
+        """\
+        import warnings
+
+
+        def warn_deprecated(name, reason=""):
+            warnings.warn(f"Call to deprecated {name}. ({reason})", DeprecationWarning)
+
+
+        def issue_deprecation_warning(message, *, version):
+            warnings.warn(message, DeprecationWarning)
+
+
+        class Pandas4Warning(DeprecationWarning):
+            pass
+        """
+    ),
+    "helpy/io.py": textwrap.dedent(
+        """\
+        from helpy._deprecation import deprecate
+
+
+        def _json_normalize(data):
+            return data
+
+
+        json_normalize = deprecate("helpy.io.json_normalize", _json_normalize, "1.0.0", "helpy.json_normalize")
+        """
+    ),
+    "helpy/api.py": textwrap.dedent(
+        """\
+        import logging
+
+        from typing_extensions import deprecated as typing_deprecated
+
+        from helpy import _api, util
+        from helpy._deprecation import (
+            _deprecate_arguments,
+            _deprecate_method,
+            deprecate_function,
+            deprecate_kwarg,
+            deprecate_nonkeyword_arguments,
+            deprecate_renamed_function,
+            deprecate_renamed_parameter,
+            deprecated_args,
+            deprecated_function,
+            deprecated_parameter,
+            make_deprecated_name_warning,
+            show_deprecation_warning,
+        )
+        from helpy.execution import rerun
+        from helpy.utils import Pandas4Warning, issue_deprecation_warning
+
+        _HF_MSG = "Use `hf_hub_download` instead."
+        logger = logging.getLogger(__name__)
+
+
+        class Expr:
+            def map_elements(self, function):
+                return function
+
+            @deprecate_renamed_function("map_elements", version="0.19.0")
+            def apply(self, function):
+                return self.map_elements(function)
+
+            @deprecate_renamed_function("name.map", version="0.19.12", moved=True)
+            def map_alias(self, function):
+                return function
+
+            @deprecate_function("Set the ordering on the data type instead.", version="0.19.19")
+            def set_ordering(self, ordering):
+                return ordering
+
+            @deprecate_renamed_parameter("periods", "n", version="0.19.11")
+            def shift(self, n=1):
+                return n
+
+            @deprecate_nonkeyword_arguments(allowed_args=["self"], version="0.20")
+            def sort(self, descending=False):
+                return descending
+
+            def clip(self, lower=None, min_val=None):
+                if min_val is not None:
+                    issue_deprecation_warning("`min_val` is deprecated, use `lower` instead.", version="0.19.0")
+                return lower
+
+
+        class Redis:
+            @deprecated_args(
+                args_to_warn=["retry_on_timeout"], reason="TimeoutError is included by default.", version="6.0.0"
+            )
+            def __init__(self, host="localhost", retry_on_timeout=False):
+                self.host = host
+
+            @deprecated_function(version="5.0.1", reason="Use aclose() instead", name="close")
+            async def close(self, close_connection_pool=None):
+                pass
+
+            async def aclose(self):
+                pass
+
+
+        @_deprecate_method(version="0.26", message=_HF_MSG)
+        def cached_download(url, cache_dir=None):
+            return url
+
+
+        class InferenceApi:
+            @_deprecate_method(version="1.0", message="Use `InferenceClient` instead.")
+            def __init__(self, repo_id):
+                self.repo_id = repo_id
+
+
+        @_deprecate_arguments(version="0.14", deprecated_args={"cardData"}, custom_message="Use 'full' instead.")
+        def list_datasets(full=None, cardData=None):
+            return full
+
+
+        class Colorbar:
+            patch = _api.deprecate_privatize_attribute("3.5", alternative="ax")
+            ax = None
+
+            @_api.rename_parameter("3.6", "b", "visible")
+            def grid(self, visible=None, which="major"):
+                pass
+
+            @_api.delete_parameter("3.6", "renderer")
+            def get_tightbbox(self, renderer=None):
+                pass
+
+            def set_label(self, label, loc=None, beginarrow=None):
+                if beginarrow is not None:
+                    _api.warn_deprecated("3.5", name="beginarrow", alternative="arrow")
+
+            def resize(self, w, h):
+                _api.warn_deprecated("3.6", name="resize", obj_type="method", alternative="FigureManagerBase.resize")
+
+            def clabel(self, levels=None):
+                if self.filled:
+                    _api.warn_deprecated("3.5", message="Applying clabel() to filled contours is deprecated.")
+
+            def bxp(self, bxpstats, vert=None):
+                if self.rc:
+                    _api.warn_deprecated("3.10", name="boxplot.vertical", obj_type="rcparam")
+                if vert is not None:
+                    _api.warn_deprecated("3.11", name="vert: bool", alternative="orientation: {'vertical', 'horizontal'}")
+
+
+        class MetaData:
+            @util.deprecated_params(
+                bind=(
+                    "2.0",
+                    "The :paramref:`.MetaData.bind` argument is deprecated and will be removed in SQLAlchemy 2.0.",
+                )
+            )
+            def __init__(self, bind=None, schema=None):
+                pass
+
+
+        class Query:
+            @util.became_legacy_20(
+                ":meth:`_orm.Query.get`", alternative="The method is now available as :meth:`_orm.Session.get`"
+            )
+            def get(self, ident):
+                pass
+
+
+        @util.deprecated_20("relation", "Please use :func:`.relationship`.")
+        def relation(*arg, **kw):
+            pass
+
+
+        @util.deprecated_cls(
+            "1.4",
+            "The :class:`.MapperOption` class is deprecated and will be removed in a future release.",
+            constructor=None,
+        )
+        class MapperOption:
+            pass
+
+
+        @typing_deprecated("This method is deprecated. Use `connect_to_weaviate_cloud` instead.")
+        def connect_to_wcs(cluster_url):
+            return cluster_url
+
+
+        def image(image, use_column_width=None, use_container_width=False):
+            if use_column_width is not None:
+                show_deprecation_warning(
+                    "The `use_column_width` parameter has been deprecated and will be removed in a future release. "
+                    "Please utilize the `use_container_width` parameter instead."
+                )
+
+
+        def dataframe(data, use_container_width=None, width="stretch"):
+            if use_container_width is not None:
+                show_deprecation_warning(
+                    make_deprecated_name_warning(
+                        "use_container_width",
+                        "width",
+                        "2025-12-31",
+                        "For `use_container_width=True`, use `width='stretch'`.",
+                        include_st_prefix=False,
+                    ),
+                    show_in_browser=False,
+                )
+
+
+        def _experimental_rerun():
+            msg = make_deprecated_name_warning("experimental_rerun", "rerun", "2024-04-01")
+            # Logged, not warned (streamlit 1.36).
+            logger.warning(msg)
+            rerun()
+
+
+        @deprecated_parameter("messages_modifier", "0.1.9", "state_modifier", removal="0.3.0")
+        def create_react_agent(model, tools, state_modifier=None):
+            return model
+
+
+        @deprecate_kwarg(old_arg_name="verbose", new_arg_name=None)
+        def to_excel(excel_writer, verbose=True):
+            return excel_writer
+
+
+        @deprecate_kwarg(Pandas4Warning, "method", new_arg_name=None)
+        def reindex_like(other, method=None):
+            return other
+        """
+    ),
+    "helpy/_api.py": "def deprecate_privatize_attribute(since, **kwargs):\n    return property()\n",
+    "helpy/util.py": "",
+}
+
+
 def _write(root: Path, files: dict[str, str] = FILES) -> Path:
     for rel, text in files.items():
         p = root / rel
@@ -1437,6 +1734,119 @@ def test_a_function_takes_the_deprecation_its_dispatcher_warns(tmp_path):
     assert dep("mask") == (None, None)
     assert dep("select") == (None, None)
     assert dep("lookup") == ("lookup() is deprecated, use select() instead.", None)
+
+
+def test_deprecation_helpers_are_recognized_by_name(tmp_path):
+    # DT-DATA-37: only decorators named `deprecated` counted. polars' `@deprecate_renamed_function("map_elements")`
+    # left `Expr.apply` with nothing, streamlit's `experimental_rerun = _deprecate_func_name(_rerun, ...)` read as a
+    # plain attribute, and huggingface-hub's `cached_download` lost its `hf_hub_download` hint with DT-DATA-42.
+    snap = build_snapshot("helpy", "1.0", ["helpy"], _write(tmp_path, HELPERS))
+
+    def dep(path):
+        rec = snap.symbols[f"helpy.{path}"]
+        return rec.deprecated, rec.deprecated_params
+
+    # The decorated function or class as a whole: a new name becomes "Use `x` instead.", prose is kept, and
+    # sqlalchemy's reST roles read as its warnings print them.
+    assert dep("api.Expr.apply") == ("apply is deprecated. Use `map_elements` instead.", None)
+    assert dep("api.Expr.map_alias") == ("map_alias is deprecated. Use `name.map` instead.", None)
+    assert dep("api.Expr.set_ordering") == (
+        "set_ordering is deprecated. Set the ordering on the data type instead.",
+        None,
+    )
+    assert dep("api.Redis.close") == ("close is deprecated. Use aclose() instead", None)
+    assert dep("api.cached_download") == (
+        "cached_download is deprecated. Use `hf_hub_download` instead.",
+        None,
+    )
+    # A constructor's deprecation is its class's.
+    assert dep("api.InferenceApi.__init__") == (
+        "InferenceApi is deprecated. Use `InferenceClient` instead.",
+        None,
+    )
+    assert dep("api.Query.get") == ("get is deprecated. The method is now available as Session.get()", None)
+    assert dep("api.relation") == ("relation is deprecated. Please use relationship().", None)
+    assert dep("api.MapperOption") == (
+        "The MapperOption class is deprecated and will be removed in a future release.",
+        None,
+    )
+    # `typing_extensions.deprecated` imported under another name is still `@deprecated`.
+    assert dep("api.connect_to_wcs") == (
+        "'This method is deprecated. Use `connect_to_weaviate_cloud` instead.'",
+        None,
+    )
+    # Arguments: renamed (the old name need not be in the signature), deleted, or listed.
+    assert dep("api.Expr.shift") == (None, {"periods": "`periods` is deprecated. Use `n` instead."})
+    assert dep("api.Redis.__init__") == (
+        None,
+        {"retry_on_timeout": "`retry_on_timeout` is deprecated. TimeoutError is included by default."},
+    )
+    assert dep("api.list_datasets") == (None, {"cardData": "`cardData` is deprecated. Use 'full' instead."})
+    assert dep("api.Colorbar.grid") == (None, {"b": "`b` is deprecated. Use `visible` instead."})
+    assert dep("api.Colorbar.get_tightbbox") == (None, {"renderer": "`renderer` is deprecated."})
+    assert dep("api.MetaData.__init__") == (
+        None,
+        {"bind": "The MetaData.bind argument is deprecated and will be removed in SQLAlchemy 2.0."},
+    )
+    assert dep("api.create_react_agent") == (
+        None,
+        {"messages_modifier": "`messages_modifier` is deprecated. Use `state_modifier` instead."},
+    )
+    assert dep("api.to_excel") == (None, {"verbose": "`verbose` is deprecated."})
+    assert dep("api.reindex_like") == (None, {"method": "`method` is deprecated."})
+    # Positional use isn't a deprecation of the function or of an argument.
+    assert dep("api.Expr.sort") == (None, None)
+    # Warning helpers called in a body read like `warn(...)`.
+    assert dep("api.Expr.clip") == (None, {"min_val": "`min_val` is deprecated, use `lower` instead."})
+    assert dep("api.Colorbar.set_label") == (
+        None,
+        {"beginarrow": "`beginarrow` is deprecated. Use `arrow` instead."},
+    )
+    assert dep("api.Colorbar.resize") == (
+        "`resize` is deprecated. Use `FigureManagerBase.resize` instead.",
+        None,
+    )
+    # Under a condition that isn't about an argument, a helper deprecates a behaviour; a subject that isn't a name
+    # is something else. Neither is the whole function, but an argument that guards it is still deprecated.
+    assert dep("api.Colorbar.clabel") == (None, None)
+    assert dep("api.Colorbar.bxp") == (
+        None,
+        {"vert": "`vert: bool` is deprecated. orientation: {'vertical', 'horizontal'}"},
+    )
+    assert dep("api.image") == (
+        None,
+        {
+            "use_column_width": "The `use_column_width` parameter has been deprecated and will be removed in a future"
+            " release. Please utilize the `use_container_width` parameter instead."
+        },
+    )
+    assert dep("api.dataframe") == (
+        None,
+        {
+            "use_container_width": "`use_container_width` is deprecated. Use `width` instead. For"
+            " `use_container_width=True`, use `width='stretch'`."
+        },
+    )
+    # A wrapper bound to the old name: the wrapped function's own name (or the override) is the new one, at the top
+    # of the package (streamlit's `st.rerun`).
+    assert snap.symbols["helpy.experimental_rerun"].kind == "attribute"
+    assert dep("experimental_rerun") == ("experimental_rerun is deprecated. Use `helpy.rerun` instead.", None)
+    assert dep("experimental_get_query_params") == (
+        "experimental_get_query_params is deprecated. Use `helpy.query_params` instead. Refer to the docs page"
+        " for more information.",
+        None,
+    )
+    # streamlit 1.27-1.36: a private function warns about the name it is served under.
+    assert dep("older_rerun") == ("`experimental_rerun` is deprecated. Use `helpy.rerun` instead.", None)
+    assert dep("io.json_normalize") == (
+        "json_normalize is deprecated. Use `helpy.json_normalize` instead.",
+        None,
+    )
+    assert dep("api.Colorbar.patch") == ("patch is deprecated. Use `ax` instead.", None)
+    assert dep("api.Colorbar.ax") == (None, None)
+    # The machinery warns as its job; that isn't its own deprecation.
+    assert dep("utils.warn_deprecated") == (None, None)
+    assert dep("utils.issue_deprecation_warning") == (None, None)
 
 
 def test_a_build_leaves_no_griffe_objects_alive(tmp_path):

@@ -17,6 +17,19 @@ def test_moved_to_and_backticks():
     assert mine("`Foo` has been moved to `pkg.core.Foo`.")[0].target == "pkg.core.Foo"
 
 
+def test_now_available_as():
+    # DT-DATA-37: sqlalchemy's `became_legacy_20` and `moved_20` say where the name went this way.
+    hints = mine("get is deprecated. The method is now available as Session.get()")
+    assert [(h.target, h.confidence) for h in hints] == [("Session.get", 0.8)]
+    assert (
+        mine(
+            "declarative_base is deprecated. The ``declarative_base()`` function is now available as"
+            " sqlalchemy.orm.declarative_base()."
+        )[0].target
+        == "sqlalchemy.orm.declarative_base"
+    )
+
+
 def test_langchain_alternative_kwarg():
     assert (
         mine('since="0.1.17", alternative="langchain_openai.ChatOpenAI", removal="1.0"')[0].target

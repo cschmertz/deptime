@@ -142,6 +142,17 @@ def _accepts_kwarg(raw: str | None, kwarg: str) -> bool:
     return False
 
 
+def _accepts(span: sqlite3.Row, kwarg: str) -> bool:
+    """Whether a release accepts `kwarg`: its signature does, or a decorator that renamed it still takes the old name
+    and warns (DT-DATA-37: polars' `@deprecate_renamed_parameter("periods", "n")`)."""
+    return _accepts_kwarg(span["params"], kwarg) or kwarg in _deprecated_params(span)
+
+
+def _takes(span: sqlite3.Row, param: str) -> bool:
+    """Whether a release names `param`: in its signature, or as an argument it deprecates."""
+    return param in _param_names(span["params"]) or param in _deprecated_params(span)
+
+
 class DepTime:
     def __init__(self, store: IndexStore | None, coverage: Coverage, index_path: Path | None = None):
         self._store = store
@@ -341,9 +352,13 @@ class DepTime:
             if params_raw is None and span["kind"] == "class":
                 init = self.store.span_at(name, full + ".__init__", row["ordinal"])
                 params_raw, callable_span = (init["params"], init) if init else (None, None)
-            rejected = [k for k in q.kwargs if params_raw is not None and not _accepts_kwarg(params_raw, k)]
             # The whole symbol's deprecation, else that of an argument the caller passes (DT-DATA-42).
             by_param = _deprecated_params(callable_span)
+            rejected = [
+                k
+                for k in q.kwargs
+                if params_raw is not None and not _accepts_kwarg(params_raw, k) and k not in by_param
+            ]
             deprecated = span["deprecated"] or next((by_param[k] for k in q.kwargs if k in by_param), None)
             results.append(
                 SymbolCheck(path=full, status="present", rejected_kwargs=rejected, deprecated=deprecated)
@@ -875,9 +890,9 @@ class DepTime:
         current = self.store.span_at(name, path, ordinal)
         if current is not None and current["params"] is None:
             return None  # no signature at this version (an unresolved alias, a class); no parameter verdict
-        had = [s for s in spans if param in _param_names(s["params"])]
-        accepts = current is not None and _accepts_kwarg(current["params"], param)
-        if accepts and had and param not in _param_names(current["params"]):
+        had = [s for s in spans if _takes(s, param)]
+        accepts = current is not None and _accepts(current, param)
+        if accepts and had and not _takes(current, param):
             # A **kwargs catch-all that replaced a declared parameter is how libraries reject it with their own
             # error (pydantic 2's Field(**extra) raises "`regex` is removed").
             accepts = False
@@ -885,11 +900,7 @@ class DepTime:
 
             def rejects(o: int) -> bool:
                 span = self.store.span_at(name, path, o)
-                return (
-                    span is not None
-                    and span["params"] is not None
-                    and not _accepts_kwarg(span["params"], param)
-                )
+                return span is not None and span["params"] is not None and not _accepts(span, param)
 
             window = self._window(name, resolved, exact, installed, rejects)
             if window is None:

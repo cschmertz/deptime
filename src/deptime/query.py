@@ -16,7 +16,7 @@ from packaging.utils import canonicalize_name
 from deptime.config import Coverage, PackageSpec
 from deptime.index.store import IndexStore
 from deptime.ingest.diff import is_required
-from deptime.ingest.replacements import clean_evidence, expand_alias, mine, moved_to_package
+from deptime.ingest.replacements import clean_evidence, expand_alias, mine, moved_to_package, same_class
 from deptime.models import (
     CheckSymbolsResult,
     Confidence,
@@ -111,9 +111,10 @@ def _before_index(rels: list[sqlite3.Row]) -> str:
 
 
 def _error_hint_paths(spec: PackageSpec, path: str, target: str) -> list[str]:
-    """Where a target named in error text may live, most literal first: `np.nan` -> `numpy.nan`; as written; next to
-    the missing name; at the package's top level."""
-    candidates = []
+    """Where a target named in error text may live, most literal first: `.items` -> a member of the missing name's
+    class; `np.nan` -> `numpy.nan`; as written; next to the missing name; at the package's top level."""
+    candidates = [member] if (member := same_class(target, path)) else []
+    target = target.lstrip(".")
     for named in dict.fromkeys([expand_alias(target), target]):
         if any(named == n or named.startswith(n + ".") for n in spec.import_names):
             candidates.append(named)
@@ -678,6 +679,7 @@ class DepTime:
         for hint in mine(message, skip_expressions=True):
             t = hint.target
             if param is not None:
+                t = t.lstrip(".")  # "in favor of `.condition`"
                 if t != param and t.isidentifier() and t in params:
                     keep(t, hint.confidence)
                 continue

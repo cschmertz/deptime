@@ -7,6 +7,7 @@ evidence it came from and a confidence the caller can threshold. Patterns are pi
 from __future__ import annotations
 
 import builtins
+import keyword
 import re
 import sys
 import unicodedata
@@ -14,16 +15,67 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 
-IDENT = r"`?'?\"?(?P<t>[A-Za-z_][\w.]*(?:\(\))?)`?'?\"?"
+# A name as deprecation text writes it: quoted any way (`x`, ``x``, 'x'), in a Sphinx role (:meth:`~x`), with a
+# leading dot for a member of the same class ("Use .items instead"), or called ("select()").
+_QUOTES = r"[`'\"]*"
+_ROLE = r"(?P<role>:[a-z]+:)?"
+_NAME = r"\.?[A-Za-z_][\w.]*(?:\(\))?"
+IDENT = rf"{_ROLE}{_QUOTES}~?(?P<t>{_NAME}){_QUOTES}"
+IDENT_RE = re.compile(IDENT)
+# After "the" a name is quoted or looks like code: "in favor of the Responses API" names an API (DT-CORE-23).
+_THE = r"(?P<the>the\s+)?"
+_CODE_SHAPED_RE = re.compile(r"[_.(\d]|[a-z][A-Z]")
 PATTERNS: list[tuple[re.Pattern[str], float]] = [
-    (re.compile(rf"\buse\s+{IDENT}\s+instead", re.I), 0.85),
-    (re.compile(rf"\b(?:moved|renamed)\s+to\s+{IDENT}", re.I), 0.85),
-    (re.compile(rf"\b(?:replaced|superseded)\s+(?:by|with)\s+{IDENT}", re.I), 0.8),
-    (re.compile(rf"\bin\s+favou?r\s+of\s+(?:using\s+)?{IDENT}", re.I), 0.8),
+    (re.compile(rf"\buse\s+{_THE}{IDENT}\s+instead", re.I), 0.85),
+    (re.compile(rf"\b(?:moved|renamed)\s+to\s+{_THE}{IDENT}", re.I), 0.85),
+    (re.compile(rf"\b(?:replaced|superseded)\s+(?:by|with)\s+{_THE}{IDENT}", re.I), 0.8),
+    (re.compile(rf"\bin\s+favou?r\s+of\s+(?:using\s+)?{_THE}{IDENT}", re.I), 0.8),
     (re.compile(rf"\bnow\s+available\s+as\s+{IDENT}", re.I), 0.8),  # sqlalchemy's `became_legacy_20`
-    (re.compile(rf"\bplease\s+use\s+{IDENT}", re.I), 0.75),
-    (re.compile(rf"\buse\s+{IDENT}", re.I), 0.6),
+    # redis' "call hset instead", pandas' "check index.inferred_type instead" (DT-CORE-23).
+    (
+        re.compile(rf"\b(?:call|check|access|pass|using)\s+{_THE}{IDENT}\s+(?:directly\s+)?instead\b", re.I),
+        0.8,
+    ),
+    # openai's "The `.content()` method should be used instead".
+    (
+        re.compile(
+            rf"(?<![\w.]){IDENT}\s+(?:(?:method|function|class|attribute|property)\s+)?should\s+be\s+used\s+instead",
+            re.I,
+        ),
+        0.8,
+    ),
+    # werkzeug's "Use feature detection or 'importlib.metadata.version("werkzeug")' instead".
+    (
+        re.compile(r"\bor\s+(?P<q>[`'\"]+)(?P<t>[A-Za-z_][\w.]*)(?:\([^()]*\))?(?P=q)\s+instead\b", re.I),
+        0.8,
+    ),
+    (re.compile(rf"\bplease\s+use\s+{_THE}{IDENT}", re.I), 0.75),
+    (re.compile(rf"\bcall\s+{_THE}{IDENT}\s+directly\b", re.I), 0.75),
+    (re.compile(rf"\binstead,?\s+(?:use|call|access)\s+{_THE}{IDENT}", re.I), 0.75),
+    (re.compile(rf"\buse\s+{_THE}{IDENT}", re.I), 0.6),
 ]
+# "Use `ChatMlflow` or `ChatDatabricks` instead", "Use DataFrame.ffill/Series.ffill instead": each name, in order.
+# A slash joins names only without spaces: "Use GET /v2/audio/voices instead" is a URL.
+_ITEM = rf"(?::[a-z]+:)?{_QUOTES}~?{_NAME}{_QUOTES}"
+LIST_RE = re.compile(
+    rf"\buse\s+(?:the\s+)?(?P<list>{_ITEM}(?:\s*,\s*(?:or\s+|and\s+)?|/|\s+(?:or|and)\s+){_ITEM}"
+    rf"(?:(?:\s*,\s*(?:or\s+|and\s+)?|/|\s+(?:or|and)\s+){_ITEM})*)\s+instead\b",
+    re.I,
+)
+LIST_CONFIDENCE = 0.85
+# langchain's "Please import from langchain-community instead: `from langchain_community.llms import OpenAI`".
+IMPORT_RE = re.compile(
+    r"\bfrom\s+(?P<mod>[A-Za-z_][\w.]*)\s+import\s+\(?\s*(?P<names>[A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)"
+)
+IMPORT_CONFIDENCE = 0.8
+# "# Old way from instructor import from_gemini … # New way from instructor import from_genai".
+_OLD_NEW_RE = re.compile(r"\b(old|new|before|after)\b", re.I)
+# A bare lowercase word that more prose follows is English: "use case documentation", "use new agent methods".
+_WORD_RE = re.compile(r"[a-z]+")
+_FOLLOWING_WORD_RE = re.compile(r"\s+[`'\"]?([A-Za-z]+)")
+_NOT_PROSE_AFTER = {"instead", "or", "and", "directly"}
+# pandas' "use DataFrame/Series.shift": a class, then a slash and the member both share.
+_SHORTHAND_RE = re.compile(r"[`'\"]*/[`'\"]*[A-Za-z_]\w*\.(?P<leaf>[A-Za-z_]\w*)")
 # "`BaseSettings` has been moved to the `pydantic-settings` package": the target is a distribution (DT-CORE-06).
 PACKAGE_MOVE_RE = re.compile(
     r"\bmoved\s+to\s+the\s+[`'\"]?(?P<dist>[A-Za-z0-9][\w.-]*)[`'\"]?\s+(?:package|distribution|library)\b",
@@ -48,6 +100,7 @@ STOPWORDS = {
     "from",
     "import",
     "using",
+    "which",
 }
 # Cues that a quoted parameter is the deprecated one: "instead of 'x'", "deprecated argument 'x'",
 # "'x' (argument) is (now) deprecated / will be removed / is no longer ...".
@@ -59,9 +112,11 @@ DEPRECATED_AFTER_RE = re.compile(
     re.I,
 )
 # A parameter named after a cue, quoted or not, behind a leading dot or before an `=` (DT-DATA-42): "please use
-# log_output", "in favor of `.condition`", "Use `verify=<ssl_context>` instead".
+# log_output", "in favor of `.condition`", "Use `verify=<ssl_context>` instead", "Use the lifespan parameter
+# instead", "Use ``sep='\s+'`` instead" (DT-CORE-23).
 PARAM_CUE_RE = re.compile(
-    r"\b(?:use|using|pass|favou?r\s+of|replaced\s+(?:by|with)|renamed(?:\s+to)?)\s+[`'\"]?\.?(?P<t>[A-Za-z_]\w*)",
+    r"\b(?:use|using|pass|favou?r\s+of|replaced\s+(?:by|with)|renamed(?:\s+to)?)\s+(?:the\s+)?[`'\"]*\.?"
+    r"(?P<t>[A-Za-z_]\w*)",
     re.I,
 )
 # Wording about leaving an argument out: "without state_schema", "Not providing a length argument", "without
@@ -126,29 +181,87 @@ def moved_to_package(message: str | None) -> str | None:
     return m.group("dist") if m else None
 
 
+def _prose(message: str, start: int, end: int) -> bool:
+    """Whether the name at message[start:end] is a word of a sentence: bare, unquoted, lowercase, and followed by
+    another word ("its use is discouraged", "use feature detection"), not by "instead" or punctuation."""
+    if not _WORD_RE.fullmatch(message[start:end]) or (start and message[start - 1] in "`'\"."):
+        return False
+    follow = _FOLLOWING_WORD_RE.match(message, end)
+    return bool(follow) and follow.group(1).lower() not in _NOT_PROSE_AFTER
+
+
+def _target(message: str, m: re.Match[str], skip_expressions: bool, group: str = "t") -> str | None:
+    """The name a match names, or None if it isn't one: a word, a keyword, private, a distribution, a name the
+    snapshot couldn't read to the end, or (with `skip_expressions`) the head of an expression.
+
+    A leading dot stays, for the resolver to read as the deprecated name's own class (DT-CORE-23), except in a
+    Sphinx role, where it means "look it up" and `_alias.` is a doc alias of a module (sqlalchemy's
+    :meth:`_engine.Engine.begin`)."""
+    start, end = m.span(group)
+    after = message[end : end + 2]
+    if after[:1] == "…" or (skip_expressions and after[:1] in ("(", "[", ".")):
+        return None  # "Use pandas.api.typing.… instead": the snapshot couldn't read the rest of the name
+    if after[:1] == "-" and after[1:].isalnum():
+        return None  # "use langchain-nvidia-ai-endpoints", "use built-in …": a distribution or a word
+    raw = m.group(group)
+    if m.re.groupindex.get("role") and m.group("role"):
+        raw = re.sub(r"^\.?_[a-z]+\.(?=.)", "", raw).lstrip(".")
+    t = ("." if raw.startswith(".") else "") + _clean(raw)
+    bare = t.lstrip(".")
+    if not bare or bare.lower() in STOPWORDS or keyword.iskeyword(bare) or _private(bare):
+        return None
+    if "." not in t and (shorthand := _SHORTHAND_RE.match(message, end)):
+        t = f"{t}.{shorthand.group('leaf')}"
+    marked = start > 0 and message[start - 1] in "`'\"~"
+    if m.re.groupindex.get("the") and m.group("the") and not marked and not _CODE_SHAPED_RE.search(raw):
+        return None
+    return None if _prose(message, start, end) else t
+
+
+def _imports(message: str) -> Iterable[str]:
+    """`module.name` for each name a `from module import name` statement imports as advice: not one the wording
+    deprecates ("`from x import y` is deprecated") or that an "Old way" introduces."""
+    for m in IMPORT_RE.finditer(message):
+        if DEPRECATED_AFTER_RE.match(message[m.end() :].lstrip("`'\"")):
+            continue
+        cue = [w.group(1).lower() for w in _OLD_NEW_RE.finditer(message, max(0, m.start() - 40), m.start())]
+        if cue and cue[-1] in ("old", "before"):
+            continue
+        for name in re.split(r"\s*,\s*", m.group("names")):
+            target = f"{m.group('mod')}.{name}"
+            if not _private(target):
+                yield target
+
+
 def mine(message: str | None, *, skip_expressions: bool = False) -> list[Hint]:
     """Replacement candidates for a whole symbol, best first, deduplicated.
 
     `skip_expressions` drops a target that is only the head of a longer expression: `np.dtype` in "Use
-    `np.dtype(obj).type` instead", `arr` in "Use `arr[index] = value` instead".
+    `np.dtype(obj).type` instead", `arr` in "Use `arr[index] = value` instead". A target can start with a dot
+    (".items"): a member of the deprecated name's class, which `PublicNames.resolve` reads.
     """
     if not message:
         return []
     hints: dict[str, Hint] = {}
     evidence = message.strip()[:300]
+
+    def add(t: str | None, conf: float) -> None:
+        if t and (t not in hints or hints[t].confidence < conf):
+            hints[t] = Hint(t, conf, evidence)
+
     for m in LANGCHAIN_ALTERNATIVE_RE.finditer(message):
         if not _private(t := _clean(m.group("t"))):
-            hints.setdefault(t, Hint(t, 0.9, evidence))
+            add(t, 0.9)
+    for m in LIST_RE.finditer(message):
+        items = IDENT_RE.finditer(message, m.start("list"), m.end("list"))
+        names = [item for item in items if item.group("t").lower() not in ("or", "and")]
+        for i, item in enumerate(names):
+            add(_target(message, item, skip_expressions), round(LIST_CONFIDENCE - 0.01 * i, 2))
     for pattern, conf in PATTERNS:
         for m in pattern.finditer(message):
-            after = message[m.end("t") : m.end("t") + 2]
-            if after[:1] == "…" or (skip_expressions and after[:1] in ("(", "[", ".")):
-                continue  # "Use pandas.api.typing.… instead": the snapshot couldn't read the rest of the name
-            if after[:1] == "-" and after[1:].isalnum():
-                continue  # "use langchain-nvidia-ai-endpoints", "use built-in …": a distribution or a word
-            t = _clean(m.group("t"))
-            if t and t.lower() not in STOPWORDS and t not in hints and not _private(t):
-                hints[t] = Hint(t, conf, evidence)
+            add(_target(message, m, skip_expressions), conf)
+    for t in _imports(message):
+        add(t, IMPORT_CONFIDENCE)
     return sorted(hints.values(), key=lambda h: -h.confidence)
 
 
@@ -259,14 +372,39 @@ def _ancestors(path: str) -> list[str]:
     return [".".join(parts[:i]) for i in range(len(parts) - 1, 0, -1)]
 
 
+INSTANCE_NAMES = ("self", "obj")
+
+
+def same_class(target: str, path: str) -> str | None:
+    """The member of `path`'s own class that `target` names, if it names one that way (DT-CORE-23): ".items" on
+    `pandas.DataFrame.iteritems`, `self.x` or `obj.x`, or an instance named after the class (`index.inferred_type`
+    on `pandas.Index.is_all_dates`, or on IntervalIndex's)."""
+    owner = path.rpartition(".")[0]
+    if not owner:
+        return None
+    if target.startswith("."):
+        return owner + target
+    head, _, rest = target.partition(".")
+    cls = owner.rpartition(".")[2].lower()
+    if rest and (head in INSTANCE_NAMES or cls == head or (len(head) >= 3 and cls.endswith(head))):
+        return f"{owner}.{rest}"
+    return None
+
+
 class PublicNames:
     """One package's public paths as its index rows have them, to check what a hint names (DT-CORE-12).
 
     `spans` are (path, last indexed ordinal, object): the object is the path's canonical definition, or the path
-    itself for a name a `__getattr__` serves (they all share its canonical).
+    itself for a name a `__getattr__` serves (they all share its canonical). `deprecations` are (path, first
+    ordinal, last ordinal, message) of the paths deprecated as a whole.
     """
 
-    def __init__(self, import_names: Sequence[str], spans: Iterable[tuple[str, int, str | None]]):
+    def __init__(
+        self,
+        import_names: Sequence[str],
+        spans: Iterable[tuple[str, int, str | None]],
+        deprecations: Iterable[tuple[str, int, int, str]] = (),
+    ):
         self.import_names = tuple(import_names)
         self._last: dict[str, int] = {}
         self._object: dict[str, str] = {}
@@ -274,6 +412,23 @@ class PublicNames:
             if last >= self._last.get(path, -1):
                 self._last[path], self._object[path] = last, obj or path
         self._tails: dict[str, list[str]] | None = None
+        self._deprecated: dict[str, list[tuple[int, int, str]]] = defaultdict(list)
+        for path, first, last, message in deprecations:
+            self._deprecated[path].append((first, last, message))
+
+    def _deprecation(self, path: str, at: int) -> str | None:
+        return next((m for first, last, m in self._deprecated.get(path, ()) if first <= at <= last), None)
+
+    def _itself(self, target: str, path: str, since: int) -> bool:
+        """`target` is the deprecated object at another path, deprecated there in the same words: langchain-
+        community's "Please use `HanaDB` from the langchain_hana package" found on its own re-export (DT-CORE-23).
+        numpy 2's `numpy.linalg.det` for `numpy.linalg.linalg.det` isn't deprecated, so it is where to import it."""
+        message = self._deprecation(path, since)
+        return (
+            message is not None
+            and self._object.get(target) == self._object.get(path)
+            and self._deprecation(target, since) == message
+        )
 
     def _own(self, target: str) -> bool:
         return any(target == n or target.startswith(n + ".") for n in self.import_names)
@@ -310,11 +465,24 @@ class PublicNames:
         the package (another distribution, the standard library, builtins, `name.map` on an instance), or a bare
         name only earlier releases have, so the index can't say.
 
-        Tried in order: as written, if it's in the package's namespace (else, for a dotted name, the same leaf
-        next to `path`); under each of `path`'s ancestors, nearest first, and the package's top level; then a
-        bare name anywhere in the package, or a dotted one under any object named like its head.
+        Tried in order: a member of `path`'s class, if the target names one that way (`same_class`); as written,
+        if it's in the package's namespace (else, for a dotted name, the same leaf next to `path`); under each of
+        `path`'s ancestors, nearest first, and the package's top level; then a bare name anywhere in the package,
+        or a dotted one under any object named like its head.
         """
         target = expand_alias(target)
+        if member := same_class(target, path):
+            if self._found(member, path, since):
+                return member, True
+            head, _, rest = target.lstrip(".").partition(".")
+            found, verdict = self._resolve(
+                rest if head in INSTANCE_NAMES and rest else target.lstrip("."), path, since
+            )
+            # A member the index can't check (polars' `.str.explode()`) keeps the dot that says whose it is.
+            return (target, None) if verdict is None and target.startswith(".") else (found, verdict)
+        return self._resolve(target, path, since)
+
+    def _resolve(self, target: str, path: str, since: int) -> tuple[str, bool | None]:
         if self._own(target):
             if self._found(target, path, since):
                 return target, True
@@ -336,6 +504,8 @@ class PublicNames:
     def check(self, hint: Hint, path: str, since: int) -> Hint:
         """`hint` with its target qualified, and its confidence capped if the index contradicts it."""
         target, verdict = self.resolve(hint.target, path, since)
+        if verdict and self._itself(target, path, since):
+            verdict = False
         confidence = (
             hint.confidence if verdict is not False else min(hint.confidence, CONTRADICTED_CONFIDENCE)
         )

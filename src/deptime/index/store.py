@@ -157,6 +157,7 @@ class IndexStore:
                 (path, last, None if state[0] == "getattr" else state[1])
                 for path, _first, last, state in span_rows
             ),
+            ((path, first, last, state[3]) for path, first, last, state in span_rows if state[3]),
         )
         for ordinal, _prev, ev in events:
             if ev.kind == "deprecated":

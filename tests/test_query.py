@@ -259,9 +259,10 @@ def test_index_downloaded_by_another_process_is_picked_up(tmp_path, index_file, 
 
 
 def test_low_confidence_replacements_are_not_stated_as_advice():
-    # Q-03: a 0.6 hint mined from "use keyword arguments" must not become "Use keyword instead."
+    # Q-03: a 0.6 hint must not become "Use … instead." (DT-CORE-23 reads Q-03's own text, "use keyword
+    # arguments", as prose: no hint at all.)
     spec = PackageSpec(name="p5", import_names=("p5",), tier="B")
-    old_dep = "Passing positional arguments is deprecated; use keyword arguments"
+    old_dep = "Passing positional arguments is deprecated; use p5.f with keyword arguments"
     param_dep = "The 'old' argument is deprecated; see 'docs_page'."
     v1 = {
         "p5": SymbolRecord("p5", "module", "p5"),
@@ -276,9 +277,9 @@ def test_low_confidence_replacements_are_not_stated_as_advice():
     sym = dt.explain_error("ImportError: cannot import name 'old' from 'p5' (/x.py)", {"p5": "2.0"}).findings[
         0
     ]
-    assert sym.issue == "symbol_removed" and "keyword" not in sym.explanation
+    assert sym.issue == "symbol_removed" and "p5.f" not in sym.explanation
     assert [(r.target, r.confidence) for r in sym.replacements] == [
-        ("keyword", 0.6)
+        ("p5.f", 0.6)
     ]  # still listed, with its score
 
     par = dt.explain_error("TypeError: f() got an unexpected keyword argument 'old'", {"p5": "2.0"}).findings[
@@ -289,7 +290,7 @@ def test_low_confidence_replacements_are_not_stated_as_advice():
     assert [r.target for r in par.replacements] == ["docs_page"]
 
     check = dt.check_symbols("p5", "2.0", [SymbolQuery(path="old")]).results[0]
-    assert check.status == "missing" and "keyword" not in check.hint
+    assert check.status == "missing" and "p5.f" not in check.hint
 
 
 def _param(name: str, kind: str = "keyword-only", default: str | None = "None") -> dict:
@@ -684,3 +685,38 @@ def test_an_indexed_hint_names_a_path_the_index_has():
     assert [(r.target, r.confidence) for r in dt.symbol_history("numpy", "numpy.alltrue").replacements] == [
         ("all_true_now", 0.5)
     ]
+
+
+def test_a_method_named_with_a_leading_dot_is_on_the_same_class():
+    # DT-CORE-23: pandas 1.5's DataFrame.iteritems says "Use .items instead."; in the index and in error text alike.
+    pk = PackageSpec(name="pk", import_names=("pk",), tier="B")
+    frame = {"pk": _rec("pk", "module"), "pk.Frame": _rec("pk.Frame", "class")}
+    frame |= {
+        "pk.Frame.items": _rec("pk.Frame.items", "function", []),
+        "pk.items": _rec("pk.items", "function", []),
+    }
+    old = SymbolRecord(
+        "pk.Frame.iteritems",
+        "function",
+        "pk.Frame.iteritems",
+        [],
+        "iteritems is deprecated. Use .items instead.",
+    )
+    dt = _dt(
+        [
+            (
+                pk,
+                [
+                    ApiSnapshot("pk", "1.5", ["pk"], frame | {old.path: old}),
+                    ApiSnapshot("pk", "2.0", ["pk"], frame),
+                ],
+            )
+        ]
+    )
+    assert [(r.target, r.confidence) for r in dt.symbol_history("pk", "pk.Frame.iteritems").replacements] == [
+        ("pk.Frame.items", 0.85)
+    ]
+    tb = "AttributeError: 'Frame' object has no attribute 'iteritems'. Use .items instead."
+    f = dt.explain_error(tb, {"pk": "2.0"}).findings[0]
+    assert f.symbol == "pk.Frame.iteritems"
+    assert [(r.target, r.source) for r in f.replacements] == [("pk.Frame.items", "error_message")]

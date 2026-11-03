@@ -1,4 +1,5 @@
 from deptime.ingest.replacements import (
+    Hint,
     PublicNames,
     clean_evidence,
     mine,
@@ -165,7 +166,136 @@ def test_words_that_are_not_names_are_never_hints():
     msg = "django.core.files.storage.get_storage_class is deprecated in favor of using django.core.files.storage.storages."
     assert [h.target for h in mine(msg)] == ["django.core.files.storage.storages"]
     assert mine("Please use one of the more specific methods: `send_client_content` instead.") == []
-    assert mine("Please use `from langchain_community.chat_models import ChatAnthropic` instead") == []
+    # The import statement names the class, never the word `from` (DT-CORE-23).
+    assert [
+        h.target
+        for h in mine("Please use `from langchain_community.chat_models import ChatAnthropic` instead")
+    ] == ["langchain_community.chat_models.ChatAnthropic"]
+
+
+def _hints(msg):
+    return [(h.target, h.confidence) for h in mine(msg)]
+
+
+def test_python_keywords_are_never_hints():
+    # DT-CORE-23: the published index had 1,010 such hints, mostly where "use" is a noun (numpy 2's `numpy.core`
+    # shims: "its use is discouraged"), or the advice is an expression (aiohttp, polars, marshmallow, pydantic-ai).
+    for msg in (
+        "numpy.core is deprecated and has been renamed to numpy._core. The numpy._core namespace contains private "
+        "NumPy internals and its use is discouraged, as NumPy internals can change without warning.",
+        "drain method is deprecated, use await resp.write()",
+        "`is_not` is deprecated. Use `not dtype.is_(...)` instead.",
+        '`Field.fail` is deprecated. Use `raise self.make_error("{}", ...)` instead.',
+        "`run_mcp_servers` is deprecated, use `async with agent:` instead.",
+        "Using a non-boolean value for an isnull lookup is deprecated, use True or False instead.",
+    ):
+        assert mine(msg) == [], msg
+
+
+def test_prose_after_a_cue_is_not_a_target():
+    # DT-CORE-23: an unquoted lowercase word that more prose follows is English, not a name.
+    for msg in (
+        "Please follow our extraction use case documentation for more guidelines.",
+        "Use new agent constructor methods like create_react_agent.",
+        "CodeInterpreterTool is no longer available. Use dedicated sandbox services like E2B or Modal.",
+        "Please use our custom component, [streamlit-bokeh](https://github.com/streamlit/streamlit-bokeh).",
+        "`arange` has been replaced by two new functions: `int_range` for generating a single range.",
+        "`disp` is deprecated, use your own printing function instead.",
+        "This class is deprecated in favor of chaining individual prompts together.",
+        "The ChatInputValue proto message should be used instead.",
+    ):
+        assert mine(msg) == [], msg
+    # Names keep their hints: CamelCase, snake_case, a call, or a word that "instead", "or" or punctuation follows.
+    assert _hints("Use FastMCP with OpenAPIProvider instead.") == [("FastMCP", 0.6)]
+    assert _hints("Deprecated, use aiohttp_client fixture instead") == [("aiohttp_client", 0.6)]
+    assert _hints("To keep the exact same behavior, use when/then/otherwise.") == [("when", 0.6)]
+    assert _hints("apatch is deprecated, use patch instead") == [("patch", 0.85)]
+    # werkzeug 3.0's `__version__`: the name is the second thing it suggests.
+    msg = "The '__version__' attribute is deprecated. Use feature detection or 'importlib.metadata.version(\"werkzeug\")' instead."
+    assert _hints(msg) == [("importlib.metadata.version", 0.8)]
+
+
+def test_a_method_named_with_a_leading_dot_keeps_it():
+    # DT-CORE-23: pandas 1.5's "Use .items instead", openai's `.content()`; the dot means a member of the same
+    # class, and the resolver reads it so.
+    assert _hints("iteritems is deprecated and will be removed in a future version. Use .items instead.") == [
+        (".items", 0.85)
+    ]
+    assert _hints("'The `.content()` method should be used instead'") == [(".content", 0.8)]
+    assert _hints("Please create a mask and filter using `.loc` instead") == [(".loc", 0.8)]
+
+
+def test_lists_imports_and_other_verbs_name_targets():
+    # DT-CORE-23: each name of "use A or B instead"; an import statement; "call/check/access X instead".
+    assert _hints("`ChatMLflowAIGateway` is deprecated. Use `ChatMlflow` or `ChatDatabricks` instead.") == [
+        ("ChatMlflow", 0.85),
+        ("ChatDatabricks", 0.84),
+    ]
+    assert _hints("DataFrame.pad/Series.pad is deprecated. Use DataFrame.ffill/Series.ffill instead") == [
+        ("DataFrame.ffill", 0.85),
+        ("Series.ffill", 0.84),
+    ]
+    # pandas' shorthand for DataFrame.shift and Series.shift; a URL path isn't a list.
+    assert _hints("You can use DataFrame/Series.shift instead.") == [
+        ("DataFrame.shift", 0.85),
+        ("Series.shift", 0.84),
+    ]
+    assert [h.target for h in mine("Offset pagination is deprecated. Use GET /v2/audio/voices instead.")] == [
+        "GET"
+    ]
+    # After "the", a name is quoted or looks like code: openai's "in favor of the Responses API" names an API.
+    assert mine("The Assistants API is deprecated in favor of the Responses API") == []
+    assert _hints("DEPRECATED: Please use the base_font_size theme config instead:") == [
+        ("base_font_size", 0.75)
+    ]
+    assert _hints("Use the PromptsAsTools transform instead.") == [("PromptsAsTools", 0.6)]
+    assert _hints("select_entity_from is deprecated. Use the aliased() construct instead") == [
+        ("aliased", 0.6)
+    ]
+    langchain = (
+        "Importing from langchain will no longer be supported as of langchain==0.2.0. Please import from "
+        "langchain-community instead:\n\n`from langchain_community.agent_toolkits import AINetworkToolkit`.\n\n"
+        "To install langchain-community run `pip install -U langchain-community`."
+    )
+    assert _hints(langchain) == [("langchain_community.agent_toolkits.AINetworkToolkit", 0.8)]
+    assert _hints("\"Use 'from crewai.events import AgentExecutionCompletedEvent' instead\"") == [
+        ("crewai.events.AgentExecutionCompletedEvent", 0.8)
+    ]
+    # An import the wording deprecates, or the old way of a migration, isn't advice.
+    assert mine("`from fastmcp.settings import settings` is deprecated.") == []
+    msg = "Example migration: # Old way from instructor import from_gemini # New way from instructor import from_genai"
+    assert _hints(msg) == [("instructor.from_genai", 0.8)]
+    assert _hints("Index.is_all_dates is deprecated. check index.inferred_type instead.") == [
+        ("index.inferred_type", 0.8)
+    ]
+    assert _hints("add_document is deprecated since redisearch 2.0, call hset instead") == [("hset", 0.8)]
+    assert _hints("redisjson-py supported this, call get directly.") == [("get", 0.75)]
+    assert _hints("getheaders() is deprecated. Instead access HTTPResponse.headers directly.") == [
+        ("HTTPResponse.headers", 0.75)
+    ]
+
+
+def test_rst_roles_and_double_backticks():
+    # DT-CORE-23: sqlalchemy writes its advice in Sphinx roles, with a private doc alias for the module.
+    assert _hints("Use the :meth:`_engine.Engine.begin` context manager instead.") == [("Engine.begin", 0.6)]
+    assert _hints(":meth:`_schema.Table.tometadata` is renamed to :meth:`_schema.Table.to_metadata`") == [
+        ("Table.to_metadata", 0.85)
+    ]
+    assert _hints("Please use the :func:`.sqlalchemy.inspect` function on an Engine.") == [
+        ("sqlalchemy.inspect", 0.75)
+    ]
+    assert _hints("Use ``astype`` as an alternative to change the dtype.") == [("astype", 0.6)]
+
+
+def test_parameter_cues_take_an_article_and_double_backticks():
+    # DT-CORE-23: starlette's "Use the lifespan parameter instead", pandas' "Use ``sep='\s+'`` instead".
+    def alts(msg, old, params):
+        return [(h.target, h.confidence) for h in param_alternatives(msg, [old], params)]
+
+    msg = "The on_startup and on_shutdown parameters are deprecated. Use the lifespan parameter instead."
+    assert alts(msg, "on_startup", ["on_startup", "on_shutdown", "lifespan"]) == [("lifespan", 0.8)]
+    msg = "The 'delim_whitespace' keyword in pd.read_csv is deprecated. Use ``sep='\\s+'`` instead"
+    assert alts(msg, "delim_whitespace", ["delim_whitespace", "sep"]) == [("sep", 0.8)]
 
 
 def test_a_distribution_name_is_not_a_target():
@@ -295,6 +425,76 @@ def test_a_hint_target_outside_the_package_is_not_checked():
     ):
         assert names.resolve(target, "numpy.product", 4)[1] is None, target
     assert names.resolve("pd.concat", "numpy.product", 4) == ("pandas.concat", None)
+
+
+def test_a_member_of_the_same_class_by_a_leading_dot_or_an_instance():
+    # DT-CORE-23: ".items" on DataFrame.iteritems, "index.inferred_type" on Index.is_all_dates, "self.x", "obj.x".
+    pd = PublicNames(
+        ["pandas"],
+        [
+            ("pandas.DataFrame.iteritems", 9, "pandas.core.frame.DataFrame.iteritems"),
+            ("pandas.DataFrame.items", 9, "pandas.core.frame.DataFrame.items"),
+            ("pandas.Series.items", 9, "pandas.core.series.Series.items"),
+            ("pandas.Index.is_all_dates", 9, "pandas.core.indexes.base.Index.is_all_dates"),
+            ("pandas.Index.inferred_type", 9, "pandas.core.indexes.base.Index.inferred_type"),
+            ("pandas.DataFrame.ffill", 9, "pandas.core.frame.DataFrame.ffill"),
+            ("pandas.DataFrame.index", 9, "pandas.core.frame.DataFrame.index"),
+            ("pandas.DataFrame.loc", 9, "pandas.core.frame.DataFrame.loc"),
+        ],
+    )
+    assert pd.resolve(".items", "pandas.DataFrame.iteritems", 4) == ("pandas.DataFrame.items", True)
+    assert pd.resolve("index.inferred_type", "pandas.Index.is_all_dates", 4) == (
+        "pandas.Index.inferred_type",
+        True,
+    )
+    assert pd.resolve("obj.ffill", "pandas.DataFrame.pad", 4) == ("pandas.DataFrame.ffill", True)
+    assert pd.resolve("self.loc", "pandas.DataFrame.first", 4) == ("pandas.DataFrame.loc", True)
+    # Not on that class: read as the name alone.
+    assert pd.resolve(".items", "pandas.read_csv", 4) == ("items", True)
+    assert pd.resolve(".nothing", "pandas.DataFrame.iteritems", 4) == ("nothing", False)
+    # A member the index can't check (polars' `.str.explode()`, a namespace accessor) keeps its dot.
+    assert pd.resolve(".str.split", "pandas.DataFrame.iteritems", 4) == (".str.split", None)
+    # An instance named after the base class: `index` on IntervalIndex.
+    sub = PublicNames(
+        ["pandas"],
+        [
+            ("pandas.IntervalIndex.is_mixed", 9, "pandas.core.indexes.base.Index.is_mixed"),
+            (
+                "pandas.IntervalIndex.inferred_type",
+                9,
+                "pandas.core.indexes.interval.IntervalIndex.inferred_type",
+            ),
+        ],
+    )
+    assert sub.resolve("index.inferred_type", "pandas.IntervalIndex.is_mixed", 4) == (
+        "pandas.IntervalIndex.inferred_type",
+        True,
+    )
+
+
+def test_the_deprecated_object_itself_is_no_replacement():
+    # DT-CORE-23: langchain-community's "Please use `HanaDB` from the langchain_hana package" found the deprecated
+    # class at another path; llama-index's ReActAgent named a path the new class "will be promoted to".
+    spans = [
+        ("lc.vectorstores.hanavector.HanaDB", 9, "lc.vectorstores.hanavector.HanaDB"),
+        ("lc.vectorstores.HanaDB", 9, "lc.vectorstores.hanavector.HanaDB"),
+        ("np.linalg.linalg.det", 6, "np.linalg._linalg.det"),
+        ("np.linalg.det", 9, "np.linalg._linalg.det"),
+    ]
+    dep = "Please use HanaDB from the langchain_hana package."
+    deprecations = [
+        ("lc.vectorstores.hanavector.HanaDB", 2, 9, dep),
+        ("lc.vectorstores.HanaDB", 2, 9, dep),
+        ("np.linalg.linalg.det", 2, 6, "np.linalg.linalg is deprecated."),
+    ]
+    names = PublicNames(["lc", "np"], spans, deprecations)
+    hint = Hint("HanaDB", 0.75, dep)
+    assert names.check(hint, "lc.vectorstores.hanavector.HanaDB", 4) == Hint(
+        "lc.vectorstores.HanaDB", 0.5, dep
+    )
+    # The same object at a path that isn't deprecated is where to import it from (numpy 2's shims).
+    hint = Hint("np.linalg.det", 0.85, "")
+    assert names.check(hint, "np.linalg.linalg.det", 4).confidence == 0.85
 
 
 def test_a_dotted_target_is_found_under_an_ancestor_or_as_a_sibling():

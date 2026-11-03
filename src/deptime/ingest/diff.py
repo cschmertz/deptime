@@ -99,6 +99,9 @@ def diff_snapshots(old: ApiSnapshot, new: ApiSnapshot) -> list[ChangeEvent]:
     added_by_leaf: dict[str, list[str]] = defaultdict(list)
     for path in added:
         events.append(ChangeEvent(path, "added", {"kind": new.symbols[path].kind}))
+        # A name can arrive deprecated: restored for a while (matplotlib 3.9.1's `cm.get_cmap`), or a new path to
+        # a deprecated function (DT-CORE-23).
+        events.extend(_deprecation_events(path, new.symbols[path]))
         if _module_level(new, path):
             added_by_leaf[path.rsplit(".", 1)[-1]].append(path)
 

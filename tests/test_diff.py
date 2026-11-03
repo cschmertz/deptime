@@ -90,6 +90,22 @@ def _warned(
     return ApiSnapshot("p", version, ["p"], {rec.path: rec})
 
 
+def test_a_name_added_already_deprecated_is_a_deprecation():
+    # DT-CORE-23: matplotlib 3.9.1 restored `cm.get_cmap` deprecated; a new re-export of a deprecated function
+    # carries its warnings. Neither had an event, so neither had a hint or a deprecation date.
+    old = ApiSnapshot("p", "1.0", ["p"], {"p": SymbolRecord("p", "module", "p")})
+    gone = SymbolRecord("p.get_cmap", "function", "p.get_cmap", [], "Use `p.colormaps` instead.")
+    warned = _warned("2.0", {"check": "`check` is deprecated in favor of `.condition`."})
+    new = ApiSnapshot("p", "2.0", ["p"], {**old.symbols, **warned.symbols, gone.path: gone})
+    k = {(e.path, e.kind, e.detail.get("param")) for e in diff_snapshots(old, new)}
+    assert {
+        ("p.get_cmap", "added", None),
+        ("p.get_cmap", "deprecated", None),
+        ("p.C.__init__", "added", None),
+        ("p.C.__init__", "param_deprecated", "check"),
+    } <= k
+
+
 def test_argument_deprecations_are_events_of_their_own():
     # DT-DATA-42: a warning that deprecates one argument is an event for that argument, with its hint, and the
     # function stays undeprecated.

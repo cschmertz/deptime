@@ -2,6 +2,7 @@ from deptime.ingest.replacements import (
     Hint,
     PublicNames,
     clean_evidence,
+    deprecates_argument,
     mine,
     moved_to_package,
     param_alternatives,
@@ -107,6 +108,57 @@ def test_function_notice_quoting_a_param_stays_a_function_deprecation():
     )
     assert param_deprecations(msg, ["include", "exclude", "update", "deep"]) == {}
     assert mine(msg)[0].target == "model_copy"
+
+
+def test_an_argument_as_what_a_sentence_deprecates():
+    # DT-DATA-39: a warning one call away deprecates the caller's argument only when its wording deprecates the
+    # argument itself, not a value or a way of calling (messages from the radius releases).
+    for message, name in [
+        ("`regex` has been deprecated, please use `pattern` instead", "regex"),
+        (
+            "The `proxies` argument is deprecated. The `http_client` argument should be passed instead",
+            "proxies",
+        ),
+        ("log_path has been deprecated, please use log_output", "log_path"),
+        ("fingerprint is deprecated, use ssl=Fingerprint(fingerprint) instead", "fingerprint"),
+        ("body argument is deprecated for http web exceptions", "body"),
+        ("The 'col_count' parameter will be removed in Gradio 6.0.", "col_count"),
+        ("The 'default' argument to fields is deprecated. Use 'dump_default' instead.", "default"),
+        ("The 'method' keyword in {type(self).__name__}.fillna is deprecated and will be removed", "method"),
+        ("The `objects` parameter of `Session.flush` is deprecated", "objects"),
+        ("Argument `closed` is deprecated in favor of `inclusive`.", "closed"),
+        ("The on_startup and on_shutdown parameters are deprecated, and they will be removed", "on_startup"),
+        ("The on_startup and on_shutdown parameters are deprecated, and they will be removed", "on_shutdown"),
+        ("`cert=...` is deprecated. Use `verify=<ssl_context>` instead.", "cert"),
+        ("Setting per-request cookies=<...> is being deprecated, because the expected behaviour", "cookies"),
+        ("pytest.skip(msg=...) is now deprecated, use pytest.skip(reason=...) instead", "msg"),
+    ]:
+        assert deprecates_argument(message, name), (message, name)
+    for message, name in [
+        ("Using dict as a `filter` is deprecated. Please use qdrant-client filters directly", "filter"),
+        ("Passing an array containing `None` values to `s` is deprecated in NumPy 2.0", "s"),
+        ("Omitting `issuer` is deprecated and it will be required in 3.0.", "issuer"),
+        (
+            "parameter 'timeout' of type 'float' is deprecated, please use 'timeout=ClientWSTimeout(ws_close=...)'",
+            "timeout",
+        ),
+        (
+            "float parameter 'receive_timeout' is deprecated, please use parameter 'timeout=ClientWSTimeout(...)'",
+            "receive_timeout",
+        ),
+        ("Passing a tuple to 'row_count' will be removed in Gradio 6.0.", "row_count"),
+        ("The canvas_class parameter will become required after the deprecation period", "canvas_class"),
+        ("`the (unused) 'frac' key in 'arrowprops'` is deprecated.", "arrowprops"),
+        ("The behavior of .astype from {self.dtype} to {dtype} is deprecated.", "dtype"),
+        ("Using .astype to convert from timezone-naive dtype to timezone-aware dtype is deprecated", "dtype"),
+        (
+            'arrays to stack must be passed as a "sequence" type such as list or tuple. Support is deprecated',
+            "arrays",
+        ),
+        ("`verify=<str>` is deprecated.", "verify"),
+        ("Use `regex` instead; `pattern` is deprecated", "regex"),
+    ]:
+        assert not deprecates_argument(message, name), (message, name)
 
 
 def test_param_level_mismatched_quotes():

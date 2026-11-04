@@ -25,12 +25,13 @@ import griffe
 
 from deptime.ingest.replacements import (
     DEPRECATION_WORDS_RE,
+    deprecates_argument,
     deprecates_name,
     names_argument,
     worded_deprecated,
 )
 
-SNAPSHOT_FORMAT = 13  # bump when extraction changes: cached snapshots in another format are rebuilt
+SNAPSHOT_FORMAT = 14  # bump when extraction changes: cached snapshots in another format are rebuilt
 MAX_DEPTH = 12  # guards pathological re-export cycles
 
 DEPRECATED_DECORATOR_RE = re.compile(r"^(?:[\w.]+\.)?deprecated\b(?:\(.*\))?$", re.S)
@@ -48,6 +49,11 @@ DEPRECATION_CATEGORY_RE = re.compile(rf"{WARNING_CATEGORY_RE.pattern}|\bRemovedI
 CALL_CATEGORY_RE = re.compile(r"deprecat|\bFutureWarning\b|\bRemovedIn\w*Warning\b", re.I)
 UNRECOVERABLE = "deprecated (warning emitted; message not statically recoverable)"
 PLACEHOLDER_RE = re.compile(r"\{[^{}]*\}")  # an f-string's `{expression}`
+# `warn(KEYWORD_MSG_ARG.format(...))`: a warning kept in a module constant (pytest's `_pytest/deprecated.py`).
+WARN_CONSTANT_RE = re.compile(r"\bwarn\(\s*[A-Z][A-Z0-9_]+\b")
+# How many calls down an argument's deprecation is followed (DT-DATA-39): httpx's `Client.__init__` passes `cert` to
+# `_init_transport`, which passes it to `HTTPTransport`, which passes it to `create_ssl_context`, which warns.
+PASS_DEPTH = 3
 # Builds run on the pinned interpreter (.python-version), so this list doesn't vary between index builds.
 # distutils left the stdlib in 3.12; typing_extensions is a backport of it.
 STDLIB_MODULES = frozenset(sys.stdlib_module_names) | {"distutils", "typing_extensions"}
@@ -132,17 +138,50 @@ def deprecation_message(obj: griffe.Object) -> str | None:
     return deprecations(obj)[0]
 
 
-def deprecations(obj: griffe.Object) -> tuple[str | None, dict[str, str] | None]:
+# A build's readings, by object (kept alive with it), depth and the literals a caller passes (DT-DATA-39): a function
+# that many others pass their arguments to is read once. None outside `build_snapshot`.
+_READINGS: dict[tuple[int, int, tuple[tuple[str, str], ...]], tuple[griffe.Object, Any]] | None = None
+
+
+def deprecations(
+    obj: griffe.Object, depth: int = PASS_DEPTH, values: dict[str, str] | None = None
+) -> tuple[str | None, dict[str, str] | None]:
     """Best-effort deprecation detection: griffe extensions and `@deprecated` decorators deprecate the object (a
     decorator's arguments read by `_decorator_reading`; a pending one doesn't), and deprecation helpers recognized
     by name deprecate it or some of its arguments (`_HELPERS`): as decorators, or for an attribute, as the call
     that binds it. For a function, every warning in its body is read
     (`_BodyWarnings`), and else its dispatcher's (`_dispatcher_deprecation`), unless warning is its job
-    (`_MACHINERY_RE`). A class's or function's docstring notes and `'deprecated'` defaults fill in what the code
-    doesn't say (`_documented_deprecations`)."""
+    (`_MACHINERY_RE`); an argument it passes on to a function that deprecates it is deprecated, up to `depth` calls
+    down (`_passed_on`). A class's or function's docstring notes and `'deprecated'` defaults fill in what the code
+    doesn't say (`_documented_deprecations`). `values`: string literals a caller passes for some parameters, which
+    fill in the messages that use them."""
+    reading = _reading(obj, depth, values)
+    return reading.whole, reading.params
+
+
+@dataclass(frozen=True)
+class _Reading:
+    whole: str | None
+    params: dict[str, str] | None
+    # For an argument a warning in the body deprecates: the other arguments its condition tests, which a caller
+    # must pass on too for the warning to be its (DT-DATA-39). pandas warns about `include` only `if obj.ndim == 1`.
+    conditions: dict[str, frozenset[str]] = field(default_factory=dict)
+
+
+def _reading(obj: griffe.Object, depth: int, values: dict[str, str] | None) -> _Reading:
+    if _READINGS is None:
+        return _deprecations(obj, depth, values)
+    key = (id(obj), depth, tuple(sorted(values.items())) if values else ())
+    hit = _READINGS.get(key)
+    if hit is None:
+        hit = _READINGS[key] = (obj, _deprecations(obj, depth, values))
+    return hit[1]
+
+
+def _deprecations(obj: griffe.Object, depth: int, values: dict[str, str] | None) -> _Reading:
     flagged = getattr(obj, "deprecated", None)
     if flagged:
-        return (flagged if isinstance(flagged, str) else "deprecated"), None
+        return _Reading((flagged if isinstance(flagged, str) else "deprecated"), None)
     whole: str | None = None
     params: dict[str, str] = {}
     # A constructor's deprecation is its class's: "InferenceApi is deprecated", not "__init__ is deprecated".
@@ -155,7 +194,7 @@ def deprecations(obj: griffe.Object) -> tuple[str | None, dict[str, str] | None]
             reading = _decorator_reading(_parsed_call(decorator) if "(" in decorator else None, obj, name)
             if reading is None:  # pending: not deprecated yet
                 continue
-            return reading, None
+            return _Reading(reading, None)
         call = _helper_call(text)
         found = _helper_reading(call, obj, name) if call is not None else None
         if found is not None:
@@ -163,11 +202,13 @@ def deprecations(obj: griffe.Object) -> tuple[str | None, dict[str, str] | None]
             for param, message in found[1].items():
                 params.setdefault(param, message)
     if isinstance(obj, griffe.Attribute):
-        return _wrapper_deprecation(obj), None
+        return _Reading(_wrapper_deprecation(obj), None)
+    own_params: dict[str, str] = {}
+    conditions: dict[str, frozenset[str]] = {}
     if isinstance(obj, griffe.Function) and not _MACHINERY_RE.match(obj.name):
-        own, own_params = _function_warnings(obj, obj)
+        own, own_params, conditions = _function_warnings(obj, obj, values)
         whole = whole or own or _dispatcher_deprecation(obj)
-        for name, message in (own_params or {}).items():
+        for name, message in own_params.items():
             params.setdefault(name, message)
     # What the code says wins over what the docstring says, unless the snapshot can't read it (DT-DATA-38).
     doc_whole, doc_params = _documented_deprecations(obj)
@@ -176,7 +217,14 @@ def deprecations(obj: griffe.Object) -> tuple[str | None, dict[str, str] | None]
     for name, message in doc_params.items():
         if params.get(name, UNRECOVERABLE) == UNRECOVERABLE:
             params[name] = message
-    return whole, params or None
+    # A warning one call away fills in what the function's own code and docstring don't say (DT-DATA-39).
+    if isinstance(obj, griffe.Function) and depth > 0 and not _MACHINERY_RE.match(obj.name):
+        for name, message in _passed_on(obj, depth).items():
+            if params.get(name, UNRECOVERABLE) == UNRECOVERABLE and message != UNRECOVERABLE:
+                params[name] = message
+            params.setdefault(name, message)
+    kept = {n: c for n, c in conditions.items() if n in own_params and params.get(n) == own_params[n]}
+    return _Reading(whole, params or None, kept)
 
 
 # Deprecation helpers recognized by name (DT-DATA-37), from a survey of the decorators and wrapper calls in the
@@ -343,12 +391,21 @@ def _renamed_deprecated(dec: griffe.Decorator, text: str) -> str:
 
 
 def _module_constant(module: griffe.Module | None, name: str) -> str | None:
-    """A module-level string constant: pydantic's `warn(_ALLOW_REUSE_WARNING_MESSAGE, DeprecationWarning)`."""
+    """A module-level string constant: pydantic's `warn(_ALLOW_REUSE_WARNING_MESSAGE, DeprecationWarning)`. A
+    warning kept in a constant is its text (DT-DATA-39): pytest's `YIELD_FIXTURE = PytestDeprecationWarning("…")`
+    and `KEYWORD_MSG_ARG = UnformattedWarning(PytestRemovedIn8Warning, "…")`, imported from `_pytest.deprecated`."""
     try:
         member = module.members.get(name) if module is not None else None
         target = _resolve(member) if member is not None else None
         value = getattr(target, "value", None) if target is not None and target.is_attribute else None
-        rendered = _render(_quiet_parse(str(value), "eval").body) if value is not None else None  # type: ignore[attr-defined]
+        node = _quiet_parse(str(value), "eval").body if value is not None else None  # type: ignore[attr-defined]
+        rendered = _render(node)
+        if (
+            rendered is None
+            and isinstance(node, ast.Call)
+            and _WARNING_CLASS_RE.match(ast.unparse(node.func))
+        ):
+            rendered = next((text for arg in node.args if (text := _render(arg)) is not None), None)
     except Exception:  # griffe raises several resolution errors; a value may not parse
         return None
     return " ".join(rendered.split())[:400] or None if rendered else None
@@ -650,34 +707,208 @@ def _wrapper_deprecation(attr: griffe.Attribute) -> str | None:
     return found[0] if found is not None else None
 
 
+def _function_node(
+    func: griffe.Function, source: str
+) -> tuple[ast.FunctionDef | ast.AsyncFunctionDef | None, str] | None:
+    """`func`'s definition, parsed from its `source`, and the text it was parsed from; None if it doesn't parse, and
+    no node when griffe made the function up (a dataclass's `__init__`: its source is someone else's)."""
+    parsed = _parse_function(source)
+    if parsed is None:
+        return None
+    tree, text = parsed
+    node = next(
+        (
+            n
+            for n in ast.walk(tree)
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == func.name
+        ),
+        None,
+    )
+    return node, text
+
+
 def _function_warnings(
-    func: griffe.Function, reader: griffe.Function
-) -> tuple[str | None, dict[str, str] | None]:
-    """The warnings in `func`'s body, read as `reader`'s: its own name and class decide what they deprecate."""
+    func: griffe.Function, reader: griffe.Function, values: dict[str, str] | None = None
+) -> tuple[str | None, dict[str, str], dict[str, frozenset[str]]]:
+    """The warnings in `func`'s body, read as `reader`'s: its own name and class decide what they deprecate. Also,
+    for each argument they deprecate, the other arguments its warning's condition tests (`_Reading.conditions`)."""
     try:
         source = func.source
     except (OSError, ValueError, AttributeError):
-        return None, None
-    if "warn" not in source or not (CALL_CATEGORY_RE.search(source) or "deprecat" in source.lower()):
-        return None, None
-    parsed = _parse_function(source)
-    if parsed is not None:
-        tree, text = parsed
-        node = next(
-            (
-                n
-                for n in ast.walk(tree)
-                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == func.name
-            ),
-            None,
-        )
-        if node is None:  # griffe made it up (a dataclass's `__init__`): its source is someone else's
-            return None, None
+        return None, {}, {}
+    if "warn" not in source or not (
+        CALL_CATEGORY_RE.search(source) or "deprecat" in source.lower() or WARN_CONSTANT_RE.search(source)
+    ):
+        return None, {}, {}
+    found = _function_node(func, source)
+    if found is not None:
+        node, text = found
+        if node is None:
+            return None, {}, {}
+        body = _BodyWarnings(node, text, reader, values)
         try:
-            return _BodyWarnings(node, text, reader).read()
+            whole, params = body.read()
+            return whole, params or {}, body.conditions
         except RecursionError:  # a pathologically nested expression
             pass
-    return _first_notice(source), None
+    return _first_notice(source), {}, {}
+
+
+def _member(scope: griffe.Object, name: str, inherited: bool = False) -> griffe.Object | None:
+    member = (scope.all_members if inherited and scope.is_class else scope.members).get(name)  # type: ignore[attr-defined]
+    return _resolve(member) if member is not None else None
+
+
+def _called(call: ast.Call, func: griffe.Function) -> tuple[griffe.Function, int] | None:
+    """The function of the loaded packages that `call`, in `func`'s body, runs, and how many of its leading
+    parameters the call doesn't pass (an instance's `self`): a name of `func`'s module (a function, or a class for
+    its `__init__`), an attribute of a module it imports, a method through `self` or `cls`, or the next class's in
+    the MRO through `super()`."""
+    f = call.func
+    owner = func.parent if func.parent is not None and func.parent.is_class else None
+    method = False
+    try:
+        target: griffe.Object | None = None
+        if isinstance(f, ast.Name):
+            target = _member(func.module, f.id)
+        elif isinstance(f, ast.Attribute):
+            base = f.value
+            if isinstance(base, ast.Name) and base.id in ("self", "cls") and owner is not None:
+                target, method = _member(owner, f.attr, inherited=True), True
+            elif isinstance(base, ast.Call) and _callee(base) == "super" and owner is not None:
+                bases = owner.mro()  # type: ignore[attr-defined]
+                target = next((_member(c, f.attr) for c in bases if f.attr in c.members), None)
+                method = True
+            elif isinstance(base, ast.Name):
+                module = _member(func.module, base.id)
+                target = _member(module, f.attr) if module is not None and module.is_module else None
+        if target is not None and target.is_class:
+            target, method = _member(target, "__init__", inherited=True), True
+    except Exception:  # griffe raises several resolution errors (external bases, cyclic aliases)
+        return None
+    if not isinstance(target, griffe.Function):
+        return None
+    return target, 1 if method and "staticmethod" not in target.labels else 0
+
+
+_POSITIONAL = (griffe.ParameterKind.positional_only, griffe.ParameterKind.positional_or_keyword)
+
+
+def _passed_on(func: griffe.Function, depth: int) -> dict[str, str]:
+    """Arguments `func` passes on, under their own names, to a function that deprecates them (DT-DATA-39):
+    anthropic's `Anthropic.__init__` passes `proxies=proxies` to its base class's `__init__`, which warns about it,
+    selenium's chrome `Service` passes `log_path` to `ChromiumService`, and pytest's `skip` passes `msg` to
+    `_resolve_msg_to_reason("skip", reason, msg)`. The function called is read `depth - 1` calls further down, with
+    the string literals the call passes (`"skip"`) filling in its messages. Passed as another name, an argument
+    isn't followed: the message would name the other function's parameter. A warning whose condition also tests an
+    argument the call doesn't pass on as the caller's own isn't the caller's: pandas' `describe_ndframe(obj=self,
+    include=include, …)` warns about `include` only for a Series.
+
+    A function that passes its **kwargs on whole (`super().__init__(**kwargs)`: marshmallow's fields, aiohttp's
+    `ClientSession.get`) takes the deprecations of the arguments it doesn't name, pass explicitly or look up in
+    them itself; not if it rebinds them first."""
+    names = [p.name for p in func.parameters if p.kind not in _VARIADIC and p.name not in ("self", "cls")]
+    kwargs = next((p.name for p in func.parameters if p.kind is griffe.ParameterKind.var_keyword), None)
+    if not names and kwargs is None:
+        return {}
+    try:
+        source = func.source
+    except (OSError, ValueError, AttributeError):
+        return {}
+    patterns = [rf"\*\*\s*{re.escape(kwargs)}\b"] if kwargs else []
+    if names:
+        alternatives = "|".join(map(re.escape, names))
+        patterns.append(rf"\b(?P<k>{alternatives})\s*=\s*(?P=k)\b|[(,]\s*(?:{alternatives})\s*[,)]")
+    if not re.search("|".join(patterns), source):
+        return {}
+    found = _function_node(func, source)
+    if found is None or found[0] is None:
+        return {}
+    node = found[0]
+    own = set(names)
+    looked_up, rebound = _kwargs_use(node, kwargs) if kwargs else (frozenset(), True)
+    params: dict[str, str] = {}
+    for call in (n for n in _own_nodes(node) if isinstance(n, ast.Call)):
+        args = [*call.args, *(k.value for k in call.keywords)]
+        forwards = not rebound and any(
+            k.arg is None and isinstance(k.value, ast.Name) and k.value.id == kwargs for k in call.keywords
+        )
+        if not forwards and not any(isinstance(a, ast.Name) and a.id in own for a in args):
+            continue
+        reached = _called(call, func)
+        if reached is None:
+            continue
+        callee, skip = reached
+        bound: list[tuple[str, ast.expr]] = []  # the callee's parameter -> what the call passes
+        for param, arg in zip(list(callee.parameters)[skip:], call.args, strict=False):
+            if isinstance(arg, ast.Starred) or param.kind not in _POSITIONAL:
+                break
+            bound.append((param.name, arg))
+        bound += [(kw.arg, kw.value) for kw in call.keywords if kw.arg]
+        passed = [name for name, arg in bound if isinstance(arg, ast.Name) and arg.id == name and name in own]
+        values = {name: text for name, arg in bound if (text := _str(arg)) is not None}
+        if not passed and not forwards:
+            continue
+        theirs = _reading(callee, depth - 1, values)
+        explicit = {name for name, _ in bound}
+        through = sorted(
+            set(theirs.params or {}) - own - explicit - looked_up if forwards else set()
+        )  # the arguments that reach the function called through **kwargs
+        for name in [*passed, *through]:
+            message = (theirs.params or {}).get(name)
+            if (
+                message is not None
+                and _about_argument(message, name)
+                and theirs.conditions.get(name, frozenset()) <= {*passed, *through}
+            ):
+                params.setdefault(name, message)
+    return params
+
+
+def _kwargs_use(node: ast.AST, kwargs: str) -> tuple[frozenset[str], bool]:
+    """The names a function looks up in its **kwargs mapping (`kwargs.pop("x")`, `kwargs["x"]`, `"x" in kwargs`),
+    and whether it binds the name again (`kwargs = {…}`), in its own body."""
+    names: set[str] = set()
+    rebound = False
+    for n in _own_nodes(node):
+        if isinstance(n, (ast.Assign, ast.AugAssign, ast.AnnAssign, ast.NamedExpr)):
+            targets = n.targets if isinstance(n, ast.Assign) else [n.target]
+            rebound = rebound or any(kwargs in _bound_names(t) for t in targets)
+        elif (
+            isinstance(n, ast.Call)
+            and isinstance(n.func, ast.Attribute)
+            and isinstance(n.func.value, ast.Name)
+            and n.func.value.id == kwargs
+            and n.args
+        ):
+            names.add(_str(n.args[0]) or "")
+        elif isinstance(n, ast.Subscript) and isinstance(n.value, ast.Name) and n.value.id == kwargs:
+            names.add(_str(n.slice) or "")
+        elif (
+            isinstance(n, ast.Compare)
+            and len(n.ops) == 1
+            and isinstance(n.ops[0], (ast.In, ast.NotIn))
+            and isinstance(n.comparators[0], ast.Name)
+            and n.comparators[0].id == kwargs
+        ):
+            names.add(_str(n.left) or "")
+    return frozenset(names - {""}), rebound
+
+
+_DOC_NOTE_TEXT_RE = re.compile(r"^Deprecated(?: since version \S+?)?[:.]")
+
+
+def _about_argument(message: str, name: str) -> bool:
+    """Whether the deprecation the called function gives an argument is the argument's own, and so its callers'
+    when they pass it on: a docstring note on that argument, a decorator's or a default's marking, or wording
+    that deprecates the argument itself (`deprecates_argument`). Its reading of the body takes a warning that a
+    condition on the argument guards and that names it, and some of those are about a value, which a caller
+    passing the argument along doesn't make ("Using dict as a `filter` is deprecated")."""
+    return (
+        message in (UNRECOVERABLE, DEPRECATED_DEFAULT)
+        or bool(_DOC_NOTE_TEXT_RE.match(message))
+        or deprecates_argument(message, name)
+    )
 
 
 def _dispatcher_deprecation(func: griffe.Function) -> str | None:
@@ -703,7 +934,7 @@ def _dispatcher_deprecation(func: griffe.Function) -> str | None:
             helper = scope.members.get(arg.id)
             if not isinstance(helper, griffe.Function):
                 continue
-            whole, _ = _function_warnings(helper, func)
+            whole, _, _ = _function_warnings(helper, func)
             if (
                 whole
                 and whole != UNRECOVERABLE
@@ -1028,28 +1259,66 @@ def _str(node: ast.AST | None) -> str | None:
     return node.value if isinstance(node, ast.Constant) and isinstance(node.value, str) else None
 
 
-def _render(node: ast.expr | None) -> str | None:
-    """A message as the code builds it: a literal, an f-string, `+`, or the template of `%` and `.format()`; the
-    parts that aren't literal as `{expression}`."""
+def _render(node: ast.expr | None, values: dict[str, str] | None = None) -> str | None:
+    """A message as the code builds it: a literal, an f-string, `+`, the template of `%`, or `.format()` with the
+    arguments that are literals filled in; the parts that aren't literal as `{expression}`. `values`: names whose
+    string value is known, the literals a caller passes for some parameters (DT-DATA-39)."""
     if (text := _str(node)) is not None:
         return text
+    if isinstance(node, ast.Name) and values and node.id in values:
+        return values[node.id]
     if isinstance(node, ast.JoinedStr):
         return "".join(
-            v.value if isinstance(v, ast.Constant) else "{" + ast.unparse(v.value) + "}"  # type: ignore[attr-defined]
+            v.value
+            if isinstance(v, ast.Constant)
+            else _render(v.value, values)  # type: ignore[attr-defined]
+            if isinstance(v.value, ast.Name) and values and v.value.id in values  # type: ignore[attr-defined]
+            else "{" + ast.unparse(v.value) + "}"  # type: ignore[attr-defined]
             for v in node.values
         )
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
-        left, right = _render(node.left), _render(node.right)
+        left, right = _render(node.left, values), _render(node.right, values)
         if left is None and right is None:
             return None
         return (left if left is not None else "{" + ast.unparse(node.left) + "}") + (
             right if right is not None else "{" + ast.unparse(node.right) + "}"
         )
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mod):
-        return _render(node.left)
-    if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "format":
-        return _render(node.func.value)
+        return _render(node.left, values)
+    if _is_format(node):
+        template = _render(node.func.value, values)  # type: ignore[union-attr]
+        return _filled(template, node, values) if template is not None else None  # type: ignore[arg-type]
     return None
+
+
+def _is_format(node: ast.AST | None) -> bool:
+    return isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "format"
+
+
+def _filled(template: str, call: ast.Call, values: dict[str, str] | None) -> str:
+    """`template.format(...)` with the arguments that are string literals (or known `values`) filled in: pytest's
+    `KEYWORD_MSG_ARG.format(func="exit")`. The others stay `{name}`."""
+
+    def known(node: ast.expr) -> str | None:
+        text = _str(node)
+        if text is None and isinstance(node, ast.Name) and values:
+            text = values.get(node.id)
+        return text
+
+    for kw in call.keywords:
+        if kw.arg and (text := known(kw.value)) is not None:
+            template = template.replace("{" + kw.arg + "}", text)
+    positional = [known(a) for a in call.args]
+    for i, text in enumerate(positional):
+        if text is not None:
+            template = template.replace("{" + str(i) + "}", text)
+    parts = template.split("{}")
+    if len(parts) == len(positional) + 1:
+        template = parts[0] + "".join(
+            (text if text is not None else "{}") + part
+            for text, part in zip(positional, parts[1:], strict=True)
+        )
+    return template
 
 
 class _BodyWarnings:
@@ -1074,8 +1343,15 @@ class _BodyWarnings:
     Warnings in nested functions are theirs (a decorator factory's `wrapper`), not the function's.
     """
 
-    def __init__(self, node: ast.FunctionDef | ast.AsyncFunctionDef, text: str, func: griffe.Function):
+    def __init__(
+        self,
+        node: ast.FunctionDef | ast.AsyncFunctionDef,
+        text: str,
+        func: griffe.Function,
+        values: dict[str, str] | None = None,
+    ):
         self.node, self.text, self.func = node, text, func
+        self.values = values or {}  # literals a caller passes for some parameters (DT-DATA-39)
         args = node.args
         own = list(_own_nodes(node))[1:]
         loops = [n for n in own if isinstance(n, (ast.For, ast.AsyncFor))]
@@ -1110,6 +1386,7 @@ class _BodyWarnings:
         self.derived: dict[str, frozenset[str]] = {}  # local name -> the arguments its value comes from
         # (text, guard, whether it can deprecate the function as a whole)
         self.found: list[tuple[str | None, frozenset[str], bool]] = []
+        self.conditions: dict[str, frozenset[str]] = {}  # see `_Reading.conditions`
         for sub in own:
             if (
                 isinstance(sub, ast.Assign)
@@ -1215,6 +1492,8 @@ class _BodyWarnings:
         values of an argument, so what is deprecated is passing those values, not the argument. A comparison with
         None or a sentinel (`x is not NOT_PASSED`, `x != "deprecated"`), `if x` and lookups in **kwargs test that
         it was passed."""
+        if isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not):  # `not isinstance(line, str)`
+            return self._valued(test.operand)
         if isinstance(test, ast.Call):
             return isinstance(test.func, ast.Name) and test.func.id in ("isinstance", "callable")
         if not (isinstance(test, ast.Compare) and len(test.ops) == 1 and isinstance(test.left, ast.Name)):
@@ -1305,7 +1584,11 @@ class _BodyWarnings:
             node = bound[-1]
         if node is None:
             return None
-        rendered = _render(node)
+        if _is_format(node) and isinstance(node.func.value, ast.Name):  # type: ignore[union-attr]
+            # `KEYWORD_MSG_ARG.format(func=func_name)`: a template bound earlier or kept in a constant.
+            template = self._text(node.func.value, at)  # type: ignore[union-attr]
+            return _filled(template, node, self.values) if template is not None else None  # type: ignore[arg-type]
+        rendered = _render(node, self.values)
         if rendered is None:  # `_("…")`, a conditional expression: the literal that reads like a deprecation
             segment = ast.get_source_segment(self.text, node)
             return _notice(segment) if segment else None
@@ -1381,7 +1664,13 @@ class _BodyWarnings:
                     if placeholder:
                         marked[name] = text.replace("{" + placeholder + "}", name)
             for name, message in marked.items():
-                params.setdefault(name, message)
+                if name not in params:
+                    params[name] = message
+                    # The other arguments the condition tests, unless the text names them too: "The on_startup and
+                    # on_shutdown parameters are deprecated" under `if on_startup or on_shutdown` (DT-DATA-39).
+                    self.conditions[name] = frozenset(
+                        n for n in candidates - {name} if not re.search(rf"\b{re.escape(n)}\b", plain)
+                    )
             # A warning that deprecates some other quoted name (scikit-learn's `fit` on its constructor's
             # "`base_estimator` was renamed to `estimator`") isn't this function's deprecation.
             elsewhere = (
@@ -3106,6 +3395,8 @@ def build_snapshot(
     )
     add_namespace_inits(search_path, list(import_names), list(namespace_skip))
     walker = _Walker(snap, tuple(import_names))
+    global _READINGS
+    _READINGS = {}
     try:
         for import_name in import_names:
             try:
@@ -3128,5 +3419,6 @@ def build_snapshot(
             else:
                 walker.member(loaded, import_name, 0)
     finally:
+        _READINGS = None
         _clear_griffe_caches()
     return snap

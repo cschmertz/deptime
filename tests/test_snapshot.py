@@ -962,6 +962,327 @@ DISPATCHED = {
 }
 
 
+# DT-DATA-39: an argument a function passes on, under its own name, to a function of its package that deprecates it:
+# anthropic's client passes `proxies` to its base class's `__init__`, httpx's `Client` passes `cert` three calls
+# down to `create_ssl_context`, fastapi's `Query()` builds `params.Query`, whose base class warns, and pytest's
+# `skip()` hands `msg` to a helper that warns with a module constant from another module.
+PASSED = {
+    "passy/__init__.py": textwrap.dedent(
+        """\
+        from passy._client import Client
+        from passy.functions import (
+            Frame, Mounts, Query, exit, fail, mask, resample, skip, timed, where, write_line, yield_fixture,
+        )
+        from passy.routing import App, Router, StartupOnly
+        from passy.fields import IP, Field, Filtered, Strict
+        from passy import params
+        """
+    ),
+    "passy/_base.py": textwrap.dedent(
+        """\
+        import warnings
+
+
+        class BaseClient:
+            def __init__(self, *, base_url, proxies=None, timeout=None, verify=True, filter=None, issuer=None):
+                if proxies is not None:
+                    warnings.warn(
+                        "The `proxies` argument is deprecated. The `http_client` argument should be passed instead",
+                        DeprecationWarning,
+                    )
+                if timeout == "auto":
+                    warnings.warn("timeout='auto' is deprecated", DeprecationWarning)
+                if isinstance(filter, dict):
+                    warnings.warn("Using dict as a `filter` is deprecated.", DeprecationWarning)
+                if issuer is None:
+                    warnings.warn("Omitting `issuer` is deprecated and it will be required in 3.0.", DeprecationWarning)
+        """
+    ),
+    "passy/_config.py": textwrap.dedent(
+        """\
+        import warnings
+
+
+        def create_context(verify=True, cert=None):
+            if isinstance(verify, str):
+                warnings.warn("`verify=<str>` is deprecated.", DeprecationWarning)
+            if cert:
+                message = (
+                    "`cert=...` is deprecated. Use `verify=<ssl_context>` instead,"
+                    "with `.load_cert_chain()` to configure the certificate chain."
+                )
+                warnings.warn(message, DeprecationWarning)
+            return verify
+        """
+    ),
+    "passy/_transports.py": textwrap.dedent(
+        """\
+        from ._config import create_context
+
+
+        class Transport:
+            def __init__(self, verify=True, cert=None):
+                self.ctx = create_context(verify=verify, cert=cert)
+        """
+    ),
+    "passy/_client.py": textwrap.dedent(
+        """\
+        from ._base import BaseClient
+        from ._transports import Transport
+
+
+        class Client(BaseClient):
+            def __init__(
+                self, *, base_url="", proxies=None, timeout=None, verify=True, cert=None, client_cert=None, filter=None,
+                issuer=None,
+            ):
+                super().__init__(
+                    base_url=base_url, proxies=proxies, timeout=timeout, verify=verify, filter=filter, issuer=issuer
+                )
+                self._transport = self._init_transport(verify=verify, cert=cert)
+                self._mounts = self._init_transport(verify, client_cert)
+
+            def _init_transport(self, verify=True, cert=None):
+                return Transport(verify=verify, cert=cert)
+
+            def ping(self, proxies=None):
+                return proxies
+        """
+    ),
+    "passy/params.py": textwrap.dedent(
+        """\
+        import warnings
+
+
+        class Param:
+            def __init__(self, default=None, *, regex=None, pattern=None):
+                if regex is not None:
+                    warnings.warn("`regex` has been deprecated, please use `pattern` instead", DeprecationWarning)
+
+
+        class Query(Param):
+            def __init__(self, default=None, *, regex=None, pattern=None):
+                super().__init__(default, regex=regex, pattern=pattern)
+        """
+    ),
+    "passy/deprecated.py": textwrap.dedent(
+        """\
+        class PytestDeprecationWarning(DeprecationWarning):
+            pass
+
+
+        class PytestRemovedIn8Warning(PytestDeprecationWarning):
+            pass
+
+
+        class UnformattedWarning:
+            def __init__(self, category, template):
+                self.category, self.template = category, template
+
+
+        KEYWORD_MSG_ARG = UnformattedWarning(
+            PytestRemovedIn8Warning,
+            "pytest.{func}(msg=...) is now deprecated, use pytest.{func}(reason=...) instead",
+        )
+        WRITE_LINE_BYTES = UnformattedWarning(
+            PytestRemovedIn8Warning,
+            "Passing bytes to write_line() is deprecated, pass a str instead.\\n"
+            "See https://docs.example.org/deprecations.html#write-line-bytes",
+        )
+        YIELD_FIXTURE = PytestDeprecationWarning(
+            "@pytest.yield_fixture is deprecated.\\nUse @pytest.fixture instead; they are the same."
+        )
+        """
+    ),
+    "passy/_outcomes.py": textwrap.dedent(
+        """\
+        import warnings
+
+        from passy.deprecated import KEYWORD_MSG_ARG
+
+
+        def _resolve_msg_to_reason(func_name, reason, msg=None):
+            if msg is not None:
+                if reason:
+                    raise ValueError("Passing both ``reason`` and ``msg`` is not permitted.")
+                warnings.warn(KEYWORD_MSG_ARG.format(func=func_name), stacklevel=3)
+                reason = msg
+            return reason
+
+
+        def _where(cond, other=None, try_cast=None):
+            if try_cast is not None:
+                warnings.warn("try_cast keyword is deprecated and will be removed.", FutureWarning)
+            return cond
+
+
+        def _resample(obj, rule, base=None):
+            '''Resample.
+
+            Parameters
+            ----------
+            base : int
+                .. deprecated:: 1.1.0
+                   The new arguments that you should use are 'offset' or 'origin'.
+            '''
+            return obj
+
+
+        def describe_ndframe(*, obj, include, exclude):
+            if obj.ndim == 1:
+                if include is not None or exclude is not None:
+                    warnings.warn("The 'include' and 'exclude' arguments are deprecated for Series.describe", FutureWarning)
+            return obj
+
+
+        def _a(x, depth=None):
+            return _b(x, depth=depth)
+
+
+        def _b(x, depth=None):
+            return _c(x, depth=depth)
+
+
+        def _c(x, depth=None):
+            return _d(x, depth=depth)
+
+
+        def _d(x, depth=None):
+            if depth is not None:
+                warnings.warn("`depth` is deprecated", DeprecationWarning)
+            return _a(x, depth=depth)
+        """
+    ),
+    "passy/functions.py": textwrap.dedent(
+        """\
+        import warnings
+
+        from passy import params
+        from passy._outcomes import _a, _resample, _resolve_msg_to_reason, _where, describe_ndframe
+        from passy._transports import Transport
+        from passy.deprecated import KEYWORD_MSG_ARG, WRITE_LINE_BYTES, YIELD_FIXTURE
+
+
+        def Query(default=None, *, regex=None, pattern=None):
+            return params.Query(default, regex=regex, pattern=pattern)
+
+
+        def skip(reason="", *, allow_module_level=False, msg=None):
+            reason = _resolve_msg_to_reason("skip", reason, msg)
+
+
+        def fail(reason="", pytrace=True, msg=None):
+            reason = _resolve_msg_to_reason("fail", reason, msg)
+
+
+        def exit(reason="", returncode=None, *, msg=None):
+            if msg is not None:
+                warnings.warn(KEYWORD_MSG_ARG.format(func="exit"), stacklevel=2)
+
+
+        def yield_fixture(fixture_function=None, *args, scope="function"):
+            warnings.warn(YIELD_FIXTURE, stacklevel=2)
+
+
+        def mask(cond, other=None, try_cast=None):
+            return _where(cond, other, try_cast)
+
+
+        def timed(x, depth=None):
+            return _a(x, depth=depth)
+
+
+        def where(cond, other=None, try_cast=None):
+            '''Replace values where the condition is False.
+
+            Parameters
+            ----------
+            try_cast : bool
+                .. deprecated:: 1.3.0
+                   Manually cast back if necessary.
+            '''
+            return _where(cond, other, try_cast)
+
+
+        def resample(obj, rule, base=None):
+            return _resample(obj, rule, base=base)
+
+
+        class Mounts:
+            def __init__(self, client_cert=None):
+                self.transport = Transport(True, client_cert)
+
+
+        def write_line(line, **markup):
+            if not isinstance(line, str):
+                warnings.warn(WRITE_LINE_BYTES.format(), stacklevel=2)
+
+
+        class Frame:
+            def describe(self, include=None, exclude=None):
+                return describe_ndframe(obj=self, include=include, exclude=exclude)
+        """
+    ),
+    "passy/fields.py": textwrap.dedent(
+        """\
+        import warnings
+
+
+        class Field:
+            def __init__(self, *, load_default=None, missing=None, **metadata):
+                if missing is not None:
+                    warnings.warn(
+                        "The 'missing' argument to fields is deprecated. Use 'load_default' instead.",
+                        DeprecationWarning,
+                    )
+
+
+        class IP(Field):
+            def __init__(self, *args, exploded=False, **kwargs):
+                super().__init__(*args, **kwargs)
+
+
+        class Strict(Field):
+            def __init__(self, **kwargs):
+                if "missing" in kwargs:
+                    raise TypeError("no default for strict fields")
+                super().__init__(**kwargs)
+
+
+        class Filtered(Field):
+            def __init__(self, **kwargs):
+                kwargs = {k: v for k, v in kwargs.items() if k != "missing"}
+                super().__init__(**kwargs)
+        """
+    ),
+    "passy/routing.py": textwrap.dedent(
+        """\
+        import warnings
+
+
+        class Router:
+            def __init__(self, routes=None, on_startup=None, on_shutdown=None, lifespan=None):
+                if on_startup or on_shutdown:
+                    warnings.warn(
+                        "The on_startup and on_shutdown parameters are deprecated, and they will be removed on "
+                        "version 1.0. Use the lifespan parameter instead.",
+                        DeprecationWarning,
+                    )
+
+
+        class App:
+            def __init__(self, routes=None, on_startup=None, on_shutdown=None, lifespan=None):
+                self.router = Router(routes, on_startup=on_startup, on_shutdown=on_shutdown, lifespan=lifespan)
+
+
+        class StartupOnly:
+            def __init__(self, on_startup=None):
+                self.router = Router(on_startup=on_startup)
+        """
+    ),
+}
+
+
 # DT-DATA-37: deprecation helpers, recognized by name. Decorators (polars, redis, huggingface-hub, matplotlib,
 # sqlalchemy, langgraph, pandas, weaviate), wrapper calls that bind the old name (streamlit, pandas, matplotlib's
 # class attributes) and warning helpers called in a body (polars, matplotlib, streamlit).
@@ -2154,9 +2475,86 @@ def test_a_function_takes_the_deprecation_its_dispatcher_warns(tmp_path):
     # A dispatcher warning that doesn't name the function, or a function passed for its docstring whose warning
     # deprecates one of its arguments or names itself, isn't the decorated function's deprecation.
     assert dep("sum") == (None, None)
-    assert dep("mask") == (None, None)
+    # `mask` passes `try_cast` on to `where`, which deprecates it (DT-DATA-39); `mask` itself isn't deprecated.
+    assert dep("mask") == (None, {"try_cast": "try_cast keyword is deprecated and will be removed."})
     assert dep("select") == (None, None)
     assert dep("lookup") == ("lookup() is deprecated, use select() instead.", None)
+
+
+def test_an_argument_passed_on_to_a_function_that_deprecates_it_is_deprecated(tmp_path):
+    # DT-DATA-39: warnings one call away. An argument a function passes on under its own name, to a function or
+    # class of its package (by name, `self.`, `super()`, a module's attribute), takes that function's deprecation
+    # of it, up to three calls down.
+    snap = build_snapshot("passy", "1.0", ["passy"], _write(tmp_path, PASSED))
+
+    def dep(path):
+        rec = snap.symbols[f"passy.{path}"]
+        return rec.deprecated, rec.deprecated_params
+
+    proxies = "The `proxies` argument is deprecated. The `http_client` argument should be passed instead"
+    cert = (
+        "`cert=...` is deprecated. Use `verify=<ssl_context>` instead,with `.load_cert_chain()` to configure the "
+        "certificate chain."
+    )
+    # A warning about some values (`timeout`, `verify`) isn't the argument's, and neither is one whose wording is
+    # about a value or a way of calling, though the base class's own reading takes `filter` and `issuer` from it;
+    # `client_cert` is passed on as `cert`.
+    assert dep("Client.__init__") == (None, {"proxies": proxies, "cert": cert})
+    assert dep("Client.ping") == (None, None)
+    regex = "`regex` has been deprecated, please use `pattern` instead"
+    assert dep("params.Query.__init__") == (None, {"regex": regex})
+    assert dep("Query") == (None, {"regex": regex})
+    # A literal the caller passes fills in the helper's message; a constant from another module is read.
+    assert dep("skip") == (
+        None,
+        {"msg": "pytest.skip(msg=...) is now deprecated, use pytest.skip(reason=...) instead"},
+    )
+    assert dep("fail")[1] == {
+        "msg": "pytest.fail(msg=...) is now deprecated, use pytest.fail(reason=...) instead"
+    }
+    assert dep("exit") == (
+        None,
+        {"msg": "pytest.exit(msg=...) is now deprecated, use pytest.exit(reason=...) instead"},
+    )
+    assert dep("yield_fixture") == (
+        "@pytest.yield_fixture is deprecated. Use @pytest.fixture instead; they are the same.",
+        None,
+    )
+    # Passed positionally under the same name (pandas' `mask` -> `where`).
+    assert dep("mask") == (None, {"try_cast": "try_cast keyword is deprecated and will be removed."})
+    # A docstring note on the argument in the function called counts, whatever its wording.
+    assert dep("resample") == (
+        None,
+        {
+            "base": "Deprecated since version 1.1.0: The new arguments that you should use are 'offset' or 'origin'."
+        },
+    )
+    # Passed on under another name, it isn't followed.
+    assert dep("Mounts.__init__") == (None, None)
+    # Through **kwargs passed on whole, unless the function looks the name up itself or rebinds them.
+    missing = "The 'missing' argument to fields is deprecated. Use 'load_default' instead."
+    assert dep("Field.__init__") == (None, {"missing": missing})
+    assert dep("IP.__init__") == (None, {"missing": missing})
+    assert dep("Strict.__init__") == (None, None)
+    assert dep("Filtered.__init__") == (None, None)
+    # The function's own docstring note says it first.
+    assert dep("where") == (
+        None,
+        {"try_cast": "Deprecated since version 1.3.0: Manually cast back if necessary."},
+    )
+    # Four calls down is too far, and a cycle ends.
+    assert dep("timed") == (None, None)
+    # A warning about a value (`not isinstance(...)`) isn't the argument's, though its URL says "write-line".
+    assert dep("write_line") == (None, None)
+    # Only for some value of another argument that the caller doesn't pass on as its own (pandas' `obj=self`).
+    assert dep("Frame.describe") == (None, None)
+    # An argument the warning names beside the one passed is a co-subject, not a condition (starlette).
+    startup = (
+        "The on_startup and on_shutdown parameters are deprecated, and they will be removed on version 1.0. Use "
+        "the lifespan parameter instead."
+    )
+    assert dep("App.__init__") == (None, {"on_startup": startup, "on_shutdown": startup})
+    assert dep("StartupOnly.__init__") == (None, {"on_startup": startup})
 
 
 def test_deprecation_helpers_are_recognized_by_name(tmp_path):

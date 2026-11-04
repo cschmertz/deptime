@@ -304,6 +304,34 @@ def _sentence_start(message: str, at: int) -> int:
     return ends[-1] if ends else 0
 
 
+_QUOTE = r"[)\]`'\"*]*"
+_OTHER_NAMES = (
+    r"(?:[`'\"*]*\w+[`'\"*]*\s*(?:,|\band\b|\bor\b)\s*)*"  # "The on_startup and on_shutdown parameters"
+)
+_ARGUMENT_BEFORE_RE = re.compile(rf"^\s*(?:the\s+)?(?:{_PARAM_NOUN}s?\s+)?{_OTHER_NAMES}{_QUOTE}$", re.I)
+_ARGUMENT_AFTER_RE = re.compile(
+    rf"^{_QUOTE}\s*(?:(?:,|and|or)\s+[`'\"*]*\w+[`'\"*]*\s*)*(?:{_PARAM_NOUN}s?\s+)?(?:(?:in|of|to|for|on)\s+\S+\s+)?"
+    r"(?:is|are|was|were|has\s+been|have\s+been|will\s+be)\s+(?:now\s+)?(?:being\s+)?"
+    r"(?:deprecated|removed|no\s+longer\s+supported)",
+    re.I,
+)
+
+
+def deprecates_argument(message: str, name: str) -> bool:
+    """Whether a sentence of `message` deprecates the argument `name` itself, as its subject (DT-DATA-39): "`regex`
+    has been deprecated", "The on_startup and on_shutdown parameters are deprecated", "The 'method' keyword in
+    DataFrame.fillna is deprecated", or the argument with any value, "`cert=...` is deprecated". Not a value or a
+    way of calling: "Using dict as a `filter` is deprecated", "Omitting `issuer` is deprecated", "parameter
+    'timeout' of type 'float' is deprecated"."""
+    for m in re.finditer(rf"\b{re.escape(name)}\b(?P<any>=(?:\.\.\.|<\.\.\.>))?", message):
+        if not _ARGUMENT_AFTER_RE.match(message[m.end() :]):
+            continue
+        before = message[_sentence_start(message, m.start()) : m.start()]
+        if m.group("any") or _ARGUMENT_BEFORE_RE.match(before):
+            return True
+    return False
+
+
 def names_argument(message: str, name: str) -> bool:
     """Whether a deprecation notice mentions `name`, quoted or bare (`CheckConstraint.check`), other than as
     something left out ("without state_schema") or after a cue for what to use instead in the same sentence

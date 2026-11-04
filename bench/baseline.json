@@ -1,5 +1,5 @@
 {
-  "index_built_at": "2026-11-04T17:45:27+00:00",
+  "index_built_at": "2026-11-04T23:42:13+00:00",
   "summary": {
     "cases": 167,
     "known_gap_share": 4.2,
@@ -7,7 +7,7 @@
       "root_cause": 95.8,
       "root_cause_and_boundary": 95.8,
       "boundary": 95.7,
-      "replacement": 57.5
+      "replacement": 58.6
     },
     "by_tier": {
       "A": {
@@ -22,7 +22,7 @@
         "root_cause": 93.0,
         "root_cause_and_boundary": 93.0,
         "boundary": 93.0,
-        "replacement": 68.6
+        "replacement": 70.6
       }
     },
     "by_origin": {
@@ -38,7 +38,7 @@
         "root_cause": 96.2,
         "root_cause_and_boundary": 96.2,
         "boundary": 96.2,
-        "replacement": 54.9
+        "replacement": 56.1
       }
     }
   },
@@ -801,7 +801,7 @@
     "starlette-app-on-startup-removed-fasthtml": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true
     },
     "starlette-router-on-startup-removed-asgi-lifespan": {
       "root_cause": true,

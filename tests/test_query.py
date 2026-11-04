@@ -743,3 +743,36 @@ def test_a_method_named_with_a_leading_dot_is_on_the_same_class():
     f = dt.explain_error(tb, {"pk": "2.0"}).findings[0]
     assert f.symbol == "pk.Frame.iteritems"
     assert [(r.target, r.source) for r in f.replacements] == [("pk.Frame.items", "error_message")]
+
+
+def test_a_member_of_an_attribute_is_not_contradicted():
+    # DT-DATA-31: matplotlib 3.7's `cm.register_cmap` says to use `matplotlib.colormaps.register(name)`; `colormaps`
+    # is an instance the package binds, so the index has no members under it to check.
+    mpl = PackageSpec(name="matplotlib", import_names=("matplotlib",), tier="B")
+    mod = {
+        "matplotlib": _rec("matplotlib", "module"),
+        "matplotlib.cm": _rec("matplotlib.cm", "module"),
+        "matplotlib.colormaps": _rec("matplotlib.colormaps", "attribute"),
+    }
+    old = SymbolRecord(
+        "matplotlib.cm.register_cmap",
+        "function",
+        "matplotlib.cm.register_cmap",
+        [],
+        "register_cmap was deprecated in 3.7. Use `matplotlib.colormaps.register(name)` instead.",
+    )
+    dt = _dt(
+        [
+            (
+                mpl,
+                [
+                    ApiSnapshot("matplotlib", "3.7.0", ["matplotlib"], mod | {old.path: old}),
+                    ApiSnapshot("matplotlib", "3.9.0", ["matplotlib"], mod),
+                ],
+            )
+        ]
+    )
+    history = dt.symbol_history("matplotlib", "matplotlib.cm.register_cmap")
+    assert [(r.target, r.confidence) for r in history.replacements] == [
+        ("matplotlib.colormaps.register", 0.85)
+    ]

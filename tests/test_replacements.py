@@ -32,11 +32,35 @@ def test_now_available_as():
     )
 
 
-def test_langchain_alternative_kwarg():
-    assert (
-        mine('since="0.1.17", alternative="langchain_openai.ChatOpenAI", removal="1.0"')[0].target
-        == "langchain_openai.ChatOpenAI"
+def test_a_decorators_alternative_as_the_snapshot_writes_it():
+    # DT-DATA-31: `@deprecated(since="0.1.17", alternative="langchain_openai.ChatOpenAI", removal="1.0")`.
+    hints = mine(
+        "OpenAI was deprecated in 0.1.17 and will be removed in 1.0. Use `langchain_openai.ChatOpenAI` instead."
     )
+    assert [(h.target, h.confidence) for h in hints] == [("langchain_openai.ChatOpenAI", 0.85)]
+
+
+def test_a_called_or_indexed_name_in_backticks_is_the_target():
+    # DT-DATA-31: matplotlib's alternatives are code. In backticks the name counts up to the closing backtick.
+    def found(message, **kw):
+        return [(h.target, h.confidence) for h in mine(message, **kw)]
+
+    assert found("Use `matplotlib.colormaps.register(name)` instead.") == [
+        ("matplotlib.colormaps.register", 0.85)
+    ]
+    assert found("Use `callbacks.process('draw_event', DrawEvent(...))` instead.") == [
+        ("callbacks.process", 0.85)
+    ]
+    assert found("Use `matplotlib.colormaps[name]` or `matplotlib.colormaps.get_cmap(obj)` instead.") == [
+        ("matplotlib.colormaps", 0.85),
+        ("matplotlib.colormaps.get_cmap", 0.84),
+    ]
+    # Not an expression that goes on past the call, or one outside backticks.
+    assert found("Use `np.dtype(obj).type` instead") == [("np.dtype", 0.6)]
+    assert found("Use `arr[index] = value` instead") == [("arr", 0.6)]
+    assert found("Use foo(x) instead") == [("foo", 0.6)]
+    # The traceback reader still skips the head of an expression.
+    assert found("Use `matplotlib.colormaps.register(name)` instead.", skip_expressions=True) == []
 
 
 def test_no_hint_from_plain_deprecation():
@@ -425,6 +449,32 @@ def test_a_hint_target_outside_the_package_is_not_checked():
     ):
         assert names.resolve(target, "numpy.product", 4)[1] is None, target
     assert names.resolve("pd.concat", "numpy.product", 4) == ("pandas.concat", None)
+
+
+def test_a_member_of_an_instance_is_not_checked():
+    # DT-DATA-31: matplotlib's `colormaps` is a ColormapRegistry the package binds as an attribute, so the index
+    # has no `matplotlib.colormaps.register` to find, and can't contradict it.
+    spans = [
+        ("matplotlib.colormaps", 9, "matplotlib.cm._colormaps"),
+        ("matplotlib.cm.register_cmap", 6, "matplotlib.cm.register_cmap"),
+        ("matplotlib.cm.ScalarMappable", 9, "matplotlib.cm.ScalarMappable"),
+    ]
+    mpl = PublicNames(["matplotlib"], spans, instances=["matplotlib.colormaps"])
+    assert mpl.resolve("matplotlib.colormaps.register", "matplotlib.cm.register_cmap", 4) == (
+        "matplotlib.colormaps.register",
+        None,
+    )
+    assert (
+        mpl.check(
+            Hint("matplotlib.colormaps.register", 0.85, ""), "matplotlib.cm.register_cmap", 4
+        ).confidence
+        == 0.85
+    )
+    # A member of a class the index has is checked as before.
+    assert mpl.resolve("matplotlib.cm.ScalarMappable.nothing", "matplotlib.cm.register_cmap", 4)[1] is False
+    # Without the attribute, the same target is contradicted.
+    bare = PublicNames(["matplotlib"], spans)
+    assert bare.resolve("matplotlib.colormaps.register", "matplotlib.cm.register_cmap", 4)[1] is False
 
 
 def test_a_member_of_the_same_class_by_a_leading_dot_or_an_instance():

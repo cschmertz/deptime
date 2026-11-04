@@ -20,7 +20,10 @@ from dataclasses import dataclass
 _QUOTES = r"[`'\"]*"
 _ROLE = r"(?P<role>:[a-z]+:)?"
 _NAME = r"\.?[A-Za-z_][\w.]*(?:\(\))?"
-IDENT = rf"{_ROLE}{_QUOTES}~?(?P<t>{_NAME}){_QUOTES}"
+# In backticks, a name can be called or indexed, up to the closing backtick: "Use
+# `matplotlib.colormaps.register(name)` instead", "`matplotlib.colormaps[name]`" (DT-DATA-31). The name is the target.
+_CODE_ARGS = r"(?:(?:\([^`()]*(?:\([^`()]*\)[^`()]*)*\)|\[[^`\[\]]*\])(?=`))"
+IDENT = rf"{_ROLE}(?P<bq>`+)?{_QUOTES}~?(?P<t>{_NAME})(?(bq){_CODE_ARGS}?){_QUOTES}"
 IDENT_RE = re.compile(IDENT)
 # After "the" a name is quoted or looks like code: "in favor of the Responses API" names an API (DT-CORE-23).
 _THE = r"(?P<the>the\s+)?"
@@ -56,7 +59,7 @@ PATTERNS: list[tuple[re.Pattern[str], float]] = [
 ]
 # "Use `ChatMlflow` or `ChatDatabricks` instead", "Use DataFrame.ffill/Series.ffill instead": each name, in order.
 # A slash joins names only without spaces: "Use GET /v2/audio/voices instead" is a URL.
-_ITEM = rf"(?::[a-z]+:)?{_QUOTES}~?{_NAME}{_QUOTES}"
+_ITEM = rf"(?::[a-z]+:)?(?:`+~?{_NAME}{_CODE_ARGS}`+|{_QUOTES}~?{_NAME}{_QUOTES})"
 LIST_RE = re.compile(
     rf"\buse\s+(?:the\s+)?(?P<list>{_ITEM}(?:\s*,\s*(?:or\s+|and\s+)?|/|\s+(?:or|and)\s+){_ITEM}"
     rf"(?:(?:\s*,\s*(?:or\s+|and\s+)?|/|\s+(?:or|and)\s+){_ITEM})*)\s+instead\b",
@@ -82,7 +85,6 @@ PACKAGE_MOVE_RE = re.compile(
     re.I,
 )
 MAX_EVIDENCE_CHARS = 300
-LANGCHAIN_ALTERNATIVE_RE = re.compile(r"alternative(?:_import)?\s*=\s*['\"](?P<t>[\w.]+)['\"]")
 QUOTED_IDENT_RE = re.compile(r"['`\"](?P<t>[A-Za-z_]\w*)['`\"]")
 # Not names: "use one of …", "use `from x import y`" (DT-DATA-42 made such text readable).
 STOPWORDS = {
@@ -249,9 +251,6 @@ def mine(message: str | None, *, skip_expressions: bool = False) -> list[Hint]:
         if t and (t not in hints or hints[t].confidence < conf):
             hints[t] = Hint(t, conf, evidence)
 
-    for m in LANGCHAIN_ALTERNATIVE_RE.finditer(message):
-        if not _private(t := _clean(m.group("t"))):
-            add(t, 0.9)
     for m in LIST_RE.finditer(message):
         items = IDENT_RE.finditer(message, m.start("list"), m.end("list"))
         names = [item for item in items if item.group("t").lower() not in ("or", "and")]
@@ -396,7 +395,8 @@ class PublicNames:
 
     `spans` are (path, last indexed ordinal, object): the object is the path's canonical definition, or the path
     itself for a name a `__getattr__` serves (they all share its canonical). `deprecations` are (path, first
-    ordinal, last ordinal, message) of the paths deprecated as a whole.
+    ordinal, last ordinal, message) of the paths deprecated as a whole. `instances` are the paths of attributes:
+    objects whose members the index doesn't record (DT-DATA-31).
     """
 
     def __init__(
@@ -404,8 +404,10 @@ class PublicNames:
         import_names: Sequence[str],
         spans: Iterable[tuple[str, int, str | None]],
         deprecations: Iterable[tuple[str, int, int, str]] = (),
+        instances: Iterable[str] = (),
     ):
         self.import_names = tuple(import_names)
+        self._instances = frozenset(instances)
         self._last: dict[str, int] = {}
         self._object: dict[str, str] = {}
         for path, last, obj in spans:
@@ -462,8 +464,9 @@ class PublicNames:
         True: the index has it; the target comes back as the public path it means (`prod` on `numpy.product` ->
         `numpy.prod`), or as written if several objects have that name. False: the index contradicts it, a path in
         the package's own namespace it doesn't have, or a bare name no indexed release has. None: it's outside
-        the package (another distribution, the standard library, builtins, `name.map` on an instance), or a bare
-        name only earlier releases have, so the index can't say.
+        the package (another distribution, the standard library, builtins, `name.map` on an instance, a member of
+        an object the package binds as an attribute: `matplotlib.colormaps.register`), or a bare name only earlier
+        releases have, so the index can't say.
 
         Tried in order: a member of `path`'s class, if the target names one that way (`same_class`); as written,
         if it's in the package's namespace (else, for a dotted name, the same leaf next to `path`); under each of
@@ -487,7 +490,11 @@ class PublicNames:
             if self._found(target, path, since):
                 return target, True
             sibling = f"{path.rpartition('.')[0]}.{target.rpartition('.')[2]}"
-            return (sibling, True) if "." in target and self._found(sibling, path, since) else (target, False)
+            if "." in target and self._found(sibling, path, since):
+                return sibling, True
+            if any(a in self._instances and self._found(a, path, since) for a in _ancestors(target)):
+                return target, None
+            return target, False
         for scope in dict.fromkeys([*_ancestors(path), *self.import_names]):
             if self._found(candidate := f"{scope}.{target}", path, since):
                 return candidate, True

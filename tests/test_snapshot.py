@@ -2195,7 +2195,7 @@ def test_deprecation_helpers_are_recognized_by_name(tmp_path):
     )
     # `typing_extensions.deprecated` imported under another name is still `@deprecated`.
     assert dep("api.connect_to_wcs") == (
-        "'This method is deprecated. Use `connect_to_weaviate_cloud` instead.'",
+        "This method is deprecated. Use `connect_to_weaviate_cloud` instead.",
         None,
     )
     # Arguments: renamed (the old name need not be in the signature), deleted, or listed.
@@ -2270,6 +2270,135 @@ def test_deprecation_helpers_are_recognized_by_name(tmp_path):
     # The machinery warns as its job; that isn't its own deprecation.
     assert dep("utils.warn_deprecated") == (None, None)
     assert dep("utils.issue_deprecation_warning") == (None, None)
+
+
+DECORATORS = {
+    "decky/__init__.py": (
+        "import warnings\n"
+        "from typing_extensions import deprecated\n"
+        "from celery.exceptions import CPendingDeprecationWarning\n"
+        "from langchain_core._api import deprecated as lc_deprecated\n"
+        "from matplotlib import _api\n"
+        "from sqlalchemy import util\n"
+        "from langgraph._api.deprecation import deprecated as lg_deprecated\n"
+        "from deprecation import deprecated as deprecation_deprecated\n\n"
+        "MESSAGE = 'Use `NewModel` instead.'\n\n\n"
+        "class Chain:\n"
+        "    @lc_deprecated('0.1.0', alternative='invoke', removal='0.2.0')\n"
+        "    def run(self): ...\n\n"
+        "    @lc_deprecated(since='0.2.13', removal='1.0', message='Refer here for a map-reduce implementation.')\n"
+        "    def map_reduce(self): ...\n\n"
+        "    @lc_deprecated('0.0.260', alternative='from_messages classmethod', pending=True)\n"
+        "    def from_role_strings(self): ...\n\n"
+        "    @lc_deprecated(since='0.0.21', alternative_import='from langchain_huggingface import HuggingFaceEndpoint')\n"
+        "    def huggingface(self): ...\n\n\n"
+        "class Model:\n"
+        "    @lc_deprecated(since='0.1.23', removal='0.2.0', alternative_import='langchain_astradb.AstraDBVectorStore')\n"
+        "    def __init__(self): ...\n\n\n"
+        "@deprecated('Please use `numpy.fft.fftshift` instead.')\n"
+        "def fftshift(x): ...\n\n\n"
+        "@deprecated(MESSAGE, category=DeprecationWarning)\n"
+        "def old_model(): ...\n\n\n"
+        "@deprecated('`soon` will be deprecated.', category=PendingDeprecationWarning)\n"
+        "def soon(): ...\n\n\n"
+        "@_api.deprecated('3.6', pending=True, alternative='``matplotlib.colormaps.register(name)``')\n"
+        "def register_cmap(name): ...\n\n\n"
+        "@_api.deprecated('3.6', alternative=\"callbacks.process('draw_event', DrawEvent(...))\")\n"
+        "def draw_event(): ...\n\n\n"
+        "@_api.deprecated('3.6', alternative='cmap.with_extremes(bad=...) or Colormap(bad=...)')\n"
+        "def set_bad(): ...\n\n\n"
+        "@_api.deprecated('3.10.0', message='Never used internally.', alternative='No replacement.  Please open an issue.')\n"
+        "def unused(): ...\n\n\n"
+        "@_api.deprecated('2.0', name='wx', obj_type='backend', removal='the future', alternative='wxagg', addendum='See the FAQ.')\n"
+        "def backend_wx(): ...\n\n\n"
+        "@_api.deprecated('3.5')\n"
+        "def since_only(): ...\n\n\n"
+        "def _get_cmap(name=None): ...\n\n\n"
+        "get_cmap = _api.deprecated('3.7', name='get_cmap', alternative='``matplotlib.colormaps[name]``')(_get_cmap)\n\n\n"
+        "@util.deprecated('1.4', 'The :meth:`_engine.Connection.run_callable` method is deprecated.')\n"
+        "def run_callable(): ...\n\n\n"
+        "@lg_deprecated('0.0.44', 'create_react_agent', removal='0.2.0')\n"
+        "def chat_agent_executor(): ...\n\n\n"
+        "@deprecation_deprecated(deprecated_in='4.6.2', details='This method is deprecated and will be removed in a future release. Use :func:`connect_to_weaviate_cloud` instead.')\n"
+        "def connect_to_wcs(): ...\n\n\n"
+        "@deprecated\n"
+        "def bare(): ...\n\n\n"
+        "class matrix:\n"
+        "    def tolist(self):\n"
+        "        warnings.warn('the matrix subclass is not the recommended way', PendingDeprecationWarning)\n\n"
+        "    def set_tight_layout(self, tight):\n"
+        "        _api.warn_deprecated('3.6', alternative='set_layout_engine', pending=True)\n\n"
+        "    def link_error(self, errback):\n"
+        "        warnings.warn('link_error is pending deprecation', CPendingDeprecationWarning)\n\n"
+        "    @_api.delete_parameter('3.6', 'renderer', pending=True)\n"
+        "    def get_tightbbox(self, renderer=None): ...\n\n"
+        "    def fill(self):\n"
+        "        warnings.warn('fill is deprecated', DeprecationWarning)\n"
+    ),
+}
+
+
+def test_deprecated_decorators_are_read_by_argument(tmp_path):
+    # DT-DATA-31: the decorator's argument source was the message ("'0.1.0', alternative='invoke', removal='0.2.0'"),
+    # for 4,726 of 10,836 deprecation events. Its arguments are now read: the message unquoted, when and until when,
+    # the alternative as "Use … instead.", and a pending deprecation isn't one.
+    snap = build_snapshot("decky", "1.0", ["decky"], _write(tmp_path, DECORATORS))
+
+    def dep(path):
+        return snap.symbols[f"decky.{path}"].deprecated
+
+    assert (
+        dep("Chain.run") == "run was deprecated in 0.1.0 and will be removed in 0.2.0. Use `invoke` instead."
+    )
+    assert dep("Chain.map_reduce") == (
+        "map_reduce was deprecated in 0.2.13 and will be removed in 1.0. Refer here for a map-reduce implementation."
+    )
+    assert dep("Chain.huggingface") == (
+        "huggingface was deprecated in 0.0.21. Use `from langchain_huggingface import HuggingFaceEndpoint` instead."
+    )
+    assert dep("Model.__init__") == (
+        "Model was deprecated in 0.1.23 and will be removed in 0.2.0. Use `langchain_astradb.AstraDBVectorStore` instead."
+    )
+    # PEP 702: the message, unquoted; a module-level constant is read.
+    assert dep("fftshift") == "Please use `numpy.fft.fftshift` instead."
+    assert dep("old_model") == "Use `NewModel` instead."
+    # matplotlib's alternatives are code, reST literals, or a sentence of their own; `name=` is the subject.
+    assert dep("draw_event") == (
+        "draw_event was deprecated in 3.6. Use `callbacks.process('draw_event', DrawEvent(...))` instead."
+    )
+    assert (
+        dep("set_bad")
+        == "set_bad was deprecated in 3.6. Use `cmap.with_extremes(bad=...)` or `Colormap(bad=...)` instead."
+    )
+    assert (
+        dep("unused")
+        == "unused was deprecated in 3.10.0. Never used internally. No replacement. Please open an issue."
+    )
+    assert dep("backend_wx") == (
+        "wx was deprecated in 2.0 and will be removed in the future. Use `wxagg` instead. See the FAQ."
+    )
+    assert dep("since_only") == "since_only was deprecated in 3.5."
+    # Applied by hand to bind a name (matplotlib 3.7's `cm.get_cmap`).
+    assert dep("get_cmap") == "get_cmap was deprecated in 3.7. Use `matplotlib.colormaps[name]` instead."
+    # sqlalchemy's (version, message), langgraph's (since, alternative), the deprecation library's keywords.
+    assert dep("run_callable") == "The Connection.run_callable() method is deprecated."
+    assert dep("chat_agent_executor") == (
+        "chat_agent_executor was deprecated in 0.0.44 and will be removed in 0.2.0. Use `create_react_agent` instead."
+    )
+    # A message that says what is deprecated stands alone.
+    assert dep("connect_to_wcs") == (
+        "This method is deprecated and will be removed in a future release. Use connect_to_weaviate_cloud() instead."
+    )
+    assert dep("bare") == "deprecated"
+    # Pending: not deprecated yet, whether a decorator, a helper or a warning in the body says so.
+    assert dep("Chain.from_role_strings") is None
+    assert dep("register_cmap") is None
+    assert dep("soon") is None
+    assert dep("matrix.tolist") is None
+    assert dep("matrix.set_tight_layout") is None
+    assert dep("matrix.link_error") is None
+    assert snap.symbols["decky.matrix.get_tightbbox"].deprecated_params is None
+    assert dep("matrix.fill") == "fill is deprecated"
 
 
 def test_docstring_notes_and_deprecated_defaults_are_deprecations(tmp_path):

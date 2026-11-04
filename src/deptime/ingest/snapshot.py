@@ -30,10 +30,10 @@ from deptime.ingest.replacements import (
     worded_deprecated,
 )
 
-SNAPSHOT_FORMAT = 12  # bump when extraction changes: cached snapshots in another format are rebuilt
+SNAPSHOT_FORMAT = 13  # bump when extraction changes: cached snapshots in another format are rebuilt
 MAX_DEPTH = 12  # guards pathological re-export cycles
 
-DEPRECATED_DECORATOR_RE = re.compile(r"^(?:[\w.]+\.)?deprecated\b(?:\((?P<args>.*)\))?$", re.S)
+DEPRECATED_DECORATOR_RE = re.compile(r"^(?:[\w.]+\.)?deprecated\b(?:\(.*\))?$", re.S)
 STRING_LITERAL_RE = re.compile(r"""(?P<q>["'])(?P<s>(?:\\.|(?!(?P=q)).)*)(?P=q)""")
 # One or more adjacent single-line literals (implicit concatenation may span lines via the \s* gap).
 ADJACENT_LITERALS_RE = re.compile(r"""(?:f?(["'])(?:\\.|(?!\1).)*\1\s*)+""")
@@ -133,9 +133,10 @@ def deprecation_message(obj: griffe.Object) -> str | None:
 
 
 def deprecations(obj: griffe.Object) -> tuple[str | None, dict[str, str] | None]:
-    """Best-effort deprecation detection: griffe extensions and `@deprecated` decorators deprecate the object, and
-    deprecation helpers recognized by name deprecate it or some of its arguments (`_HELPERS`): as decorators, or
-    for an attribute, as the call that binds it. For a function, every warning in its body is read
+    """Best-effort deprecation detection: griffe extensions and `@deprecated` decorators deprecate the object (a
+    decorator's arguments read by `_decorator_reading`; a pending one doesn't), and deprecation helpers recognized
+    by name deprecate it or some of its arguments (`_HELPERS`): as decorators, or for an attribute, as the call
+    that binds it. For a function, every warning in its body is read
     (`_BodyWarnings`), and else its dispatcher's (`_dispatcher_deprecation`), unless warning is its job
     (`_MACHINERY_RE`). A class's or function's docstring notes and `'deprecated'` defaults fill in what the code
     doesn't say (`_documented_deprecations`)."""
@@ -144,22 +145,23 @@ def deprecations(obj: griffe.Object) -> tuple[str | None, dict[str, str] | None]
         return (flagged if isinstance(flagged, str) else "deprecated"), None
     whole: str | None = None
     params: dict[str, str] = {}
+    # A constructor's deprecation is its class's: "InferenceApi is deprecated", not "__init__ is deprecated".
+    parent = obj.parent
+    name = parent.name if obj.name == "__init__" and parent is not None and parent.is_class else obj.name
     for dec in getattr(obj, "decorators", []) or []:
         text = str(dec.value)
-        m = DEPRECATED_DECORATOR_RE.match(text) or DEPRECATED_DECORATOR_RE.match(
-            _renamed_deprecated(dec, text)
-        )
-        if m:
-            return (m.group("args") or "deprecated").strip()[:400], None
+        decorator = text if DEPRECATED_DECORATOR_RE.match(text) else _renamed_deprecated(dec, text)
+        if DEPRECATED_DECORATOR_RE.match(decorator):
+            reading = _decorator_reading(_parsed_call(decorator) if "(" in decorator else None, obj, name)
+            if reading is None:  # pending: not deprecated yet
+                continue
+            return reading, None
         call = _helper_call(text)
-        # A constructor's deprecation is its class's: "InferenceApi is deprecated", not "__init__ is deprecated".
-        parent = obj.parent
-        name = parent.name if obj.name == "__init__" and parent is not None and parent.is_class else obj.name
         found = _helper_reading(call, obj, name) if call is not None else None
         if found is not None:
             whole = whole or found[0]
-            for name, message in found[1].items():
-                params.setdefault(name, message)
+            for param, message in found[1].items():
+                params.setdefault(param, message)
     if isinstance(obj, griffe.Attribute):
         return _wrapper_deprecation(obj), None
     if isinstance(obj, griffe.Function) and not _MACHINERY_RE.match(obj.name):
@@ -290,16 +292,41 @@ def _callee(call: ast.Call) -> str | None:
     return func.attr if isinstance(func, ast.Attribute) else func.id if isinstance(func, ast.Name) else None
 
 
-def _helper_call(text: str) -> ast.Call | None:
-    """`text` parsed, when it is a call of a helper in `_HELPERS`."""
-    head = _HELPER_HEAD_RE.match(text)
-    if head is None or head.group(1) not in _HELPERS:
-        return None
+_PENDING_CATEGORY_RE = re.compile(r"PendingDeprecation")  # also celery's CPendingDeprecationWarning
+
+
+def _names_pending(node: ast.expr) -> bool:
+    target = node.func if isinstance(node, ast.Call) else node
+    return isinstance(target, (ast.Name, ast.Attribute)) and bool(
+        _PENDING_CATEGORY_RE.search(ast.unparse(target))
+    )
+
+
+def _pending(call: ast.Call) -> bool:
+    """A deprecation call that says it is pending (DT-DATA-31): `pending=True` (langchain's and matplotlib's
+    decorators and helpers), or PendingDeprecationWarning as its category. A pending deprecation isn't one yet: it
+    says the name will be deprecated, and Python doesn't show the warning by default."""
+    return any(_names_pending(a) for a in call.args) or any(
+        (kw.arg == "pending" and isinstance(kw.value, ast.Constant) and kw.value.value is True)
+        or (kw.arg == "category" and _names_pending(kw.value))
+        for kw in call.keywords
+    )
+
+
+def _parsed_call(text: str) -> ast.Call | None:
     try:
         node = _quiet_parse(text, "eval").body  # type: ignore[attr-defined]
     except (SyntaxError, ValueError):
         return None
     return node if isinstance(node, ast.Call) else None
+
+
+def _helper_call(text: str) -> ast.Call | None:
+    """`text` parsed, when it is a call of a helper in `_HELPERS`."""
+    head = _HELPER_HEAD_RE.match(text)
+    if head is None or head.group(1) not in _HELPERS:
+        return None
+    return _parsed_call(text)
 
 
 def _renamed_deprecated(dec: griffe.Decorator, text: str) -> str:
@@ -429,6 +456,125 @@ def _compose(subject: str | None, name: str | None, message: str | None, new: st
     return " ".join(" ".join(parts).split())[:400] or None
 
 
+def _arg_text(node: ast.expr, module: griffe.Module | None) -> str | None:
+    """An argument of a helper or decorator call as text: what the code builds (`_render`), or a module-level
+    string constant it names."""
+    rendered = _render(node)
+    if rendered is None and isinstance(node, ast.Name):
+        return _module_constant(module, node.id)
+    return " ".join(rendered.split())[:400] or None if rendered else None
+
+
+# How a `deprecated(...)` decorator's keywords are read (DT-DATA-31): PEP 702's `deprecated(message)`, langchain's and
+# matplotlib's `deprecated(since, *, message, name, alternative, alternative_import, pending, addendum, removal, …)`,
+# sqlalchemy's `deprecated(version, message)`, langgraph's `deprecated(since, alternative, *, removal)`, the Deprecated
+# library's `deprecated(reason, version=)`, the deprecation library's `deprecated(deprecated_in=, removed_in=,
+# details=)` and scikit-learn's `deprecated(extra)`. Others (`obj_type`, `category`, `stacklevel`, `example`) aren't
+# part of the text.
+_DECORATOR_ROLES = {
+    **dict.fromkeys(("message", "reason", "details", "extra"), "message"),
+    "addendum": "addendum",
+    **dict.fromkeys(("alternative", "alternative_import"), "alternative"),
+    **dict.fromkeys(("since", "version", "deprecated_in"), "since"),
+    **dict.fromkeys(("removal", "removed_in"), "removal"),
+    "name": "name",
+}
+# An alternative that is a sentence already: matplotlib's "No replacement. Please open an issue if you use this.",
+# langchain's "Use string instead.".
+_SENTENCE_ALTERNATIVE_RE = re.compile(r"^(?:use|call|no|none|see)\b|\binstead\b", re.I)
+_RST_TARGET_RE = re.compile(
+    r"`([^`<]+?)\s*<[^`>]*>`"
+)  # `QuadMesh(coordinates).get_paths()<.QuadMesh.get_paths>`
+
+
+def _decorator_reading(call: ast.Call | None, obj: griffe.Object, name: str) -> str | None:
+    """A `deprecated` decorator's deprecation of `obj`, known as `name` (DT-DATA-31), or None when it's pending.
+
+    Keywords are read by name (`_DECORATOR_ROLES`), positional arguments by value: a version says when, a bare name
+    after it is the alternative (langgraph's `deprecated("0.0.44", "create_react_agent")`), and anything else is the
+    message. The text is put together the way langchain and matplotlib word their warnings: the message, if it says
+    what is deprecated, else "<name> was deprecated in <since> and will be removed in <removal>." before it; then
+    the alternative as "Use … instead." (`_instead`); then the addendum. A bare `@deprecated`, or one that says
+    nothing, is "deprecated". A pending one (`_pending`) isn't a deprecation yet."""
+    if call is None:
+        return "deprecated"
+    if _pending(call):
+        return None
+    try:
+        module = obj.module
+    except ValueError:  # an overload griffe keeps aside may have no parent
+        module = None
+    since = removal = alternative = None
+    subject = name
+    messages: list[str] = []
+    addenda: list[str] = []
+    for arg in call.args:
+        value = _arg_text(arg, module)
+        if not value:
+            continue
+        if since is None and not messages and _VERSION_RE.match(value):
+            since = value
+        elif since is not None and alternative is None and not messages and _NAME_RE.fullmatch(value):
+            alternative = value
+        else:
+            messages.append(value)
+    for kw in call.keywords:
+        role = _DECORATOR_ROLES.get(kw.arg or "")
+        value = _arg_text(kw.value, module) if role else None
+        if not value:
+            continue
+        if role == "message":
+            messages.append(value)
+        elif role == "addendum":
+            addenda.append(value)
+        elif role == "alternative":
+            alternative = alternative or value
+        elif role == "since":
+            since = since or value
+        elif role == "removal":
+            removal = removal or value
+        elif role == "name":
+            subject = value
+    if not (messages or addenda or since or removal or alternative):
+        return "deprecated"
+    message = _plain_rst(" ".join(messages)) if messages else None
+    parts = []
+    if not (message and DEPRECATION_WORDS_RE.search(message)):
+        said = f"{subject} was deprecated in {since}" if since else f"{subject} is deprecated"
+        parts.append(f"{said} and will be removed in {removal}." if removal else f"{said}.")
+    parts += [message, _instead(alternative) if alternative else None, _plain_rst(" ".join(addenda))]
+    return " ".join(" ".join(p for p in parts if p).split())[:400]
+
+
+def _instead(alternative: str) -> str | None:
+    """A decorator's alternative as the sentence langchain and matplotlib print, "Use … instead.": a name or an
+    expression in backticks, each side of an `or` or `and` on its own ("Use `MouseEvent` or `KeyEvent` instead."),
+    reST's ``literals`` as backticks, and prose as written. One that is a sentence already stays as it is."""
+    text = _RST_TARGET_RE.sub(r"`\1`", " ".join(_plain_rst(alternative).replace("``", "`").split()))
+    if not text:
+        return None
+    if _SENTENCE_ALTERNATIVE_RE.search(text):
+        return text if text[-1] in ".!?" else f"{text}."
+    text = text.rstrip(". ")
+    return f"Use {text if '`' in text else _as_code(text)} instead."
+
+
+def _as_code(text: str) -> str:
+    """`text` in backticks if it's Python (an `or`/`and` of expressions: each side), else as written."""
+    try:
+        node = _quiet_parse(text, "eval").body  # type: ignore[attr-defined]
+    except (SyntaxError, ValueError):
+        try:  # langchain's `alternative_import="from langchain_huggingface import HuggingFaceEndpoint"`
+            body = _quiet_parse(text).body  # type: ignore[attr-defined]
+        except (SyntaxError, ValueError):
+            return text
+        return f"`{text}`" if len(body) == 1 and isinstance(body[0], (ast.Import, ast.ImportFrom)) else text
+    if isinstance(node, ast.BoolOp):
+        joiner = " or " if isinstance(node.op, ast.Or) else " and "
+        return joiner.join(f"`{ast.get_source_segment(text, v)}`" for v in node.values)
+    return f"`{text}`"
+
+
 def _known_as(node: ast.expr | None, scope: griffe.Object | None) -> str | None:
     """The public name a function passed to a wrapper is known by (`__name__`): streamlit's `_rerun`, imported as
     `from streamlit.commands.execution_control import rerun as _rerun`, is `rerun`."""
@@ -450,17 +596,12 @@ def _helper_reading(
 ) -> tuple[str | None, dict[str, str]] | None:
     """What a helper call in `_HELPERS` deprecates about `obj`, known as `name`: (whole, {argument: text})."""
     helper = _HELPERS.get(_callee(call) or "")
-    if helper is None:
+    if helper is None or _pending(call):
         return None
     module = obj.module if isinstance(obj, griffe.Object) else None
-
-    def text(node: ast.expr) -> str | None:
-        rendered = _render(node)
-        if rendered is None and isinstance(node, ast.Name):
-            return _module_constant(module, node.id)
-        return " ".join(rendered.split())[:400] or None if rendered else None
-
-    args = _HelperArgs(call, helper.positional, helper.marks == "params", text)
+    args = _HelperArgs(
+        call, helper.positional, helper.marks == "params", lambda node: _arg_text(node, module)
+    )
     if helper.marks == "whole":
         new = args.new or _known_as(args.func, obj.parent)
         if new and helper.top_level:
@@ -496,6 +637,14 @@ def _wrapper_deprecation(attr: griffe.Attribute) -> str | None:
         return deprecations(target)[0] if isinstance(target, griffe.Function) else None
     if not isinstance(value, griffe.ExprCall):
         return None
+    # matplotlib 3.7's `get_cmap = _api.deprecated("3.7", name="get_cmap", alternative=…)(_get_cmap)` (DT-DATA-31).
+    wrapped = _parsed_call(str(value))
+    if (
+        wrapped is not None
+        and isinstance(wrapped.func, ast.Call)
+        and DEPRECATED_DECORATOR_RE.match(ast.unparse(wrapped.func.func))
+    ):
+        return _decorator_reading(wrapped.func, attr, attr.name)
     call = _helper_call(str(value))
     found = _helper_reading(call, attr, attr.name) if call is not None else None
     return found[0] if found is not None else None
@@ -907,8 +1056,9 @@ class _BodyWarnings:
     """Every warning a function's body emits (DT-DATA-42), each read for what it deprecates.
 
     A warning counts when its category reads like a deprecation (`CALL_CATEGORY_RE`), or, with any other category
-    or none (gradio), when its text says "deprecat". Its text is what the code builds (`_render`), from the call
-    itself, the nearest earlier string the function binds to the name it passes, or a module-level constant.
+    or none (gradio), when its text says "deprecat", unless it is pending (`_pending`). Its text is what the code
+    builds (`_render`), from the call itself, the nearest earlier string the function binds to the name it passes,
+    or a module-level constant.
 
     - A warning guarded by a condition on an argument, whose text names that argument, deprecates the argument:
       `if proxies: warn("The 'proxies' argument is deprecated…")`. A name the condition looks up in **kwargs
@@ -1116,6 +1266,8 @@ class _BodyWarnings:
                     self._warning(call, guard, branched)
 
     def _warning(self, call: ast.Call, guard: frozenset[str], branched: bool) -> None:
+        if _pending(call):  # numpy's `matrix`, matplotlib's `warn_deprecated(…, pending=True)` (DT-DATA-31)
+            return
         if _callee(call) in MESSAGE_BUILDERS:
             built = self._built(call, call)
             if built is not None:

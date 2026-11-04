@@ -19,6 +19,10 @@ from deptime.ingest.snapshot import ApiSnapshot, LazySnapshot, SymbolRecord
 
 SCHEMA_VERSION = "1"
 MOVED_CONFIDENCE = 0.6
+# A removed module-level name whose object is still public under another module-level path (DT-CORE-22): importing
+# that path gives the same object. Evidence from the index's own rows, not text, so not above prose's threshold.
+STILL_PUBLIC_CONFIDENCE = 0.75
+STRONG_HINT = 0.75  # a name that already has a hint this strong gets no DT-CORE-22 hint
 # A parameter renamed in case or underscores on the same function (DT-CORE-24): the same name, so stronger
 # evidence than a module-level name that reappears elsewhere.
 RENAMED_PARAM_CONFIDENCE = 0.8
@@ -30,6 +34,76 @@ def _schema_sql() -> str:
 
 def _now() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat()
+
+
+def still_public(
+    span_rows: Sequence[tuple[str, int, int, tuple]],
+    removed: Sequence[tuple[str, int]],
+    versions: Sequence[str],
+) -> list[tuple[str, str, float, str]]:
+    """Hints for removed module-level names from the path their object is still public under (DT-CORE-22):
+    numpy 2.0 dropped `numpy.lib.arraysetops.union1d`, and `numpy.union1d` is the same function. Of the
+    module-level paths that had the same canonical object in the last release with the name, and still exist in
+    the release that removes it, one is offered: the same object still, then not deprecated, then in a module that
+    holds its definition (langchain's `chains.combine_documents.refine`, not `chains.summarize`, which imports it),
+    then the same name, then the shortest. At `STILL_PUBLIC_CONFIDENCE` when it is still the same object, else at `MOVED_CONFIDENCE`
+    (pydantic 2.0's `pydantic.v1.ConstrainedBytes` is a copy of 1.x's). A class's member isn't paired: an
+    inherited member's object is shared by every subclass. Rows are `(path, first, last, state)` with `state`
+    `(kind, canonical, params, deprecated, deprecated_params)`; `removed` is `(path, ordinal)`."""
+    spans: dict[str, list[tuple[int, int, tuple]]] = {}
+    by_object: dict[str, list[tuple[str, int, int]]] = {}
+    for path, first, last, state in span_rows:
+        spans.setdefault(path, []).append((first, last, state))
+        if state[1] and state[0] != "getattr":
+            by_object.setdefault(state[1], []).append((path, first, last))
+
+    def at(path: str, ordinal: int) -> tuple | None:
+        return next((s for f, last, s in spans.get(path, ()) if f <= ordinal <= last), None)
+
+    def named(path: str, ordinal: int) -> tuple | None:
+        """The state of a public module-level name, at `ordinal`."""
+        parent, _, leaf = path.rpartition(".")
+        state = at(path, ordinal)
+        owner = at(parent, ordinal) if parent else None
+        ok = state and owner and owner[0] == "module" and not leaf.startswith("_")
+        return state if ok and state[0] not in ("module", "alias", "getattr") else None
+
+    hints = []
+    for path, ordinal in removed:
+        before = named(path, ordinal - 1)
+        if before is None or not before[1]:
+            continue
+        leaf = path.rpartition(".")[2]
+        best: tuple | None = None
+        for other, first, last in by_object.get(before[1], ()):
+            if other == path or not first <= ordinal - 1 <= last or (now := named(other, ordinal)) is None:
+                continue
+            module = other.rpartition(".")[0]
+            home = before[1] == other or before[1].startswith(
+                module + "."
+            )  # a module that holds its definition
+            rank = (
+                now[1] != before[1],
+                bool(now[3]),
+                not home,
+                other.rpartition(".")[2] != leaf,
+                other.count("."),
+                len(other),
+            )
+            if best is None or (rank, other) < best[:2]:
+                best = (rank, other, now)
+        if best is None:
+            continue
+        rank, other, _now = best
+        version = versions[ordinal]
+        if rank[0]:
+            evidence = (
+                f"{path} was removed in {version}; {other} had the same object until then and is still public"
+            )
+        else:
+            evidence = f"{path} was removed in {version}; the same object is still public as {other}"
+        hints.append((path, other, MOVED_CONFIDENCE if rank[0] else STILL_PUBLIC_CONFIDENCE, evidence))
+    return hints
 
 
 @dataclass(frozen=True)
@@ -196,6 +270,12 @@ class IndexStore:
                     "moved_heuristic",
                     f"{ev.path} lost the parameter {param} and gained {to} in the same release",
                 )
+        strong = {path for (path, _target), (conf, _s, _e) in repl.items() if conf >= STRONG_HINT}
+        versions = [row[1] for row in release_rows]
+        removed = [(ev.path, ordinal) for ordinal, _prev, ev in events if ev.kind == "removed"]
+        for path, target, conf, evidence in still_public(span_rows, removed, versions):
+            if path not in strong:
+                add_repl(path, target, conf, "moved_heuristic", evidence)
 
         with self.conn:
             for table, col in (

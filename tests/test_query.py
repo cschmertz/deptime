@@ -316,6 +316,92 @@ def test_a_parameter_renamed_in_case_is_the_replacement():
     assert "requestedSchema" in par.replacements[0].evidence
 
 
+def test_a_removed_name_points_to_the_path_that_still_has_its_object():
+    # DT-CORE-22: numpy 2.0 dropped `numpy.lib.arraysetops.union1d`, but `numpy.union1d` is the same function;
+    # pydantic 2.0 dropped `pydantic.ConstrainedBytes`, which `pydantic.v1` still serves (as a copy).
+    spec = PackageSpec(name="p7", import_names=("p7",), tier="B")
+
+    def rec(path: str, canonical: str, kind: str = "function", deprecated: str | None = None) -> SymbolRecord:
+        return SymbolRecord(path, kind, canonical, [] if kind == "function" else None, deprecated)
+
+    modules = {
+        p: rec(p, p, "module")
+        for p in [
+            "p7",
+            "p7.lib",
+            "p7.lib.sets",
+            "p7.matlib",
+            "p7.types",
+            "p7.v1",
+            "p7.chains",
+            "p7.chains.qa",
+            "p7.chains.sum",
+            "p7.chains.refine",
+            "p7.v1.types",
+        ]
+    }
+    both = {
+        "p7.union1d": rec("p7.union1d", "p7._impl.union1d"),
+        "p7.matlib.union1d": rec("p7.matlib.union1d", "p7._impl.union1d"),
+        "p7.lib.old_name": rec("p7.lib.old_name", "p7._impl.old_name"),
+        "p7.renamed": rec("p7.renamed", "p7._impl.renamed"),
+        "p7.Model": rec("p7.Model", "p7._impl.Model", "class"),
+        "p7.Other": rec("p7.Other", "p7._impl.Other", "class"),
+        "p7.Other.dict": rec("p7.Other.dict", "p7._impl.Base.dict"),
+        "p7.chains.sum.Refine": rec("p7.chains.sum.Refine", "p7.chains.refine.Refine", "class"),
+        "p7.chains.refine.Refine": rec("p7.chains.refine.Refine", "p7.chains.refine.Refine", "class"),
+    }
+    v1 = {
+        **modules,
+        **both,
+        "p7.lib.sets.union1d": rec("p7.lib.sets.union1d", "p7._impl.union1d"),
+        "p7.old_name": rec(
+            "p7.old_name", "p7._impl.old_name", deprecated="old_name is deprecated; use p7.renamed instead."
+        ),
+        "p7.Model.dict": rec("p7.Model.dict", "p7._impl.Base.dict"),
+        "p7.chains.qa.Refine": rec("p7.chains.qa.Refine", "p7.chains.refine.Refine", "class"),
+        "p7.ConstrainedBytes": rec("p7.ConstrainedBytes", "p7.types.ConstrainedBytes", "class"),
+        "p7.types.ConstrainedBytes": rec("p7.types.ConstrainedBytes", "p7.types.ConstrainedBytes", "class"),
+        "p7.v1.ConstrainedBytes": rec("p7.v1.ConstrainedBytes", "p7.types.ConstrainedBytes", "class"),
+        "p7.v1.types.ConstrainedBytes": rec(
+            "p7.v1.types.ConstrainedBytes", "p7.types.ConstrainedBytes", "class"
+        ),
+    }
+    v2 = {
+        **modules,
+        **both,
+        "p7.v1.ConstrainedBytes": rec("p7.v1.ConstrainedBytes", "p7.v1.types.ConstrainedBytes", "class"),
+        "p7.v1.types.ConstrainedBytes": rec(
+            "p7.v1.types.ConstrainedBytes", "p7.v1.types.ConstrainedBytes", "class"
+        ),
+    }
+    store = IndexStore.memory()
+    store.rebuild_package(spec, [ApiSnapshot("p7", "1.0", ["p7"], v1), ApiSnapshot("p7", "2.0", ["p7"], v2)])
+
+    def hints(path: str) -> list[tuple[str, float, str]]:
+        return [(r["target"], r["confidence"], r["source"]) for r in store.replacements("p7", path)]
+
+    # The same object, still public: the shortest path, not `p7.matlib.union1d`.
+    assert hints("p7.lib.sets.union1d") == [("p7.union1d", 0.75, "moved_heuristic")]
+    # The module that defines it, over a shorter path that only imports it (langchain's `chains.summarize`).
+    assert hints("p7.chains.qa.Refine") == [("p7.chains.refine.Refine", 0.75, "moved_heuristic")]
+    # What held the object until this release: weaker, since `p7.v1.ConstrainedBytes` is now another object.
+    assert hints("p7.ConstrainedBytes") == [("p7.v1.ConstrainedBytes", 0.6, "moved_heuristic")]
+    assert hints("p7.types.ConstrainedBytes") == [("p7.v1.ConstrainedBytes", 0.6, "moved_heuristic")]
+    # Not for a class's member (an inherited one is shared by every subclass), nor next to a stronger hint.
+    assert hints("p7.Model.dict") == []
+    assert [t for t, c, _ in hints("p7.old_name") if c >= 0.75] == ["p7.renamed"]
+    assert "p7.lib.old_name" not in [t for t, _, _ in hints("p7.old_name")]
+
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+    tb = "ImportError: cannot import name 'union1d' from 'p7.lib.sets' (/x.py)"
+    sym = dt.explain_error(tb, {"p7": "2.0"}).findings[0]
+    assert sym.issue == "symbol_removed" and "Use p7.union1d instead." in sym.explanation
+    assert sym.replacements[0].evidence == (
+        "p7.lib.sets.union1d was removed in 2.0; the same object is still public as p7.union1d"
+    )
+
+
 def _param(name: str, kind: str = "keyword-only", default: str | None = "None") -> dict:
     return {"name": name, "kind": kind, "default": default, "annotation": None}
 

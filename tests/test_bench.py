@@ -64,6 +64,7 @@ def test_summary_reports_tiers_and_known_gap_share(dt):
         "root_cause_and_boundary": 50.0,
         "boundary": 50.0,
         "replacement": None,
+        "replacement_uncurated": None,
     }
     assert list(s["by_tier"]) == ["B"]
     assert list(s["by_origin"]) == ["constructed"]
@@ -85,3 +86,35 @@ def test_load_cases_rejects_duplicate_ids(tmp_path):
     (tmp_path / "b.jsonl").write_text(json.dumps(_case("same")) + "\n")
     with pytest.raises(ValueError, match="duplicate case id"):
         load_cases([tmp_path])
+
+
+def test_replacement_is_also_scored_without_curated_hints():
+    # DT-DATA-08: curated hints come from migration guides that benchmark cases may share, so the replacement
+    # DepTime finds by itself is reported beside the headline one.
+    from deptime.config import Coverage
+    from deptime.query import DepTime
+    from tests.test_query import POLICY, curated_store
+
+    store, spec = curated_store()
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+    case = {
+        "id": "p8-client",
+        "traceback": "ImportError: cannot import name 'Client' from 'p8' (/x.py)",
+        "installed": {"p8": "2.0"},
+        "expected": {
+            "package": "p8",
+            "symbol_suffix": "p8.Client",
+            "issue": "symbol_removed",
+            "replacement_contains": "Session",
+        },
+    }
+    [r] = run(dt, [case])
+    assert (r.replacement, r.replacement_uncurated) == (True, False)
+    assert summarize([r])["overall"]["replacement_uncurated"] == 0.0
+    # Older baselines have no such field; the regression check skips it.
+    assert (
+        regressions(
+            [r], {"cases": {"p8-client": {"root_cause": True, "boundary": None, "replacement": True}}}
+        )
+        == []
+    )

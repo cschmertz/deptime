@@ -23,7 +23,7 @@ from deptime.index.store import IndexStore
 from deptime.models import ExplainResult
 from deptime.query import DepTime
 
-METRICS = ("root_cause", "root_cause_and_boundary", "boundary", "replacement")
+METRICS = ("root_cause", "root_cause_and_boundary", "boundary", "replacement", "replacement_uncurated")
 MAX_DROP_POINTS = 2.0
 
 
@@ -37,6 +37,9 @@ class CaseResult:
     boundary: bool | None  # None when the case has no expected boundary
     replacement: bool | None  # None when the case has no expected replacement
     got: str
+    # The replacement without curated hints (DT-DATA-08): what DepTime finds by itself, since a migration guide
+    # can be the source of both a curated hint and a case. None in older baselines.
+    replacement_uncurated: bool | None = None
 
     @property
     def passed(self) -> bool:
@@ -69,7 +72,7 @@ def score_case(case: dict, result: ExplainResult, coverage: Coverage) -> CaseRes
         and top.issue == exp["issue"]
     )
     # The boundary and replacement of a wrong finding mean nothing, so both require the root cause.
-    boundary = replacement = None
+    boundary = replacement = uncurated = None
     if "last_version_with" in exp:
         boundary = root_cause and (top.last_version_with or "").startswith(exp["last_version_with"])
     elif "first_version_with" in exp:
@@ -78,6 +81,8 @@ def score_case(case: dict, result: ExplainResult, coverage: Coverage) -> CaseRes
         replacement = root_cause and any(
             exp["replacement_contains"] in r.target for r in top.replacements[:3]
         )
+        mined = [r for r in top.replacements if r.source != "curated"] if top else []
+        uncurated = root_cause and any(exp["replacement_contains"] in r.target for r in mined[:3])
     spec = coverage.get(exp["package"])
     if top is None:
         got = f"no finding ({result.note or 'no note'})"
@@ -96,6 +101,7 @@ def score_case(case: dict, result: ExplainResult, coverage: Coverage) -> CaseRes
         boundary=boundary,
         replacement=replacement,
         got=got,
+        replacement_uncurated=uncurated,
     )
 
 
@@ -113,11 +119,15 @@ def _pct(hits: int, total: int) -> float | None:
 def metrics(results: list[CaseResult]) -> dict[str, float | None]:
     with_boundary = [r for r in results if r.boundary is not None]
     with_replacement = [r for r in results if r.replacement is not None]
+    with_uncurated = [r for r in results if r.replacement_uncurated is not None]
     return {
         "root_cause": _pct(sum(r.root_cause for r in results), len(results)),
         "root_cause_and_boundary": _pct(sum(r.passed for r in results), len(results)),
         "boundary": _pct(sum(bool(r.boundary) for r in with_boundary), len(with_boundary)),
         "replacement": _pct(sum(bool(r.replacement) for r in with_replacement), len(with_replacement)),
+        "replacement_uncurated": _pct(
+            sum(bool(r.replacement_uncurated) for r in with_uncurated), len(with_uncurated)
+        ),
     }
 
 
@@ -159,7 +169,11 @@ def baseline_doc(results: list[CaseResult], index_built_at: str | None) -> dict:
         "index_built_at": index_built_at,
         "summary": summarize(results),
         "cases": {
-            r.id: {k: v for k, v in asdict(r).items() if k in ("root_cause", "boundary", "replacement")}
+            r.id: {
+                k: v
+                for k, v in asdict(r).items()
+                if k in ("root_cause", "boundary", "replacement", "replacement_uncurated")
+            }
             for r in results
         },
     }

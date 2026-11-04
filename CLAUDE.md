@@ -43,6 +43,7 @@ The default home is `~/.cache/deptime` (override with `DEPTIME_HOME`). Set `DEPT
 - Tool behaviour: `query.py`. Tests use the synthetic 3-release httpx index in `tests/conftest.py`.
 - Download, refresh, packing: `index/distribution.py` (`tests/test_distribution.py`, all via `httpx.MockTransport`)
 - Covered packages: `src/deptime/coverage.toml` (ships in the wheel; set correct `import_names`)
+- Curated migration hints: `src/deptime/curated.toml` (ships in the wheel; each must pass the checks in its header, ADR 0006)
 
 ## Verified external APIs (2026-10-17)
 

@@ -6,6 +6,7 @@ Thanks for helping! The most valuable contributions, in order:
 2. **Benchmark cases** from real GitHub issues (`bench/cases/*.jsonl`, format in `bench/README.md`).
 3. **Coverage requests**: a fast-moving package you'd like indexed. Add it to `src/deptime/coverage.toml` with its import names.
 4. Fixes to the traceback parser, the diff logic, or replacement mining. Each fix should come with a test.
+5. **Migration hints** a library's own guide or changelog gives but its code doesn't say (`src/deptime/curated.toml`): the name, its replacement, the quote verbatim and its URL. The file's header lists the checks a hint must pass.
 
 ## Setup
 

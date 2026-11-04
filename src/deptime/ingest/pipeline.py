@@ -122,8 +122,10 @@ def _cached_snapshot(cache_dir: Path, spec: PackageSpec, version: str) -> ApiSna
 # The code that turns a package's snapshots into its index rows (DT-DATA-41). Editing any of these files changes
 # every package's fingerprint, so the next run rebuilds them all rather than keep rows older code wrote.
 ASSEMBLY_SOURCES = (
+    "curated.toml",
     "index/schema.sql",
     "index/store.py",
+    "ingest/curated.py",
     "ingest/diff.py",
     "ingest/pipeline.py",
     "ingest/replacements.py",

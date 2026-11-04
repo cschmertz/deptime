@@ -4,6 +4,7 @@ name: bench
 # when a metric drops by more than 2 points on the cases bench/baseline.json shares with this run. It runs on code
 # changes and after every nightly index build, so a regression in either the code or the data is caught.
 # The TimeMachine-bench holdout (bench/tmb, DT-QA-04) is checked the same way against bench/tmb/baseline.json.
+# bench/curated_check.py fails if a curated hint (DT-DATA-08) names something the index doesn't have.
 # Record an intended change with: python -m deptime.bench bench/cases --write-baseline bench/baseline.json
 # (and bench/tmb/cases with bench/tmb/baseline.json)
 on:
@@ -41,10 +42,15 @@ jobs:
         run: |
           set -o pipefail
           uv run --no-dev python -m deptime.bench bench/tmb/cases --baseline bench/tmb/baseline.json 2>&1 | tee report-tmb.txt
+      - name: Check the curated hints against the index (ADR 0006)
+        if: success() || failure()
+        run: |
+          set -o pipefail
+          uv run --no-dev python bench/curated_check.py 2>&1 | tee report-curated.txt
       - name: Add the reports to the job summary
         if: always()
         run: |
-          for f in report.txt report-tmb.txt; do
+          for f in report.txt report-tmb.txt report-curated.txt; do
             if [ -f "$f" ]; then
               { echo "### $f"; echo '```'; cat "$f"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
             fi

@@ -59,6 +59,20 @@ def hints(dt: DepTime, package: str, old: str, kind: str) -> list[tuple[str, flo
     return sorted(found, key=lambda h: -h[1])
 
 
+def _uncurated(results: list[dict]) -> list[str]:
+    """The same counts without curated hints (DT-DATA-08), which come from the migration guides these migrations
+    were collected from; only when there are some."""
+    if not any(h[2] == "curated" for r in results for h in r["hints"]):
+        return []
+    mined = [(r, [h for h in r["hints"] if h[2] != "curated"]) for r in results]
+    shown = [h for _, hs in mined for h in hs if h[1] >= BAR]
+    found = [r for r, hs in mined if any(h[3] and h[1] >= BAR for h in hs)]
+    precision = f"{sum(h[3] for h in shown)}/{len(shown)}" if shown else "no hints"
+    return [
+        f"- Without curated hints: a right hint at >= {BAR} for {len(found)}/{len(results)}; precision {precision}."
+    ]
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("migrations")
@@ -97,6 +111,7 @@ def main() -> int:
         f"- Migrations: {len(results)}; the old path is in the index for {len(indexed)}.",
         f"- With a right hint at >= {BAR}: {len(found)}/{len(results)}; at any confidence: {len(found_any)}.",
         f"- With any hint: {len(with_hints)}; the best one is right for {len(top_right)}.",
+        *_uncurated(results),
         "",
         "| migration | indexed | hints (target, confidence, source; ✓ right) |",
         "|---|---|---|",

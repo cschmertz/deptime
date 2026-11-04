@@ -85,6 +85,13 @@ def coverage() -> Coverage:
     )
 
 
+@pytest.fixture(autouse=True)
+def no_shipped_curated_hints(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Synthetic indexes don't take the hints `deptime/curated.toml` ships (DT-DATA-08): a test that wants
+    curated hints passes its own to `rebuild_package`."""
+    monkeypatch.setattr("deptime.index.store.hints_for", lambda package: ())
+
+
 @pytest.fixture
 def store() -> IndexStore:
     s = IndexStore.memory()

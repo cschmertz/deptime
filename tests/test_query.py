@@ -3,6 +3,7 @@ from datetime import date
 
 from deptime.config import Coverage, PackageSpec, VersionPolicy
 from deptime.index.store import IndexStore
+from deptime.ingest.curated import CuratedHint
 from deptime.ingest.snapshot import ApiSnapshot, SymbolRecord
 from deptime.models import SymbolQuery
 from deptime.query import DepTime, parse_installed
@@ -476,6 +477,76 @@ def test_a_removed_name_points_to_the_path_that_still_has_its_object():
     assert sym.replacements[0].evidence == (
         "p7.lib.sets.union1d was removed in 2.0; the same object is still public as p7.union1d"
     )
+
+
+def curated_store() -> tuple[IndexStore, PackageSpec]:
+    """p8.Client is removed in 2.0 with no deprecation text; p8.connect(timeout) loses its argument."""
+    spec = PackageSpec(name="p8", import_names=("p8",), tier="B")
+    mod = SymbolRecord("p8", "module", "p8")
+    v1 = {
+        "p8": mod,
+        "p8.Old": SymbolRecord(
+            "p8.Old", "class", "p8.Old", None, "Old is deprecated, use p8.Session instead."
+        ),
+        "p8.Client": SymbolRecord("p8.Client", "class", "p8.Client"),
+        "p8.connect": SymbolRecord("p8.connect", "function", "p8.connect", [_param("timeout")]),
+        # The same object under other paths: a re-export and a subclass's inherited method.
+        "p8.compat.Client": SymbolRecord("p8.compat.Client", "class", "p8.Client"),
+        "p8.Base.find_by_id": SymbolRecord("p8.Base.find_by_id", "function", "p8.Base.find_by_id", []),
+        "p8.Chrome.find_by_id": SymbolRecord("p8.Chrome.find_by_id", "function", "p8.Base.find_by_id", []),
+    }
+    v2 = {
+        "p8": mod,
+        "p8.Session": SymbolRecord("p8.Session", "class", "p8.Session"),
+        "p8.connect": SymbolRecord("p8.connect", "function", "p8.connect", [_param("timeouts")]),
+    }
+    url = "https://example.org/p8/migration#v2"
+    curated = [
+        CuratedHint("p8", "p8.Client", "p8.Session", "`Client` is replaced by `Session`.", url),
+        CuratedHint("p8", "p8.connect(timeout)", "timeouts", "Pass `timeouts` instead of `timeout`.", url),
+        CuratedHint("p8", "p8.Client", "q8.Session", "Or use the `q8` package's `Session`.", url),
+        CuratedHint("p8", "p8.Missing", "p8.Session", "Not a name p8 ever had.", url),
+        CuratedHint("p8", "p8.connect(retries)", "attempts", "Not an argument p8.connect ever had.", url),
+        CuratedHint("p8", "p8.Base.find_by_id", "p8.Base.find", "Use `find` instead.", url),
+        CuratedHint("p8", "p8.Old", "p8.Session", "`Old` is replaced by `Session`.", url),
+    ]
+    store = IndexStore.memory()
+    store.rebuild_package(
+        spec, [ApiSnapshot("p8", "1.0", ["p8"], v1), ApiSnapshot("p8", "2.0", ["p8"], v2)], curated=curated
+    )
+    return store, spec
+
+
+def test_curated_hints_enter_the_index_with_their_source():
+    # DT-DATA-08: a curated hint from a migration guide, for a name the index has, at 0.9 with its quote and URL;
+    # its target may be another package's (DT-DATA-07). One for a name or argument the package never had is
+    # left out.
+    store, spec = curated_store()
+
+    def hints(path: str) -> list[tuple[str, float, str]]:
+        return [(r["target"], r["confidence"], r["source"]) for r in store.replacements("p8", path)]
+
+    assert hints("p8.Client") == [("p8.Session", 0.9, "curated"), ("q8.Session", 0.9, "curated")]
+    assert hints("p8.connect(timeout)") == [("timeouts", 0.9, "curated")]
+    assert hints("p8.Missing") == [] and hints("p8.connect(retries)") == []
+    # A pair the library's own text already gives keeps that source.
+    assert hints("p8.Old") == [("p8.Session", 0.85, "deprecation_message")]
+    # Every path of the same object gets it: a re-export, an inherited method.
+    assert hints("p8.compat.Client") == hints("p8.Client")
+    assert hints("p8.Chrome.find_by_id") == [("p8.Base.find", 0.9, "curated")]
+
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+    sym = dt.explain_error(
+        "ImportError: cannot import name 'Client' from 'p8' (/x.py)", {"p8": "2.0"}
+    ).findings[0]
+    assert sym.issue == "symbol_removed" and "Use p8.Session" in sym.explanation
+    assert sym.replacements[0].source == "curated"
+    assert (
+        sym.replacements[0].evidence
+        == "`Client` is replaced by `Session`. (https://example.org/p8/migration#v2)"
+    )
+    par = dt.explain_error("TypeError: connect() got an unexpected keyword argument 'timeout'", {"p8": "2.0"})
+    assert [(r.target, r.source) for r in par.findings[0].replacements] == [("timeouts", "curated")]
 
 
 def _param(name: str, kind: str = "keyword-only", default: str | None = "None") -> dict:

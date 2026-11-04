@@ -1,0 +1,2249 @@
+# Migration hints (DT-DATA-08): a name the index has, and what its project's own migration guide, changelog or
+# deprecation message says to use instead, quoted verbatim, with the page's URL. Each enters the index at assembly
+# with source "curated" (confidence 0.9) when the package has the name, or for an argument `path(param)`, when the
+# function ever took it. A target may be another covered package's name (DT-DATA-07).
+#
+# A hint ships only if it passes three checks (ADR 0006); one that fails is fixed from the page's text or dropped:
+# - the quote is on the page: `uv run pytest -m network tests/test_curated.py`. In a quote, " … " leaves text out
+#   (each excerpt must appear, in order) and " | " separates a table row's cells; a Python file's adjacent string
+#   literals count as the one message they build;
+# - the quote names both the old name and its replacement: `uv run pytest tests/test_curated.py`;
+# - the index has both: `uv run python bench/curated_check.py` (also run by bench.yml).
+#
+# [[hint]]
+# package = "<covered distribution>"
+# path = "<indexed public path>" or "<function path>(<argument>)"
+# target = "<public path>" or, for an argument, "<parameter to pass instead>"
+# quote = "<what the source says, verbatim, one line>"
+# url = "<https URL of the page>"
+
+
+# openai-v1
+[[hint]]
+package = "openai"
+path = "openai.ChatCompletion.create"
+target = "openai.resources.chat.completions.Completions.create"
+quote = "openai.ChatCompletion.create() -> client.chat.completions.create()"
+url = "https://github.com/openai/openai-python/discussions/742"
+
+[[hint]]
+package = "openai"
+path = "openai.Completion.create"
+target = "openai.resources.completions.Completions.create"
+quote = "openai.Completion.create() -> client.completions.create()"
+url = "https://github.com/openai/openai-python/discussions/742"
+
+[[hint]]
+package = "openai"
+path = "openai.Embedding.create"
+target = "openai.resources.embeddings.Embeddings.create"
+quote = "openai.Embedding.create() -> client.embeddings.create()"
+url = "https://github.com/openai/openai-python/discussions/742"
+
+[[hint]]
+package = "openai"
+path = "openai.Image.create"
+target = "openai.resources.images.Images.generate"
+quote = "openai.Image.create() -> client.images.generate()"
+url = "https://github.com/openai/openai-python/discussions/742"
+
+[[hint]]
+package = "openai"
+path = "openai.Image.create_variation"
+target = "openai.resources.images.Images.create_variation"
+quote = "openai.Image.create_variation() -> client.images.create_variation()"
+url = "https://github.com/openai/openai-python/discussions/742"
+
+[[hint]]
+package = "openai"
+path = "openai.Image.create_edit"
+target = "openai.resources.images.Images.edit"
+quote = "openai.Image.create_edit() -> client.images.edit()"
+url = "https://github.com/openai/openai-python/discussions/742"
+
+[[hint]]
+package = "openai"
+path = "openai.Moderation.create"
+target = "openai.resources.moderations.Moderations.create"
+quote = "openai.Moderation.create() -> client.moderations.create()"
+url = "https://github.com/openai/openai-python/discussions/742"
+
+[[hint]]
+package = "openai"
+path = "openai.Audio.transcribe"
+target = "openai.resources.audio.transcriptions.Transcriptions.create"
+quote = "openai.Audio.transcribe() -> client.audio.transcriptions.create()"
+url = "https://github.com/openai/openai-python/discussions/742"
+
+[[hint]]
+package = "openai"
+path = "openai.Audio.translate"
+target = "openai.resources.audio.translations.Translations.create"
+quote = "openai.Audio.translate() -> client.audio.translations.create()"
+url = "https://github.com/openai/openai-python/discussions/742"
+
+[[hint]]
+package = "openai"
+path = "openai.Edit.create"
+target = "openai.resources.edits.Edits.create"
+quote = "openai.Edit.create() -> client.edits.create()"
+url = "https://github.com/openai/openai-python/discussions/742"
+
+[[hint]]
+package = "openai"
+path = "openai.File.create"
+target = "openai.resources.files.Files.create"
+quote = "openai.File.create() -> client.files.create()"
+url = "https://github.com/openai/openai-python/discussions/742"
+
+[[hint]]
+package = "openai"
+path = "openai.File.list"
+target = "openai.resources.files.Files.list"
+quote = "openai.File.list() -> client.files.list()"
+url = "https://github.com/openai/openai-python/discussions/742"
+
+[[hint]]
+package = "openai"
+path = "openai.File.retrieve"
+target = "openai.resources.files.Files.retrieve"
+quote = "openai.File.retrieve() -> client.files.retrieve()"
+url = "https://github.com/openai/openai-python/discussions/742"
+
+[[hint]]
+package = "openai"
+path = "openai.File.download"
+target = "openai.resources.files.Files.retrieve_content"
+quote = "openai.File.download() -> client.files.retrieve_content()"
+url = "https://github.com/openai/openai-python/discussions/742"
+
+[[hint]]
+package = "openai"
+path = "openai.FineTune.create"
+target = "openai.resources.fine_tunes.FineTunes.create"
+quote = "openai.FineTune.create() -> client.fine_tunes.create()"
+url = "https://github.com/openai/openai-python/discussions/742"
+
+[[hint]]
+package = "openai"
+path = "openai.FineTune.list"
+target = "openai.resources.fine_tunes.FineTunes.list"
+quote = "openai.FineTune.list() -> client.fine_tunes.list()"
+url = "https://github.com/openai/openai-python/discussions/742"
+
+[[hint]]
+package = "openai"
+path = "openai.FineTune.stream_events"
+target = "openai.resources.fine_tunes.FineTunes.list_events"
+quote = "openai.FineTune.stream_events() -> client.fine_tunes.list_events(stream=True)"
+url = "https://github.com/openai/openai-python/discussions/742"
+
+[[hint]]
+package = "openai"
+path = "openai.FineTuningJob.create"
+target = "openai.resources.fine_tuning.jobs.Jobs.create"
+quote = "openai.FineTuningJob.create() -> client.fine_tuning.jobs.create()"
+url = "https://github.com/openai/openai-python/discussions/742"
+
+[[hint]]
+package = "openai"
+path = "openai.FineTuningJob.list"
+target = "openai.resources.fine_tuning.jobs.Jobs.list"
+quote = "openai.FineTuningJob.list() -> client.fine_tuning.jobs.list()"
+url = "https://github.com/openai/openai-python/discussions/742"
+
+[[hint]]
+package = "openai"
+path = "openai.FineTuningJob.retrieve"
+target = "openai.resources.fine_tuning.jobs.Jobs.retrieve"
+quote = "openai.FineTuningJob.retrieve() -> client.fine_tuning.jobs.retrieve()"
+url = "https://github.com/openai/openai-python/discussions/742"
+
+[[hint]]
+package = "openai"
+path = "openai.FineTuningJob.cancel"
+target = "openai.resources.fine_tuning.jobs.Jobs.cancel"
+quote = "openai.FineTuningJob.cancel() -> client.fine_tuning.jobs.cancel()"
+url = "https://github.com/openai/openai-python/discussions/742"
+
+[[hint]]
+package = "openai"
+path = "openai.Model.list"
+target = "openai.resources.models.Models.list"
+quote = "openai.Model.list() -> client.models.list()"
+url = "https://github.com/openai/openai-python/discussions/742"
+
+[[hint]]
+package = "openai"
+path = "openai.Model.retrieve"
+target = "openai.resources.models.Models.retrieve"
+quote = "openai.Model.retrieve() -> client.models.retrieve()"
+url = "https://github.com/openai/openai-python/discussions/742"
+
+[[hint]]
+package = "openai"
+path = "openai.InvalidRequestError"
+target = "openai.BadRequestError"
+quote = "openai.InvalidRequestError -> openai.BadRequestError"
+url = "https://github.com/openai/openai-python/discussions/742"
+
+[[hint]]
+package = "openai"
+path = "openai.api_base"
+target = "openai.base_url"
+quote = "openai.api_base -> openai.base_url"
+url = "https://github.com/openai/openai-python/discussions/742"
+
+[[hint]]
+package = "openai"
+path = "openai.api_resources"
+target = "openai.resources"
+quote = "openai.api_resources -> openai.resources"
+url = "https://github.com/openai/openai-python/discussions/742"
+
+[[hint]]
+package = "openai"
+path = "openai.ChatCompletion.acreate"
+target = "openai.resources.chat.completions.AsyncCompletions.create"
+quote = "We do not support calling asynchronous methods in the module-level client, instead you will have to instantiate an async client. … completion = openai.ChatCompletion.acreate( … client = AsyncOpenAI() … completion = await client.chat.completions.create("
+url = "https://github.com/openai/openai-python/discussions/742"
+
+
+# pydantic-v2
+[[hint]]
+package = "pydantic"
+path = "pydantic.BaseModel.dict"
+target = "pydantic.BaseModel.model_dump"
+quote = "dict() | model_dump()"
+url = "https://docs.pydantic.dev/latest/migration/#changes-to-pydanticbasemodel"
+
+[[hint]]
+package = "pydantic"
+path = "pydantic.BaseModel.json"
+target = "pydantic.BaseModel.model_dump_json"
+quote = "json() | model_dump_json()"
+url = "https://docs.pydantic.dev/latest/migration/#changes-to-pydanticbasemodel"
+
+[[hint]]
+package = "pydantic"
+path = "pydantic.BaseModel.parse_obj"
+target = "pydantic.BaseModel.model_validate"
+quote = "parse_obj() | model_validate()"
+url = "https://docs.pydantic.dev/latest/migration/#changes-to-pydanticbasemodel"
+
+[[hint]]
+package = "pydantic"
+path = "pydantic.BaseModel.copy"
+target = "pydantic.BaseModel.model_copy"
+quote = "copy() | model_copy()"
+url = "https://docs.pydantic.dev/latest/migration/#changes-to-pydanticbasemodel"
+
+[[hint]]
+package = "pydantic"
+path = "pydantic.BaseModel.construct"
+target = "pydantic.BaseModel.model_construct"
+quote = "construct() | model_construct()"
+url = "https://docs.pydantic.dev/latest/migration/#changes-to-pydanticbasemodel"
+
+[[hint]]
+package = "pydantic"
+path = "pydantic.BaseModel.update_forward_refs"
+target = "pydantic.BaseModel.model_rebuild"
+quote = "update_forward_refs() | model_rebuild()"
+url = "https://docs.pydantic.dev/latest/migration/#changes-to-pydanticbasemodel"
+
+[[hint]]
+package = "pydantic"
+path = "pydantic.BaseModel.parse_raw"
+target = "pydantic.BaseModel.model_validate_json"
+quote = "In Pydantic V2, model_validate_json works like parse_raw."
+url = "https://docs.pydantic.dev/latest/migration/#changes-to-pydanticbasemodel"
+
+[[hint]]
+package = "pydantic"
+path = "pydantic.BaseModel.from_orm"
+target = "pydantic.BaseModel.model_validate"
+quote = "The from_orm method has been deprecated; you can now just use model_validate (equivalent to parse_obj from Pydantic V1) to achieve something similar, as long as you’ve set from_attributes=True in the model config."
+url = "https://docs.pydantic.dev/latest/migration/#changes-to-pydanticbasemodel"
+
+[[hint]]
+package = "pydantic"
+path = "pydantic.generics.GenericModel"
+target = "pydantic.BaseModel"
+quote = "The pydantic.generics.GenericModel class is no longer necessary, and has been removed. Instead, you can now create generic BaseModel subclasses by just adding Generic as a parent class on a BaseModel subclass directly."
+url = "https://docs.pydantic.dev/latest/migration/#changes-to-pydanticgenericsgenericmodel"
+
+[[hint]]
+package = "pydantic"
+path = "pydantic.Field(min_items)"
+target = "min_length"
+quote = "min_items (use min_length instead)"
+url = "https://docs.pydantic.dev/latest/migration/#changes-to-pydanticfield"
+
+[[hint]]
+package = "pydantic"
+path = "pydantic.Field(max_items)"
+target = "max_length"
+quote = "max_items (use max_length instead)"
+url = "https://docs.pydantic.dev/latest/migration/#changes-to-pydanticfield"
+
+[[hint]]
+package = "pydantic"
+path = "pydantic.Field(allow_mutation)"
+target = "frozen"
+quote = "allow_mutation (use frozen instead)"
+url = "https://docs.pydantic.dev/latest/migration/#changes-to-pydanticfield"
+
+[[hint]]
+package = "pydantic"
+path = "pydantic.Field(regex)"
+target = "pattern"
+quote = "regex (use pattern instead)"
+url = "https://docs.pydantic.dev/latest/migration/#changes-to-pydanticfield"
+
+[[hint]]
+package = "pydantic"
+path = "pydantic.validator"
+target = "pydantic.field_validator"
+quote = "@validator has been deprecated, and should be replaced with @field_validator, which provides various new features and improvements."
+url = "https://docs.pydantic.dev/latest/migration/#validator-and-root_validator-are-deprecated"
+
+[[hint]]
+package = "pydantic"
+path = "pydantic.root_validator"
+target = "pydantic.model_validator"
+quote = "@root_validator has been deprecated, and should be replaced with @model_validator, which also provides new features and improvements."
+url = "https://docs.pydantic.dev/latest/migration/#validator-and-root_validator-are-deprecated"
+
+[[hint]]
+package = "pydantic"
+path = "pydantic.validate_arguments"
+target = "pydantic.validate_call"
+quote = "In Pydantic V2, the @validate_arguments decorator has been renamed to @validate_call."
+url = "https://docs.pydantic.dev/latest/migration/#validate_arguments-has-been-renamed-to-validate_call"
+
+[[hint]]
+package = "pydantic"
+path = "pydantic.tools.parse_obj_as"
+target = "pydantic.TypeAdapter"
+quote = "In Pydantic V2 this is a lot easier: the TypeAdapter class lets you create an object with methods for validating, serializing, and producing JSON schemas for arbitrary types. This serves as a complete replacement for parse_obj_as and schema_of (which are now deprecated)"
+url = "https://docs.pydantic.dev/latest/migration/#introduction-of-typeadapter"
+
+[[hint]]
+package = "pydantic"
+path = "pydantic.BaseSettings"
+target = "pydantic_settings.BaseSettings"
+quote = "pydantic.BaseSettings | pydantic_settings.BaseSettings"
+url = "https://docs.pydantic.dev/latest/migration/#moved-in-pydantic-v2"
+
+[[hint]]
+package = "pydantic"
+path = "pydantic.error_wrappers.ValidationError"
+target = "pydantic.ValidationError"
+quote = "pydantic.error_wrappers.ValidationError | pydantic.ValidationError"
+url = "https://docs.pydantic.dev/latest/migration/#moved-in-pydantic-v2"
+
+[[hint]]
+package = "pydantic"
+path = "pydantic.PyObject"
+target = "pydantic.ImportString"
+quote = "pydantic.PyObject | pydantic.ImportString"
+url = "https://docs.pydantic.dev/latest/migration/#moved-in-pydantic-v2"
+
+[[hint]]
+package = "pydantic"
+path = "pydantic.utils.to_camel"
+target = "pydantic.alias_generators.to_pascal"
+quote = "pydantic.utils.to_camel | pydantic.alias_generators.to_pascal"
+url = "https://docs.pydantic.dev/latest/migration/#moved-in-pydantic-v2"
+
+[[hint]]
+package = "pydantic"
+path = "pydantic.utils.to_lower_camel"
+target = "pydantic.alias_generators.to_camel"
+quote = "pydantic.utils.to_lower_camel | pydantic.alias_generators.to_camel"
+url = "https://docs.pydantic.dev/latest/migration/#moved-in-pydantic-v2"
+
+[[hint]]
+package = "pydantic"
+path = "pydantic.ConstrainedStr"
+target = "pydantic.StringConstraints"
+quote = "For ConstrainedStr you can use StringConstraints instead."
+url = "https://docs.pydantic.dev/latest/migration/#constrained-types"
+
+
+# sqlalchemy-2.0
+[[hint]]
+package = "sqlalchemy"
+path = "sqlalchemy.engine.Engine.execute"
+target = "sqlalchemy.engine.Connection.execute"
+quote = "result = engine.execute(t.select()) # no longer supported … result = connection.execute(t.select())"
+url = "https://docs.sqlalchemy.org/en/20/changelog/migration_20.html#implicit-and-connectionless-execution-bound-metadata-removed"
+
+[[hint]]
+package = "sqlalchemy"
+path = "sqlalchemy.Table.__init__(autoload)"
+target = "autoload_with"
+quote = "t = Table(\"t\", metadata_obj, autoload=True) # use autoload_with=engine"
+url = "https://docs.sqlalchemy.org/en/20/changelog/migration_20.html#implicit-and-connectionless-execution-bound-metadata-removed"
+
+[[hint]]
+package = "sqlalchemy"
+path = "sqlalchemy.ext.declarative.declarative_base"
+target = "sqlalchemy.orm.declarative_base"
+quote = "Change imports: from sqlalchemy.ext import declarative_base, declared_attr To: from sqlalchemy.orm import declarative_base, declared_attr"
+url = "https://docs.sqlalchemy.org/en/20/changelog/migration_20.html#declarative-becomes-a-first-class-api"
+
+[[hint]]
+package = "sqlalchemy"
+path = "sqlalchemy.ext.declarative.declared_attr"
+target = "sqlalchemy.orm.declared_attr"
+quote = "Change imports: from sqlalchemy.ext import declarative_base, declared_attr To: from sqlalchemy.orm import declarative_base, declared_attr"
+url = "https://docs.sqlalchemy.org/en/20/changelog/migration_20.html#declarative-becomes-a-first-class-api"
+
+[[hint]]
+package = "sqlalchemy"
+path = "sqlalchemy.orm.mapper"
+target = "sqlalchemy.orm.registry.map_imperatively"
+quote = "The sqlalchemy.orm.mapper() standalone function moves behind the scenes to be invoked by higher level APIs. The new version of this function is the method registry.map_imperatively() taken from a registry object."
+url = "https://docs.sqlalchemy.org/en/20/changelog/migration_20.html#the-original-mapper-function-now-a-core-element-of-declarative-renamed"
+
+[[hint]]
+package = "sqlalchemy"
+path = "sqlalchemy.orm.Query.get"
+target = "sqlalchemy.orm.Session.get"
+quote = "The Query.get() method remains for legacy purposes, but the primary interface is now the Session.get() method:"
+url = "https://docs.sqlalchemy.org/en/20/changelog/migration_20.html#orm-query-get-method-moves-to-session"
+
+[[hint]]
+package = "sqlalchemy"
+path = "sqlalchemy.orm.Query.from_self"
+target = "sqlalchemy.orm.aliased"
+quote = "The Query.from_self() method will be removed from Query: … The aliased() construct may be used to emit ORM queries against an entity that is in terms of any arbitrary selectable."
+url = "https://docs.sqlalchemy.org/en/20/changelog/migration_20.html#selecting-from-the-query-itself-as-a-subquery-e-g-from-self"
+
+[[hint]]
+package = "sqlalchemy"
+path = "sqlalchemy.orm.Query.select_entity_from"
+target = "sqlalchemy.orm.aliased"
+quote = "The Query.select_entity_from() method will be removed in 2.0: … the aliased() object provides a single place that operations like “select entity from a subquery” may be achieved."
+url = "https://docs.sqlalchemy.org/en/20/changelog/migration_20.html#selecting-entities-from-alternative-selectables-query-select-entity-from"
+
+[[hint]]
+package = "sqlalchemy"
+path = "sqlalchemy.orm.AppenderQuery"
+target = "sqlalchemy.orm.WriteOnlyCollection"
+quote = "migrate directly from AppenderQuery, which is the collection type used by the “dynamic” strategy, to WriteOnlyCollection, which is the collection type used by the “write_only” strategy."
+url = "https://docs.sqlalchemy.org/en/20/changelog/migration_20.html#dynamic-relationship-loaders-superseded-by-write-only"
+
+
+# numpy-2
+[[hint]]
+package = "numpy"
+path = "numpy.float_"
+target = "numpy.float64"
+quote = "float_ | Use np.float64 instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.NaN"
+target = "numpy.nan"
+quote = "NaN | Use np.nan instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.Inf"
+target = "numpy.inf"
+quote = "Inf | Use np.inf instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.Infinity"
+target = "numpy.inf"
+quote = "Infinity | Use np.inf instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.infty"
+target = "numpy.inf"
+quote = "infty | Use np.inf instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.PINF"
+target = "numpy.inf"
+quote = "PINF | Use np.inf instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.product"
+target = "numpy.prod"
+quote = "product | Use np.prod instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.cumproduct"
+target = "numpy.cumprod"
+quote = "cumproduct | Use np.cumprod instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.alltrue"
+target = "numpy.all"
+quote = "alltrue | Use np.all instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.sometrue"
+target = "numpy.any"
+quote = "sometrue | Use np.any instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.round_"
+target = "numpy.round"
+quote = "round_ | Use np.round instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.find_common_type"
+target = "numpy.result_type"
+quote = "find_common_type | Use numpy.promote_types or numpy.result_type instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.complex_"
+target = "numpy.complex128"
+quote = "complex_ | Use np.complex128 instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.cfloat"
+target = "numpy.complex128"
+quote = "cfloat | Use np.complex128 instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.string_"
+target = "numpy.bytes_"
+quote = "string_ | Use np.bytes_ instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.unicode_"
+target = "numpy.str_"
+quote = "unicode_ | Use np.str_ instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.longfloat"
+target = "numpy.longdouble"
+quote = "longfloat | Use np.longdouble instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.clongfloat"
+target = "numpy.clongdouble"
+quote = "clongfloat | Use np.clongdouble instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.mat"
+target = "numpy.asmatrix"
+quote = "mat | Use np.asmatrix instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.issubsctype"
+target = "numpy.issubdtype"
+quote = "issubsctype | Use np.issubdtype instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.byte_bounds"
+target = "numpy.lib.array_utils.byte_bounds"
+quote = "byte_bounds | Now it’s available under np.lib.array_utils.byte_bounds"
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.DataSource"
+target = "numpy.lib.npyio.DataSource"
+quote = "DataSource | It’s still available as np.lib.npyio.DataSource."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.in1d"
+target = "numpy.isin"
+quote = "in1d | Use np.isin instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.row_stack"
+target = "numpy.vstack"
+quote = "row_stack | Use np.vstack instead (row_stack was an alias for vstack)."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.trapz"
+target = "numpy.trapezoid"
+quote = "trapz | Use np.trapezoid or a scipy.integrate function instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.ndarray.ptp"
+target = "numpy.ptp"
+quote = "ptp | Use np.ptp(arr, ...) instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#ndarray-and-scalar-methods"
+
+
+# pandas-2.0
+[[hint]]
+package = "pandas"
+path = "pandas.Series.append"
+target = "pandas.concat"
+quote = "Removed deprecated Series.append(), DataFrame.append(), use concat() instead"
+url = "https://pandas.pydata.org/docs/whatsnew/v2.0.0.html#removal-of-prior-version-deprecations-changes"
+
+[[hint]]
+package = "pandas"
+path = "pandas.DataFrame.append"
+target = "pandas.concat"
+quote = "Removed deprecated Series.append(), DataFrame.append(), use concat() instead"
+url = "https://pandas.pydata.org/docs/whatsnew/v2.0.0.html#removal-of-prior-version-deprecations-changes"
+
+[[hint]]
+package = "pandas"
+path = "pandas.Series.iteritems"
+target = "pandas.Series.items"
+quote = "Removed deprecated Series.iteritems(), DataFrame.iteritems(), use obj.items instead"
+url = "https://pandas.pydata.org/docs/whatsnew/v2.0.0.html#removal-of-prior-version-deprecations-changes"
+
+[[hint]]
+package = "pandas"
+path = "pandas.DataFrame.iteritems"
+target = "pandas.DataFrame.items"
+quote = "Removed deprecated Series.iteritems(), DataFrame.iteritems(), use obj.items instead"
+url = "https://pandas.pydata.org/docs/whatsnew/v2.0.0.html#removal-of-prior-version-deprecations-changes"
+
+[[hint]]
+package = "pandas"
+path = "pandas.Index.is_monotonic"
+target = "pandas.Index.is_monotonic_increasing"
+quote = "Removed deprecated Index.is_monotonic(), and Series.is_monotonic(); use obj.is_monotonic_increasing instead"
+url = "https://pandas.pydata.org/docs/whatsnew/v2.0.0.html#removal-of-prior-version-deprecations-changes"
+
+[[hint]]
+package = "pandas"
+path = "pandas.Series.is_monotonic"
+target = "pandas.Series.is_monotonic_increasing"
+quote = "Removed deprecated Index.is_monotonic(), and Series.is_monotonic(); use obj.is_monotonic_increasing instead"
+url = "https://pandas.pydata.org/docs/whatsnew/v2.0.0.html#removal-of-prior-version-deprecations-changes"
+
+[[hint]]
+package = "pandas"
+path = "pandas.read_csv(error_bad_lines)"
+target = "on_bad_lines"
+quote = "Deprecated arguments error_bad_lines and warn_bad_lines in read_csv() and read_table() in favor of argument on_bad_lines"
+url = "https://pandas.pydata.org/docs/whatsnew/v1.3.0.html#other-deprecations"
+
+[[hint]]
+package = "pandas"
+path = "pandas.read_csv(warn_bad_lines)"
+target = "on_bad_lines"
+quote = "Deprecated arguments error_bad_lines and warn_bad_lines in read_csv() and read_table() in favor of argument on_bad_lines"
+url = "https://pandas.pydata.org/docs/whatsnew/v1.3.0.html#other-deprecations"
+
+[[hint]]
+package = "pandas"
+path = "pandas.DataFrame.to_csv(line_terminator)"
+target = "lineterminator"
+quote = "Removed argument line_terminator from DataFrame.to_csv() and Series.to_csv(), use lineterminator instead"
+url = "https://pandas.pydata.org/docs/whatsnew/v2.0.0.html#removal-of-prior-version-deprecations-changes"
+
+[[hint]]
+package = "pandas"
+path = "pandas.DataFrame.info(null_counts)"
+target = "show_counts"
+quote = "Removed deprecated null_counts argument in DataFrame.info(). Use show_counts instead"
+url = "https://pandas.pydata.org/docs/whatsnew/v2.0.0.html#removal-of-prior-version-deprecations-changes"
+
+[[hint]]
+package = "pandas"
+path = "pandas.DataFrame.to_parquet(fname)"
+target = "path"
+quote = "Renamed fname to path in DataFrame.to_parquet(), DataFrame.to_stata() and DataFrame.to_feather()"
+url = "https://pandas.pydata.org/docs/whatsnew/v2.0.0.html#removal-of-prior-version-deprecations-changes"
+
+[[hint]]
+package = "pandas"
+path = "pandas.DataFrame.between_time(include_start)"
+target = "inclusive"
+quote = "Removed the include_start and include_end arguments in DataFrame.between_time() in favor of inclusive"
+url = "https://pandas.pydata.org/docs/whatsnew/v2.0.0.html#removal-of-prior-version-deprecations-changes"
+
+[[hint]]
+package = "pandas"
+path = "pandas.date_range(closed)"
+target = "inclusive"
+quote = "Removed the closed argument in date_range() and bdate_range() in favor of inclusive argument"
+url = "https://pandas.pydata.org/docs/whatsnew/v2.0.0.html#removal-of-prior-version-deprecations-changes"
+
+[[hint]]
+package = "pandas"
+path = "pandas.util.testing"
+target = "pandas.testing"
+quote = "Removed pandas.util.testing in favor of pandas.testing"
+url = "https://pandas.pydata.org/docs/whatsnew/v2.0.0.html#removal-of-prior-version-deprecations-changes"
+
+[[hint]]
+package = "pandas"
+path = "pandas.SparseArray"
+target = "pandas.arrays.SparseArray"
+quote = "Removed pandas.SparseArray in favor of arrays.SparseArray"
+url = "https://pandas.pydata.org/docs/whatsnew/v2.0.0.html#removal-of-prior-version-deprecations-changes"
+
+[[hint]]
+package = "pandas"
+path = "pandas.io.json.json_normalize"
+target = "pandas.json_normalize"
+quote = "Removed deprecated alias pandas.io.json.json_normalize, import the function directly from pandas.json_normalize instead"
+url = "https://pandas.pydata.org/docs/whatsnew/v2.0.0.html#removal-of-prior-version-deprecations-changes"
+
+[[hint]]
+package = "pandas"
+path = "pandas.api.types.is_categorical"
+target = "pandas.api.types.is_categorical_dtype"
+quote = "Removed deprecated pandas.api.types.is_categorical(); use pandas.api.types.is_categorical_dtype() instead"
+url = "https://pandas.pydata.org/docs/whatsnew/v2.0.0.html#removal-of-prior-version-deprecations-changes"
+
+[[hint]]
+package = "pandas"
+path = "pandas.Index.is_boolean"
+target = "pandas.api.types.is_bool_dtype"
+quote = "Index.is_boolean() has been deprecated. Use pandas.api.types.is_bool_dtype() instead"
+url = "https://pandas.pydata.org/docs/whatsnew/v2.0.0.html#deprecations"
+
+[[hint]]
+package = "pandas"
+path = "pandas.Index.is_integer"
+target = "pandas.api.types.is_integer_dtype"
+quote = "Index.is_integer() has been deprecated. Use pandas.api.types.is_integer_dtype() instead"
+url = "https://pandas.pydata.org/docs/whatsnew/v2.0.0.html#deprecations"
+
+[[hint]]
+package = "pandas"
+path = "pandas.Index.is_floating"
+target = "pandas.api.types.is_float_dtype"
+quote = "Index.is_floating() has been deprecated. Use pandas.api.types.is_float_dtype() instead"
+url = "https://pandas.pydata.org/docs/whatsnew/v2.0.0.html#deprecations"
+
+[[hint]]
+package = "pandas"
+path = "pandas.Index.is_numeric"
+target = "pandas.api.types.is_any_real_numeric_dtype"
+quote = "Index.is_numeric() has been deprecated. Use pandas.api.types.is_any_real_numeric_dtype() instead"
+url = "https://pandas.pydata.org/docs/whatsnew/v2.0.0.html#deprecations"
+
+[[hint]]
+package = "pandas"
+path = "pandas.Index.is_categorical"
+target = "pandas.api.types.is_categorical_dtype"
+quote = "Index.is_categorical() has been deprecated. Use pandas.api.types.is_categorical_dtype() instead"
+url = "https://pandas.pydata.org/docs/whatsnew/v2.0.0.html#deprecations"
+
+[[hint]]
+package = "pandas"
+path = "pandas.Index.is_object"
+target = "pandas.api.types.is_object_dtype"
+quote = "Index.is_object() has been deprecated. Use pandas.api.types.is_object_dtype() instead"
+url = "https://pandas.pydata.org/docs/whatsnew/v2.0.0.html#deprecations"
+
+[[hint]]
+package = "pandas"
+path = "pandas.Index.is_interval"
+target = "pandas.api.types.is_interval_dtype"
+quote = "Index.is_interval() has been deprecated. Use pandas.api.types.is_interval_dtype() instead"
+url = "https://pandas.pydata.org/docs/whatsnew/v2.0.0.html#deprecations"
+
+[[hint]]
+package = "pandas"
+path = "pandas.Series.pad"
+target = "pandas.Series.ffill"
+quote = "Deprecated Series.pad() in favor of Series.ffill()"
+url = "https://pandas.pydata.org/docs/whatsnew/v2.0.0.html#deprecations"
+
+[[hint]]
+package = "pandas"
+path = "pandas.Series.backfill"
+target = "pandas.Series.bfill"
+quote = "Deprecated Series.backfill() in favor of Series.bfill()"
+url = "https://pandas.pydata.org/docs/whatsnew/v2.0.0.html#deprecations"
+
+[[hint]]
+package = "pandas"
+path = "pandas.read_csv(date_parser)"
+target = "date_format"
+quote = "Deprecated argument date_parser in read_csv(), read_table(), read_fwf(), and read_excel() in favour of date_format"
+url = "https://pandas.pydata.org/docs/whatsnew/v2.0.0.html#deprecations"
+
+
+# google-genai
+[[hint]]
+package = "google-generativeai"
+path = "google.generativeai.configure"
+target = "google.genai.Client"
+quote = "genai.configure(api_key=...) … client = genai.Client(api_key=\"YOUR_API_KEY\")"
+url = "https://aistudio.google.com/docs/migrate#authenticate"
+
+[[hint]]
+package = "google-generativeai"
+path = "google.generativeai.GenerativeModel"
+target = "google.genai.Client"
+quote = "Now, you interact through a central Client object. … You would directly instantiate and interact with GenerativeModel objects."
+url = "https://aistudio.google.com/docs/migrate#client"
+
+[[hint]]
+package = "google-generativeai"
+path = "google.generativeai.GenerativeModel.generate_content"
+target = "google.genai.models.Models.generate_content"
+quote = "response = model.generate_content(...) … response = client.models.generate_content(...)"
+url = "https://aistudio.google.com/docs/migrate#client"
+
+[[hint]]
+package = "google-generativeai"
+path = "google.generativeai.GenerativeModel.start_chat"
+target = "google.genai.chats.Chats.create"
+quote = "chat = model.start_chat() … chat = client.chats.create(model='gemini-3.8-flash')"
+url = "https://aistudio.google.com/docs/migrate#chat"
+
+[[hint]]
+package = "google-generativeai"
+path = "google.generativeai.GenerativeModel.generate_content_async"
+target = "google.genai.models.AsyncModels.generate_content"
+quote = "response = model.generate_content_async( … there is a separate async implementation of every method under client.aio. … response = await client.aio.models.generate_content("
+url = "https://aistudio.google.com/docs/migrate#async"
+
+[[hint]]
+package = "google-generativeai"
+path = "google.generativeai.GenerationConfig"
+target = "google.genai.types.GenerateContentConfig"
+quote = "generation_config=genai.GenerationConfig( … config=types.GenerateContentConfig("
+url = "https://aistudio.google.com/docs/migrate#configuration"
+
+[[hint]]
+package = "google-generativeai"
+path = "google.generativeai.GenerativeModel.count_tokens"
+target = "google.genai.models.Models.count_tokens"
+quote = "response = model.count_tokens( … response = client.models.count_tokens("
+url = "https://aistudio.google.com/docs/migrate#count-tokens"
+
+[[hint]]
+package = "google-generativeai"
+path = "google.generativeai.embed_content"
+target = "google.genai.models.Models.embed_content"
+quote = "response = genai.embed_content( … response = client.models.embed_content("
+url = "https://aistudio.google.com/docs/migrate#embed-content"
+
+[[hint]]
+package = "google-generativeai"
+path = "google.generativeai.upload_file"
+target = "google.genai.files.Files.upload"
+quote = "file = genai.upload_file(path='a11.txt') … my_file = client.files.upload(file='a11.txt')"
+url = "https://aistudio.google.com/docs/migrate#upload"
+
+[[hint]]
+package = "google-generativeai"
+path = "google.generativeai.list_files"
+target = "google.genai.files.Files.list"
+quote = "for file in genai.list_files(): … for file in client.files.list():"
+url = "https://aistudio.google.com/docs/migrate#list-and-get"
+
+[[hint]]
+package = "google-generativeai"
+path = "google.generativeai.get_file"
+target = "google.genai.files.Files.get"
+quote = "file = genai.get_file(name=file.name) … file = client.files.get(name=file.name)"
+url = "https://aistudio.google.com/docs/migrate#list-and-get"
+
+[[hint]]
+package = "google-generativeai"
+path = "google.generativeai.delete_file"
+target = "google.genai.files.Files.delete"
+quote = "file = genai.delete_file(name=dummy_file.name) … response = client.files.delete(name=dummy_file.name)"
+url = "https://aistudio.google.com/docs/migrate#delete"
+
+[[hint]]
+package = "google-generativeai"
+path = "google.generativeai.caching.CachedContent.create"
+target = "google.genai.caches.Caches.create"
+quote = "apollo_cache = caching.CachedContent.create( … apollo_cache = client.caches.create("
+url = "https://aistudio.google.com/docs/migrate#context-caching"
+
+
+# mistralai-v1
+[[hint]]
+package = "mistralai"
+path = "mistralai.client.MistralClient"
+target = "mistralai.Mistral"
+quote = "The MistralClient and MistralAsyncClient classes have been consolidated into a single Mistral class."
+url = "https://github.com/mistralai/client-python/blob/v1.12.4/MIGRATION.md#major-changes"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.async_client.MistralAsyncClient"
+target = "mistralai.Mistral"
+quote = "The MistralClient and MistralAsyncClient classes have been consolidated into a single Mistral class."
+url = "https://github.com/mistralai/client-python/blob/v1.12.4/MIGRATION.md#major-changes"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.client.MistralClient.chat"
+target = "mistralai.chat.Chat.complete"
+quote = "client.chat is now client.chat.complete for non-streaming calls"
+url = "https://github.com/mistralai/client-python/blob/v1.12.4/MIGRATION.md#major-changes"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.client.MistralClient.chat_stream"
+target = "mistralai.chat.Chat.stream"
+quote = "client.chat_stream is now client.chat.stream for streaming calls"
+url = "https://github.com/mistralai/client-python/blob/v1.12.4/MIGRATION.md#major-changes"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.async_client.MistralAsyncClient.chat"
+target = "mistralai.chat.Chat.complete_async"
+quote = "Async client.chat is now client.chat.complete_async for async non-streaming calls"
+url = "https://github.com/mistralai/client-python/blob/v1.12.4/MIGRATION.md#major-changes"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.async_client.MistralAsyncClient.chat_stream"
+target = "mistralai.chat.Chat.stream_async"
+quote = "Async client.chat_stream is now client.chat.stream_async for async streaming calls"
+url = "https://github.com/mistralai/client-python/blob/v1.12.4/MIGRATION.md#major-changes"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.client.MistralClient.completion"
+target = "mistralai.fim.Fim.complete"
+quote = "client.completions | client.fim.complete"
+url = "https://github.com/mistralai/client-python/blob/v1.12.4/MIGRATION.md#sync"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.client.MistralClient.completion_stream"
+target = "mistralai.fim.Fim.stream"
+quote = "| `client.completions_stream`| `client.fim.stream` |"
+url = "https://github.com/mistralai/client-python/blob/v1.12.4/MIGRATION.md#sync"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.client.MistralClient.embeddings"
+target = "mistralai.embeddings.Embeddings.create"
+quote = "client.embeddings | client.embeddings.create"
+url = "https://github.com/mistralai/client-python/blob/v1.12.4/MIGRATION.md#sync"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.client.MistralClient.list_models"
+target = "mistralai.models_.Models.list"
+quote = "client.list_models | client.models.list"
+url = "https://github.com/mistralai/client-python/blob/v1.12.4/MIGRATION.md#sync"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.client.MistralClient.delete_model"
+target = "mistralai.models_.Models.delete"
+quote = "client.delete_model | client.models.delete"
+url = "https://github.com/mistralai/client-python/blob/v1.12.4/MIGRATION.md#sync"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.async_client.MistralAsyncClient.embeddings"
+target = "mistralai.embeddings.Embeddings.create_async"
+quote = "async_client.embeddings | client.embeddings.create_async"
+url = "https://github.com/mistralai/client-python/blob/v1.12.4/MIGRATION.md#async"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.async_client.MistralAsyncClient.list_models"
+target = "mistralai.models_.Models.list_async"
+quote = "async_client.list_models | client.models.list_async"
+url = "https://github.com/mistralai/client-python/blob/v1.12.4/MIGRATION.md#async"
+
+
+# flask-2.3
+[[hint]]
+package = "flask"
+path = "flask.escape"
+target = "markupsafe.escape"
+quote = "Importing escape and Markup from flask is deprecated. Import them directly from markupsafe instead."
+url = "https://flask.palletsprojects.com/en/latest/changes/#version-2-3-0"
+
+[[hint]]
+package = "flask"
+path = "flask.Markup"
+target = "markupsafe.Markup"
+quote = "Importing escape and Markup from flask is deprecated. Import them directly from markupsafe instead."
+url = "https://flask.palletsprojects.com/en/latest/changes/#version-2-3-0"
+
+
+# flask-2.2
+[[hint]]
+package = "flask"
+path = "flask.Flask.json_encoder"
+target = "flask.Flask.json"
+quote = "Setting custom json_encoder and json_decoder classes on the app or a blueprint, and the corresponding json.JSONEncoder and JSONDecoder classes, are deprecated. JSON behavior can now be overridden using the app.json provider interface."
+url = "https://flask.palletsprojects.com/en/latest/changes/#version-2-2-0"
+
+[[hint]]
+package = "flask"
+path = "flask.Flask.json_decoder"
+target = "flask.Flask.json"
+quote = "Setting custom json_encoder and json_decoder classes on the app or a blueprint, and the corresponding json.JSONEncoder and JSONDecoder classes, are deprecated. JSON behavior can now be overridden using the app.json provider interface."
+url = "https://flask.palletsprojects.com/en/latest/changes/#version-2-2-0"
+
+[[hint]]
+package = "flask"
+path = "flask.json.JSONEncoder"
+target = "flask.Flask.json"
+quote = "Setting custom json_encoder and json_decoder classes on the app or a blueprint, and the corresponding json.JSONEncoder and JSONDecoder classes, are deprecated. JSON behavior can now be overridden using the app.json provider interface."
+url = "https://flask.palletsprojects.com/en/latest/changes/#version-2-2-0"
+
+[[hint]]
+package = "flask"
+path = "flask.json.JSONDecoder"
+target = "flask.Flask.json"
+quote = "Setting custom json_encoder and json_decoder classes on the app or a blueprint, and the corresponding json.JSONEncoder and JSONDecoder classes, are deprecated. JSON behavior can now be overridden using the app.json provider interface."
+url = "https://flask.palletsprojects.com/en/latest/changes/#version-2-2-0"
+
+
+# flask-3.0
+[[hint]]
+package = "flask"
+path = "flask.__version__"
+target = "importlib.metadata.version"
+quote = "Deprecate the __version__ attribute. Use feature detection, or importlib.metadata.version(\"flask\"), instead."
+url = "https://flask.palletsprojects.com/en/latest/changes/#version-3-0-0"
+
+
+# werkzeug-3.0
+[[hint]]
+package = "werkzeug"
+path = "werkzeug.urls.url_parse"
+target = "urllib.parse.urlsplit"
+quote = "'werkzeug.urls.url_parse' is deprecated and will be removed in Werkzeug 3.0. Use 'urllib.parse.urlsplit' instead."
+url = "https://github.com/pallets/werkzeug/blob/2.3.8/src/werkzeug/urls.py#L505-L508"
+
+[[hint]]
+package = "werkzeug"
+path = "werkzeug.urls.url_quote"
+target = "urllib.parse.quote"
+quote = "'werkzeug.urls.url_quote' is deprecated and will be removed in Werkzeug 3.0. Use 'urllib.parse.quote' instead."
+url = "https://github.com/pallets/werkzeug/blob/2.3.8/src/werkzeug/urls.py#L607-L610"
+
+[[hint]]
+package = "werkzeug"
+path = "werkzeug.urls.url_quote_plus"
+target = "urllib.parse.quote_plus"
+quote = "'werkzeug.urls.url_quote_plus' is deprecated and will be removed in Werkzeug 2.4. Use 'urllib.parse.quote_plus' instead."
+url = "https://github.com/pallets/werkzeug/blob/2.3.8/src/werkzeug/urls.py#L645-L648"
+
+[[hint]]
+package = "werkzeug"
+path = "werkzeug.urls.url_unparse"
+target = "urllib.parse.urlunsplit"
+quote = "'werkzeug.urls.url_unparse' is deprecated and will be removed in Werkzeug 3.0. Use 'urllib.parse.urlunsplit' instead."
+url = "https://github.com/pallets/werkzeug/blob/2.3.8/src/werkzeug/urls.py#L665-L668"
+
+[[hint]]
+package = "werkzeug"
+path = "werkzeug.urls.url_unquote"
+target = "urllib.parse.unquote"
+quote = "'werkzeug.urls.url_unquote' is deprecated and will be removed in Werkzeug 3.0. Use 'urllib.parse.unquote' instead."
+url = "https://github.com/pallets/werkzeug/blob/2.3.8/src/werkzeug/urls.py#L713-L716"
+
+[[hint]]
+package = "werkzeug"
+path = "werkzeug.urls.url_unquote_plus"
+target = "urllib.parse.unquote_plus"
+quote = "'werkzeug.urls.url_unquote_plus' is deprecated and will be removed in Werkzeug 2.4. Use 'urllib.parse.unquote_plus' instead."
+url = "https://github.com/pallets/werkzeug/blob/2.3.8/src/werkzeug/urls.py#L742-L745"
+
+[[hint]]
+package = "werkzeug"
+path = "werkzeug.urls.url_decode"
+target = "urllib.parse.parse_qs"
+quote = "'werkzeug.urls.url_decode' is deprecated and will be removed in Werkzeug 2.4. Use 'urllib.parse.parse_qs' instead."
+url = "https://github.com/pallets/werkzeug/blob/2.3.8/src/werkzeug/urls.py#L1109-L1112"
+
+[[hint]]
+package = "werkzeug"
+path = "werkzeug.urls.url_decode_stream"
+target = "urllib.parse.parse_qs"
+quote = "'werkzeug.urls.url_decode_stream' is deprecated and will be removed in Werkzeug 2.4. Use 'urllib.parse.parse_qs' instead."
+url = "https://github.com/pallets/werkzeug/blob/2.3.8/src/werkzeug/urls.py#L1166-L1169"
+
+[[hint]]
+package = "werkzeug"
+path = "werkzeug.urls.url_encode"
+target = "urllib.parse.urlencode"
+quote = "'werkzeug.urls.url_encode' is deprecated and will be removed in Werkzeug 2.4. Use 'urllib.parse.urlencode' instead."
+url = "https://github.com/pallets/werkzeug/blob/2.3.8/src/werkzeug/urls.py#L1234-L1237"
+
+[[hint]]
+package = "werkzeug"
+path = "werkzeug.urls.url_encode_stream"
+target = "urllib.parse.urlencode"
+quote = "'werkzeug.urls.url_encode_stream' is deprecated and will be removed in Werkzeug 2.4. Use 'urllib.parse.urlencode' instead."
+url = "https://github.com/pallets/werkzeug/blob/2.3.8/src/werkzeug/urls.py#L1274-L1277"
+
+[[hint]]
+package = "werkzeug"
+path = "werkzeug.urls.url_join"
+target = "urllib.parse.urljoin"
+quote = "'werkzeug.urls.url_join' is deprecated and will be removed in Werkzeug 2.4. Use 'urllib.parse.urljoin' instead."
+url = "https://github.com/pallets/werkzeug/blob/2.3.8/src/werkzeug/urls.py#L1306-L1309"
+
+[[hint]]
+package = "werkzeug"
+path = "werkzeug.http.parse_authorization_header"
+target = "werkzeug.datastructures.Authorization.from_header"
+quote = "'parse_authorization_header' is deprecated and will be removed in Werkzeug 2.4. Use 'Authorization.from_header' instead."
+url = "https://github.com/pallets/werkzeug/blob/2.3.8/src/werkzeug/http.py#L834-L837"
+
+[[hint]]
+package = "werkzeug"
+path = "werkzeug.http.parse_www_authenticate_header"
+target = "werkzeug.datastructures.WWWAuthenticate.from_header"
+quote = "'parse_www_authenticate_header' is deprecated and will be removed in Werkzeug 2.4. Use 'WWWAuthenticate.from_header' instead."
+url = "https://github.com/pallets/werkzeug/blob/2.3.8/src/werkzeug/http.py#L862-L865"
+
+[[hint]]
+package = "werkzeug"
+path = "werkzeug.test.Client.set_cookie(server_name)"
+target = "domain"
+quote = "The first positional server_name parameter to set_cookie and delete_cookie is deprecated. Use the domain parameter instead."
+url = "https://werkzeug.palletsprojects.com/en/latest/changes/#version-2-3-0"
+
+[[hint]]
+package = "werkzeug"
+path = "werkzeug.test.Client.delete_cookie(server_name)"
+target = "domain"
+quote = "The first positional server_name parameter to set_cookie and delete_cookie is deprecated. Use the domain parameter instead."
+url = "https://werkzeug.palletsprojects.com/en/latest/changes/#version-2-3-0"
+
+[[hint]]
+package = "werkzeug"
+path = "werkzeug.__version__"
+target = "importlib.metadata.version"
+quote = "Deprecate the __version__ attribute. Use feature detection, or importlib.metadata.version(\"werkzeug\"), instead."
+url = "https://werkzeug.palletsprojects.com/en/latest/changes/#version-3-0-0"
+
+
+# werkzeug-3.1
+[[hint]]
+package = "werkzeug"
+path = "werkzeug.datastructures.OrderedMultiDict"
+target = "werkzeug.datastructures.MultiDict"
+quote = "OrderedMultiDict and ImmutableOrderedMultiDict are deprecated. Use MultiDict and ImmutableMultiDict instead."
+url = "https://werkzeug.palletsprojects.com/en/latest/changes/#version-3-1-0"
+
+[[hint]]
+package = "werkzeug"
+path = "werkzeug.datastructures.ImmutableOrderedMultiDict"
+target = "werkzeug.datastructures.ImmutableMultiDict"
+quote = "OrderedMultiDict and ImmutableOrderedMultiDict are deprecated. Use MultiDict and ImmutableMultiDict instead."
+url = "https://werkzeug.palletsprojects.com/en/latest/changes/#version-3-1-0"
+
+
+# httpx-0.28
+[[hint]]
+package = "httpx"
+path = "httpx.Client.__init__(app)"
+target = "transport"
+quote = "The 'app' shortcut is now deprecated. Use the explicit style 'transport=WSGITransport(app=...)' instead."
+url = "https://github.com/encode/httpx/blob/0.27.2/httpx/_client.py#L685-L690"
+
+[[hint]]
+package = "httpx"
+path = "httpx.AsyncClient.__init__(app)"
+target = "transport"
+quote = "The 'app' shortcut is now deprecated. Use the explicit style 'transport=ASGITransport(app=...)' instead."
+url = "https://github.com/encode/httpx/blob/0.27.2/httpx/_client.py#L1432-L1437"
+
+[[hint]]
+package = "httpx"
+path = "httpx.Client.__init__(proxies)"
+target = "proxy"
+quote = "You should use the `proxy` argument instead of the deprecated `proxies`, or use `mounts=` for more complex configurations."
+url = "https://github.com/encode/httpx/blob/master/CHANGELOG.md#0260-20th-december-2023"
+
+[[hint]]
+package = "httpx"
+path = "httpx.AsyncClient.__init__(proxies)"
+target = "proxy"
+quote = "You should use the `proxy` argument instead of the deprecated `proxies`, or use `mounts=` for more complex configurations."
+url = "https://github.com/encode/httpx/blob/master/CHANGELOG.md#0260-20th-december-2023"
+
+[[hint]]
+package = "httpx"
+path = "httpx.Client.__init__(proxies)"
+target = "mounts"
+quote = "You should use the `proxy` argument instead of the deprecated `proxies`, or use `mounts=` for more complex configurations."
+url = "https://github.com/encode/httpx/blob/master/CHANGELOG.md#0260-20th-december-2023"
+
+[[hint]]
+package = "httpx"
+path = "httpx.AsyncClient.__init__(proxies)"
+target = "mounts"
+quote = "You should use the `proxy` argument instead of the deprecated `proxies`, or use `mounts=` for more complex configurations."
+url = "https://github.com/encode/httpx/blob/master/CHANGELOG.md#0260-20th-december-2023"
+
+[[hint]]
+package = "httpx"
+path = "httpx.Client.__init__(cert)"
+target = "verify"
+quote = "`cert=...` is deprecated. Use `verify=<ssl_context>` instead,with `.load_cert_chain()` to configure the certificate chain."
+url = "https://github.com/encode/httpx/blob/0.28.1/httpx/_config.py#L58-L63"
+
+[[hint]]
+package = "httpx"
+path = "httpx.AsyncClient.__init__(cert)"
+target = "verify"
+quote = "`cert=...` is deprecated. Use `verify=<ssl_context>` instead,with `.load_cert_chain()` to configure the certificate chain."
+url = "https://github.com/encode/httpx/blob/0.28.1/httpx/_config.py#L58-L63"
+
+
+# selenium-4
+[[hint]]
+package = "selenium"
+path = "selenium.webdriver.chrome.webdriver.WebDriver.__init__(executable_path)"
+target = "service"
+quote = "In Selenium 4, you’ll need to set the driver’s executable_path from a Service object to prevent deprecation warnings."
+url = "https://www.selenium.dev/documentation/webdriver/troubleshooting/upgrade_to_selenium_4/#executable_path-has-been-deprecated-please-pass-in-a-service-object"
+
+[[hint]]
+package = "selenium"
+path = "selenium.webdriver.firefox.webdriver.WebDriver.__init__(executable_path)"
+target = "service"
+quote = "In Selenium 4, you’ll need to set the driver’s executable_path from a Service object to prevent deprecation warnings."
+url = "https://www.selenium.dev/documentation/webdriver/troubleshooting/upgrade_to_selenium_4/#executable_path-has-been-deprecated-please-pass-in-a-service-object"
+
+[[hint]]
+package = "selenium"
+path = "selenium.webdriver.edge.webdriver.WebDriver.__init__(executable_path)"
+target = "service"
+quote = "In Selenium 4, you’ll need to set the driver’s executable_path from a Service object to prevent deprecation warnings."
+url = "https://www.selenium.dev/documentation/webdriver/troubleshooting/upgrade_to_selenium_4/#executable_path-has-been-deprecated-please-pass-in-a-service-object"
+
+[[hint]]
+package = "selenium"
+path = "selenium.webdriver.ie.webdriver.WebDriver.__init__(executable_path)"
+target = "service"
+quote = "In Selenium 4, you’ll need to set the driver’s executable_path from a Service object to prevent deprecation warnings."
+url = "https://www.selenium.dev/documentation/webdriver/troubleshooting/upgrade_to_selenium_4/#executable_path-has-been-deprecated-please-pass-in-a-service-object"
+
+[[hint]]
+package = "selenium"
+path = "selenium.webdriver.safari.webdriver.WebDriver.__init__(executable_path)"
+target = "service"
+quote = "In Selenium 4, you’ll need to set the driver’s executable_path from a Service object to prevent deprecation warnings."
+url = "https://www.selenium.dev/documentation/webdriver/troubleshooting/upgrade_to_selenium_4/#executable_path-has-been-deprecated-please-pass-in-a-service-object"
+
+[[hint]]
+package = "selenium"
+path = "selenium.webdriver.chrome.webdriver.WebDriver.__init__(desired_capabilities)"
+target = "options"
+quote = "desired_capabilities has been deprecated, please pass in an Options object with options kwarg"
+url = "https://github.com/SeleniumHQ/selenium/blob/selenium-4.2.0/py/selenium/webdriver/remote/webdriver.py#L223"
+
+[[hint]]
+package = "selenium"
+path = "selenium.webdriver.firefox.webdriver.WebDriver.__init__(desired_capabilities)"
+target = "options"
+quote = "desired_capabilities has been deprecated, please pass in an Options object with options kwarg"
+url = "https://github.com/SeleniumHQ/selenium/blob/selenium-4.2.0/py/selenium/webdriver/remote/webdriver.py#L223"
+
+[[hint]]
+package = "selenium"
+path = "selenium.webdriver.ie.webdriver.WebDriver.__init__(desired_capabilities)"
+target = "options"
+quote = "desired_capabilities has been deprecated, please pass in an Options object with options kwarg"
+url = "https://github.com/SeleniumHQ/selenium/blob/selenium-4.2.0/py/selenium/webdriver/remote/webdriver.py#L223"
+
+[[hint]]
+package = "selenium"
+path = "selenium.webdriver.safari.webdriver.WebDriver.__init__(desired_capabilities)"
+target = "options"
+quote = "desired_capabilities has been deprecated, please pass in an Options object with options kwarg"
+url = "https://github.com/SeleniumHQ/selenium/blob/selenium-4.2.0/py/selenium/webdriver/remote/webdriver.py#L223"
+
+[[hint]]
+package = "selenium"
+path = "selenium.webdriver.remote.webdriver.WebDriver.__init__(desired_capabilities)"
+target = "options"
+quote = "desired_capabilities has been deprecated, please pass in an Options object with options kwarg"
+url = "https://github.com/SeleniumHQ/selenium/blob/selenium-4.2.0/py/selenium/webdriver/remote/webdriver.py#L223"
+
+[[hint]]
+package = "selenium"
+path = "selenium.webdriver.remote.webdriver.WebDriver.desired_capabilities"
+target = "selenium.webdriver.remote.webdriver.WebDriver.capabilities"
+quote = "Deprecate desired_capabilities property in favour of capabilities property"
+url = "https://github.com/SeleniumHQ/selenium/blob/06fc4d47f2473caf5ec25ab493c1326260423b76/py/CHANGES#L880"
+
+[[hint]]
+package = "selenium"
+path = "selenium.webdriver.chrome.webdriver.WebDriver.__init__(chrome_options)"
+target = "options"
+quote = "Browser option parameters are now standardized across drivers as `options`. `firefox_options`, `chrome_options`, and `ie_options` are now deprecated"
+url = "https://github.com/SeleniumHQ/selenium/blob/06fc4d47f2473caf5ec25ab493c1326260423b76/py/CHANGES#L1098-L1099"
+
+[[hint]]
+package = "selenium"
+path = "selenium.webdriver.firefox.webdriver.WebDriver.__init__(firefox_profile)"
+target = "options"
+quote = "firefox_profile has been deprecated, please pass in an Options object"
+url = "https://github.com/SeleniumHQ/selenium/blob/selenium-4.2.0/py/selenium/webdriver/firefox/webdriver.py#L111"
+
+
+# pinecone-3
+[[hint]]
+package = "pinecone"
+path = "pinecone.init"
+target = "pinecone.Pinecone"
+quote = "init is no longer a top-level attribute of the pinecone package. Please create an instance of the Pinecone class instead."
+url = "https://github.com/pinecone-io/python-sdk/blob/v3.1.0/pinecone/deprecation_warnings.py#L31-L33"
+
+[[hint]]
+package = "pinecone"
+path = "pinecone.list_indexes"
+target = "pinecone.Pinecone.list_indexes"
+quote = "To use {method_name}, please create a client instance and call the method there instead. … raise AttributeError(_build_class_migration_message('list_indexes', example))"
+url = "https://github.com/pinecone-io/python-sdk/blob/v3.1.0/pinecone/deprecation_warnings.py"
+
+[[hint]]
+package = "pinecone"
+path = "pinecone.describe_index"
+target = "pinecone.Pinecone.describe_index"
+quote = "To use {method_name}, please create a client instance and call the method there instead. … raise AttributeError(_build_class_migration_message('describe_index', example))"
+url = "https://github.com/pinecone-io/python-sdk/blob/v3.1.0/pinecone/deprecation_warnings.py"
+
+[[hint]]
+package = "pinecone"
+path = "pinecone.create_index"
+target = "pinecone.Pinecone.create_index"
+quote = "To use {method_name}, please create a client instance and call the method there instead. … raise AttributeError(_build_class_migration_message('create_index', example))"
+url = "https://github.com/pinecone-io/python-sdk/blob/v3.1.0/pinecone/deprecation_warnings.py"
+
+[[hint]]
+package = "pinecone"
+path = "pinecone.delete_index"
+target = "pinecone.Pinecone.delete_index"
+quote = "To use {method_name}, please create a client instance and call the method there instead. … raise AttributeError(_build_class_migration_message('delete_index', example))"
+url = "https://github.com/pinecone-io/python-sdk/blob/v3.1.0/pinecone/deprecation_warnings.py"
+
+[[hint]]
+package = "pinecone"
+path = "pinecone.create_collection"
+target = "pinecone.Pinecone.create_collection"
+quote = "To use {method_name}, please create a client instance and call the method there instead. … raise AttributeError(_build_class_migration_message('create_collection', example))"
+url = "https://github.com/pinecone-io/python-sdk/blob/v3.1.0/pinecone/deprecation_warnings.py"
+
+[[hint]]
+package = "pinecone"
+path = "pinecone.list_collections"
+target = "pinecone.Pinecone.list_collections"
+quote = "To use {method_name}, please create a client instance and call the method there instead. … raise AttributeError(_build_class_migration_message('list_collections', example))"
+url = "https://github.com/pinecone-io/python-sdk/blob/v3.1.0/pinecone/deprecation_warnings.py"
+
+[[hint]]
+package = "pinecone"
+path = "pinecone.delete_collection"
+target = "pinecone.Pinecone.delete_collection"
+quote = "To use {method_name}, please create a client instance and call the method there instead. … raise AttributeError(_build_class_migration_message('delete_collection', example))"
+url = "https://github.com/pinecone-io/python-sdk/blob/v3.1.0/pinecone/deprecation_warnings.py"
+
+[[hint]]
+package = "pinecone"
+path = "pinecone.describe_collection"
+target = "pinecone.Pinecone.describe_collection"
+quote = "To use {method_name}, please create a client instance and call the method there instead. … raise AttributeError(_build_class_migration_message('describe_collection', example))"
+url = "https://github.com/pinecone-io/python-sdk/blob/v3.1.0/pinecone/deprecation_warnings.py"
+
+[[hint]]
+package = "pinecone"
+path = "pinecone.configure_index"
+target = "pinecone.Pinecone.configure_index"
+quote = "To use {method_name}, please create a client instance and call the method there instead. … raise AttributeError(_build_class_migration_message('configure_index', example))"
+url = "https://github.com/pinecone-io/python-sdk/blob/v3.1.0/pinecone/deprecation_warnings.py"
+
+[[hint]]
+package = "pinecone"
+path = "pinecone.scale_index"
+target = "pinecone.Pinecone.configure_index"
+quote = "scale_index is no longer a top-level attribute of the pinecone package. Please create a client instance and call the configure_index method instead."
+url = "https://github.com/pinecone-io/python-sdk/blob/v3.1.0/pinecone/deprecation_warnings.py#L97-L99"
+
+
+# pinecone-9
+[[hint]]
+package = "pinecone"
+path = "pinecone.PineconeAsyncio"
+target = "pinecone.AsyncPinecone"
+quote = "`PineconeAsyncio` is renamed to `AsyncPinecone`. The old name is still importable as an alias of the same class, so `isinstance` checks are unaffected."
+url = "https://github.com/pinecone-io/python-sdk/blob/main/docs/migration/v9-migration.md#2-async-client-rename"
+
+[[hint]]
+package = "pinecone"
+path = "pinecone.ValidationError"
+target = "pinecone.PineconeValueError"
+quote = "| `ValidationError` | `PineconeValueError` *(the one alias that emits a `DeprecationWarning` on access)* |"
+url = "https://github.com/pinecone-io/python-sdk/blob/main/docs/migration/v9-migration.md#legacy-aliases"
+
+[[hint]]
+package = "pinecone"
+path = "pinecone.ForbiddenException"
+target = "pinecone.ForbiddenError"
+quote = "| `ForbiddenException` | `ForbiddenError` |"
+url = "https://github.com/pinecone-io/python-sdk/blob/main/docs/migration/v9-migration.md#legacy-aliases"
+
+[[hint]]
+package = "pinecone"
+path = "pinecone.NotFoundException"
+target = "pinecone.NotFoundError"
+quote = "| `NotFoundException` | `NotFoundError` |"
+url = "https://github.com/pinecone-io/python-sdk/blob/main/docs/migration/v9-migration.md#legacy-aliases"
+
+
+# hfhub-1.0
+[[hint]]
+package = "huggingface-hub"
+path = "huggingface_hub.InferenceApi"
+target = "huggingface_hub.InferenceClient"
+quote = "InferenceApi was a class to interact with the Inference API. It is now recommended to use the InferenceClient class instead."
+url = "https://huggingface.co/docs/huggingface_hub/concepts/migration#inferenceapi-class"
+
+[[hint]]
+package = "huggingface-hub"
+path = "huggingface_hub.HfFolder.save_token"
+target = "huggingface_hub.login"
+quote = "The goal is to force users and integrations to use `login`/`logout` (instead of `HfFolder.save_token`/`HfFolder.delete_token`) which contain more checks and warning messages."
+url = "https://github.com/huggingface/huggingface_hub/releases/tag/v0.20.0"
+
+[[hint]]
+package = "huggingface-hub"
+path = "huggingface_hub.HfFolder.delete_token"
+target = "huggingface_hub.logout"
+quote = "The goal is to force users and integrations to use `login`/`logout` (instead of `HfFolder.save_token`/`HfFolder.delete_token`) which contain more checks and warning messages."
+url = "https://github.com/huggingface/huggingface_hub/releases/tag/v0.20.0"
+
+[[hint]]
+package = "huggingface-hub"
+path = "huggingface_hub.Repository.clone_from"
+target = "huggingface_hub.snapshot_download"
+quote = "Here is a mapping from the legacy Repository class to the new HfApi one: … | repo.clone_from | snapshot_download"
+url = "https://huggingface.co/docs/huggingface_hub/concepts/migration#repository-class"
+
+[[hint]]
+package = "huggingface-hub"
+path = "huggingface_hub.constants.hf_cache_home"
+target = "huggingface_hub.constants.HF_HOME"
+quote = "constants.hf_cache_home has been removed. Please use HF_HOME instead."
+url = "https://huggingface.co/docs/huggingface_hub/concepts/migration#other-deprecated-features"
+
+[[hint]]
+package = "huggingface-hub"
+path = "huggingface_hub.HfApi.update_repo_visibility"
+target = "huggingface_hub.HfApi.update_repo_settings"
+quote = "update_repo_visibility method has been removed. Please use update_repo_settings instead."
+url = "https://huggingface.co/docs/huggingface_hub/concepts/migration#other-deprecated-features"
+
+[[hint]]
+package = "huggingface-hub"
+path = "huggingface_hub.login(new_session)"
+target = "skip_if_logged_in"
+quote = "new_session parameter in login has been renamed to skip_if_logged_in for better clarity."
+url = "https://huggingface.co/docs/huggingface_hub/concepts/migration#other-deprecated-features"
+
+[[hint]]
+package = "huggingface-hub"
+path = "huggingface_hub.configure_http_backend"
+target = "huggingface_hub.set_client_factory"
+quote = "The configure_http_backend function has been removed. You should now use set_client_factory() and set_async_client_factory() to configure the HTTP clients."
+url = "https://huggingface.co/docs/huggingface_hub/concepts/migration#breaking-changes"
+
+
+# hfhub-0.26
+[[hint]]
+package = "huggingface-hub"
+path = "huggingface_hub.cached_download"
+target = "huggingface_hub.hf_hub_download"
+quote = "`cached_download()`, `url_to_filename()`, `filename_to_url()` methods are now completely removed. From now on, you will have to use `hf_hub_download()` to benefit from the new cache layout."
+url = "https://github.com/huggingface/huggingface_hub/releases/tag/v0.26.0"
+
+
+# hfhub-0.21
+[[hint]]
+package = "huggingface-hub"
+path = "huggingface_hub.ModelFilter"
+target = "huggingface_hub.list_models"
+quote = "Classes `ModelFilter` and `DatasetFilter` are deprecated when listing models and datasets in favor of a simpler API that lets you pass the parameters directly to `list_models` and `list_datasets`."
+url = "https://github.com/huggingface/huggingface_hub/releases/tag/v0.21.0"
+
+[[hint]]
+package = "huggingface-hub"
+path = "huggingface_hub.DatasetFilter"
+target = "huggingface_hub.list_datasets"
+quote = "Classes `ModelFilter` and `DatasetFilter` are deprecated when listing models and datasets in favor of a simpler API that lets you pass the parameters directly to `list_models` and `list_datasets`."
+url = "https://github.com/huggingface/huggingface_hub/releases/tag/v0.21.0"
+
+
+# hfhub-0.22
+[[hint]]
+package = "huggingface-hub"
+path = "huggingface_hub.file_download.http_user_agent"
+target = "huggingface_hub.utils.build_hf_headers"
+quote = "`huggingface_hub.file_download.http_user_agent` has been removed in favor of the officially document `huggingface_hub.utils.build_hf_headers`."
+url = "https://github.com/huggingface/huggingface_hub/releases/tag/v0.22.0"
+
+
+# hfhub-0.23
+[[hint]]
+package = "huggingface-hub"
+path = "huggingface_hub.HfApi.list_files_info"
+target = "huggingface_hub.HfApi.list_repo_tree"
+quote = "`list_files_info` is definitively removed in favor of `get_paths_info` and `list_repo_tree`"
+url = "https://github.com/huggingface/huggingface_hub/releases/tag/v0.23.0"
+
+[[hint]]
+package = "huggingface-hub"
+path = "huggingface_hub.HfApi.list_files_info"
+target = "huggingface_hub.HfApi.get_paths_info"
+quote = "`list_files_info` is definitively removed in favor of `get_paths_info` and `list_repo_tree`"
+url = "https://github.com/huggingface/huggingface_hub/releases/tag/v0.23.0"
+
+[[hint]]
+package = "huggingface-hub"
+path = "huggingface_hub.WebhooksServer.run"
+target = "huggingface_hub.WebhooksServer.launch"
+quote = "`WebhookServer.run` is definitively removed in favor of `WebhookServer.launch`"
+url = "https://github.com/huggingface/huggingface_hub/releases/tag/v0.23.0"
+
+
+# hfhub-0.25
+[[hint]]
+package = "huggingface-hub"
+path = "huggingface_hub.InferenceClient.conversational"
+target = "huggingface_hub.InferenceClient.chat_completion"
+quote = "`InferenceClient.conversational` task has been removed in favor of `InferenceClient.chat_completion`."
+url = "https://github.com/huggingface/huggingface_hub/releases/tag/v0.25.0"
+
+[[hint]]
+package = "huggingface-hub"
+path = "huggingface_hub.InferenceClient.text_generation(stop_sequences)"
+target = "stop"
+quote = "[Inference] Support `stop` parameter in `text-generation` instead of `stop_sequences`"
+url = "https://github.com/huggingface/huggingface_hub/releases/tag/v0.25.0"
+
+
+# hfhub-0.30
+[[hint]]
+package = "huggingface-hub"
+path = "huggingface_hub.InferenceClient.zero_shot_classification(labels)"
+target = "candidate_labels"
+quote = "`labels` has been removed from `InferenceClient.zero_shot_classification` and `InferenceClient.zero_shot_image_classification` tasks in favor of `candidate_labels`."
+url = "https://github.com/huggingface/huggingface_hub/releases/tag/v0.30.0"
+
+[[hint]]
+package = "huggingface-hub"
+path = "huggingface_hub.InferenceClient.zero_shot_image_classification(labels)"
+target = "candidate_labels"
+quote = "`labels` has been removed from `InferenceClient.zero_shot_classification` and `InferenceClient.zero_shot_image_classification` tasks in favor of `candidate_labels`."
+url = "https://github.com/huggingface/huggingface_hub/releases/tag/v0.30.0"
+
+
+# hfhub-1.11
+[[hint]]
+package = "huggingface-hub"
+path = "huggingface_hub.HfApi.list_models(model_name)"
+target = "search"
+quote = "**`model_name` deprecated in `list_models`** - Use `search` instead."
+url = "https://github.com/huggingface/huggingface_hub/releases/tag/v1.11.0"
+
+
+# llamaindex-0.10
+[[hint]]
+package = "llama-index-core"
+path = "llama_index.core.ServiceContext"
+target = "llama_index.core.Settings"
+quote = "Introduced in v0.10.0, there is a new global Settings object intended to replace the old ServiceContext configuration."
+url = "https://developers.llamaindex.ai/python/framework/module_guides/supporting_modules/service_context_migration/"
+
+[[hint]]
+package = "llama-index-core"
+path = "llama_index.core.set_global_service_context"
+target = "llama_index.core.Settings"
+quote = "from llama_index import ServiceContext, set_global_service_context … Which now looks like: … from llama_index.core import Settings"
+url = "https://github.com/run-llama/llama_index/blob/v0.12.0/docs/docs/getting_started/v0_10_0_migration.md#deprecated-servicecontext"
+
+
+# llamaindex-0.11
+[[hint]]
+package = "llama-index-core"
+path = "llama_index.core.service_context_elements.llm_predictor.LLMPredictor"
+target = "llama_index.core.llms.LLM"
+quote = "removed deprecated `LLMPredictor` -- using this now will print an error, any existing LLM is a drop-in replacement"
+url = "https://github.com/run-llama/llama_index/blob/main/CHANGELOG.md#2024-08-22"
+
+
+# marshmallow-4
+[[hint]]
+package = "marshmallow"
+path = "marshmallow.fields.Field.__init__(missing)"
+target = "load_default"
+quote = "The missing and default parameters of fields are renamed to load_default and dump_default, respectively."
+url = "https://marshmallow.readthedocs.io/en/latest/upgrading.html#load-default-and-dump-default"
+
+[[hint]]
+package = "marshmallow"
+path = "marshmallow.fields.Field.__init__(default)"
+target = "dump_default"
+quote = "The missing and default parameters of fields are renamed to load_default and dump_default, respectively."
+url = "https://marshmallow.readthedocs.io/en/latest/upgrading.html#load-default-and-dump-default"
+
+[[hint]]
+package = "marshmallow"
+path = "marshmallow.fields.Field.fail"
+target = "marshmallow.fields.Field.make_error"
+quote = "Field.fail, which was replaced by Field.make_error in 3.0.0."
+url = "https://marshmallow.readthedocs.io/en/latest/changelog.html#id13"
+
+[[hint]]
+package = "marshmallow"
+path = "marshmallow.post_dump(pass_many)"
+target = "pass_collection"
+quote = "The pass_many argument to pre_load, post_load, pre_dump, and post_dump is renamed to pass_collection."
+url = "https://marshmallow.readthedocs.io/en/latest/upgrading.html#pass-many-is-renamed-to-pass-collection-in-decorators"
+
+[[hint]]
+package = "marshmallow"
+path = "marshmallow.pre_dump(pass_many)"
+target = "pass_collection"
+quote = "The pass_many argument to pre_load, post_load, pre_dump, and post_dump is renamed to pass_collection."
+url = "https://marshmallow.readthedocs.io/en/latest/upgrading.html#pass-many-is-renamed-to-pass-collection-in-decorators"
+
+[[hint]]
+package = "marshmallow"
+path = "marshmallow.post_load(pass_many)"
+target = "pass_collection"
+quote = "The pass_many argument to pre_load, post_load, pre_dump, and post_dump is renamed to pass_collection."
+url = "https://marshmallow.readthedocs.io/en/latest/upgrading.html#pass-many-is-renamed-to-pass-collection-in-decorators"
+
+[[hint]]
+package = "marshmallow"
+path = "marshmallow.pre_load(pass_many)"
+target = "pass_collection"
+quote = "The pass_many argument to pre_load, post_load, pre_dump, and post_dump is renamed to pass_collection."
+url = "https://marshmallow.readthedocs.io/en/latest/upgrading.html#pass-many-is-renamed-to-pass-collection-in-decorators"
+
+[[hint]]
+package = "marshmallow"
+path = "marshmallow.Schema.loads(json_data)"
+target = "s"
+quote = "Rename json_data parameter of marshmallow.Schema.loads to s"
+url = "https://marshmallow.readthedocs.io/en/latest/changelog.html#id13"
+
+[[hint]]
+package = "marshmallow"
+path = "marshmallow.utils.pprint"
+target = "pprint.pprint"
+quote = "marshmallow.utils.pprint (deprecated in 3.7.0). Use pprint.pprint instead."
+url = "https://marshmallow.readthedocs.io/en/latest/changelog.html#id13"
+
+[[hint]]
+package = "marshmallow"
+path = "marshmallow.base.SchemaABC"
+target = "marshmallow.schema.Schema"
+quote = "Restore marshmallow.base.SchemaABC for backwards-compatibility (#2743). Note that this class is deprecated and will be removed in marshmallow 4. Use marshmallow.schema.Schema as a base class for type-checking instead."
+url = "https://marshmallow.readthedocs.io/en/latest/changelog.html#id18"
+
+[[hint]]
+package = "marshmallow"
+path = "marshmallow.utils.from_iso_date"
+target = "datetime.date.fromisoformat"
+quote = "Backwards-incompatible: Use datetime.date.fromisoformat, datetime.time.fromisoformat, and datetime.datetime.fromisoformat from the standard library [...] from_iso_date, from_iso_time and from_iso_datetime are removed from marshmallow.utils."
+url = "https://marshmallow.readthedocs.io/en/latest/changelog.html#id13"
+
+[[hint]]
+package = "marshmallow"
+path = "marshmallow.utils.from_iso_time"
+target = "datetime.time.fromisoformat"
+quote = "Backwards-incompatible: Use datetime.date.fromisoformat, datetime.time.fromisoformat, and datetime.datetime.fromisoformat from the standard library [...] from_iso_date, from_iso_time and from_iso_datetime are removed from marshmallow.utils."
+url = "https://marshmallow.readthedocs.io/en/latest/changelog.html#id13"
+
+[[hint]]
+package = "marshmallow"
+path = "marshmallow.utils.from_iso_datetime"
+target = "datetime.datetime.fromisoformat"
+quote = "Backwards-incompatible: Use datetime.date.fromisoformat, datetime.time.fromisoformat, and datetime.datetime.fromisoformat from the standard library [...] from_iso_date, from_iso_time and from_iso_datetime are removed from marshmallow.utils."
+url = "https://marshmallow.readthedocs.io/en/latest/changelog.html#id13"
+
+[[hint]]
+package = "marshmallow"
+path = "marshmallow.__version__"
+target = "importlib.metadata.version"
+quote = "Backwards-incompatible: __version__, __parsed_version__, and __version_info__ attributes are deprecated (#2227). Use feature detection or importlib.metadata.version(\"marshmallow\") instead."
+url = "https://marshmallow.readthedocs.io/en/latest/changelog.html#id30"
+
+
+# pytest-8
+[[hint]]
+package = "pytest"
+path = "pytest.skip(msg)"
+target = "reason"
+quote = "Passing the keyword argument msg to pytest.skip(), pytest.fail() or pytest.exit() is now deprecated and reason should be used instead."
+url = "https://docs.pytest.org/en/stable/deprecations.html#passing-msg-to-pytest-skip-pytest-fail-or-pytest-exit"
+
+[[hint]]
+package = "pytest"
+path = "pytest.fail(msg)"
+target = "reason"
+quote = "Passing the keyword argument msg to pytest.skip(), pytest.fail() or pytest.exit() is now deprecated and reason should be used instead."
+url = "https://docs.pytest.org/en/stable/deprecations.html#passing-msg-to-pytest-skip-pytest-fail-or-pytest-exit"
+
+[[hint]]
+package = "pytest"
+path = "pytest.exit(msg)"
+target = "reason"
+quote = "Passing the keyword argument msg to pytest.skip(), pytest.fail() or pytest.exit() is now deprecated and reason should be used instead."
+url = "https://docs.pytest.org/en/stable/deprecations.html#passing-msg-to-pytest-skip-pytest-fail-or-pytest-exit"
+
+[[hint]]
+package = "pytest"
+path = "_pytest.hookspec.pytest_ignore_collect(path)"
+target = "collection_path"
+quote = "pytest_ignore_collect(collection_path: pathlib.Path) as equivalent to path"
+url = "https://docs.pytest.org/en/stable/deprecations.html#py-path-local-arguments-for-hooks-replaced-with-pathlib-path"
+
+[[hint]]
+package = "pytest"
+path = "_pytest.hookspec.pytest_collect_file(path)"
+target = "file_path"
+quote = "pytest_collect_file(file_path: pathlib.Path) as equivalent to path"
+url = "https://docs.pytest.org/en/stable/deprecations.html#py-path-local-arguments-for-hooks-replaced-with-pathlib-path"
+
+[[hint]]
+package = "pytest"
+path = "_pytest.hookspec.pytest_pycollect_makemodule(path)"
+target = "module_path"
+quote = "pytest_pycollect_makemodule(module_path: pathlib.Path) as equivalent to path"
+url = "https://docs.pytest.org/en/stable/deprecations.html#py-path-local-arguments-for-hooks-replaced-with-pathlib-path"
+
+[[hint]]
+package = "pytest"
+path = "_pytest.hookspec.pytest_report_header(startdir)"
+target = "start_path"
+quote = "pytest_report_header(start_path: pathlib.Path) as equivalent to startdir"
+url = "https://docs.pytest.org/en/stable/deprecations.html#py-path-local-arguments-for-hooks-replaced-with-pathlib-path"
+
+[[hint]]
+package = "pytest"
+path = "_pytest.hookspec.pytest_report_collectionfinish(startdir)"
+target = "start_path"
+quote = "pytest_report_collectionfinish(start_path: pathlib.Path) as equivalent to startdir"
+url = "https://docs.pytest.org/en/stable/deprecations.html#py-path-local-arguments-for-hooks-replaced-with-pathlib-path"
+
+[[hint]]
+package = "pytest"
+path = "pytest.yield_fixture"
+target = "pytest.fixture"
+quote = "pytest.yield_fixture is a deprecated alias for pytest.fixture() and will be removed in pytest 10."
+url = "https://docs.pytest.org/en/stable/deprecations.html#the-yield-fixture-function-decorator"
+
+[[hint]]
+package = "pytest"
+path = "_pytest.hookspec.pytest_cmdline_preparse"
+target = "_pytest.hookspec.pytest_load_initial_conftests"
+quote = "Implementing the pytest_cmdline_preparse hook has been officially deprecated. Implement the pytest_load_initial_conftests hook instead."
+url = "https://docs.pytest.org/en/stable/deprecations.html#implementing-the-pytest-cmdline-preparse-hook"
+
+[[hint]]
+package = "pytest"
+path = "pytest.console_main"
+target = "pytest.main"
+quote = "If you are calling pytest.console_main() in your code, replace it with pytest.main():"
+url = "https://docs.pytest.org/en/stable/deprecations.html#pytest-console-main"
+
+
+# django-4-5-6
+[[hint]]
+package = "django"
+path = "django.utils.translation.ugettext"
+target = "django.utils.translation.gettext"
+quote = "django.utils.translation.ugettext(), ugettext_lazy(), ugettext_noop(), ungettext(), and ungettext_lazy() are deprecated in favor of the functions that they’re aliases for: django.utils.translation.gettext(), gettext_lazy(), gettext_noop(), ngettext(), and ngettext_lazy()."
+url = "https://docs.djangoproject.com/en/dev/releases/3.0/#features-deprecated-in-3-0"
+
+[[hint]]
+package = "django"
+path = "django.utils.translation.ugettext_lazy"
+target = "django.utils.translation.gettext_lazy"
+quote = "django.utils.translation.ugettext(), ugettext_lazy(), ugettext_noop(), ungettext(), and ungettext_lazy() are deprecated in favor of the functions that they’re aliases for: django.utils.translation.gettext(), gettext_lazy(), gettext_noop(), ngettext(), and ngettext_lazy()."
+url = "https://docs.djangoproject.com/en/dev/releases/3.0/#features-deprecated-in-3-0"
+
+[[hint]]
+package = "django"
+path = "django.utils.translation.ugettext_noop"
+target = "django.utils.translation.gettext_noop"
+quote = "django.utils.translation.ugettext(), ugettext_lazy(), ugettext_noop(), ungettext(), and ungettext_lazy() are deprecated in favor of the functions that they’re aliases for: django.utils.translation.gettext(), gettext_lazy(), gettext_noop(), ngettext(), and ngettext_lazy()."
+url = "https://docs.djangoproject.com/en/dev/releases/3.0/#features-deprecated-in-3-0"
+
+[[hint]]
+package = "django"
+path = "django.utils.translation.ungettext"
+target = "django.utils.translation.ngettext"
+quote = "django.utils.translation.ugettext(), ugettext_lazy(), ugettext_noop(), ungettext(), and ungettext_lazy() are deprecated in favor of the functions that they’re aliases for: django.utils.translation.gettext(), gettext_lazy(), gettext_noop(), ngettext(), and ngettext_lazy()."
+url = "https://docs.djangoproject.com/en/dev/releases/3.0/#features-deprecated-in-3-0"
+
+[[hint]]
+package = "django"
+path = "django.utils.translation.ungettext_lazy"
+target = "django.utils.translation.ngettext_lazy"
+quote = "django.utils.translation.ugettext(), ugettext_lazy(), ugettext_noop(), ungettext(), and ungettext_lazy() are deprecated in favor of the functions that they’re aliases for: django.utils.translation.gettext(), gettext_lazy(), gettext_noop(), ngettext(), and ngettext_lazy()."
+url = "https://docs.djangoproject.com/en/dev/releases/3.0/#features-deprecated-in-3-0"
+
+[[hint]]
+package = "django"
+path = "django.utils.encoding.force_text"
+target = "django.utils.encoding.force_str"
+quote = "The smart_text() and force_text() aliases (since Django 2.0) of smart_str() and force_str() are deprecated."
+url = "https://docs.djangoproject.com/en/dev/releases/3.0/#django-utils-encoding-force-text-and-smart-text"
+
+[[hint]]
+package = "django"
+path = "django.utils.encoding.smart_text"
+target = "django.utils.encoding.smart_str"
+quote = "The smart_text() and force_text() aliases (since Django 2.0) of smart_str() and force_str() are deprecated."
+url = "https://docs.djangoproject.com/en/dev/releases/3.0/#django-utils-encoding-force-text-and-smart-text"
+
+[[hint]]
+package = "django"
+path = "django.utils.http.urlquote"
+target = "urllib.parse.quote"
+quote = "django.utils.http.urlquote(), urlquote_plus(), urlunquote(), and urlunquote_plus() are deprecated in favor of the functions that they’re aliases for: urllib.parse.quote(), quote_plus(), unquote(), and unquote_plus()."
+url = "https://docs.djangoproject.com/en/dev/releases/3.0/#features-deprecated-in-3-0"
+
+[[hint]]
+package = "django"
+path = "django.utils.http.urlquote_plus"
+target = "urllib.parse.quote_plus"
+quote = "django.utils.http.urlquote(), urlquote_plus(), urlunquote(), and urlunquote_plus() are deprecated in favor of the functions that they’re aliases for: urllib.parse.quote(), quote_plus(), unquote(), and unquote_plus()."
+url = "https://docs.djangoproject.com/en/dev/releases/3.0/#features-deprecated-in-3-0"
+
+[[hint]]
+package = "django"
+path = "django.utils.http.urlunquote"
+target = "urllib.parse.unquote"
+quote = "django.utils.http.urlquote(), urlquote_plus(), urlunquote(), and urlunquote_plus() are deprecated in favor of the functions that they’re aliases for: urllib.parse.quote(), quote_plus(), unquote(), and unquote_plus()."
+url = "https://docs.djangoproject.com/en/dev/releases/3.0/#features-deprecated-in-3-0"
+
+[[hint]]
+package = "django"
+path = "django.utils.http.urlunquote_plus"
+target = "urllib.parse.unquote_plus"
+quote = "django.utils.http.urlquote(), urlquote_plus(), urlunquote(), and urlunquote_plus() are deprecated in favor of the functions that they’re aliases for: urllib.parse.quote(), quote_plus(), unquote(), and unquote_plus()."
+url = "https://docs.djangoproject.com/en/dev/releases/3.0/#features-deprecated-in-3-0"
+
+[[hint]]
+package = "django"
+path = "django.utils.text.unescape_entities"
+target = "html.unescape"
+quote = "django.utils.text.unescape_entities() is deprecated in favor of html.unescape()."
+url = "https://docs.djangoproject.com/en/dev/releases/3.0/#features-deprecated-in-3-0"
+
+[[hint]]
+package = "django"
+path = "django.utils.http.is_safe_url"
+target = "django.utils.http.url_has_allowed_host_and_scheme"
+quote = "the private internal utility is_safe_url() is renamed to url_has_allowed_host_and_scheme()."
+url = "https://docs.djangoproject.com/en/dev/releases/3.0/#features-deprecated-in-3-0"
+
+[[hint]]
+package = "django"
+path = "django.conf.urls.url"
+target = "django.urls.re_path"
+quote = "django.conf.urls.url() alias of django.urls.re_path() is deprecated."
+url = "https://docs.djangoproject.com/en/dev/releases/3.1/#features-deprecated-in-3-1"
+
+[[hint]]
+package = "django"
+path = "django.contrib.postgres.fields.JSONField"
+target = "django.db.models.JSONField"
+quote = "django.contrib.postgres.fields.JSONField and django.contrib.postgres.forms.JSONField are deprecated in favor of models.JSONField and forms.JSONField."
+url = "https://docs.djangoproject.com/en/dev/releases/3.1/#postgresql-jsonfield"
+
+[[hint]]
+package = "django"
+path = "django.contrib.postgres.forms.JSONField"
+target = "django.forms.JSONField"
+quote = "django.contrib.postgres.fields.JSONField and django.contrib.postgres.forms.JSONField are deprecated in favor of models.JSONField and forms.JSONField."
+url = "https://docs.djangoproject.com/en/dev/releases/3.1/#postgresql-jsonfield"
+
+[[hint]]
+package = "django"
+path = "django.db.models.NullBooleanField"
+target = "django.db.models.BooleanField"
+quote = "The NullBooleanField model field is deprecated in favor of BooleanField(null=True, blank=True)."
+url = "https://docs.djangoproject.com/en/dev/releases/3.1/#features-deprecated-in-3-1"
+
+[[hint]]
+package = "django"
+path = "django.utils.timezone.utc"
+target = "datetime.timezone.utc"
+quote = "The django.utils.timezone.utc alias to datetime.timezone.utc is deprecated. Use datetime.timezone.utc directly."
+url = "https://docs.djangoproject.com/en/dev/releases/4.1/#features-deprecated-in-4-1"
+
+[[hint]]
+package = "django"
+path = "django.test.TransactionTestCase.assertQuerysetEqual"
+target = "django.test.TransactionTestCase.assertQuerySetEqual"
+quote = "TransactionTestCase.assertQuerysetEqual() is deprecated in favor of assertQuerySetEqual()."
+url = "https://docs.djangoproject.com/en/dev/releases/4.2/#features-deprecated-in-4-2"
+
+[[hint]]
+package = "django"
+path = "django.test.SimpleTestCase.assertFormsetError"
+target = "django.test.SimpleTestCase.assertFormSetError"
+quote = "SimpleTestCase.assertFormsetError() is deprecated in favor of assertFormSetError()."
+url = "https://docs.djangoproject.com/en/dev/releases/4.2/#features-deprecated-in-4-2"
+
+[[hint]]
+package = "django"
+path = "django.db.models.enums.ChoicesMeta"
+target = "django.db.models.enums.ChoicesType"
+quote = "The django.db.models.enums.ChoicesMeta metaclass is renamed to ChoicesType."
+url = "https://docs.djangoproject.com/en/dev/releases/5.0/#features-deprecated-in-5-0"
+
+[[hint]]
+package = "django"
+path = "django.contrib.admin.ModelAdmin.log_deletion"
+target = "django.contrib.admin.ModelAdmin.log_deletions"
+quote = "The ModelAdmin.log_deletion() and LogEntryManager.log_action() methods are deprecated. Subclasses should implement ModelAdmin.log_deletions() and LogEntryManager.log_actions() instead."
+url = "https://docs.djangoproject.com/en/dev/releases/5.1/#features-deprecated-in-5-1"
+
+[[hint]]
+package = "django"
+path = "django.contrib.admin.models.LogEntryManager.log_action"
+target = "django.contrib.admin.models.LogEntryManager.log_actions"
+quote = "The ModelAdmin.log_deletion() and LogEntryManager.log_action() methods are deprecated. Subclasses should implement ModelAdmin.log_deletions() and LogEntryManager.log_actions() instead."
+url = "https://docs.djangoproject.com/en/dev/releases/5.1/#features-deprecated-in-5-1"
+
+[[hint]]
+package = "django"
+path = "django.contrib.gis.geoip2.GeoIP2.coords"
+target = "django.contrib.gis.geoip2.GeoIP2.lon_lat"
+quote = "The django.contrib.gis.geoip2.GeoIP2.coords() method is deprecated. Use django.contrib.gis.geoip2.GeoIP2.lon_lat() instead."
+url = "https://docs.djangoproject.com/en/dev/releases/5.1/#features-deprecated-in-5-1"
+
+[[hint]]
+package = "django"
+path = "django.db.models.CheckConstraint.__init__(check)"
+target = "condition"
+quote = "The check keyword argument of CheckConstraint is deprecated in favor of condition."
+url = "https://docs.djangoproject.com/en/dev/releases/5.1/#features-deprecated-in-5-1"
+
+
+# mcp-2
+[[hint]]
+package = "mcp"
+path = "mcp.server.fastmcp.FastMCP"
+target = "mcp.server.mcpserver.MCPServer"
+quote = "The `FastMCP` class has been renamed to `MCPServer` to better reflect its role as the main server class in the SDK."
+url = "https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/migration.md#fastmcp-renamed-to-mcpserver"
+
+[[hint]]
+package = "mcp"
+path = "mcp.shared.exceptions.McpError"
+target = "mcp.shared.exceptions.MCPError"
+quote = "The `McpError` exception class has been renamed to `MCPError` for consistent naming with the MCP acronym style used throughout the SDK."
+url = "https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/migration.md#mcperror-renamed-to-mcperror"
+
+[[hint]]
+package = "mcp"
+path = "mcp.types.Content"
+target = "mcp.types.ContentBlock"
+quote = "The following type aliases and classes have been removed from the protocol types (`mcp.types` / `mcp_types`): [...] | `Content` | `ContentBlock` |"
+url = "https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/migration.md#removed-type-aliases-and-classes"
+
+[[hint]]
+package = "mcp"
+path = "mcp.types.ResourceReference"
+target = "mcp.types.ResourceTemplateReference"
+quote = "The following type aliases and classes have been removed from the protocol types (`mcp.types` / `mcp_types`): [...] | `ResourceReference` | `ResourceTemplateReference` |"
+url = "https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/migration.md#removed-type-aliases-and-classes"
+
+[[hint]]
+package = "mcp"
+path = "mcp.types.ClientRequestType"
+target = "mcp.types.ClientRequest"
+quote = "| `ClientRequestType`, `ClientNotificationType`, `ClientResultType`, `ServerRequestType`, `ServerNotificationType`, `ServerResultType` | The union is now the bare name: `ClientRequest`, `ClientNotification`, `ClientResult`, `ServerRequest`, `ServerNotification`, `ServerResult` |"
+url = "https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/migration.md#removed-type-aliases-and-classes"
+
+[[hint]]
+package = "mcp"
+path = "mcp.types.ServerNotificationType"
+target = "mcp.types.ServerNotification"
+quote = "| `ClientRequestType`, `ClientNotificationType`, `ClientResultType`, `ServerRequestType`, `ServerNotificationType`, `ServerResultType` | The union is now the bare name: `ClientRequest`, `ClientNotification`, `ClientResult`, `ServerRequest`, `ServerNotification`, `ServerResult` |"
+url = "https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/migration.md#removed-type-aliases-and-classes"
+
+[[hint]]
+package = "mcp"
+path = "mcp.types.ServerResultType"
+target = "mcp.types.ServerResult"
+quote = "| `ClientRequestType`, `ClientNotificationType`, `ClientResultType`, `ServerRequestType`, `ServerNotificationType`, `ServerResultType` | The union is now the bare name: `ClientRequest`, `ClientNotification`, `ClientResult`, `ServerRequest`, `ServerNotification`, `ServerResult` |"
+url = "https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/migration.md#removed-type-aliases-and-classes"
+
+[[hint]]
+package = "mcp"
+path = "mcp.client.streamable_http.streamablehttp_client"
+target = "mcp.client.streamable_http.streamable_http_client"
+quote = "The deprecated `streamablehttp_client` function has been removed. Use `streamable_http_client` instead."
+url = "https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/migration.md#streamablehttp_client-removed"
+
+[[hint]]
+package = "mcp"
+path = "mcp.ClientSession.get_server_capabilities"
+target = "mcp.ClientSession.server_capabilities"
+quote = "`ClientSession` now exposes the negotiated server metadata as properties: `server_capabilities`, `server_info`, `instructions`, and `protocol_version`. [...] The `get_server_capabilities()` method has been removed."
+url = "https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/migration.md#clientsessionget_server_capabilities-replaced-by-era-neutral-accessors"
+
+[[hint]]
+package = "mcp"
+path = "mcp.server.session.ServerSession.elicit(requestedSchema)"
+target = "requested_schema"
+quote = "The schema parameter of `ServerSession.elicit()` and `ServerSession.elicit_form()` was renamed from `requestedSchema` to `requested_schema`."
+url = "https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/migration.md#serversessionelicit-and-elicit_form-take-requested_schema-not-requestedschema"
+
+
+# langgraph-1
+[[hint]]
+package = "langgraph"
+path = "langgraph.prebuilt.create_react_agent"
+target = "langchain.agents.create_agent"
+quote = "2. **`create_react_agent` → `create_agent`**: replace all `from langgraph.prebuilt import create_react_agent` with `from langchain.agents import create_agent`."
+url = "https://docs.langchain.com/oss/python/migrate/langgraph-v1.md"
+
+[[hint]]
+package = "langgraph"
+path = "langgraph.graph.MessageGraph"
+target = "langgraph.graph.StateGraph"
+quote = "6. **`MessageGraph`**: replace with `StateGraph` using a `messages` key, or use `create_agent` directly."
+url = "https://docs.langchain.com/oss/python/migrate/langgraph-v1.md"
+
+[[hint]]
+package = "langgraph"
+path = "langgraph.graph.StateGraph.__init__(config_schema)"
+target = "context_schema"
+quote = "`config_schema` is deprecated in favor of `context_schema`, and will be removed in v2.0.0"
+url = "https://github.com/langchain-ai/langgraph/releases/tag/0.6.0"
+
+[[hint]]
+package = "langgraph"
+path = "langgraph.graph.state.CompiledStateGraph.get_config_jsonschema"
+target = "langgraph.graph.state.CompiledStateGraph.get_context_jsonschema"
+quote = "`get_config_jsonschema` is deprecated in favor of `get_context_jsonschema`"
+url = "https://github.com/langchain-ai/langgraph/releases/tag/0.6.0"
+
+[[hint]]
+package = "langgraph"
+path = "langgraph.types.Interrupt.interrupt_id"
+target = "langgraph.types.Interrupt.id"
+quote = "`interrupt_id` has been deprecated in favor of `id`, but is still usable for backward compatibility"
+url = "https://github.com/langchain-ai/langgraph/releases/tag/0.6.0"
+
+[[hint]]
+package = "langgraph"
+path = "langgraph.constants.Send"
+target = "langgraph.types.Send"
+quote = "| `from langgraph.constants import Send` | `from langgraph.types import Send` | ⚠️ Deprecated - Will be removed in V2 |"
+url = "https://github.com/langchain-ai/langgraph/releases/tag/0.6.0"
+
+[[hint]]
+package = "langgraph"
+path = "langgraph.constants.Interrupt"
+target = "langgraph.types.Interrupt"
+quote = "| `from langgraph.constants import Interrupt` | `from langgraph.types import Interrupt` | ⚠️ Deprecated - Will be removed in V2 |"
+url = "https://github.com/langchain-ai/langgraph/releases/tag/0.6.0"
+
+[[hint]]
+package = "langgraph"
+path = "langgraph.graph.StateGraph.__init__(input)"
+target = "input_schema"
+quote = "2. **`input` / `output` renaming** – rename to `input_schema` / `output_schema`."
+url = "https://github.com/langchain-ai/langgraph/releases/tag/0.5.0"
+
+[[hint]]
+package = "langgraph"
+path = "langgraph.graph.StateGraph.__init__(output)"
+target = "output_schema"
+quote = "2. **`input` / `output` renaming** – rename to `input_schema` / `output_schema`."
+url = "https://github.com/langchain-ai/langgraph/releases/tag/0.5.0"
+
+[[hint]]
+package = "langgraph"
+path = "langgraph.graph.StateGraph.add_node(retry)"
+target = "retry_policy"
+quote = "* rename `retry` -> `retry_policy` (#4957)"
+url = "https://github.com/langchain-ai/langgraph/releases/tag/0.5.0"
+
+
+# dspy-2.5-3.x
+[[hint]]
+package = "dspy"
+path = "dspy.OpenAI"
+target = "dspy.LM"
+quote = "Earlier versions of DSPy involved tens of clients for different LM providers, e.g. `dspy.OpenAI`, `dspy.GoogleVertexAI`, and `dspy.HFClientTGI`, etc. These are now deprecated and will be removed in DSPy 2.6. [...] Instead, use `dspy.LM` to access any LM endpoint"
+url = "https://github.com/stanfordnlp/dspy/blob/2.5.0/examples/migration.ipynb"
+
+[[hint]]
+package = "dspy"
+path = "dspy.GoogleVertexAI"
+target = "dspy.LM"
+quote = "Earlier versions of DSPy involved tens of clients for different LM providers, e.g. `dspy.OpenAI`, `dspy.GoogleVertexAI`, and `dspy.HFClientTGI`, etc. These are now deprecated and will be removed in DSPy 2.6. [...] Instead, use `dspy.LM` to access any LM endpoint"
+url = "https://github.com/stanfordnlp/dspy/blob/2.5.0/examples/migration.ipynb"
+
+[[hint]]
+package = "dspy"
+path = "dspy.HFClientTGI"
+target = "dspy.LM"
+quote = "Earlier versions of DSPy involved tens of clients for different LM providers, e.g. `dspy.OpenAI`, `dspy.GoogleVertexAI`, and `dspy.HFClientTGI`, etc. These are now deprecated and will be removed in DSPy 2.6. [...] Instead, use `dspy.LM` to access any LM endpoint"
+url = "https://github.com/stanfordnlp/dspy/blob/2.5.0/examples/migration.ipynb"
+
+[[hint]]
+package = "dspy"
+path = "dspy.TypedPredictor"
+target = "dspy.Predict"
+quote = "Deprecate dspy.TypedPredictor and its variants. You'll get much better typed (and untyped) results out-of-the-box now with standard dspy.Predict, dspy.ChainOfThought, etc."
+url = "https://github.com/stanfordnlp/dspy/releases/tag/2.5.17"
+
+[[hint]]
+package = "dspy"
+path = "dspy.Assert"
+target = "dspy.Refine"
+quote = "Assertions are deprecated and NOT supported. Please use the dspy.Refine module instead."
+url = "https://dspy.ai/current/learn/programming/7-assertions/"
+
+[[hint]]
+package = "dspy"
+path = "dspy.BaseType"
+target = "dspy.Type"
+quote = "* Rename dspy.BaseType to dspy.Type by @chenmoneygithub in https://github.com/stanfordnlp/dspy/pull/8510"
+url = "https://github.com/stanfordnlp/dspy/releases/tag/3.0.0b3"
+
+[[hint]]
+package = "dspy"
+path = "dspy.Image.from_file"
+target = "dspy.Image.from_path"
+quote = "`Image.from_file()`, `Image.from_PIL()`, and `Audio.from_file()` remain as deprecated aliases through 3.3 and are scheduled for removal in 3.4. Use `Image.from_path()`, `Image(pil_image)`, and `Audio.from_path()` respectively."
+url = "https://github.com/stanfordnlp/dspy/releases/tag/3.3.0"
+
+[[hint]]
+package = "dspy"
+path = "dspy.Audio.from_file"
+target = "dspy.Audio.from_path"
+quote = "`Image.from_file()`, `Image.from_PIL()`, and `Audio.from_file()` remain as deprecated aliases through 3.3 and are scheduled for removal in 3.4. Use `Image.from_path()`, `Image(pil_image)`, and `Audio.from_path()` respectively."
+url = "https://github.com/stanfordnlp/dspy/releases/tag/3.3.0"
+
+
+# starlette-1
+[[hint]]
+package = "starlette"
+path = "starlette.applications.Starlette.__init__(on_startup)"
+target = "lifespan"
+quote = "Remove on_startup and on_shutdown parameters from Starlette and Router. Use the lifespan parameter instead"
+url = "https://starlette.dev/release-notes/#100rc1-february-23-2026"
+
+[[hint]]
+package = "starlette"
+path = "starlette.applications.Starlette.__init__(on_shutdown)"
+target = "lifespan"
+quote = "Remove on_startup and on_shutdown parameters from Starlette and Router. Use the lifespan parameter instead"
+url = "https://starlette.dev/release-notes/#100rc1-february-23-2026"
+
+[[hint]]
+package = "starlette"
+path = "starlette.applications.Starlette.route"
+target = "starlette.routing.Route"
+quote = "Remove @app.route() decorator from Starlette and Router. Use Route in the routes parameter instead"
+url = "https://starlette.dev/release-notes/#100rc1-february-23-2026"
+
+[[hint]]
+package = "starlette"
+path = "starlette.applications.Starlette.websocket_route"
+target = "starlette.routing.WebSocketRoute"
+quote = "Remove @app.websocket_route() decorator from Starlette and Router. Use WebSocketRoute in the routes parameter instead"
+url = "https://starlette.dev/release-notes/#100rc1-february-23-2026"
+
+[[hint]]
+package = "starlette"
+path = "starlette.status.WS_1004_NO_STATUS_RCVD"
+target = "starlette.status.WS_1005_NO_STATUS_RCVD"
+quote = "Deprecate WS_1004_NO_STATUS_RCVD and WS_1005_ABNORMAL_CLOSURE in favor of WS_1005_NO_STATUS_RCVD and WS_1006_ABNORMAL_CLOSURE, as the previous constants didn't match the WebSockets specs"
+url = "https://starlette.dev/release-notes/#0191-april-22-2022"
+
+[[hint]]
+package = "starlette"
+path = "starlette.status.WS_1005_ABNORMAL_CLOSURE"
+target = "starlette.status.WS_1006_ABNORMAL_CLOSURE"
+quote = "Deprecate WS_1004_NO_STATUS_RCVD and WS_1005_ABNORMAL_CLOSURE in favor of WS_1005_NO_STATUS_RCVD and WS_1006_ABNORMAL_CLOSURE, as the previous constants didn't match the WebSockets specs"
+url = "https://starlette.dev/release-notes/#0191-april-22-2022"
+
+
+# chromadb-0.4-1.0
+[[hint]]
+package = "chromadb"
+path = "chromadb.auth.token.TokenAuthServerProvider"
+target = "chromadb.auth.token_authn.TokenAuthenticationServerProvider"
+quote = "CHROMA_SERVER_AUTH_PROVIDER=\"chromadb.auth.token.TokenAuthServerProvider\" [...] To migrate to the new server configuration, simply change it to: [...] CHROMA_SERVER_AUTHN_PROVIDER=\"chromadb.auth.token_authn.TokenAuthenticationServerProvider\""
+url = "https://docs.trychroma.com/docs/overview/migration#token"
+
+[[hint]]
+package = "chromadb"
+path = "chromadb.auth.token.TokenAuthClientProvider"
+target = "chromadb.auth.token_authn.TokenAuthClientProvider"
+quote = "CHROMA_CLIENT_AUTH_PROVIDER=\"chromadb.auth.token.TokenAuthClientProvider\" [...] New client configuration: [...] CHROMA_CLIENT_AUTH_PROVIDER=\"chromadb.auth.token_authn.TokenAuthClientProvider\""
+url = "https://docs.trychroma.com/docs/overview/migration#token"
+
+[[hint]]
+package = "chromadb"
+path = "chromadb.api.types.EmbeddingFunction.__call__(texts)"
+target = "input"
+quote = "__call__ now takes a single argument, input, to support data of any type D. The texts argument has been removed."
+url = "https://docs.trychroma.com/docs/overview/migration#migration-to-0-4-16-november-7-2023"

@@ -66,6 +66,10 @@ uv run python -m deptime.bench bench/cases --write-baseline bench/baseline.json 
 
 The seed file (`cases/seed.jsonl`) contains well-documented, real-world breaks. Cases marked `known_gap` say which backlog item fixes them.
 
+## Curated hints (DT-DATA-08)
+
+`src/deptime/curated.toml` pairs names with the replacement their project's migration guide or changelog gives, with the quote and URL. ADR 0006 sets what each must pass before it ships: `uv run pytest -m network tests/test_curated.py` checks every quote is on its page, the offline suite checks each quote names both names, and `uv run python bench/curated_check.py` (also run by `bench.yml`) checks the index has both. A guide can be the source of both a curated hint and a benchmark case, so the report also gives the replacement without curated hints (`replacement_uncurated`).
+
 ## Holdout (DT-QA-04)
 
 `tmb/` holds 29 cases from TimeMachine-bench, an outside benchmark, collected after the fixes designed from `cases/` and scored once under a rule fixed in advance. Its first run, 72.4% root cause + boundary, is the number to quote; see `tmb/README.md` and `tmb/results-2026-10-31.md`. `bench.yml` checks it against `tmb/baseline.json`.

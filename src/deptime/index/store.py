@@ -13,6 +13,7 @@ from pathlib import Path
 from packaging.version import InvalidVersion, Version
 
 from deptime.config import PackageSpec
+from deptime.ingest.curated import CURATED_CONFIDENCE, CuratedHint, hints_for
 from deptime.ingest.diff import ChangeEvent, diff_snapshots, initial_events
 from deptime.ingest.replacements import PublicNames, mine
 from deptime.ingest.snapshot import ApiSnapshot, LazySnapshot, SymbolRecord
@@ -106,6 +107,35 @@ def still_public(
     return hints
 
 
+def curated_rows(
+    span_rows: Sequence[tuple[str, int, int, tuple]], hints: Sequence[CuratedHint]
+) -> list[tuple[str, str, str]]:
+    """`(path, target, evidence)` for each curated hint (DT-DATA-08) whose name the package had, or whose argument
+    the function took, under every path the package published the same object at: a re-export, a subclass's
+    inherited method. Rows as in `still_public`."""
+    had: dict[str, set[str]] = {}
+    objects: dict[str, set[str]] = {}  # path -> its canonical objects
+    paths_of: dict[str, set[str]] = {}  # canonical object -> its paths
+    for path, _first, _last, state in span_rows:
+        took = had.setdefault(path, set())
+        took.update(p["name"] for p in json.loads(state[2] or "[]"))
+        took.update(json.loads(state[4] or "{}"))
+        if state[1] and state[0] not in ("module", "alias", "getattr"):
+            objects.setdefault(path, set()).add(state[1])
+            paths_of.setdefault(state[1], set()).add(path)
+    rows = []
+    for hint in hints:
+        func, _, param = hint.path.partition("(")
+        param = param.removesuffix(")")
+        if func not in had or (param and param not in had[func]):
+            continue
+        same = {func} | {p for obj in objects.get(func, ()) for p in paths_of[obj]}
+        for path in sorted(same):
+            if not param or param in had[path]:
+                rows.append((f"{path}({param})" if param else path, hint.target, hint.evidence))
+    return rows
+
+
 @dataclass(frozen=True)
 class RebuildStats:
     package: str
@@ -161,12 +191,14 @@ class IndexStore:
         released_at: dict[str, str | None] | None = None,
         source_files: dict[str, str] | None = None,
         fingerprint: str | None = None,
+        curated: Sequence[CuratedHint] | None = None,
     ) -> RebuildStats:
         """Replace everything stored for `spec.name` with data derived from `snapshots` (any order).
 
         Releases are visited once, in version order, holding at most two snapshots, so memory doesn't grow
         with the number of releases (DT-DATA-03). A `LazySnapshot` that loads as None is skipped.
         `fingerprint` describes the inputs (DT-DATA-41); it isn't stored if any snapshot was skipped.
+        `curated`: the package's curated hints, by default those `deptime/curated.toml` ships (DT-DATA-08).
         """
         released_at, source_files = released_at or {}, source_files or {}
         ordered = sorted(snapshots, key=lambda s: Version(s.version))
@@ -276,6 +308,11 @@ class IndexStore:
         for path, target, conf, evidence in still_public(span_rows, removed, versions):
             if path not in strong:
                 add_repl(path, target, conf, "moved_heuristic", evidence)
+        hints = hints_for(name) if curated is None else curated
+        for path, target, evidence in curated_rows(span_rows, hints):
+            # The library's own text already says it: keep that, so what DepTime finds by itself stays visible.
+            if repl.get((path, target), (0.0,))[0] < STRONG_HINT:
+                add_repl(path, target, CURATED_CONFIDENCE, "curated", evidence)
 
         with self.conn:
             for table, col in (

@@ -15,7 +15,7 @@
 | `expected.symbol_suffix` | End of the expected `finding.symbol`, e.g. `Client.__init__(proxies)` |
 | `expected.issue` | `symbol_removed` / `param_removed` / `module_removed` / … |
 | `expected.last_version_with` | Optional; checked as a prefix (`"1.5"` matches `1.5.3`) |
-| `expected.first_version_with` | Optional, for `*_not_yet_added`; checked as a prefix against the version in DepTime's `pin_to_restore` (`pkg>=X`) |
+| `expected.first_version_with` | Optional, for `*_not_yet_added`; checked as a prefix against DepTime's `first_version_with` |
 | `expected.replacement_contains` | Optional; must appear in one of the top-3 replacement targets |
 | `status` | `expected_pass`, or `known_gap` (with the backlog ID that fixes it) |
 | `fixed_by` | For `known_gap`: the backlog ID(s) that should make it pass |

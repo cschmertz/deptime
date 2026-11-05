@@ -41,6 +41,82 @@ def test_explain_unindexed_version_reports_the_window(dt):
     assert "window" in top.explanation
 
 
+NEW_THING_TB = "ImportError: cannot import name 'NewThing' from 'httpx' (/app/x.py)"
+
+
+def test_an_addition_is_reported_between_two_indexed_releases(dt):
+    # DT-CORE-18: 0.26.0 lacks NewThing and 0.27.2, the next indexed release, has it. Releases may lie in between,
+    # so the answer can't say it was added in 0.27.2.
+    f = dt.explain_error(NEW_THING_TB, {"httpx": "0.26.0"}).findings[0]
+    assert (f.issue, f.last_version_without, f.first_version_with, f.pin_to_restore, f.confidence) == (
+        "symbol_not_yet_added",
+        "0.26.0",
+        "0.27.2",
+        "httpx>=0.27.2",
+        "high",
+    )
+    assert "between httpx 0.26.0 and 0.27.2" in f.explanation
+    assert "first appears" not in f.explanation
+    # Removal fields stay empty on an addition.
+    assert (f.last_version_with, f.first_version_without) == (None, None)
+
+
+def test_an_addition_in_the_window_of_an_unindexed_installed_version(dt):
+    # 0.27.0 isn't indexed: it resolves to 0.26.0, which lacks NewThing, and 0.27.2 has it, so 0.27.0 may too.
+    f = dt.explain_error(NEW_THING_TB, {"httpx": "0.27.0"}).findings[0]
+    assert (f.issue, f.resolved_version, f.confidence) == ("symbol_not_yet_added", "0.26.0", "medium")
+    assert (f.last_version_without, f.first_version_with, f.pin_to_restore) == (
+        "0.26.0",
+        "0.27.2",
+        "httpx>=0.27.2",
+    )
+    assert "your 0.27.0 is in that window and not indexed" in f.explanation
+
+
+def test_a_parameter_addition_is_reported_between_two_indexed_releases():
+    spec = PackageSpec(name="grow", import_names=("grow",), tier="B")
+    mod = SymbolRecord("grow", "module", "grow")
+    unknown = SymbolRecord("grow.run", "alias", "_grow.run")
+
+    def run(*params: list[dict]) -> SymbolRecord:
+        return SymbolRecord("grow.run", "function", "grow.run", list(params))
+
+    def explain(snaps: list[tuple[str, SymbolRecord]], installed: str):
+        store = IndexStore.memory()
+        store.rebuild_package(
+            spec, [ApiSnapshot("grow", v, ["grow"], {"grow": mod, "grow.run": s}) for v, s in snaps]
+        )
+        tb = "TypeError: run() got an unexpected keyword argument 'retries'"
+        return DepTime(store, Coverage(POLICY, (spec,))).explain_error(tb, {"grow": installed}).findings
+
+    old, new = run(_param("url")), run(_param("url"), _param("retries"))
+    [f] = explain([("1.0", old), ("1.2", old), ("2.0", new)], "1.0")
+    assert (f.symbol, f.issue, f.last_version_without, f.first_version_with, f.pin_to_restore) == (
+        "grow.run(retries)",
+        "param_not_yet_added",
+        "1.2",
+        "2.0",
+        "grow>=2.0",
+    )
+    assert "between grow 1.2 and 2.0" in f.explanation
+    # 1.5 isn't indexed and lies between 1.2 (without) and 2.0 (with).
+    [f] = explain([("1.0", old), ("1.2", old), ("2.0", new)], "1.5")
+    assert (f.issue, f.confidence, f.last_version_without, f.first_version_with) == (
+        "param_not_yet_added",
+        "medium",
+        "1.2",
+        "2.0",
+    )
+    assert "your 1.5 is in that window and not indexed" in f.explanation
+    # 1.2's signature is unknown, so the last release shown without `retries` is 1.0.
+    [f] = explain([("1.0", old), ("1.2", unknown), ("2.0", new)], "1.0")
+    assert (f.last_version_without, f.first_version_with) == ("1.0", "2.0")
+    assert "between grow 1.0 and 2.0" in f.explanation
+    # Named but positional-only at the installed release: not an addition, whatever later releases do.
+    positional = run(_param("url"), _param("retries", "positional-only", None))
+    assert explain([("1.0", positional), ("2.0", new)], "1.0") == []
+
+
 def test_explain_removed_symbol_with_replacement(dt):
     res = dt.explain_error(
         "ImportError: cannot import name 'OldThing' from 'httpx' (/v/site-packages/httpx/__init__.py)",

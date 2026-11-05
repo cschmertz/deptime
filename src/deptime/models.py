@@ -146,6 +146,13 @@ class Finding(BaseModel):
     first_version_without: str | None = Field(
         default=None, description="First indexed release without it (unindexed releases may lie in between)."
     )
+    last_version_without: str | None = Field(
+        default=None, description="For *_not_yet_added: last indexed release without it."
+    )
+    first_version_with: str | None = Field(
+        default=None,
+        description="For *_not_yet_added: first indexed release that has it (unindexed releases may lie in between).",
+    )
     deprecated_in: str | None = Field(
         default=None,
         description="Release where the deprecation was first observed; '<=X' if already deprecated in the earliest indexed release X.",

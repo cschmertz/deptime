@@ -28,7 +28,7 @@ def test_wrong_boundary_fails_the_case_but_keeps_the_root_cause(dt):
     assert (r.root_cause, r.boundary, r.replacement, r.passed) == (True, False, None, False)
 
 
-def test_first_version_with_is_scored_against_the_upgrade_advice(dt):
+def test_first_version_with_is_scored_on_the_first_indexed_release_with_it(dt):
     # Code written for a newer release: httpx.NewThing first appears in 0.27.2 in the synthetic index.
     tb = "ImportError: cannot import name 'NewThing' from 'httpx' (/app/x.py)"
     case = _case("new", symbol_suffix="httpx.NewThing", issue="symbol_not_yet_added") | {"traceback": tb}

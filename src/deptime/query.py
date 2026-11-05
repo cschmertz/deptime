@@ -810,13 +810,24 @@ class DepTime:
                 explanation=f"{path} exists up to {name} {last_with} and is absent from {first_without} onward."
                 + hint,
             )
-        first_with = self._version(name, min(s["first_ordinal"] for s in spans))
+        # Unindexed releases may lie between the last release without it and the first with it (DT-CORE-18).
+        first_ord = min(s["first_ordinal"] for s in spans)
+        last_without, first_with = self._version(name, first_ord - 1), self._version(name, first_ord)
+        window = self._window(name, resolved, exact, installed, lambda o: o == first_ord)
         return Finding(
             **base,
             issue="symbol_not_yet_added",
+            last_version_without=last_without,
+            first_version_with=first_with,
             pin_to_restore=f"{name}>={first_with}",
             confidence=self._confidence(resolved, exact),
-            explanation=f"{path} first appears in {name} {first_with}; your version predates it. Upgrade, or use the older API.",
+            explanation=(
+                f"{path} appears {window[2]}."
+                if window
+                else f"{path} appears between {name} {last_without} and {first_with}: {last_without} doesn't have it,"
+                f" {first_with} does. Your version predates it."
+            )
+            + f" Upgrade to {name}>={first_with}, or use the older API.",
         )
 
     def _param_finding(
@@ -960,11 +971,30 @@ class DepTime:
                     else f" Pin {name}<={last_with} or update the call."
                 ),
             )
-        first_with = self._version(name, min(s["first_ordinal"] for s in had))
+        first_ord = min(s["first_ordinal"] for s in had)
+        if first_ord <= ordinal:
+            return None  # the installed release names it but can't take it by keyword (positional-only)
+        # The last release before it shown not to take `param`: one without the function, or whose signature lacks
+        # it, not an unknown one. The installed release is one (checked above), so there always is one (DT-CORE-18).
+        last_ord = next(
+            o
+            for o in range(first_ord - 1, ordinal - 1, -1)
+            if (s := self.store.span_at(name, path, o)) is None or s["params"] is not None
+        )
+        last_without, first_with = self._version(name, last_ord), self._version(name, first_ord)
+        window = self._window(name, resolved, exact, installed, lambda o: o == first_ord)
         return Finding(
             **base,
             issue="param_not_yet_added",
+            last_version_without=last_without,
+            first_version_with=first_with,
             pin_to_restore=f"{name}>={first_with}",
             confidence=confidence,
-            explanation=f"`{param}` was added to {path} in {name} {first_with}; your version predates it.",
+            explanation=(
+                f"`{param}` was added to {path} {window[2]}."
+                if window
+                else f"`{param}` was added to {path} between {name} {last_without} and {first_with}: {last_without}"
+                f" doesn't take it, {first_with} does. Your version predates it."
+            )
+            + f" Upgrade to {name}>={first_with}, or call it without `{param}`.",
         )

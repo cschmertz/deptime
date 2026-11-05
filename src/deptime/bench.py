@@ -73,9 +73,7 @@ def score_case(case: dict, result: ExplainResult, coverage: Coverage) -> CaseRes
     if "last_version_with" in exp:
         boundary = root_cause and (top.last_version_with or "").startswith(exp["last_version_with"])
     elif "first_version_with" in exp:
-        # *_not_yet_added: the first release that has it is the one DepTime advises upgrading to (`pkg>=X`).
-        first_with = (top.pin_to_restore or "").partition(">=")[2] if top else ""
-        boundary = root_cause and first_with.startswith(exp["first_version_with"])
+        boundary = root_cause and (top.first_version_with or "").startswith(exp["first_version_with"])
     if "replacement_contains" in exp:
         replacement = root_cause and any(
             exp["replacement_contains"] in r.target for r in top.replacements[:3]

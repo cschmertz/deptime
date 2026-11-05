@@ -1211,3 +1211,218 @@ def test_a_member_of_an_attribute_is_not_contradicted():
     assert [(r.target, r.confidence) for r in history.replacements] == [
         ("matplotlib.colormaps.register", 0.85)
     ]
+
+
+def _internal_store() -> DepTime:
+    """pymongo/qdrant/instructor/sqlmodel shapes (DT-DATA-22), as internal rows of package `ipkg`."""
+    spec = PackageSpec(name="ipkg", import_names=("ipkg",), tier="B")
+
+    def mod(path: str) -> SymbolRecord:
+        return SymbolRecord(path, "module", path)
+
+    def snap(version: str, public: list[SymbolRecord], internal: list[SymbolRecord]) -> ApiSnapshot:
+        base = [mod("ipkg"), mod("ipkg.cursor"), mod("ipkg.core"), mod("ipkg.response"), mod("ipkg.shared")]
+        return ApiSnapshot(
+            "ipkg",
+            version,
+            ["ipkg"],
+            {r.path: r for r in base + public},
+            internal={r.path: r for r in internal},
+        )
+
+    handle = SymbolRecord("ipkg.response.handle", "function", "ipkg.response.handle", [])
+    opts = SymbolRecord("ipkg.cursor._OPTS", "attribute", "ipkg.cursor._OPTS")
+    opts_moved = SymbolRecord("ipkg.shared._OPTS", "attribute", "ipkg.shared._OPTS")
+    handle_import = SymbolRecord("ipkg.core.handle", "function", "ipkg.response.handle")
+    conn = SymbolRecord("ipkg.core.AsyncConnection", "alias", "sqlalchemy.ext.asyncio.engine.AsyncConnection")
+    models_public = SymbolRecord("ipkg.core.MODELS", "attribute", "ipkg.shared.MODELS")
+    models_import = SymbolRecord("ipkg.core.MODELS", "attribute", "ipkg.shared.MODELS")
+    models = SymbolRecord("ipkg.shared.MODELS", "attribute", "ipkg.shared.MODELS")
+    store = IndexStore.memory()
+    store.rebuild_package(
+        spec,
+        [
+            # 1.0: MODELS is public at ipkg.core; 2.0: only imported there; 3.0: gone from ipkg.core.
+            snap("1.0", [handle, models_public, models], [opts, handle_import, conn]),
+            snap("2.0", [handle, models], [opts, handle_import, conn, models_import]),
+            snap("3.0", [handle, models], [opts_moved]),
+        ],
+    )
+    return DepTime(store, Coverage(POLICY, (spec,)))
+
+
+def test_a_removed_internal_name_is_removed_not_never_existed():
+    # DT-DATA-22: motor 3.5.1 imports pymongo 4.8's `pymongo.cursor._QUERY_OPTIONS`; 4.9 defines it elsewhere.
+    dt = _internal_store()
+    tb = "ImportError: cannot import name '_OPTS' from 'ipkg.cursor' (/venv/lib/python3.12/site-packages/ipkg/cursor.py)"
+    f = dt.explain_error(tb, {"ipkg": "3.0"}).findings[0]
+    assert (f.symbol, f.issue, f.last_version_with, f.first_version_without) == (
+        "ipkg.cursor._OPTS",
+        "symbol_removed",
+        "2.0",
+        "3.0",
+    )
+    assert f.internal and f.pin_to_restore == "ipkg<=2.0"
+    assert "not public API" in f.explanation
+    # The same name is defined in exactly one other module once it's gone here.
+    assert [(r.target, r.confidence, r.source) for r in f.replacements] == [
+        ("ipkg.shared._OPTS", 0.6, "moved_heuristic")
+    ]
+    # Present in the installed release: the error has another cause.
+    f = dt.explain_error(tb, {"ipkg": "2.0"}).findings[0]
+    assert (f.issue, f.internal) == ("present_in_installed_version", True)
+
+
+def test_a_removed_import_points_to_the_object_it_imported():
+    dt = _internal_store()
+    # instructor's `core.patch.handle_response_model`: an import whose object is still public where it's defined.
+    f = dt.explain_error(
+        "AttributeError: module 'ipkg.core' has no attribute 'handle'", {"ipkg": "3.0"}
+    ).findings[0]
+    assert (f.issue, f.last_version_with, f.internal) == ("symbol_removed", "2.0", True)
+    assert [(r.target, r.confidence) for r in f.replacements] == [("ipkg.response.handle", 0.75)]
+    assert "Use ipkg.response.handle instead." in f.explanation
+    # sqlmodel's `AsyncConnection`, imported from sqlalchemy: that's where it is defined.
+    tb = "ImportError: cannot import name 'AsyncConnection' from 'ipkg.core'"
+    f = dt.explain_error(tb, {"ipkg": "3.0"}).findings[0]
+    assert (f.issue, f.last_version_with) == ("symbol_removed", "2.0")
+    assert [(r.target, r.confidence) for r in f.replacements] == [
+        ("sqlalchemy.ext.asyncio.engine.AsyncConnection", 0.6)
+    ]
+
+
+def test_a_name_public_then_internal_is_removed_when_it_goes_from_both():
+    # qdrant-client: `qdrant_fastembed.IDF_EMBEDDING_MODELS` stopped being public in 1.14 but was importable to 1.18.
+    dt = _internal_store()
+    f = dt.explain_error(
+        "ImportError: cannot import name 'MODELS' from 'ipkg.core'", {"ipkg": "3.0"}
+    ).findings[0]
+    assert (f.issue, f.last_version_with, f.first_version_without, f.internal) == (
+        "symbol_removed",
+        "2.0",
+        "3.0",
+        True,
+    )
+    assert "It was public API up to ipkg 1.0." in f.explanation
+    assert [r.target for r in f.replacements] == ["ipkg.shared.MODELS"]
+
+
+def test_check_and_history_know_internal_names():
+    dt = _internal_store()
+    r = dt.check_symbols("ipkg", "2.0", [SymbolQuery(path="ipkg.cursor._OPTS")]).results[0]
+    assert (r.status, r.internal) == ("present", True)
+    r = dt.check_symbols("ipkg", "3.0", [SymbolQuery(path="ipkg.cursor._OPTS")]).results[0]
+    assert (r.status, r.internal) == ("missing", True)
+    assert r.hint.startswith("seen in 1.0..2.0")
+    h = dt.symbol_history("ipkg", "ipkg.cursor._OPTS")
+    assert (h.ever_seen, h.first_seen, h.last_seen, h.present_in_latest, h.internal) == (
+        True,
+        "1.0",
+        "2.0",
+        False,
+        True,
+    )
+    assert "not public API" in h.note
+
+
+def test_an_index_without_internal_rows_still_answers():
+    # Indexes built before DT-DATA-22 have no internal_spans table.
+    dt = _internal_store()
+    dt.store.conn.execute("DROP TABLE internal_spans")
+    f = dt.explain_error(
+        "ImportError: cannot import name '_OPTS' from 'ipkg.cursor'", {"ipkg": "3.0"}
+    ).findings[0]
+    assert (f.issue, f.internal) == ("never_existed", False)
+
+
+def test_a_private_member_of_a_class_is_not_claimed_never_to_have_existed():
+    # weaviate's `_Collections._get_all`: class members that aren't public aren't indexed, so DepTime can't tell.
+    spec = PackageSpec(name="cpkg", import_names=("cpkg",), tier="B")
+    snap = ApiSnapshot(
+        "cpkg",
+        "1.0",
+        ["cpkg"],
+        {"cpkg": SymbolRecord("cpkg", "module", "cpkg")},
+        internal={"cpkg._Things": SymbolRecord("cpkg._Things", "class", "cpkg._Things")},
+    )
+    store = IndexStore.memory()
+    store.rebuild_package(spec, [snap])
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+    f = dt.explain_error(
+        "AttributeError: module 'cpkg' has no attribute '_Things'", {"cpkg": "1.0"}
+    ).findings[0]
+    assert (f.issue, f.internal) == ("present_in_installed_version", True)
+    f = dt._symbol_finding(spec, "cpkg._Things._get_all", *store.resolve_version("cpkg", "1.0"), "1.0")
+    assert (f.issue, f.confidence) == ("never_existed", "low")
+    assert "members of classes" in f.explanation
+
+
+def test_an_internal_name_moved_to_one_of_two_modules_gets_no_hint():
+    spec = PackageSpec(name="apkg", import_names=("apkg",), tier="B")
+    mods = {p: SymbolRecord(p, "module", p) for p in ("apkg", "apkg.a", "apkg.b", "apkg.c")}
+
+    def rec(path: str) -> SymbolRecord:
+        return SymbolRecord(path, "function", path)
+
+    store = IndexStore.memory()
+    store.rebuild_package(
+        spec,
+        [
+            ApiSnapshot("apkg", "1.0", ["apkg"], mods, internal={"apkg.a._f": rec("apkg.a._f")}),
+            ApiSnapshot(
+                "apkg", "2.0", ["apkg"], mods, internal={p: rec(p) for p in ("apkg.b._f", "apkg.c._f")}
+            ),
+        ],
+    )
+    assert store.replacements("apkg", "apkg.a._f") == []
+    # A release carried over from the index keeps its internal names.
+    again = store.snapshot_at(spec, "2.0")
+    assert (
+        set(again.internal) == {"apkg.b._f", "apkg.c._f"} and again.internal["apkg.b._f"].kind == "function"
+    )
+
+
+def test_internal_moves_and_deprecations_follow_the_rows():
+    spec = PackageSpec(name="dpkg", import_names=("dpkg",), tier="B")
+    mods = {p: SymbolRecord(p, "module", p) for p in ("dpkg", "dpkg.core", "dpkg.a", "dpkg.b", "dpkg.c")}
+
+    def rec(path: str, canonical: str | None = None, kind: str = "attribute") -> SymbolRecord:
+        return SymbolRecord(path, kind, canonical or path)
+
+    stack = SymbolRecord("dpkg._stack", "getattr", "dpkg.__getattr__")
+    warned = SymbolRecord("dpkg._stack", "getattr", "dpkg.__getattr__", None, "'_stack' is deprecated.")
+    releases = {
+        "1.0": [rec("dpkg.core._x", "dpkg.a._x"), rec("dpkg.a._x"), rec("dpkg.core._y"), stack],
+        # flask 2.3: the module __getattr__ now warns.
+        "2.0": [
+            rec("dpkg.core._x", "dpkg.a._x"),
+            rec("dpkg.a._x"),
+            rec("dpkg.core._y", "dpkg.b._y"),
+            rec("dpkg.b._y"),
+            warned,
+        ],
+        # The imported object is gone too: the one module that now defines `_x` is the hint, not the old target.
+        "3.0": [rec("dpkg.c._x"), rec("dpkg.core._y", "dpkg.b._y"), rec("dpkg.b._y")],
+    }
+    store = IndexStore.memory()
+    store.rebuild_package(
+        spec,
+        [
+            ApiSnapshot("dpkg", v, ["dpkg"], mods, internal={r.path: r for r in recs})
+            for v, recs in releases.items()
+        ],
+    )
+    assert [(r["target"], r["confidence"]) for r in store.replacements("dpkg", "dpkg.core._x")] == [
+        ("dpkg.c._x", 0.6)
+    ]
+    # `_y` changed from a definition to an import but never went away: no hint.
+    assert store.replacements("dpkg", "dpkg.core._y") == []
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+    f = dt.explain_error("ImportError: cannot import name '_stack' from 'dpkg'", {"dpkg": "3.0"}).findings[0]
+    assert (f.issue, f.last_version_with, f.deprecated_in, f.deprecation_message) == (
+        "symbol_removed",
+        "2.0",
+        "2.0",
+        "'_stack' is deprecated.",
+    )
+    assert "`__getattr__` serves the private name `_stack`" in f.explanation

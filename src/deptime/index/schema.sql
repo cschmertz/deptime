@@ -42,6 +42,20 @@ CREATE TABLE IF NOT EXISTS spans (
 );
 CREATE INDEX IF NOT EXISTS spans_by_tail ON spans(tail, package);
 
+-- Names modules bind that aren't public API (DT-DATA-22), encoded like spans: private names, a module's imports
+-- from outside the standard library, and everything in private modules. Integration libraries import them, and
+-- break when they go. Clients from before DT-DATA-22 don't read this table.
+CREATE TABLE IF NOT EXISTS internal_spans (
+  package       TEXT NOT NULL,
+  path          TEXT NOT NULL,             -- where the module binds it, e.g. pymongo.cursor._QUERY_OPTIONS
+  first_ordinal INTEGER NOT NULL,
+  last_ordinal  INTEGER NOT NULL,
+  kind          TEXT NOT NULL,             -- as in spans; alias for an import griffe can't follow
+  canonical     TEXT,                      -- definition path; for an import, what it imports
+  deprecated    TEXT,                      -- the warning a module __getattr__ serves a private name with
+  PRIMARY KEY (package, path, first_ordinal)
+) WITHOUT ROWID;
+
 CREATE TABLE IF NOT EXISTS events (
   package      TEXT NOT NULL,
   path         TEXT NOT NULL,

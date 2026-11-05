@@ -1933,6 +1933,50 @@ DOCNOTES = {
 }
 
 
+# What integration libraries reach into (DT-DATA-22): pymongo's `cursor._QUERY_OPTIONS`, instructor's
+# `core.patch.handle_response_model` (an import), sqlmodel's `AsyncConnection` (imported from sqlalchemy).
+INTERNALS = {
+    "inner/__init__.py": (
+        "from inner.core import Client\n"
+        '__all__ = ["Client"]\n\n\n'
+        "def __getattr__(name):\n"
+        '    if name == "_old_stack":\n'
+        "        import warnings\n\n"
+        "        warnings.warn(\"'_old_stack' is deprecated and will be removed in 2.4.\", DeprecationWarning)\n"
+        "        return 1\n"
+        "    raise AttributeError(name)\n"
+    ),
+    "inner/core.py": (
+        "from __future__ import annotations\n\n"
+        "import os\n"
+        "from typing import TYPE_CHECKING, Any\n"
+        "from collections import OrderedDict as OD\n\n"
+        "from markupsafe import escape\n\n"
+        "from inner.response import Thing, handle_response\n"
+        "from inner._impl import _helper\n\n"
+        "if TYPE_CHECKING:\n"
+        "    from inner.response import Hidden\n\n"
+        '_QUERY_OPTIONS = {"tailable": 2}\n'
+        "_annotated: int\n"
+        "__dunder__ = 1\n"
+        "_scratch = 1\n"
+        "del _scratch\n\n\n"
+        "def _check_name(name):\n"
+        "    return name\n\n\n"
+        "class _Wrapper:\n"
+        "    def get(self):\n"
+        "        pass\n\n\n"
+        "class Client:\n"
+        "    def _private(self):\n"
+        "        pass\n"
+    ),
+    "inner/response.py": "def handle_response():\n    pass\n\n\nclass Thing:\n    pass\n\n\nclass Hidden:\n    pass\n",
+    "inner/_impl.py": "import json\n\nfrom inner.response import Thing\n\n\ndef _helper():\n    pass\n\n\ndef visible():\n    pass\n",
+    "inner/tests/__init__.py": "",
+    "inner/tests/test_core.py": "def _fixture():\n    pass\n",
+}
+
+
 def _write(root: Path, files: dict[str, str] = FILES) -> Path:
     for rel, text in files.items():
         p = root / rel
@@ -2913,3 +2957,53 @@ def test_snapshot_roundtrip(tmp_path):
     snap.save(out)
     again = ApiSnapshot.load(out)
     assert again.symbols == snap.symbols and again.version == "1.0.0"
+
+
+def test_internal_names_are_recorded_apart_from_the_public_api(tmp_path):
+    # DT-DATA-22: names a module binds that aren't public API, kept apart so "never existed" stays true of them.
+    snap = build_snapshot("inner", "1.0", ["inner"], _write(tmp_path, INTERNALS))
+    internal = {path: (rec.kind, rec.canonical) for path, rec in snap.internal.items()}
+    assert internal == {
+        "inner.core._QUERY_OPTIONS": ("attribute", "inner.core._QUERY_OPTIONS"),
+        "inner.core._check_name": ("function", "inner.core._check_name"),
+        "inner.core._Wrapper": ("class", "inner.core._Wrapper"),
+        # Imports a module makes for its own use, from inside the package or another distribution.
+        "inner.core.Thing": ("class", "inner.response.Thing"),
+        "inner.core.handle_response": ("function", "inner.response.handle_response"),
+        "inner.core._helper": ("function", "inner._impl._helper"),
+        "inner.core.escape": ("alias", "markupsafe.escape"),
+        # A private module, and everything it binds.
+        "inner._impl": ("module", "inner._impl"),
+        "inner._impl._helper": ("function", "inner._impl._helper"),
+        "inner._impl.visible": ("function", "inner._impl.visible"),
+        "inner._impl.Thing": ("class", "inner.response.Thing"),
+        # A private name a module __getattr__ serves.
+        "inner._old_stack": ("getattr", "inner.__getattr__"),
+    }
+    assert (
+        snap.internal["inner._old_stack"].deprecated
+        == "'_old_stack' is deprecated and will be removed in 2.4."
+    )
+    # Public paths stay where they were, and nothing is in both.
+    assert {"inner.Client", "inner.core.Client", "inner.response.handle_response"} <= set(snap.symbols)
+    assert not set(snap.internal) & set(snap.symbols)
+    # Not recorded: standard-library imports, names only type checkers see, annotations without a value, dunders,
+    # deleted names, class members, and test modules.
+    assert not [p for p in snap.symbols if "_QUERY_OPTIONS" in p or "_impl" in p]
+
+
+def test_a_getattr_serves_private_names_as_internal(tmp_path):
+    snap = build_snapshot("shimmy", "1.0", ["shimmy"], _write(tmp_path, SHIMS))
+    assert (snap.internal["shimmy._private"].kind, snap.internal["shimmy._private"].deprecated) == (
+        "getattr",
+        None,
+    )
+    assert "shimmy._private" not in snap.symbols
+
+
+def test_snapshot_roundtrip_keeps_internal_names(tmp_path):
+    snap = build_snapshot("inner", "1.0", ["inner"], _write(tmp_path / "src", INTERNALS))
+    out = tmp_path / "s.json.gz"
+    snap.save(out)
+    again = ApiSnapshot.load(out)
+    assert again.internal == snap.internal and again.symbols == snap.symbols

@@ -110,6 +110,66 @@ def still_public(
     return hints
 
 
+def _is_private(name: str) -> bool:
+    return name.startswith("_") and not (name.startswith("__") and name.endswith("__"))
+
+
+def internal_moves(
+    span_rows: Sequence[tuple[str, int, int, tuple]],
+    internal_rows: Sequence[tuple[str, int, int, tuple]],
+    versions: Sequence[str],
+    import_names: Sequence[str],
+) -> list[tuple[str, str, float, str]]:
+    """Hints for internal names that go away (DT-DATA-22), from the index's own rows.
+
+    An import points to what it imported: at `STILL_PUBLIC_CONFIDENCE` when that is in the package and still there
+    (instructor 1.15.3 dropped `core.patch.handle_response_model`, which only imported
+    `processing.response.handle_response_model`), at `MOVED_CONFIDENCE` when it is in another distribution
+    (sqlmodel's `AsyncConnection` is sqlalchemy's). Otherwise, when exactly one other path defines a name of
+    the same leaf in the release that drops it, that path, at `MOVED_CONFIDENCE` (pymongo 4.9 moved
+    `cursor._QUERY_OPTIONS` to `cursor_shared`). Rows are `(path, first, last, state)`; public states are as in
+    `still_public`, internal ones `(kind, canonical, deprecated)`."""
+    alive: dict[str, list[tuple[int, int]]] = {}
+    defines: dict[str, list[tuple[str, int, int, bool]]] = {}  # leaf -> paths that define it, is it a module
+    for path, first, last, state in [*span_rows, *internal_rows]:
+        alive.setdefault(path, []).append((first, last))
+        if state[1] == path:
+            defines.setdefault(path.rpartition(".")[2], []).append((path, first, last, state[0] == "module"))
+
+    def at(path: str, ordinal: int) -> bool:
+        return any(f <= ordinal <= last for f, last in alive.get(path, ()))
+
+    def inside(path: str) -> bool:
+        return any(path == n or path.startswith(n + ".") for n in import_names)
+
+    hints = []
+    for path, _first, last, (kind, canonical, _deprecated) in internal_rows:
+        ordinal = last + 1
+        if ordinal >= len(versions) or at(path, ordinal):
+            continue
+        version = versions[ordinal]
+        if canonical and canonical != path and kind != "getattr":
+            if not inside(canonical):
+                hints.append((path, canonical, MOVED_CONFIDENCE, f"{path} was an import of {canonical}"))
+                continue
+            if at(canonical, ordinal):
+                evidence = f"{path} was an import of {canonical}, which {version} still has"
+                hints.append((path, canonical, STILL_PUBLIC_CONFIDENCE, evidence))
+                continue
+        leaf = path.rpartition(".")[2]
+        others = {
+            other
+            for other, first, end, is_module in defines.get(leaf, ())
+            if other != path and first <= ordinal <= end and is_module == (kind == "module")
+        }
+        if len(others) == 1:
+            other = others.pop()
+            hints.append(
+                (path, other, MOVED_CONFIDENCE, f"{path} is gone in {version}, where {other} defines {leaf}")
+            )
+    return hints
+
+
 def curated_rows(
     span_rows: Sequence[tuple[str, int, int, tuple]], hints: Sequence[CuratedHint]
 ) -> list[tuple[str, str, str]]:
@@ -139,6 +199,25 @@ def curated_rows(
     return rows
 
 
+def _extend(
+    open_spans: dict[str, tuple[int, int, tuple]], rows: list[tuple], path: str, state: tuple, i: int
+) -> None:
+    """Extend `path`'s open span into release `i` if its state is unchanged, else close it and open another."""
+    cur = open_spans.get(path)
+    if cur and cur[2] == state and cur[1] == i - 1:
+        open_spans[path] = (cur[0], i, state)
+        return
+    if cur:
+        rows.append((path, *cur))
+    open_spans[path] = (i, i, state)
+
+
+def _close(open_spans: dict[str, tuple[int, int, tuple]], rows: list[tuple], i: int) -> None:
+    """Close the spans of paths release `i` doesn't have."""
+    for path in [p for p, (_f, last, _s) in open_spans.items() if last < i]:
+        rows.append((path, *open_spans.pop(path)))
+
+
 @dataclass(frozen=True)
 class RebuildStats:
     package: str
@@ -146,12 +225,14 @@ class RebuildStats:
     spans: int
     events: int
     replacements: int
+    internal: int = 0
 
 
 class IndexStore:
     def __init__(self, conn: sqlite3.Connection):
         self.conn = conn
         self.conn.row_factory = sqlite3.Row
+        self._internal: bool | None = None  # whether the index has internal_spans (DT-DATA-22)
 
     # ------------------------------------------------------------------ lifecycle
     @classmethod
@@ -213,6 +294,8 @@ class IndexStore:
         release_rows: list[tuple] = []
         span_rows: list[tuple] = []
         open_spans: dict[str, tuple[int, int, tuple]] = {}  # path -> (first, last, state)
+        internal_rows: list[tuple] = []
+        open_internal: dict[str, tuple[int, int, tuple]] = {}
         events: list[tuple[int, int | None, ChangeEvent]] = []
         prev: ApiSnapshot | None = None
         for item in ordered:
@@ -242,21 +325,18 @@ class IndexStore:
                     if rec.deprecated_params is None
                     else json.dumps(rec.deprecated_params, sort_keys=True),
                 )
-                cur = open_spans.get(path)
-                if cur and cur[2] == state and cur[1] == i - 1:
-                    open_spans[path] = (cur[0], i, state)
-                    continue
-                if cur:
-                    span_rows.append((path, *cur))
-                open_spans[path] = (i, i, state)
-            for path in [p for p, (_f, last, _s) in open_spans.items() if last < i]:
-                span_rows.append((path, *open_spans.pop(path)))
+                _extend(open_spans, span_rows, path, state, i)
+            _close(open_spans, span_rows, i)
+            for path, rec in snap.internal.items():
+                _extend(open_internal, internal_rows, path, (rec.kind, rec.canonical, rec.deprecated), i)
+            _close(open_internal, internal_rows, i)
             if prev is None:
                 events.extend((0, None, ev) for ev in initial_events(snap))
             else:
                 events.extend((i, i - 1, ev) for ev in diff_snapshots(prev, snap))
             prev = snap
         span_rows.extend((path, *cur) for path, cur in open_spans.items())
+        internal_rows.extend((path, *cur) for path, cur in open_internal.items())
 
         repl: dict[tuple[str, str], tuple[float, str, str]] = {}
 
@@ -315,6 +395,10 @@ class IndexStore:
         for path, target, conf, evidence in still_public(span_rows, removed, versions):
             if path not in strong:
                 add_repl(path, target, conf, "moved_heuristic", evidence)
+        for path, target, conf, evidence in internal_moves(
+            span_rows, internal_rows, versions, spec.import_names
+        ):
+            add_repl(path, target, conf, "moved_heuristic", evidence)
         hints = hints_for(name) if curated is None else curated
         for path, target, evidence in curated_rows(span_rows, hints):
             # The library's own text already says it: keep that, so what DepTime finds by itself stays visible.
@@ -324,6 +408,7 @@ class IndexStore:
         with self.conn:
             for table, col in (
                 ("assembly", "package"),
+                ("internal_spans", "package"),
                 ("replacements", "package"),
                 ("events", "package"),
                 ("spans", "package"),
@@ -352,6 +437,11 @@ class IndexStore:
                 ],
             )
             self.conn.executemany(
+                "INSERT INTO internal_spans(package, path, first_ordinal, last_ordinal, kind, canonical, deprecated)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [(name, path, first, last, *state) for path, first, last, state in internal_rows],
+            )
+            self.conn.executemany(
                 "INSERT INTO events(package, path, ordinal, prev_ordinal, kind, detail) VALUES (?, ?, ?, ?, ?, ?)",
                 [
                     (name, ev.path, o, p, ev.kind, json.dumps(ev.detail, sort_keys=True))
@@ -366,7 +456,9 @@ class IndexStore:
                 ],
             )
             self.conn.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('built_at', ?)", (_now(),))
-        return RebuildStats(name, len(release_rows), len(span_rows), len(events), len(repl))
+        return RebuildStats(
+            name, len(release_rows), len(span_rows), len(events), len(repl), len(internal_rows)
+        )
 
     def stamp_built_at(self) -> None:
         """Rows kept as they were (DT-DATA-41) are still current as of this run."""
@@ -425,6 +517,17 @@ class IndexStore:
             )
             for r in rows
         }
+        internal = {}
+        if self.has_internal():
+            rows = self.conn.execute(
+                "SELECT path, kind, canonical, deprecated FROM internal_spans "
+                "WHERE package = ? AND first_ordinal <= ? AND last_ordinal >= ?",
+                (spec.name, rel["ordinal"], rel["ordinal"]),
+            ).fetchall()
+            internal = {
+                r["path"]: SymbolRecord(r["path"], r["kind"], r["canonical"], None, r["deprecated"])
+                for r in rows
+            }
         errors = ["analysis problem recorded by an earlier run"] * rel["error_count"]
         requires = rel["requires"] if "requires" in rel.keys() else None  # noqa: SIM118
         return ApiSnapshot(
@@ -434,6 +537,7 @@ class IndexStore:
             symbols,
             errors,
             requires=None if requires is None else json.loads(requires),
+            internal=internal,
         )
 
     def declared_dependencies(self, name: str, ordinal: int | None = None) -> set[str]:
@@ -486,6 +590,35 @@ class IndexStore:
     def span_at(self, name: str, path: str, ordinal: int) -> sqlite3.Row | None:
         return self.conn.execute(
             "SELECT * FROM spans WHERE package = ? AND path = ? AND first_ordinal <= ? AND last_ordinal >= ?",
+            (name, path, ordinal, ordinal),
+        ).fetchone()
+
+    def has_internal(self) -> bool:
+        """Whether the index records internal names (DT-DATA-22); older ones don't have the table."""
+        if self._internal is None:
+            self._internal = (
+                self.conn.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'internal_spans'"
+                ).fetchone()
+                is not None
+            )
+        return self._internal
+
+    def internal_spans(self, name: str, path: str) -> list[sqlite3.Row]:
+        """`path`'s spans as a name that isn't public API, each with `internal` = 1."""
+        if not self.has_internal():
+            return []
+        return self.conn.execute(
+            "SELECT *, 1 AS internal FROM internal_spans WHERE package = ? AND path = ? ORDER BY first_ordinal",
+            (name, path),
+        ).fetchall()
+
+    def internal_span_at(self, name: str, path: str, ordinal: int) -> sqlite3.Row | None:
+        if not self.has_internal():
+            return None
+        return self.conn.execute(
+            "SELECT *, 1 AS internal FROM internal_spans"
+            " WHERE package = ? AND path = ? AND first_ordinal <= ? AND last_ordinal >= ?",
             (name, path, ordinal, ordinal),
         ).fetchone()
 

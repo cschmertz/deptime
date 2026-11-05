@@ -105,6 +105,31 @@ def _requires(raw: str | None, param: str) -> bool:
     return any(p["name"] == param and is_required(p) for p in json.loads(raw)) if raw else False
 
 
+def _is_internal(span: sqlite3.Row) -> bool:
+    """Whether a span row is an internal name's (DT-DATA-22), from `IndexStore.internal_spans`."""
+    return "internal" in span.keys()  # noqa: SIM118
+
+
+def _is_private(name: str) -> bool:
+    return name.startswith("_") and not (name.startswith("__") and name.endswith("__"))
+
+
+def _internal_reason(path: str, span: sqlite3.Row) -> str:
+    """Why `path` isn't public API, for an explanation."""
+    module, _, leaf = path.rpartition(".")
+    if span["kind"] == "getattr":
+        return f"{module}'s `__getattr__` serves the private name `{leaf}`"
+    if _is_private(leaf):
+        return f"`{leaf}` is a private name"
+    private = next((i for i, part in enumerate(path.split(".")[:-1]) if _is_private(part)), None)
+    if private is not None:
+        return f"it is in the private module {'.'.join(path.split('.')[: private + 1])}"
+    canonical = span["canonical"]
+    if canonical and canonical != path:
+        return f"{module} imports it from {canonical.rpartition('.')[0] or canonical} for its own use"
+    return "the package doesn't publish it"
+
+
 def _before_index(rels: list[sqlite3.Row]) -> str:
     """The index starts at a release, so a name removed before it looks the same as one that never existed."""
     return f" If it was removed before {rels[0]['version']}, the earliest release DepTime indexes, it won't show here."
@@ -273,6 +298,9 @@ class DepTime:
         rels = self.store.releases(name)
         latest = rels[-1]
         spans = self.store.spans(name, full)
+        internal = self.store.internal_spans(name, full)
+        if internal:
+            return self._internal_history(name, full, spans, internal, latest)
         if not spans:
             return SymbolHistory(
                 package=name,
@@ -302,6 +330,32 @@ class DepTime:
             signature_at_last_seen=_params(spans[-1]["params"]),
             events=[self._event(name, r) for r in self.store.events(name, full)],
             replacements=replacements,
+        )
+
+    def _internal_history(
+        self, name: str, path: str, spans: list[sqlite3.Row], internal: list[sqlite3.Row], latest: sqlite3.Row
+    ) -> SymbolHistory:
+        """History of a path that was, at least for a while, a name that isn't public API (DT-DATA-22)."""
+        both = sorted([*spans, *internal], key=lambda s: s["first_ordinal"])
+        last = max(both, key=lambda s: s["last_ordinal"])
+        note = f"{path} is not public API: {_internal_reason(path, internal[-1])}."
+        if spans:
+            public_last = self._version(name, max(s["last_ordinal"] for s in spans))
+            note += f" It was public API up to {name} {public_last}."
+        return SymbolHistory(
+            package=name,
+            path=path,
+            indexed=True,
+            ever_seen=True,
+            first_seen=self._version(name, both[0]["first_ordinal"]),
+            last_seen=self._version(name, last["last_ordinal"]),
+            latest_indexed_version=latest["version"],
+            present_in_latest=last["last_ordinal"] == latest["ordinal"],
+            signature_at_last_seen=_params(spans[-1]["params"]) if spans else None,
+            events=[self._event(name, r) for r in self.store.events(name, path)],
+            replacements=[self._replacement(r) for r in self._hints(name, path)],
+            note=note,
+            internal=_is_internal(last),
         )
 
     def check_symbols(self, package: str, version: str, symbols: list[SymbolQuery]) -> CheckSymbolsResult:
@@ -335,15 +389,30 @@ class DepTime:
         for q in symbols:
             full = self._qualify(spec, q.path)
             span = self.store.span_at(name, full, row["ordinal"])
+            if (
+                span is None
+                and (inner := self.store.internal_span_at(name, full, row["ordinal"])) is not None
+            ):
+                hint = f"present, but not public API: {_internal_reason(full, inner)}"
+                results.append(
+                    SymbolCheck(
+                        path=full, status="present", deprecated=inner["deprecated"], hint=hint, internal=True
+                    )
+                )
+                continue
             if span is None:
-                spans = self.store.spans(name, full)
+                spans = sorted(
+                    [*self.store.spans(name, full), *self.store.internal_spans(name, full)],
+                    key=lambda s: s["first_ordinal"],
+                )
                 if spans:
                     seen = f"seen in {self._version(name, spans[0]['first_ordinal'])}..{self._version(name, max(s['last_ordinal'] for s in spans))}"
                 else:
                     seen = "never seen in any indexed release"
                 repl = [r for r in self._hints(name, full) if r["confidence"] >= EXPLAIN_MIN_CONFIDENCE]
                 hint = seen + (f"; try {repl[0]['target']}" if repl else "")
-                results.append(SymbolCheck(path=full, status="missing", hint=hint))
+                internal = bool(spans) and _is_internal(max(spans, key=lambda s: s["last_ordinal"]))
+                results.append(SymbolCheck(path=full, status="missing", hint=hint, internal=internal))
                 continue
             params_raw, callable_span = span["params"], span
             if params_raw is None and span["kind"] == "class":
@@ -769,7 +838,11 @@ class DepTime:
         assert self.store is not None
         name = spec.name
         rels = self.store.releases(name)
-        spans = self.store.spans(name, path)
+        # Public spans, and spans of the same path as a name that isn't public API (DT-DATA-22).
+        spans = sorted(
+            [*self.store.spans(name, path), *self.store.internal_spans(name, path)],
+            key=lambda s: s["first_ordinal"],
+        )
         base = {
             "package": name,
             "symbol": path,
@@ -778,34 +851,19 @@ class DepTime:
         }
         ordinal = resolved["ordinal"] if resolved else rels[-1]["ordinal"]
         if not spans:
-            explanation = f"{path} does not exist in any indexed release of {name} ({rels[0]['version']}..{rels[-1]['version']})."
-            # A module or class __getattr__ can create names at runtime (numpy served np.float this way), and
-            # `import a.b` never consults one.
-            owner = path.rpartition(".")[0]
-            dynamic = (
-                not module
-                and bool(owner)
-                and self.store.span_at(name, f"{owner}.__getattr__", ordinal) is not None
-            )
-            if dynamic:
-                explanation += (
-                    f" {owner} defines `__getattr__` at {self._version(name, ordinal)}, so it can create names"
-                    " at runtime, which DepTime's static index can't see."
-                )
-            return Finding(
-                **base,
-                issue="never_existed",
-                confidence="medium" if resolved and not dynamic else "low",
-                explanation=explanation
-                + " It may be misremembered or belong to another package."
-                + _before_index(rels),
-            )
+            return self._never_existed(name, path, rels, resolved, ordinal, module, base)
+
+        def has(o: int) -> sqlite3.Row | None:
+            return self.store.span_at(name, path, o) or self.store.internal_span_at(name, path, o)
+
         dep_version, dep_message = self._deprecation(name, path)
+        if dep_version is None:
+            dep_version, dep_message = self._internal_deprecation(name, spans)
         indexed = [self._replacement(r) for r in self._hints(name, path)]
-        if self.store.span_at(name, path, ordinal) is not None:
-            window = self._window(
-                name, resolved, exact, installed, lambda o: self.store.span_at(name, path, o) is None
-            )
+        if (now := has(ordinal)) is not None:
+            internal = _is_internal(now)
+            not_public = self._not_public(name, path, spans, now) if internal else ""
+            window = self._window(name, resolved, exact, installed, lambda o: has(o) is None)
             if window:
                 lo, hi, text = window
                 live = self._error_hints(spec, path, [ordinal, ordinal + 1], message)
@@ -819,7 +877,8 @@ class DepTime:
                     replacements=_merge(live, indexed),
                     pin_to_restore=f"{name}<={lo}",
                     confidence="medium",
-                    explanation=f"{path} disappears {text}.",
+                    explanation=f"{not_public}{path} disappears {text}.",
+                    internal=internal,
                 )
             return Finding(
                 **base,
@@ -827,18 +886,29 @@ class DepTime:
                 confidence="low",
                 deprecated_in=dep_version,
                 deprecation_message=dep_message,
-                explanation=f"{path} exists in {name} {self._version(name, ordinal)} per the index; the error likely has another cause "
+                explanation=f"{not_public}{path} exists in {name} {self._version(name, ordinal)} per the index; the error likely has another cause "
                 "(different interpreter/venv, a shadowing local module, or a lazily-imported optional dependency).",
+                internal=internal,
             )
         before = [s for s in spans if s["last_ordinal"] < ordinal]
         if before:
-            last_ord = max(s["last_ordinal"] for s in before)
+            last = max(before, key=lambda s: s["last_ordinal"])
+            last_ord = last["last_ordinal"]
             last_with, first_without = self._version(name, last_ord), self._version(name, last_ord + 1)
             replacements = _merge(self._error_hints(spec, path, [ordinal, last_ord + 1], message), indexed)
             strong = [r for r in replacements if r.confidence >= EXPLAIN_MIN_CONFIDENCE]
             hint = f" Use {strong[0].target} instead." if strong else ""
+            internal = _is_internal(last)
+            explanation = f"{path} exists up to {name} {last_with} and is absent from {first_without} onward."
+            if internal:
+                explanation = (
+                    self._not_public(name, path, spans, last)
+                    + explanation
+                    + f" Code that imports it, usually another library, needs a release that supports {name}"
+                    f" {first_without}, or pin {name}<={last_with}."
+                )
             # `from pkg import sub` and `pkg.sub` name a submodule as an attribute; the index knows it's a module.
-            was_module = module or max(before, key=lambda s: s["last_ordinal"])["kind"] == "module"
+            was_module = module or last["kind"] == "module"
             return Finding(
                 **base,
                 issue="module_removed" if was_module else "symbol_removed",
@@ -849,13 +919,15 @@ class DepTime:
                 replacements=replacements,
                 pin_to_restore=f"{name}<={last_with}",
                 confidence=self._confidence(resolved, exact),
-                explanation=f"{path} exists up to {name} {last_with} and is absent from {first_without} onward."
-                + hint,
+                explanation=explanation + hint,
+                internal=internal,
             )
         # Unindexed releases may lie between the last release without it and the first with it (DT-CORE-18).
         first_ord = min(s["first_ordinal"] for s in spans)
         last_without, first_with = self._version(name, first_ord - 1), self._version(name, first_ord)
         window = self._window(name, resolved, exact, installed, lambda o: o == first_ord)
+        first = spans[0]
+        internal = _is_internal(first)
         return Finding(
             **base,
             issue="symbol_not_yet_added",
@@ -863,13 +935,82 @@ class DepTime:
             first_version_with=first_with,
             pin_to_restore=f"{name}>={first_with}",
             confidence=self._confidence(resolved, exact),
-            explanation=(
+            explanation=(self._not_public(name, path, spans, first) if internal else "")
+            + (
                 f"{path} appears {window[2]}."
                 if window
                 else f"{path} appears between {name} {last_without} and {first_with}: {last_without} doesn't have it,"
                 f" {first_with} does. Your version predates it."
             )
             + f" Upgrade to {name}>={first_with}, or use the older API.",
+            internal=internal,
+        )
+
+    def _not_public(self, name: str, path: str, spans: list[sqlite3.Row], span: sqlite3.Row) -> str:
+        """The start of an explanation about a name that isn't public API (DT-DATA-22)."""
+        text = f"{path} is not public API ({_internal_reason(path, span)}), so {name} can change it without a deprecation."
+        public = [
+            s["last_ordinal"]
+            for s in spans
+            if not _is_internal(s) and s["last_ordinal"] < span["first_ordinal"]
+        ]
+        if public:
+            text += f" It was public API up to {name} {self._version(name, max(public))}."
+        return text + " "
+
+    def _internal_deprecation(self, name: str, spans: list[sqlite3.Row]) -> tuple[str | None, str | None]:
+        """(version, message) of the first warning a module `__getattr__` serves a private name with (flask 2.3's
+        `_app_ctx_stack`); "<=X" when it's already there in the earliest indexed release X."""
+        for span in spans:
+            if _is_internal(span) and span["deprecated"]:
+                version = self._version(name, span["first_ordinal"])
+                return (f"<={version}" if span["first_ordinal"] == 0 else version), untrusted_text(
+                    span["deprecated"]
+                )
+        return None, None
+
+    def _never_existed(
+        self,
+        name: str,
+        path: str,
+        rels: list[sqlite3.Row],
+        resolved: sqlite3.Row | None,
+        ordinal: int,
+        module: bool,
+        base: dict,
+    ) -> Finding:
+        assert self.store is not None
+        explanation = f"{path} does not exist in any indexed release of {name} ({rels[0]['version']}..{rels[-1]['version']})."
+        # A module or class __getattr__ can create names at runtime (numpy served np.float this way), and
+        # `import a.b` never consults one.
+        owner, _, leaf = path.rpartition(".")
+        dynamic = (
+            not module
+            and bool(owner)
+            and self.store.span_at(name, f"{owner}.__getattr__", ordinal) is not None
+        )
+        if dynamic:
+            explanation += (
+                f" {owner} defines `__getattr__` at {self._version(name, ordinal)}, so it can create names"
+                " at runtime, which DepTime's static index can't see."
+            )
+        # A class's private members, and a private class's members, aren't indexed (DT-DATA-22).
+        owners = [*self.store.spans(name, owner), *self.store.internal_spans(name, owner)] if owner else []
+        unindexed_member = any(s["kind"] == "class" for s in owners) and (
+            _is_private(leaf) or all(_is_internal(s) for s in owners)
+        )
+        if unindexed_member:
+            explanation += (
+                f" {owner} is a class, and DepTime doesn't index the private members of classes or the members of"
+                f" private classes, so it can't tell whether {leaf} existed."
+            )
+        else:
+            explanation += " It may be misremembered or belong to another package."
+        return Finding(
+            **base,
+            issue="never_existed",
+            confidence="medium" if resolved and not dynamic and not unindexed_member else "low",
+            explanation=explanation + _before_index(rels),
         )
 
     def _param_finding(

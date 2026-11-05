@@ -31,7 +31,7 @@ from deptime.ingest.replacements import (
     worded_deprecated,
 )
 
-SNAPSHOT_FORMAT = 15  # bump when extraction changes: cached snapshots in another format are rebuilt
+SNAPSHOT_FORMAT = 16  # bump when extraction changes: cached snapshots in another format are rebuilt
 MAX_DEPTH = 12  # guards pathological re-export cycles
 
 DEPRECATED_DECORATOR_RE = re.compile(r"^(?:[\w.]+\.)?deprecated\b(?:\(.*\))?$", re.S)
@@ -84,11 +84,16 @@ class ApiSnapshot:
     namespace_skip: list[str] = field(default_factory=list)
     # The analysed artifact's `Requires-Dist`, normalized (DT-DATA-14); None when unknown, and in older snapshots.
     requires: list[str] | None = None
+    # Names modules bind that aren't public API (DT-DATA-22), by path: private names, a module's imports from
+    # outside the standard library, and everything in private modules. Kind and canonical path only, plus the
+    # deprecation a module `__getattr__` serves a private name with. Never also in `symbols`.
+    internal: dict[str, SymbolRecord] = field(default_factory=dict)
 
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         payload = asdict(self)
         payload["symbols"] = [asdict(s) for s in self.symbols.values()]
+        payload["internal"] = [asdict(s) for s in self.internal.values()]
         with gzip.open(path, "wt", encoding="utf-8") as fh:
             json.dump(payload, fh, separators=(",", ":"), sort_keys=True)
 
@@ -97,7 +102,8 @@ class ApiSnapshot:
         with gzip.open(path, "rt", encoding="utf-8") as fh:
             payload = json.load(fh)
         symbols = {s["path"]: SymbolRecord(**s) for s in payload.pop("symbols")}
-        return cls(symbols=symbols, **payload)
+        internal = {s["path"]: SymbolRecord(**s) for s in payload.pop("internal", [])}
+        return cls(symbols=symbols, internal=internal, **payload)
 
 
 @dataclass(frozen=True)
@@ -2496,13 +2502,15 @@ class _GetattrShim:
     """`names`: each served name with its deprecation message. `bound`: what the `.py` binds itself, so never
     reaches `__getattr__` (None: unknowable, after a star import). `copied`: names a loop binds through
     `globals()[n] = ...`, which griffe can't see. `deleted`: names the module binds and then `del`s, which griffe
-    still lists (numpy 1.25's `import math` ... `del math`)."""
+    still lists (numpy 1.25's `import math` ... `del math`). `private`: served `_names`, as `names` (DT-DATA-22:
+    flask 2.3's `_app_ctx_stack`)."""
 
     names: dict[str, str | None] = field(default_factory=dict)
     forwards: list[_Forward] = field(default_factory=list)
     bound: frozenset[str] | None = None
     copied: frozenset[str] = frozenset()
     deleted: frozenset[str] = frozenset()
+    private: dict[str, str | None] = field(default_factory=dict)
 
 
 def _copies_into_globals(loop: ast.For) -> bool:
@@ -2597,17 +2605,17 @@ def getattr_served(mod: griffe.Module) -> _GetattrShim:
     shim = _Shim(mod.path, args[0].arg, tables, exports, mod, bound, literals=literals)
     served = _Served()
     _reach(func.body, _Names(frozenset(), exclude=True), [], shim, served)
-    names = {
-        name: _shim_message(trail, name, shim)
-        for name, trail in sorted(served.names.items())
-        if name.isidentifier()
-        and (not name.startswith("_") or (name.startswith("__") and name.endswith("__")))
-    }
+    names: dict[str, str | None] = {}
+    private: dict[str, str | None] = {}
+    for name, trail in sorted(served.names.items()):
+        if name.isidentifier():
+            into = private if _is_private(name) else names
+            into[name] = _shim_message(trail, name, shim)
     if not served.forwards:
-        return _GetattrShim(names, deleted=frozenset(deleted))
+        return _GetattrShim(names, deleted=frozenset(deleted), private=private)
     own, copied = _module_names(tree.body)
     forwards = [_Forward(target, excluded, trail, shim) for target, excluded, trail in served.forwards]
-    return _GetattrShim(names, forwards, own, copied, frozenset(deleted))
+    return _GetattrShim(names, forwards, own, copied, frozenset(deleted), private)
 
 
 @dataclass(frozen=True)
@@ -2906,6 +2914,11 @@ def _within(path: str, prefix: str) -> bool:
     return path == prefix or path.startswith(prefix + ".")
 
 
+def _is_private(name: str) -> bool:
+    """`_name` and `__name`, not a dunder."""
+    return name.startswith("_") and not (name.startswith("__") and name.endswith("__"))
+
+
 def _is_test_name(part: str) -> bool:
     return part in {"tests", "conftest"} or part.startswith("test_")
 
@@ -3196,6 +3209,67 @@ class _Walker:
                 SymbolRecord(public_path, target.kind.value, target.path, None, deprecation_message(target))
             )
 
+    def internal(self, root: griffe.Module) -> None:
+        """Record what the modules under `root` bind that isn't public API (DT-DATA-22), after the public walk.
+
+        Integration libraries import these, and their users get the error when they go: motor 3.5 imports
+        pymongo 4.8's `pymongo.cursor._QUERY_OPTIONS`, openinference imports `handle_response_model` from
+        instructor's `core.patch`, which only imported it, and fastapi-pagination imports sqlalchemy's
+        `AsyncConnection` from sqlmodel's `ext.asyncio.session`. Recorded by the path they're bound at: a module's
+        private names, its imports from outside the standard library, the private names its `__getattr__`
+        serves, and every name of a module that isn't public (`pymongo._csot`), with the module itself. Not
+        recorded: dunders, names only type checkers see, annotations without a value, names the module deletes,
+        class members, test modules and modules that always raise. Kind and canonical path only: no signatures.
+        """
+        stack, seen = [root], set()
+        while stack:
+            mod = stack.pop()
+            if mod.path in seen or _is_test_module(mod.path) or self._shapes(mod).raises:
+                continue
+            seen.add(mod.path)
+            if mod.path not in self.snap.symbols and mod.path not in self.roots:
+                self.snap.internal[mod.path] = SymbolRecord(mod.path, "module", mod.path)
+            deleted = self._shapes(mod).deleted
+            for name, member in list(mod.members.items()):
+                if not member.is_alias and member.is_module:
+                    stack.append(member)  # type: ignore[arg-type]
+                    continue
+                path = f"{mod.path}.{name}"
+                if path in self.snap.symbols or (name.startswith("__") and name.endswith("__")):
+                    continue
+                if name in deleted or not member.runtime:
+                    continue
+                rec = self._internal_record(path, member)
+                if rec is not None:
+                    self.snap.internal[path] = rec
+            hook = mod.members.get("__getattr__")
+            if hook is not None and not hook.is_alias:
+                if mod.path not in self.shims:
+                    self.shims[mod.path] = getattr_served(mod)
+                shim = self.shims[mod.path]
+                for name, message in shim.private.items():
+                    member = mod.members.get(name)
+                    if member is None or name in shim.deleted or not member.runtime:
+                        path = f"{mod.path}.{name}"
+                        self.snap.internal[path] = SymbolRecord(
+                            path, "getattr", f"{mod.path}.__getattr__", None, message
+                        )
+
+    def _internal_record(self, path: str, member: griffe.Object | griffe.Alias) -> SymbolRecord | None:
+        if not member.is_alias:
+            if member.is_attribute and member.value is None:  # type: ignore[union-attr]  # `timeout: float`
+                return None
+            return SymbolRecord(path, member.kind.value, member.path)
+        if member.wildcard:  # type: ignore[union-attr]  # a star import griffe couldn't expand
+            return None
+        source = member.target_path  # type: ignore[union-attr]
+        if source.split(".")[0] in STDLIB_MODULES or source.startswith("__future__."):
+            return None
+        target = _resolve(member)
+        if target is None:
+            return SymbolRecord(path, "alias", source)
+        return SymbolRecord(path, target.kind.value, target.path)
+
     def cls(self, cls: griffe.Class, public_path: str) -> None:
         self.record(SymbolRecord(public_path, "class", cls.path, None, deprecation_message(cls)))
         try:
@@ -3420,6 +3494,11 @@ def build_snapshot(
                 walker.module(loaded, import_name)
             else:
                 walker.member(loaded, import_name, 0)
+                continue
+            try:
+                walker.internal(loaded)
+            except Exception as exc:  # the public API is already recorded; don't lose it over these
+                snap.errors.append(f"internal names of {import_name}: {type(exc).__name__}: {exc}")
     finally:
         _READINGS = None
         _clear_griffe_caches()

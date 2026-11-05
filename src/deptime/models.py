@@ -70,6 +70,12 @@ class SymbolHistory(BaseModel):
     events: list[HistoryEvent] = Field(default_factory=list)
     replacements: list[Replacement] = Field(default_factory=list)
     note: str | None = None
+    internal: bool = Field(
+        default=False,
+        description="True when the name isn't public API: a private name, a name a module imports for its own use, or a name"
+        " in a private module. Code that uses one, usually another library, breaks when it changes, with no"
+        " deprecation first.",
+    )
 
 
 class SymbolQuery(BaseModel):
@@ -83,6 +89,12 @@ class SymbolCheck(BaseModel):
     rejected_kwargs: list[str] = Field(default_factory=list)
     deprecated: UntrustedText = None
     hint: str | None = None
+    internal: bool = Field(
+        default=False,
+        description="True when the name isn't public API: a private name, a name a module imports for its own use, or a name"
+        " in a private module. Code that uses one, usually another library, breaks when it changes, with no"
+        " deprecation first.",
+    )
 
 
 class CheckSymbolsResult(BaseModel):
@@ -167,6 +179,12 @@ class Finding(BaseModel):
     )
     confidence: Confidence
     explanation: str
+    internal: bool = Field(
+        default=False,
+        description="True when the name isn't public API: a private name, a name a module imports for its own use, or a name"
+        " in a private module. Code that uses one, usually another library, breaks when it changes, with no"
+        " deprecation first.",
+    )
 
 
 class ExplainResult(BaseModel):

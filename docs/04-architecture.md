@@ -64,6 +64,7 @@ The full schema is in `src/deptime/index/schema.sql`.
 - **`spans`**: interval encoding. Each row is a *maximal run of consecutive indexed releases in which a public path has an identical state* (kind, canonical path, params, the symbol's own deprecation, and the arguments its warnings, decorators or docstring deprecate).
   - Storage grows with the number of changes, not symbols × versions.
   - "Does X exist at version V?" is a point query.
+- **`internal_spans`**: the same encoding for names modules bind that aren't public API: private names, a module's imports from outside the standard library, the private names a module `__getattr__` serves, and every name in a private module (DT-DATA-22). Integration libraries import them (motor imported pymongo 4.8's `pymongo.cursor._QUERY_OPTIONS`) and break when they go. Kind and canonical path only, no signatures, and no events, so `diff_versions` is unchanged. Not recorded: class members other than the public ones, names only type checkers see, and the standard library's names. Clients from before DT-DATA-22 don't read the table.
 - **`events`**: diff facts per release. `prev_ordinal IS NULL` marks state already present in the earliest indexed release, which is why `deprecated_in = "<=X"`.
 - **`replacements`**: candidates per symbol, or per `func(param)`, with confidence, source and evidence.
 - **Snapshots** (`.json.gz`) are the immutable intermediate. CI caches them, so a nightly run only analyses new releases, and the whole index can be rebuilt from them after any change to the diff logic.

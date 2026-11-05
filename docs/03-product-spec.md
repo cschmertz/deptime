@@ -70,6 +70,7 @@ All tools are read-only and idempotent, and return structured output (pydantic m
   - `pin_to_restore`
   - `confidence`
   - `explanation`
+  - `internal`: true when the name isn't public API but a module binds it: a private name such as pymongo 4.8's `pymongo.cursor._QUERY_OPTIONS`, a name a module imports for its own use such as instructor's `core.patch.handle_response_model`, or a name in a private module. Their history is indexed too (DT-DATA-22), so a removed one is `symbol_removed` with its versions, not `never_existed`. A removed import points to what it imported: at 0.75 when that is in the package and still there, at 0.6 when it is another distribution's (sqlmodel's `AsyncConnection` is sqlalchemy's). Otherwise, when exactly one other module defines the same name in the release that drops it, that path at 0.6 (pymongo 4.9's `pymongo.cursor_shared._QUERY_OPTIONS`). Private members of classes and the members of private classes aren't indexed, so a missing one is `never_existed` at `low` confidence, and the explanation says DepTime can't tell.
 - Real output, from the actual httpx 0.27.2/0.28.1 wheels:
 
 ```json

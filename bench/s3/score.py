@@ -19,6 +19,7 @@ from collections import defaultdict
 from pathlib import Path
 
 from deptime.config import Settings, load_coverage
+from deptime.index.location import active_index
 from deptime.index.store import IndexStore
 from deptime.query import DepTime
 
@@ -65,7 +66,7 @@ def main() -> int:
     ap.add_argument("--json", type=Path, help="also write per-case results here")
     args = ap.parse_args()
     settings = Settings.from_env()
-    index = args.index or settings.index_path
+    index = args.index or active_index(settings.index_path)
     store = IndexStore.open(index)
     dt = DepTime(store, load_coverage(settings.coverage_file), index)
     cases = [json.loads(line) for line in args.cases.read_text(encoding="utf-8").splitlines() if line.strip()]

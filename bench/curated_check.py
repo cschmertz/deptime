@@ -17,11 +17,12 @@ from importlib import resources
 from pathlib import Path
 
 from deptime.config import Settings, load_coverage
+from deptime.index.location import active_index
 
-index = Path(sys.argv[1]) if len(sys.argv) > 1 else Settings.from_env().index_path
+index = Path(sys.argv[1]) if len(sys.argv) > 1 else active_index(Settings.from_env().index_path)
 if not index.is_file():
     sys.exit(f"no index at {index}: run `deptime index pull` first")
-db = sqlite3.connect(f"file:{index}?mode=ro", uri=True)
+db = sqlite3.connect(f"{index.resolve().as_uri()}?mode=ro", uri=True)
 hints = tomllib.loads(resources.files("deptime").joinpath("curated.toml").read_text(encoding="utf-8"))["hint"]
 owner = {name: p.name for p in load_coverage().packages for name in p.import_names}
 

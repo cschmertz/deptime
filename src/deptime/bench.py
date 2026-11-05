@@ -19,7 +19,7 @@ from pathlib import Path
 from packaging.utils import canonicalize_name
 
 from deptime.config import Coverage, Settings, load_coverage
-from deptime.index.store import IndexStore
+from deptime.index.location import open_index
 from deptime.models import ExplainResult
 from deptime.query import DepTime
 
@@ -221,10 +221,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     settings = Settings.from_env()
-    if not settings.index_path.exists():
+    store = open_index(settings.index_path)
+    if store is None:
         print(f"no index at {settings.index_path}; run `deptime index pull` first", file=sys.stderr)
         return 2
-    store = IndexStore.open(settings.index_path)
     dt = DepTime(store, load_coverage(settings.coverage_file), settings.index_path)
     results = run(dt, load_cases(args.cases))
     built_at = store.built_at()

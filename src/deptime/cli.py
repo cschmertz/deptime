@@ -30,14 +30,17 @@ def _err(message: str) -> None:
 
 def _dt(settings: Settings) -> DepTime:
     """Query-command setup: download the index on first use (synchronously), then open it read-only."""
-    if not settings.index_path.exists():
+    from deptime.index.location import active_index, open_index
+
+    if not active_index(settings.index_path).exists():
         from deptime.index.distribution import ensure_index
 
         if not settings.offline:
             _err(f"deptime: no index at {settings.index_path}; downloading it once…")
         _err(f"deptime: {ensure_index(settings).message}")
-    store = IndexStore.open(settings.index_path) if settings.index_path.exists() else None
-    return DepTime(store, load_coverage(settings.coverage_file), settings.index_path)
+    return DepTime(
+        open_index(settings.index_path), load_coverage(settings.coverage_file), settings.index_path
+    )
 
 
 def _print(model) -> None:
@@ -45,7 +48,7 @@ def _print(model) -> None:
 
 
 def cmd_ingest(args: argparse.Namespace, settings: Settings) -> int:
-    from deptime.index.distribution import mark_locally_built, read_local_meta
+    from deptime.index.distribution import adopt_downloaded, mark_locally_built, read_local_meta
     from deptime.ingest.pipeline import IngestReport, coverage_summary, ingest_package
 
     coverage = load_coverage(settings.coverage_file)
@@ -60,6 +63,7 @@ def cmd_ingest(args: argparse.Namespace, settings: Settings) -> int:
             "or pass --into-downloaded to turn this one into a locally built index."
         )
         return 2
+    adopt_downloaded(settings.index_path)  # a versioned download becomes the file ingest writes (DT-OSS-08)
     store = IndexStore.open(settings.index_path, readonly=False)
     marked = False
     failures = 0
@@ -155,7 +159,8 @@ def cmd_index(args: argparse.Namespace, settings: Settings) -> int:
             return 1
         with dist.http_client() as client:
             manifest = dist.fetch_manifest(settings.index_url, client)
-            if local and local.get("manifest", {}).get("sha256") == manifest.sha256 and not args.force:
+            installed = local and dist.active_index(settings.index_path).exists()
+            if installed and local.get("manifest", {}).get("sha256") == manifest.sha256 and not args.force:
                 _err(f"deptime: index already up to date (built {manifest.built_at})")
                 return 0
             dist.download(settings.index_url, settings.index_path, client, manifest=manifest)
@@ -163,28 +168,32 @@ def cmd_index(args: argparse.Namespace, settings: Settings) -> int:
         return 0
 
     if args.action == "pack":
-        if not settings.index_path.exists():
+        index_file = dist.active_index(settings.index_path)
+        if not index_file.exists():
             _err(f"no index at {settings.index_path}; run `deptime ingest` first")
             return 1
-        manifest = dist.pack(settings.index_path, Path(args.out))
+        manifest = dist.pack(index_file, Path(args.out))
         print(json.dumps(manifest.__dict__, indent=2))
         return 0
 
     # status
     local = dist.read_local_meta(settings.index_path)
+    index_file = dist.active_index(settings.index_path)
+    exists = index_file.exists()
     status: dict[str, object] = {
         "index_path": str(settings.index_path),
-        "exists": settings.index_path.exists(),
-        "source": "downloaded" if local else ("locally built" if settings.index_path.exists() else None),
+        "index_file": str(index_file),  # a downloaded index lives in a file named after its build (DT-OSS-08)
+        "exists": exists,
+        "source": "downloaded" if local else ("locally built" if exists else None),
         "index_url": settings.index_url,
         "offline": settings.offline,
     }
-    if settings.index_path.exists():
-        store = IndexStore.open(settings.index_path)
+    if exists:
+        store = IndexStore.open(index_file)
         status.update(
             built_at=store.built_at(),
             packages=len(store.package_rows()),
-            size_bytes=settings.index_path.stat().st_size,
+            size_bytes=index_file.stat().st_size,
         )
         store.close()
     if local:
@@ -196,10 +205,10 @@ def cmd_index(args: argparse.Namespace, settings: Settings) -> int:
 def cmd_mcp(args: argparse.Namespace, settings: Settings) -> int:
     """Local stdio MCP server. stdout is the protocol channel: everything else goes to stderr."""
     from deptime.index.distribution import start_background_refresh
+    from deptime.index.location import open_index
     from deptime.server.mcp_app import build_mcp
 
-    store = IndexStore.open(settings.index_path) if settings.index_path.exists() else None
-    dt = DepTime(store, load_coverage(settings.coverage_file), settings.index_path)
+    dt = DepTime(open_index(settings.index_path), load_coverage(settings.coverage_file), settings.index_path)
     start_background_refresh(dt, settings)
     build_mcp(dt).run(transport="stdio")
     return 0

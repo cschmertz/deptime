@@ -229,8 +229,9 @@ class RebuildStats:
 
 
 class IndexStore:
-    def __init__(self, conn: sqlite3.Connection):
+    def __init__(self, conn: sqlite3.Connection, path: Path | None = None):
         self.conn = conn
+        self.path = path  # the file, for a store opened from one
         self.conn.row_factory = sqlite3.Row
         self._internal: bool | None = None  # whether the index has internal_spans (DT-DATA-22)
 
@@ -238,11 +239,12 @@ class IndexStore:
     @classmethod
     def open(cls, path: Path, *, readonly: bool = True) -> IndexStore:
         if readonly:
-            conn = sqlite3.connect(f"file:{path.resolve()}?mode=ro", uri=True, check_same_thread=False)
-            return cls(conn)
+            # as_uri() percent-encodes, so a Windows path or one with `?`, `#` or `%` stays one path.
+            conn = sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro", uri=True, check_same_thread=False)
+            return cls(conn, path)
         path.parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(path, check_same_thread=False)
-        store = cls(conn)
+        store = cls(conn, path)
         store._init_schema()
         return store
 

@@ -2385,7 +2385,9 @@ def test_folders_without_init_load_as_packages(tmp_path):
         assert not [p for p in snap.symbols if p.startswith(absent)], absent
     # `shadow.py` stays the module. (griffe itself attaches `shadow/inner.py` to it, as it did before.)
     assert snap.symbols["nspkg.shadow.g"].kind == "function"
-    made = sorted(str(p.relative_to(tmp_path)) for p in tmp_path.rglob("__init__.py") if not p.read_text())
+    made = sorted(
+        p.relative_to(tmp_path).as_posix() for p in tmp_path.rglob("__init__.py") if not p.read_text()
+    )
     assert made == [
         "nspkg/contrib/__init__.py",
         "nspkg/llms/__init__.py",

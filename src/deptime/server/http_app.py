@@ -14,7 +14,7 @@ from starlette.responses import JSONResponse
 from deptime import __version__
 from deptime.config import Settings, load_coverage
 from deptime.index.distribution import start_background_refresh
-from deptime.index.store import IndexStore
+from deptime.index.location import open_index
 from deptime.models import SymbolQuery
 from deptime.query import DepTime
 from deptime.server.mcp_app import build_mcp
@@ -29,8 +29,7 @@ from deptime.server.metering import (
 
 def load_deptime(settings: Settings) -> DepTime:
     coverage = load_coverage(settings.coverage_file)
-    store = IndexStore.open(settings.index_path) if settings.index_path.exists() else None
-    return DepTime(store, coverage, settings.index_path)
+    return DepTime(open_index(settings.index_path), coverage, settings.index_path)
 
 
 def _dispatch(dt: DepTime, tool: str, body: dict[str, Any]) -> BaseModel:

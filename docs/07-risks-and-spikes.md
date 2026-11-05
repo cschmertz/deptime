@@ -81,7 +81,7 @@
 - **Pass:** with the plugin, `explain_error` is called in ≥ 70% of scenarios, with ≥ 25% fewer turns to a fix.
 
 ### S7 — First-run and cross-platform UX
-- **Method:** fresh macOS, Linux and Windows machines run `uvx deptime mcp`. Measure time to first useful answer, and check whether Windows can replace the index file while it's open (DT-OSS-08).
+- **Method:** fresh macOS, Linux and Windows machines run `uvx deptime mcp`. Measure time to first useful answer, and check whether Windows can replace the index file while it's open (DT-OSS-08: it can't, so each download gets a file of its own; tested on `windows-latest`).
 - **Pass:** a useful answer within 60 s of first launch on a typical connection; no crash on Windows.
 
 ## Risk register

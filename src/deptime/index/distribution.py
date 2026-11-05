@@ -13,6 +13,8 @@ manifest lists it (DT-DATA-35). The `.gz` is for released clients, which read on
 Safety rules:
 - the download is verified against the manifest's sha256 for that file, decompressed to a temp file, validated,
   then atomically renamed into place; a failed download never damages the current index;
+- the new file gets a name of its own (`index-<sha>.sqlite`), and the metadata file names it, so no file a
+  server holds open is ever replaced (Windows forbids it; DT-OSS-08, see `location.py`);
 - an index built locally with `deptime ingest` carries no download metadata and is never replaced automatically.
 """
 
@@ -26,7 +28,9 @@ import os
 import shutil
 import sqlite3
 import sys
+import tempfile
 import threading
+import time
 from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
@@ -37,7 +41,17 @@ import httpx
 
 from deptime import __version__
 from deptime.config import Settings
+from deptime.index.location import (
+    active_index,
+    meta_path,
+    open_index,
+    read_local_meta,
+    remove_stale,
+    versioned_name,
+)
 from deptime.index.store import SCHEMA_VERSION, IndexStore
+
+__all__ = ["active_index", "meta_path", "open_index", "read_local_meta", "remove_stale"]
 
 try:
     import lzma
@@ -103,22 +117,41 @@ def http_client() -> httpx.Client:
 
 
 # ---------------------------------------------------------------- local metadata
-def meta_path(index_path: Path) -> Path:
-    return index_path.with_name(index_path.name + ".meta.json")
+def _replace(src: Path, dst: Path, attempts: int = 20) -> None:
+    """os.replace, retried briefly: on Windows it fails while another process is reading `dst`."""
+    for attempt in range(attempts):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(0.05)
 
 
-def read_local_meta(index_path: Path) -> dict | None:
-    try:
-        return json.loads(meta_path(index_path).read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
+def _temp_file(folder: Path, prefix: str, suffix: str) -> Path:
+    """A new empty file of this process's own, closed (an open one can't be renamed on Windows)."""
+    fd, name = tempfile.mkstemp(dir=folder, prefix=prefix, suffix=suffix)
+    os.close(fd)
+    return Path(name)
 
 
 def _write_local_meta(index_path: Path, payload: dict) -> None:
     target = meta_path(index_path)
-    tmp = target.with_name(target.name + ".tmp")
-    tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    os.replace(tmp, target)
+    tmp = _temp_file(target.parent, f"{target.name}.", ".tmp")
+    try:
+        tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        _replace(tmp, target)
+    finally:
+        tmp.unlink(missing_ok=True)
+
+
+def adopt_downloaded(index_path: Path) -> None:
+    """Before `deptime ingest --into-downloaded` writes to `index_path`: move the downloaded file the metadata
+    names there, so the build starts from it (CI's publish job pulls the published index, then ingests)."""
+    active = active_index(index_path)
+    if active != index_path:
+        _replace(active, index_path)
 
 
 def mark_locally_built(index_path: Path) -> None:
@@ -215,8 +248,10 @@ def download(
     if expected_size > MAX_DOWNLOAD_BYTES:
         raise ValueError(f"published index is {expected_size} bytes, above the {MAX_DOWNLOAD_BYTES}-byte cap")
     dest.parent.mkdir(parents=True, exist_ok=True)
-    packed_tmp = dest.with_name(f"{dest.name}.download{Path(asset).suffix}")
-    db_tmp = dest.with_name(dest.name + ".download")
+    # Named after the build, so it is a new file no process has open; temp names are this process's own.
+    target = dest.with_name(versioned_name(dest, manifest.sha256))
+    packed_tmp = _temp_file(dest.parent, f"{dest.name}.download-", Path(asset).suffix)
+    db_tmp = _temp_file(dest.parent, f"{dest.name}.download-", ".sqlite")
     try:
         digest, size = hashlib.sha256(), 0
         with client.stream("GET", f"{base_url}/{asset}") as resp, packed_tmp.open("wb") as out:
@@ -232,7 +267,8 @@ def download(
         with opener(packed_tmp) as packed, db_tmp.open("wb") as out:
             shutil.copyfileobj(packed, out, 1 << 20)
         _validate(db_tmp)
-        os.replace(db_tmp, dest)
+        if not target.exists():  # else another process installed this build already
+            os.replace(db_tmp, target)
         now = _now().isoformat()
         _write_local_meta(
             dest,
@@ -242,8 +278,10 @@ def download(
                 "source_url": base_url,
                 "downloaded_at": now,
                 "checked_at": now,
+                "file": target.name,  # the file to open (DT-OSS-08); clients before it ignore this key
             },
         )
+        remove_stale(dest)  # what an open server still holds is retried later
         return manifest
     finally:
         packed_tmp.unlink(missing_ok=True)
@@ -255,36 +293,39 @@ def ensure_index(
 ) -> EnsureResult:
     """Make sure a usable index exists; refresh a *downloaded* one when it is older than the max age."""
     dest = settings.index_path
-    exists = dest.exists()
+    current = active_index(dest)  # the downloaded file the metadata names, else `dest` (DT-OSS-08)
+    exists = current.exists()
     if settings.offline:
         return EnsureResult(
-            dest if exists else None, False, "offline mode" if exists else "offline mode and no local index"
+            current if exists else None,
+            False,
+            "offline mode" if exists else "offline mode and no local index",
         )
     local = read_local_meta(dest) if exists else None
     if exists and local is None:
-        return EnsureResult(dest, False, "using a locally built index (never auto-replaced)")
+        return EnsureResult(current, False, "using a locally built index (never auto-replaced)")
     now = now or _now()
     if exists and local:
         checked = datetime.fromisoformat(local.get("checked_at") or local["downloaded_at"])
         if now - checked < timedelta(hours=settings.index_max_age_hours):
-            return EnsureResult(dest, False, "index is fresh")
+            return EnsureResult(current, False, "index is fresh")
     own_client = client is None
     client = client or http_client()
     try:
         manifest = fetch_manifest(settings.index_url, client)
         if exists and local and local.get("manifest", {}).get("sha256") == manifest.sha256:
             _write_local_meta(dest, {**local, "checked_at": now.isoformat()})
-            return EnsureResult(dest, False, "index is up to date")
+            return EnsureResult(current, False, "index is up to date")
         download(settings.index_url, dest, client, manifest=manifest)
         verb = "updated" if exists else "downloaded"
         return EnsureResult(
-            dest, True, f"index {verb}: {manifest.packages} packages, built {manifest.built_at}"
+            active_index(dest), True, f"index {verb}: {manifest.packages} packages, built {manifest.built_at}"
         )
     except Exception as exc:  # network, HTTP, checksum, schema: keep whatever works
         reason = f"{type(exc).__name__}: {exc}"
         if exists:
             return EnsureResult(
-                dest, False, f"could not refresh the index ({reason}); keeping the current one"
+                current, False, f"could not refresh the index ({reason}); keeping the current one"
             )
         return EnsureResult(
             None, False, f"could not download the index ({reason}); run `deptime index pull` when online"
@@ -296,6 +337,20 @@ def ensure_index(
 
 # Seconds between attempts while there is no index at all (DT-OSS-10); the last one repeats.
 RETRY_DELAYS = (30, 60, 120, 300, 600, 1800)
+# Seconds a replaced store stays open for requests that already hold it, before it is closed and its file deleted.
+CLOSE_GRACE_SECONDS = 60.0
+
+
+def _retire(store: IndexStore, index_path: Path, grace: float) -> None:
+    """Close a store the server swapped out, after `grace`, then delete the files nothing names (DT-OSS-08)."""
+
+    def run() -> None:
+        store.close()
+        remove_stale(index_path)
+
+    timer = threading.Timer(grace, run)
+    timer.daemon = True
+    timer.start()
 
 
 def _in_words(seconds: float) -> str:
@@ -310,6 +365,7 @@ def start_background_refresh(
     client: httpx.Client | None = None,
     delays: Sequence[float] = RETRY_DELAYS,
     stop: threading.Event | None = None,
+    grace: float = CLOSE_GRACE_SECONDS,
 ) -> threading.Thread:
     """Ensure/refresh the index without delaying server start-up; hot-swap the store when a new file lands.
 
@@ -322,8 +378,14 @@ def start_background_refresh(
         for attempt in itertools.count():
             result = ensure_index(settings, client=client)
             if result.path is not None:
-                if result.changed or dt.store is None:
+                old = dt.store
+                # Also when another process switched to a newer file while this one kept the old open.
+                if result.changed or old is None or old.path != result.path:
                     dt.set_store(IndexStore.open(result.path))
+                    if old is not None and old.path is not None:
+                        _retire(old, settings.index_path, grace)
+                else:
+                    remove_stale(settings.index_path)  # files a server held at the last switch
                 dt.index_problem = None
                 if result.changed:
                     log(f"deptime: {result.message}")

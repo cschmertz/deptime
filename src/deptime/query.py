@@ -15,6 +15,7 @@ from packaging.utils import canonicalize_name
 
 from deptime import stdlib
 from deptime.config import Coverage, PackageSpec
+from deptime.index.location import active_index
 from deptime.index.store import IndexStore
 from deptime.ingest.diff import is_required
 from deptime.ingest.replacements import clean_evidence, expand_alias, mine, moved_to_package, same_class
@@ -199,12 +200,12 @@ class DepTime:
 
     @property
     def store(self) -> IndexStore | None:
-        if self._store is None and self.index_path is not None and self.index_path.exists():
+        if self._store is None and self.index_path is not None and active_index(self.index_path).exists():
             with self._open_lock:
                 if self._store is None:
                     store = None
                     try:
-                        store = IndexStore.open(self.index_path)
+                        store = IndexStore.open(active_index(self.index_path))
                         store.built_at()  # fails fast on a file that is not a usable index
                         self._store = store
                     except sqlite3.Error:  # not usable (yet); keep answering with the no-index note

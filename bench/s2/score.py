@@ -24,6 +24,7 @@ import sys
 from pathlib import Path
 
 from deptime.config import Settings, load_coverage
+from deptime.index.location import active_index
 from deptime.index.store import IndexStore
 from deptime.query import DepTime
 
@@ -81,7 +82,7 @@ def main() -> int:
     args = ap.parse_args()
 
     settings = Settings.from_env()
-    index = args.index or settings.index_path
+    index = args.index or active_index(settings.index_path)
     dt = DepTime(IndexStore.open(index), load_coverage(settings.coverage_file), index)
     rows = [json.loads(line) for line in Path(args.migrations).read_text().splitlines() if line.strip()]
 

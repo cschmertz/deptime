@@ -85,6 +85,10 @@ def parse_installed(installed_versions: dict[str, str] | None, pip_freeze: str |
     return out
 
 
+def _and(items: list[str], word: str = "and") -> str:
+    return items[0] if len(items) == 1 else f"{', '.join(items[:-1])} {word} {items[-1]}"
+
+
 def _params(raw: str | None) -> list[ParamInfo] | None:
     return None if raw is None else [ParamInfo(**p) for p in json.loads(raw)]
 
@@ -256,6 +260,14 @@ class DepTime:
         if self.store is None:
             return self._no_index_note()
         configured = self.coverage.get(name) is not None
+        under = None if configured else self.coverage.installed_under(name)
+        if under is not None:
+            ranges = [str(r.specifier) for r in under.installed_as if canonicalize_name(r.name) == name]
+            within = f" ({name}{ranges[0]})" if ranges and ranges[0] else ""
+            return (
+                f"{name}{within} installs the code DepTime indexes as {under.name}, with the same version numbers; "
+                f'call again with package="{under.name}".'
+            )
         return (
             f"{name} is configured but not indexed yet."
             if configured
@@ -523,10 +535,15 @@ class DepTime:
             # Without an index every package would look "not covered", which teaches the agent the opposite of
             # the truth on its very first call.
             return ExplainResult(signal=signal.to_model(), findings=[], note=self._no_index_note())
-        installed = parse_installed(installed_versions, pip_freeze)
-        candidates = self._candidates(signal, installed)
+        installed, alias_notes = self._read_aliases(parse_installed(installed_versions, pip_freeze))
+        named = self._candidates(signal, installed)
+        candidates, rivals, owner_notes = self._import_owners(
+            named, installed, complete=bool(pip_freeze and pip_freeze.strip())
+        )
+        # Covered packages whose import name another distribution owns here: never searched as the callee either.
+        dropped = {s.name for s in named} - {s.name for s in candidates}
         findings: list[Finding] = []
-        not_covered: list[str] = []
+        not_covered: list[str] = list(rivals)
         for spec in candidates:
             if not self._indexed(spec.name):
                 not_covered.append(spec.name)
@@ -534,21 +551,22 @@ class DepTime:
             findings.extend(
                 self._findings_for(spec, signal, installed.get(spec.name))[:MAX_FINDINGS_PER_PACKAGE]
             )
-        if signal.kind in MODULE_SIGNALS and not candidates and signal.module:
+        if signal.kind in MODULE_SIGNALS and not named and signal.module:
             not_covered.append(signal.module.split(".")[0])
         callee: list[Finding] = []
         # The module whose code raised: a library's (in site-packages) or None for the user's own code.
         raiser = signal.frames[-1].module if signal.frames else None
         declared: set[str] = set()
         if signal.kind in OBJECT_SIGNALS and all(f.issue in INCONCLUSIVE_ISSUES for f in findings):
-            declared = self._declared_by(raiser, installed)
-            callee = self._callee_findings(signal, installed, {s.name for s in candidates}, declared)
+            declared = self._declared_by(raiser, installed, dropped)
+            callee = self._callee_findings(signal, installed, {s.name for s in named}, declared)
             if callee:
                 # A concrete change in the called package explains the error; "never existed" in the caller is noise.
                 findings = [f for f in findings if f.issue != "never_existed"] + callee
         rank = {"high": 0, "medium": 1, "low": 2}
         findings.sort(key=lambda f: (rank[f.confidence], f.issue == "present_in_installed_version"))
-        notes = []
+        notes = list(owner_notes)
+        notes += [alias_notes[p] for p in sorted({f.package for f in findings}) if p in alias_notes]
         if signal.wrapped_in:
             notes.append(
                 f"The last exception, {signal.wrapped_in}, was raised from or while handling this "
@@ -604,14 +622,79 @@ class DepTime:
                         found.setdefault(s.name, s)
         return list(found.values())
 
-    def _declared_by(self, module: str | None, installed: dict[str, str]) -> set[str]:
+    def _read_aliases(self, installed: dict[str, str]) -> tuple[dict[str, str], dict[str, str]]:
+        """Read a covered package's version off a distribution that installs the same code under another name
+        (`installed_as`: pinecone-client 3.2.2 is pinecone 3.2.2) when the covered one isn't listed (DT-CORE-03).
+        Returns the versions and, per package read this way, the note that says so."""
+        out, notes = dict(installed), {}
+        for spec in self.coverage.packages:
+            alias = None if spec.name in installed else spec.alias_version(installed)
+            if alias:
+                other, version = alias
+                out[spec.name] = version
+                notes[spec.name] = (
+                    f"{other} {version} is read as {spec.name} {version}: {other} installs the same code."
+                )
+        return out, notes
+
+    def _import_owners(
+        self, specs: list[PackageSpec], installed: dict[str, str], complete: bool
+    ) -> tuple[list[PackageSpec], list[str], list[str]]:
+        """Settle which distribution a shared import name (`shares_import_name_with`: `agents`) belongs to here.
+
+        A package that is installed stays. One whose rival is installed instead, or that a whole `pip freeze`
+        leaves out, is dropped: its history would explain another library's error. With nothing to go on it stays,
+        with a note that says what was assumed (DT-CORE-03). Returns the kept packages, what goes to
+        `not_covered`, and the notes.
+        """
+        kept: list[PackageSpec] = []
+        others: list[str] = []
+        notes: list[str] = []
+        for spec in specs:
+            if not spec.shares_import_name_with:
+                kept.append(spec)
+                continue
+            names = _and([f"`{n}`" for n in spec.import_names])
+            rivals = [d for d in spec.shares_import_name_with if d in installed]
+            alternatives = _and(list(spec.shares_import_name_with), "or")
+            if spec.name in installed:
+                kept.append(spec)
+                if rivals:
+                    notes.append(
+                        f"{_and([spec.name, *rivals])} are both installed, and both install {names}: "
+                        "whichever was installed last overwrote the other's files, which can cause this error "
+                        "by itself. Uninstall both, then reinstall the one you use."
+                    )
+            elif rivals:
+                others += rivals
+                notes.append(
+                    f"{names} here is {_and(rivals)}'s, which DepTime does not cover; {spec.name}, "
+                    "which it covers, installs the same import name, so its history doesn't apply."
+                )
+            elif complete:
+                others.append(spec.import_names[0])
+                notes.append(
+                    f"pip_freeze lists no {spec.name}, so {names} comes from another distribution that installs "
+                    f"the same import name, such as {alternatives}; DepTime doesn't cover those."
+                )
+            else:
+                kept.append(spec)
+                notes.append(
+                    f"{names} is also the import name of {_and(list(spec.shares_import_name_with))}; this answer "
+                    f"assumes {spec.name}. Pass installed_versions or pip_freeze to tell them apart."
+                )
+        return kept, others, notes
+
+    def _declared_by(
+        self, module: str | None, installed: dict[str, str], skip: set[str] | frozenset[str] = frozenset()
+    ) -> set[str]:
         """The distributions that `module`'s indexed package requires (DT-DATA-14): at the installed release (the
         nearest indexed one at or below it), or in any indexed release when it isn't installed or predates the
-        index."""
+        index. `skip`: packages that don't own the module here (DT-CORE-03)."""
         assert self.store is not None
         out: set[str] = set()
         for spec in self.coverage.packages_for_module(module) if module else []:
-            if not self._indexed(spec.name):
+            if not self._indexed(spec.name) or spec.name in skip:
                 continue
             version = installed.get(spec.name)
             resolved = self.store.resolve_version(spec.name, version)[0] if version else None

@@ -1,13 +1,15 @@
 import shutil
 from datetime import date
 
-from deptime.config import Coverage, PackageSpec, VersionPolicy
+from packaging.requirements import Requirement
+
+from deptime.config import Coverage, PackageSpec, VersionPolicy, load_coverage
 from deptime.index.store import IndexStore
 from deptime.ingest.curated import CuratedHint
 from deptime.ingest.snapshot import ApiSnapshot, SymbolRecord
 from deptime.models import SymbolQuery
 from deptime.query import DepTime, parse_installed
-from tests.conftest import HTTPX
+from tests.conftest import HTTPX, RELEASED_AT, SNAPSHOTS
 from tests.test_tracebacks import HTTPX_TB
 
 POLICY = VersionPolicy(
@@ -1539,3 +1541,77 @@ def test_an_argument_forwarded_to_the_parent_is_found_on_the_called_class():
         "param_removed",
         "5.50.0",
     )
+
+
+def _aliased(**kw) -> DepTime:
+    """The synthetic httpx index, with coverage that gives httpx another distribution name or a rival (DT-CORE-03)."""
+    store = IndexStore.memory()
+    store.rebuild_package(HTTPX, SNAPSHOTS, RELEASED_AT)
+    return DepTime(
+        store, Coverage(POLICY, (PackageSpec(name="httpx", import_names=("httpx",), tier="B", **kw),))
+    )
+
+
+def test_a_former_distribution_name_gives_the_installed_version():
+    # pinecone-client 3.2.2 is pinecone 3.2.2; pinecone-client 6.0.0 is a stub that only raises "renamed".
+    dt = _aliased(installed_as=(Requirement("httpx-client<1"),))
+    res = dt.explain_error(HTTPX_TB, pip_freeze="httpx-client==0.28.1\n")
+    top = res.findings[0]
+    assert (top.issue, top.installed_version, top.resolved_version) == ("param_removed", "0.28.1", "0.28.1")
+    assert "httpx-client 0.28.1 is read as httpx 0.28.1" in res.note
+    outside = dt.explain_error(HTTPX_TB, {"httpx-client": "6.0.0"})
+    assert outside.findings[0].installed_version is None and "read as" not in (outside.note or "")
+    # The covered name wins when both are listed.
+    both = dt.explain_error(HTTPX_TB, {"httpx-client": "0.26.0", "httpx": "0.28.1"})
+    assert both.findings[0].installed_version == "0.28.1" and both.note is None
+
+
+def test_a_former_distribution_name_points_the_other_tools_at_the_covered_one():
+    dt = _aliased(installed_as=(Requirement("httpx-client<1"),))
+    res = dt.check_symbols("httpx_client", "0.28.1", [SymbolQuery(path="Client")])
+    assert res.results[0].status == "not_indexed"
+    assert res.note == (
+        "httpx-client (httpx-client<1) installs the code DepTime indexes as httpx, with the same version numbers; "
+        'call again with package="httpx".'
+    )
+
+
+def test_a_shared_import_name_is_not_explained_by_the_covered_package_when_a_rival_is_installed():
+    # `agents` is openai-agents', TensorFlow Agents' (`agents`) and ai-agents'.
+    dt = _aliased(shares_import_name_with=("httpx-rival",))
+    res = dt.explain_error(HTTPX_TB, {"httpx-rival": "1.0"})
+    # Not even as the called package (DT-CORE-16): httpx's history is another library's.
+    assert res.findings == [] and res.not_covered == ["httpx-rival"]
+    assert "`httpx` here is httpx-rival's, which DepTime does not cover" in res.note
+    module = dt.explain_error(NEW_THING_TB, {"httpx-rival": "1.0"})
+    assert module.findings == [] and module.not_covered == ["httpx-rival"]
+
+
+def test_a_shared_import_name_that_a_full_freeze_leaves_out_is_not_covered():
+    dt = _aliased(shares_import_name_with=("httpx-rival",))
+    res = dt.explain_error(HTTPX_TB, pip_freeze="idna==3.10\n")
+    assert res.findings == [] and res.not_covered == ["httpx"]
+    assert "pip_freeze lists no httpx, so `httpx` comes from another distribution" in res.note
+    # A dict can list only some packages, so it settles nothing by leaving httpx out.
+    partial = dt.explain_error(HTTPX_TB, {"idna": "3.10"})
+    assert partial.findings[0].issue == "param_removed"
+    assert "`httpx` is also the import name of httpx-rival; this answer assumes httpx" in partial.note
+
+
+def test_a_shared_import_name_with_the_covered_package_installed():
+    dt = _aliased(shares_import_name_with=("httpx-rival",))
+    alone = dt.explain_error(HTTPX_TB, {"httpx": "0.28.1"})
+    assert alone.findings[0].installed_version == "0.28.1" and alone.note is None
+    both = dt.explain_error(HTTPX_TB, {"httpx": "0.28.1", "httpx-rival": "1.0"})
+    assert both.findings[0].issue == "param_removed"
+    assert "httpx and httpx-rival are both installed, and both install `httpx`" in both.note
+
+
+def test_the_shipped_coverage_names_the_collisions():
+    cov = load_coverage()
+    assert cov.get("openai-agents").shares_import_name_with == ("agents", "ai-agents")
+    assert cov.installed_under("pinecone-client").name == "pinecone"
+    typer = cov.get("typer")
+    assert typer.alias_version({"typer-slim": "0.21.1"}) == ("typer-slim", "0.21.1")
+    assert typer.alias_version({"typer-slim": "0.22.0"}) is None  # an empty wheel requiring typer from 0.22.0
+    assert typer.alias_version({"typer-slim": "not a version"}) is None

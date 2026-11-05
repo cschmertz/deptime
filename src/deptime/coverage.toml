@@ -7,6 +7,11 @@
 # `notes`        = known analysis caveats; see docs/07-risks-and-spikes.md.
 # `namespace_skip` = modules below which folders without `__init__.py` stay unloaded (DT-DATA-23); other such
 #                  folders under an import root load as packages, as Python imports them.
+# `installed_as` = other distributions that install the same code with the same version numbers, as
+#                  requirements whose specifier holds the versions that do; explain_error reads their installed
+#                  version as this package's when this one isn't listed (DT-CORE-03).
+# `shares_import_name_with` = distributions that install *other* code under the same import name; explain_error
+#                  uses installed_versions or pip_freeze to tell which one raised (DT-CORE-03).
 
 [policy]
 # For every minor series (X.Y) that has a release on/after `since`, index every release: a patch-level break
@@ -97,6 +102,8 @@ notes = "1.x -> 2.x renamed FastMCP to MCPServer; good rename-map page candidate
 name = "fastmcp"
 import_names = ["fastmcp"]
 tier = "A"
+# Since 3.3.0 fastmcp is an empty wheel pinning `fastmcp-slim==<same version>` (DT-DATA-17).
+installed_as = ["fastmcp-slim"]
 
 [[package]]
 name = "pydantic"
@@ -114,12 +121,15 @@ name = "pydantic-ai-slim"
 import_names = ["pydantic_ai"]
 tier = "A"
 notes = "`pydantic-ai` is a meta-package; code ships in pydantic-ai-slim."
+# pydantic-ai pins `pydantic-ai-slim==<same version>` since 0.0.13, and shipped the same code before.
+installed_as = ["pydantic-ai"]
 
 [[package]]
 name = "openai-agents"
 import_names = ["agents"]
 tier = "A"
-notes = "Import name `agents` collides with other distributions; disambiguate via installed_versions."
+notes = "Import name `agents` is also installed by agents (TensorFlow Agents) and ai-agents; explain_error tells them apart by installed_versions or pip_freeze."
+shares_import_name_with = ["agents", "ai-agents"]
 
 [[package]]
 name = "crewai"
@@ -165,6 +175,8 @@ name = "pinecone"
 import_names = ["pinecone"]
 tier = "A"
 notes = "Formerly `pinecone-client`."
+# pinecone 2.2.2-5.0.1 pin `pinecone-client==<same version>`; pinecone-client 6.0.0 only raises "renamed".
+installed_as = ["pinecone-client<6"]
 
 [[package]]
 name = "weaviate-client"
@@ -298,6 +310,8 @@ notes = "Public API re-exported from private `_pytest`; plugin hookspecs are doc
 name = "typer"
 import_names = ["typer"]
 tier = "B"
+# typer-slim shipped typer's code from 0.12.0 to 0.21.x; from 0.22.0 it depends on typer.
+installed_as = ["typer-slim>=0.12,<0.22"]
 
 [[package]]
 name = "click"

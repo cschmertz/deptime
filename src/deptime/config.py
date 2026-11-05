@@ -9,7 +9,9 @@ from datetime import date
 from importlib import resources
 from pathlib import Path
 
+from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name
+from packaging.version import InvalidVersion
 
 # Rolling GitHub Release that CI refreshes nightly (.github/workflows/build-index.yml).
 DEFAULT_INDEX_URL = "https://github.com/cschmertz/deptime/releases/download/index"
@@ -111,6 +113,23 @@ class PackageSpec:
     notes: str = ""
     # Modules below which folders without `__init__.py` aren't loaded as packages (DT-DATA-23).
     namespace_skip: tuple[str, ...] = ()
+    # Other distributions that install this code with the same version numbers, as requirements whose specifier
+    # holds the versions that do: `pinecone-client<6` (DT-CORE-03).
+    installed_as: tuple[Requirement, ...] = ()
+    # Distributions that install other code under the same import name, canonical names (DT-CORE-03).
+    shares_import_name_with: tuple[str, ...] = ()
+
+    def alias_version(self, installed: dict[str, str]) -> tuple[str, str] | None:
+        """(distribution, version) of the first `installed_as` entry that `installed` lists in its range."""
+        for req in self.installed_as:
+            other = canonicalize_name(req.name)
+            version = installed.get(other)
+            try:
+                if version and req.specifier.contains(version, prereleases=True):
+                    return other, version
+            except InvalidVersion:
+                continue
+        return None
 
 
 @dataclass(frozen=True)
@@ -121,6 +140,14 @@ class Coverage:
     def get(self, name: str) -> PackageSpec | None:
         wanted = canonicalize_name(name)
         return next((p for p in self.packages if p.name == wanted), None)
+
+    def installed_under(self, name: str) -> PackageSpec | None:
+        """The covered package whose code `name` installs under another distribution name (`installed_as`)."""
+        wanted = canonicalize_name(name)
+        return next(
+            (p for p in self.packages if any(canonicalize_name(r.name) == wanted for r in p.installed_as)),
+            None,
+        )
 
     def packages_for_module(self, module: str) -> list[PackageSpec]:
         """Packages whose import names are the longest dotted prefix of `module`.
@@ -163,6 +190,8 @@ def load_coverage(path: Path | None = None) -> Coverage:
             tier=p.get("tier", "B"),
             notes=p.get("notes", ""),
             namespace_skip=tuple(p.get("namespace_skip", ())),
+            installed_as=tuple(Requirement(r) for r in p.get("installed_as", ())),
+            shares_import_name_with=tuple(canonicalize_name(n) for n in p.get("shares_import_name_with", ())),
         )
         for p in raw.get("package", [])
     )

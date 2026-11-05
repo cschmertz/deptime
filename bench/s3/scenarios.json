@@ -1,0 +1,304 @@
+{
+ "exclude_newer": "2026-11-01T00:00:00Z",
+ "always": [
+  "pytest",
+  "ipython"
+ ],
+ "scenarios": [
+  {
+   "id": "pydantic-basesettings",
+   "package": "pydantic",
+   "kind": "import_name",
+   "requires": [
+    "pydantic>=2"
+   ],
+   "app": "from pydantic import BaseSettings\n\n\nclass Settings(BaseSettings):\n    debug: bool = False\n\n\ndef main():\n    return Settings()\n",
+   "expect": "has been moved to the `pydantic-settings` package",
+   "evidence": [
+    "bench/cases/pydantic.jsonl#pydantic-basesettings-moved"
+   ]
+  },
+  {
+   "id": "werkzeug-url-quote",
+   "package": "werkzeug",
+   "kind": "import_name",
+   "requires": [
+    "werkzeug>=3.0"
+   ],
+   "app": "from werkzeug.urls import url_quote\n\n\ndef main():\n    return url_quote(\"a b\")\n",
+   "expect": "cannot import name 'url_quote'",
+   "evidence": [
+    "bench/cases/werkzeug.jsonl#werkzeug-url-quote-flask-2-0-0-hubspot"
+   ]
+  },
+  {
+   "id": "django-ugettext-lazy",
+   "package": "django",
+   "kind": "import_name",
+   "requires": [
+    "django>=4.0"
+   ],
+   "app": "from django.utils.translation import ugettext_lazy as _\n\n\ndef main():\n    return _(\"hello\")\n",
+   "expect": "cannot import name 'ugettext_lazy'",
+   "evidence": [
+    "bench/cases/django.jsonl#django-ugettext-lazy-drf-recaptcha"
+   ]
+  },
+  {
+   "id": "flask-escape",
+   "package": "flask",
+   "kind": "import_name",
+   "requires": [
+    "flask>=3.0"
+   ],
+   "app": "from flask import Flask, escape\n\napp = Flask(__name__)\n\n\ndef main():\n    return escape(\"<b>\")\n",
+   "expect": "cannot import name 'escape'",
+   "evidence": [
+    "bench/cases/flask.jsonl#flask-escape-import-activitywatch"
+   ]
+  },
+  {
+   "id": "openai-class-not-yet-added",
+   "package": "openai",
+   "kind": "import_name",
+   "requires": [
+    "openai==0.28.1"
+   ],
+   "app": "from openai import OpenAI\n\n\ndef main():\n    return OpenAI(api_key=\"sk-test\")\n",
+   "expect": "cannot import name 'OpenAI'",
+   "evidence": [
+    "bench/cases/openai.jsonl#openai-openai-class-not-yet-added-0-28"
+   ]
+  },
+  {
+   "id": "langchain-chains-module",
+   "package": "langchain",
+   "kind": "module_missing",
+   "requires": [
+    "langchain>=1.0"
+   ],
+   "app": "from langchain.chains import LLMChain\n\n\ndef main():\n    return LLMChain\n",
+   "expect": "No module named 'langchain.chains'",
+   "evidence": [
+    "bench/cases/langchain.jsonl#langchain-chains-module-removed-v1"
+   ]
+  },
+  {
+   "id": "mcp-fastmcp-module",
+   "package": "mcp",
+   "kind": "module_missing",
+   "requires": [
+    "mcp>=2.0"
+   ],
+   "app": "from mcp.server.fastmcp import FastMCP\n\n\ndef main():\n    return FastMCP(\"demo\")\n",
+   "expect": "No module named 'mcp.server.fastmcp'",
+   "evidence": [
+    "bench/cases/mcp.jsonl#mcp-fastmcp-module"
+   ]
+  },
+  {
+   "id": "selenium-firefox-binary-module",
+   "package": "selenium",
+   "kind": "module_missing",
+   "requires": [
+    "selenium>=4.40"
+   ],
+   "app": "from selenium.webdriver.firefox.firefox_binary import FirefoxBinary\n\n\ndef main():\n    return FirefoxBinary(\"/usr/bin/firefox\")\n",
+   "expect": "No module named 'selenium.webdriver.firefox.firefox_binary'",
+   "evidence": [
+    "bench/cases/selenium.jsonl#selenium-firefox-binary-module-tbselenium"
+   ]
+  },
+  {
+   "id": "numpy-float-underscore",
+   "package": "numpy",
+   "kind": "module_attribute",
+   "requires": [
+    "numpy>=2.0"
+   ],
+   "app": "import numpy as np\n\n\ndef main():\n    return np.float_(1.5)\n",
+   "expect": "`np.float_` was removed",
+   "evidence": [
+    "bench/cases/numpy.jsonl#numpy-float-underscore-sceptre"
+   ]
+  },
+  {
+   "id": "openai-chatcompletion",
+   "package": "openai",
+   "kind": "module_attribute",
+   "requires": [
+    "openai>=1.0"
+   ],
+   "app": "import openai\n\n\ndef main():\n    return openai.ChatCompletion.create(model=\"gpt-4o-mini\", messages=[{\"role\": \"user\", \"content\": \"hi\"}])\n",
+   "expect": "APIRemovedInV1",
+   "evidence": [
+    "bench/cases/openai.jsonl#openai-v1-chatcompletion"
+   ]
+  },
+  {
+   "id": "matplotlib-cm-get-cmap",
+   "package": "matplotlib",
+   "kind": "module_attribute",
+   "requires": [
+    "matplotlib>=3.11"
+   ],
+   "app": "from matplotlib import cm\n\n\ndef main():\n    return cm.get_cmap(\"viridis\")\n",
+   "expect": "has no attribute 'get_cmap'",
+   "evidence": [
+    "bench/s2/migrations.jsonl#matplotlib-cm-get-cmap",
+    "matplotlib 3.10.9 (Python 3.10's newest): 'The get_cmap function was deprecated in Matplotlib 3.7 and will be removed in 3.11'"
+   ]
+  },
+  {
+   "id": "huggingface-hub-cached-download",
+   "package": "huggingface-hub",
+   "kind": "module_attribute",
+   "requires": [
+    "huggingface-hub>=0.26"
+   ],
+   "app": "import huggingface_hub\n\n\ndef main():\n    return huggingface_hub.cached_download(\"https://huggingface.co/gpt2/resolve/main/config.json\")\n",
+   "expect": "attribute cached_download",
+   "evidence": [
+    "bench/cases/huggingface-hub.jsonl#huggingface-hub-cached-download-removed-sentence-transformers"
+   ]
+  },
+  {
+   "id": "pandas-dataframe-append",
+   "package": "pandas",
+   "kind": "object_attribute",
+   "requires": [
+    "pandas>=2.0"
+   ],
+   "app": "import pandas as pd\n\n\ndef main():\n    df = pd.DataFrame({\"a\": [1]})\n    return df.append({\"a\": 2}, ignore_index=True)\n",
+   "expect": "has no attribute 'append'",
+   "evidence": [
+    "bench/cases/pandas.jsonl#pandas-dataframe-append"
+   ]
+  },
+  {
+   "id": "sqlalchemy-engine-execute",
+   "package": "sqlalchemy",
+   "kind": "object_attribute",
+   "requires": [
+    "sqlalchemy>=2.0"
+   ],
+   "app": "from sqlalchemy import create_engine\n\n\ndef main():\n    engine = create_engine(\"sqlite://\")\n    return engine.execute(\"select 1\").scalar()\n",
+   "expect": "has no attribute 'execute'",
+   "evidence": [
+    "bench/cases/sqlalchemy.jsonl#sqlalchemy-engine-execute"
+   ]
+  },
+  {
+   "id": "numpy-ndarray-itemset",
+   "package": "numpy",
+   "kind": "object_attribute",
+   "requires": [
+    "numpy>=2.0"
+   ],
+   "app": "import numpy as np\n\n\ndef main():\n    grid = np.zeros((3, 3))\n    grid.itemset((0, 0), 1.0)\n    return grid\n",
+   "expect": "itemset",
+   "evidence": [
+    "bench/tmb/cases#tmb-numpy-ndarray-itemset-pynite"
+   ]
+  },
+  {
+   "id": "httpx-client-proxies",
+   "package": "httpx",
+   "kind": "unexpected_kwarg",
+   "requires": [
+    "httpx>=0.28"
+   ],
+   "app": "import httpx\n\n\ndef main():\n    return httpx.Client(proxies=\"http://127.0.0.1:3128\")\n",
+   "expect": "unexpected keyword argument 'proxies'",
+   "evidence": [
+    "bench/cases/httpx.jsonl#httpx-proxies-kwarg"
+   ]
+  },
+  {
+   "id": "openai-httpx-proxies-internal",
+   "package": "httpx",
+   "kind": "unexpected_kwarg",
+   "requires": [
+    "openai==1.55.0",
+    "httpx==0.28.0"
+   ],
+   "app": "from openai import OpenAI\n\n\ndef main():\n    return OpenAI(api_key=\"sk-test\")\n",
+   "expect": "unexpected keyword argument 'proxies'",
+   "evidence": [
+    "bench/cases/httpx.jsonl#openai-httpx-proxies-internal"
+   ]
+  },
+  {
+   "id": "pydantic-field-regex",
+   "package": "pydantic",
+   "kind": "unexpected_kwarg",
+   "requires": [
+    "pydantic>=2"
+   ],
+   "app": "from pydantic import BaseModel, Field\n\n\nclass User(BaseModel):\n    name: str = Field(..., regex=\"^[a-z]+$\")\n\n\ndef main():\n    return User(name=\"ada\")\n",
+   "expect": "`regex` is removed",
+   "evidence": [
+    "bench/cases/pydantic.jsonl#pydantic-field-regex-removed-bagel-cli"
+   ]
+  },
+  {
+   "id": "starlette-on-startup",
+   "package": "starlette",
+   "kind": "unexpected_kwarg",
+   "requires": [
+    "starlette>=1.0"
+   ],
+   "app": "from starlette.applications import Starlette\n\n\nasync def startup():\n    pass\n\n\ndef main():\n    return Starlette(on_startup=[startup])\n",
+   "expect": "unexpected keyword argument 'on_startup'",
+   "evidence": [
+    "bench/cases/starlette.jsonl#starlette-app-on-startup-removed-fasthtml"
+   ]
+  },
+  {
+   "id": "scikit-learn-onehotencoder-sparse",
+   "package": "scikit-learn",
+   "kind": "unexpected_kwarg",
+   "requires": [
+    "scikit-learn>=1.4"
+   ],
+   "app": "from sklearn.preprocessing import OneHotEncoder\n\n\ndef main():\n    return OneHotEncoder(sparse=False)\n",
+   "expect": "unexpected keyword argument 'sparse'",
+   "evidence": [
+    "bench/cases/scikit-learn.jsonl#scikit-learn-onehotencoder-sparse-lazypredict"
+   ]
+  },
+  {
+   "id": "click-clirunner-mix-stderr",
+   "package": "click",
+   "kind": "unexpected_kwarg",
+   "requires": [
+    "click>=8.2"
+   ],
+   "app": "from click.testing import CliRunner\n\n\ndef main():\n    return CliRunner(mix_stderr=False)\n",
+   "expect": "unexpected keyword argument 'mix_stderr'",
+   "evidence": [
+    "bench/cases/click.jsonl#click-clirunner-mix-stderr-seagoat"
+   ]
+  },
+  {
+   "id": "pytest-collect-file-path",
+   "package": "pytest",
+   "kind": "unexpected_kwarg",
+   "requires": [
+    "pytest>=9.0"
+   ],
+   "app": "def main():\n    return None\n",
+   "expect": "PluginValidationError",
+   "evidence": [
+    "bench/cases/pytest.jsonl#pytest-collect-file-path-arg-pytest-pylint"
+   ],
+   "files": {
+    "conftest.py": "def pytest_collect_file(path, parent):\n    return None\n"
+   },
+   "presentations": [
+    "pytest",
+    "pytest-short"
+   ]
+  }
+ ]
+}

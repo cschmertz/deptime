@@ -57,6 +57,7 @@
   - `.xz` 70.9 MB;
   - nightly 8.4 min, and 162 min for the last cold build (the longest job 124 min, one job per package);
   - p95 in-process over the 196 bench and holdout tracebacks: `explain_error` 3.5 ms, `symbol_history` 1.6 ms, `coverage` 7.6 ms. `explain_error` was 25.5 ms until DT-CORE-16 fixed two query plans.
+  - still passing on the `SNAPSHOT_FORMAT` 15 index (DT-DATA-14, same day): `.xz` 71.1 MB, cold build 150 min (litellm's job 114), `explain_error` p95 3.7 ms.
 
 ### S5 — Client compatibility for local and hosted modes
 - **Local:**

@@ -645,6 +645,98 @@ def test_error_raised_inside_a_dependency_finds_the_called_package(store):
     assert [(f.package, f.issue, f.confidence) for f in res.findings] == [("httpx", "param_removed", "low")]
 
 
+WEAVIATE = PackageSpec(name="weaviate-client", import_names=("weaviate",), tier="B")
+OPENAI_REQUIRES = ["anyio<5,>=3.5.0", "httpx<1,>=0.23.0", 'numpy>=1; extra == "datalib"']
+USER_UNDER_PYTEST_TB = """\
+Traceback (most recent call last):
+  File "/venv/lib/python3.12/site-packages/_pytest/python.py", line 159, in pytest_pyfunc_call
+    result = testfunction(**testargs)
+  File "/app/tests/test_api.py", line 8, in test_get
+    client = Client(proxies=PROXIES)
+TypeError: Client.__init__() got an unexpected keyword argument 'proxies'
+"""
+
+
+def _weaviate_snap(version: str, *, proxies: bool) -> ApiSnapshot:
+    init = [_param("url"), *([_param("proxies")] if proxies else [])]
+    sym = {
+        p: SymbolRecord(p, k, p, params)
+        for p, k, params in [
+            ("weaviate", "module", None),
+            ("weaviate.Client", "class", None),
+            ("weaviate.Client.__init__", "function", init),
+        ]
+    }
+    return ApiSnapshot("weaviate-client", version, ["weaviate"], sym)
+
+
+def _openai_snap(version: str, requires: list[str] | None) -> ApiSnapshot:
+    sym = {"openai": SymbolRecord("openai", "module", "openai")}
+    return ApiSnapshot("openai", version, ["openai"], sym, requires=requires)
+
+
+def test_the_packages_the_raising_code_requires_are_searched_first(store):
+    # DT-CORE-16: weaviate-client also removed `Client(proxies)`, but openai, whose code raised, doesn't require it.
+    store.rebuild_package(
+        WEAVIATE, [_weaviate_snap("4.9.6", proxies=True), _weaviate_snap("4.10.0", proxies=False)]
+    )
+    # An earlier openai release that required weaviate-client (made up): the installed release's requirements count.
+    store.rebuild_package(
+        OPENAI, [_openai_snap("1.40.0", ["weaviate-client>=4"]), _openai_snap("1.55.0", OPENAI_REQUIRES)]
+    )
+    dt = DepTime(store, Coverage(POLICY, (HTTPX, OPENAI, WEAVIATE)))
+    everything = {"openai": "1.55.0", "httpx": "0.28.1", "weaviate-client": "4.10.0"}
+
+    res = dt.explain_error(OPENAI_INTERNAL_TB, everything)
+    assert [(f.package, f.issue, f.confidence) for f in res.findings] == [("httpx", "param_removed", "high")]
+    assert "the change is in httpx, which it lists in its requirements." in res.note
+    # A requirement outranks being installed, since installed_versions may list only some packages ...
+    res = dt.explain_error(OPENAI_INTERNAL_TB, {"openai": "1.55.0", "weaviate-client": "4.10.0"})
+    assert [(f.package, f.confidence) for f in res.findings] == [("httpx", "low")]
+    # ... and without versions, any indexed openai release's requirements count.
+    assert sorted(f.package for f in dt.explain_error(OPENAI_INTERNAL_TB).findings) == [
+        "httpx",
+        "weaviate-client",
+    ]
+
+    # A requirement only ranks: when openai's are unknown, every package with the change is reported.
+    store.rebuild_package(OPENAI, [_openai_snap("1.55.0", None)])
+    res = dt.explain_error(OPENAI_INTERNAL_TB, everything)
+    assert sorted(f.package for f in res.findings) == ["httpx", "weaviate-client"]
+    assert "httpx, weaviate-client, which it calls." in res.note
+    # Raised in the user's own code under pytest's frames: pytest isn't the caller.
+    res = dt.explain_error(USER_UNDER_PYTEST_TB)
+    assert sorted(f.package for f in res.findings) == ["httpx", "weaviate-client"]
+    assert "made inside" not in res.note
+
+
+def test_requirements_round_trip_and_an_index_without_them_still_opens(tmp_path):
+    # DT-DATA-14: each release's Requires-Dist, NULL when unknown; released clients never read the column.
+    snaps = [
+        ApiSnapshot("openai", "1.0.0", ["openai"], {}, requires=OPENAI_REQUIRES),
+        ApiSnapshot("openai", "1.1.0", ["openai"], {}),
+        ApiSnapshot("openai", "1.2.0", ["openai"], {}, requires=["httpx>=0.23", "Jiter<1"]),
+    ]
+    path = tmp_path / "index.sqlite"
+    store = IndexStore.open(path, readonly=False)
+    store.rebuild_package(OPENAI, snaps)
+    assert store.declared_dependencies("openai", 0) == {"anyio", "httpx", "numpy"}
+    assert store.declared_dependencies("openai", 2) == {"httpx", "jiter"}
+    union = {"anyio", "httpx", "numpy", "jiter"}
+    assert store.declared_dependencies("openai", 1) == store.declared_dependencies("openai") == union
+    assert store.declared_dependencies("httpx") == set()
+    assert [store.snapshot_at(OPENAI, v).requires for v in ("1.0.0", "1.1.0")] == [OPENAI_REQUIRES, None]
+
+    store.conn.execute("ALTER TABLE releases DROP COLUMN requires")
+    store.close()
+    old = IndexStore.open(path)
+    assert old.declared_dependencies("openai") == set() and old.snapshot_at(OPENAI, "1.0.0").requires is None
+    old.close()
+    again = IndexStore.open(path, readonly=False)  # the nightly adds to the published index
+    again.rebuild_package(OPENAI, snaps)
+    assert again.declared_dependencies("openai", 2) == {"httpx", "jiter"}
+
+
 GENAI = PackageSpec(name="google-genai", import_names=("google.genai",), tier="A")
 
 

@@ -60,7 +60,7 @@ DepTime is **local-first** ([ADR 0007](adr/0007-open-source-local-first.md)). Th
 
 The full schema is in `src/deptime/index/schema.sql`.
 
-- **`releases`**: the indexed releases per package, each with an `ordinal` (0…n-1 in version order).
+- **`releases`**: the indexed releases per package, each with an `ordinal` (0…n-1 in version order) and the `Requires-Dist` of the artifact it was analysed from (NULL when unknown).
 - **`spans`**: interval encoding. Each row is a *maximal run of consecutive indexed releases in which a public path has an identical state* (kind, canonical path, params, the symbol's own deprecation, and the arguments its warnings, decorators or docstring deprecate).
   - Storage grows with the number of changes, not symbols × versions.
   - "Does X exist at version V?" is a point query.

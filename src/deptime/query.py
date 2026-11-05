@@ -468,8 +468,12 @@ class DepTime:
         if signal.kind in MODULE_SIGNALS and not candidates and signal.module:
             not_covered.append(signal.module.split(".")[0])
         callee: list[Finding] = []
+        # The module whose code raised: a library's (in site-packages) or None for the user's own code.
+        raiser = signal.frames[-1].module if signal.frames else None
+        declared: set[str] = set()
         if signal.kind in OBJECT_SIGNALS and all(f.issue in INCONCLUSIVE_ISSUES for f in findings):
-            callee = self._callee_findings(signal, installed, {s.name for s in candidates})
+            declared = self._declared_by(raiser, installed)
+            callee = self._callee_findings(signal, installed, {s.name for s in candidates}, declared)
             if callee:
                 # A concrete change in the called package explains the error; "never existed" in the caller is noise.
                 findings = [f for f in findings if f.issue != "never_existed"] + callee
@@ -489,11 +493,16 @@ class DepTime:
             notes.append(
                 "installed_versions/pip_freeze not provided; status is inferred from the latest indexed release."
             )
-        if callee and signal.library_modules:
-            caller = signal.library_modules[-1].split(".")[0]
+        if callee and raiser:
+            caller = raiser.split(".")[0]
             changed = ", ".join(sorted({f.package for f in callee}))
+            calls = (
+                "which it lists in its requirements"
+                if all(f.package in declared for f in callee)
+                else "which it calls"
+            )
             notes.append(
-                f"The failing call is made inside {caller}'s code, and the change is in {changed}, which it calls. "
+                f"The failing call is made inside {caller}'s code, and the change is in {changed}, {calls}. "
                 f"Either pin {changed} (see pin_to_restore) or use a {caller} release that supports your {changed} "
                 f"version; DepTime does not check {caller}'s side."
             )
@@ -521,15 +530,36 @@ class DepTime:
                         found.setdefault(s.name, s)
         return list(found.values())
 
+    def _declared_by(self, module: str | None, installed: dict[str, str]) -> set[str]:
+        """The distributions that `module`'s indexed package requires (DT-DATA-14): at the installed release (the
+        nearest indexed one at or below it), or in any indexed release when it isn't installed or predates the
+        index."""
+        assert self.store is not None
+        out: set[str] = set()
+        for spec in self.coverage.packages_for_module(module) if module else []:
+            if not self._indexed(spec.name):
+                continue
+            version = installed.get(spec.name)
+            resolved = self.store.resolve_version(spec.name, version)[0] if version else None
+            out |= self.store.declared_dependencies(spec.name, resolved["ordinal"] if resolved else None)
+        return out
+
     def _callee_findings(
-        self, signal: ErrorSignal, installed: dict[str, str], tried: set[str]
+        self,
+        signal: ErrorSignal,
+        installed: dict[str, str],
+        tried: set[str],
+        declared: set[str],
     ) -> list[Finding]:
         """Concrete changes in packages the traceback's code may be *calling*.
 
         When library A calls library B with an argument B no longer accepts, Python raises at A's call site
         before any of B's code runs, so B never appears among the frames (openai -> httpx.Client(proxies=...)).
-        Search other indexed packages that have the symbol, installed ones first. Only concrete version changes
-        count here: a name that is simply absent from an unrelated package is not evidence.
+        Search other indexed packages that have the symbol: first those A requires (`declared`, DT-CORE-16), then
+        the others, installed ones first within each, and stop at the first group with a finding. weaviate-client
+        also removed `Client(proxies)`, but openai doesn't require it. A requirement only ranks: langchain-community
+        0.3 calls anthropic without listing it. Only concrete version changes count here: a name that is simply
+        absent from an unrelated package is not evidence.
         """
         assert self.store is not None
         if signal.kind in {"unexpected_kwarg", "missing_argument"}:
@@ -541,7 +571,12 @@ class DepTime:
         if not suffix:
             return []
         packages = [p for p in self.store.packages_with_suffix(suffix) if p not in tried]
-        for group in ([p for p in packages if p in installed], [p for p in packages if p not in installed]):
+        groups = [
+            [p for p in packages if (p in declared) == want_declared and (p in installed) == want_installed]
+            for want_declared in (True, False)
+            for want_installed in (True, False)
+        ]
+        for group in groups:
             found: list[Finding] = []
             for p in group:
                 out = self._findings_for(self._spec(p), signal, installed.get(p))[:MAX_FINDINGS_PER_PACKAGE]

@@ -31,7 +31,7 @@ from deptime.ingest.replacements import (
     worded_deprecated,
 )
 
-SNAPSHOT_FORMAT = 14  # bump when extraction changes: cached snapshots in another format are rebuilt
+SNAPSHOT_FORMAT = 15  # bump when extraction changes: cached snapshots in another format are rebuilt
 MAX_DEPTH = 12  # guards pathological re-export cycles
 
 DEPRECATED_DECORATOR_RE = re.compile(r"^(?:[\w.]+\.)?deprecated\b(?:\(.*\))?$", re.S)
@@ -82,6 +82,8 @@ class ApiSnapshot:
     source_file: str | None = None
     # Modules below which folders without `__init__.py` weren't loaded (coverage.toml, DT-DATA-23).
     namespace_skip: list[str] = field(default_factory=list)
+    # The analysed artifact's `Requires-Dist`, normalized (DT-DATA-14); None when unknown, and in older snapshots.
+    requires: list[str] | None = None
 
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)

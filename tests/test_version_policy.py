@@ -9,6 +9,7 @@ from deptime.ingest.pypi import (
     ReleaseFile,
     parse_simple_index,
     pick_file,
+    requires_dist,
     same_version_pins,
     select_versions,
 )
@@ -133,3 +134,43 @@ def test_same_version_pins_reads_unconditional_exact_pins(tmp_path):
     )
     assert same_version_pins(tmp_path, "2.0.0") == ["w-cli", "w-slim"]
     assert same_version_pins(tmp_path / "w-2.0.0.dist-info", "2.0.0") == []  # no metadata there
+
+
+def test_requires_dist_keeps_every_requirement_normalized(tmp_path, monkeypatch):
+    # DT-DATA-14: extras and markers stay, since an integration behind an extra is still code the package calls.
+    info = tmp_path / "w-2.0.0.dist-info"
+    info.mkdir()
+    (info / "METADATA").write_text(
+        "Metadata-Version: 2.1\nName: w\nVersion: 2.0.0\n"
+        "Requires-Dist: httpx (<1,>=0.23.0)\n"
+        "Requires-Dist: numpy ; extra == 'datalib'\n"
+        "Requires-Dist: not a requirement!!\n"
+        "Requires-Dist: httpx (<1,>=0.23.0)\n"
+        "Requires-Dist: W_Slim[server]==2.0\n"
+    )
+    wheel = "w-2.0.0-py3-none-any.whl"
+    assert requires_dist(tmp_path, wheel) == [
+        "httpx<1,>=0.23.0",
+        'numpy; extra == "datalib"',
+        "W_Slim[server]==2.0",
+    ]
+    monkeypatch.setattr("deptime.ingest.pypi.MAX_REQUIRES", 2)  # metadata is untrusted
+    assert len(requires_dist(tmp_path, wheel)) == 2
+    assert requires_dist(info, wheel) is None  # no metadata there
+
+    bare = tmp_path / "bare" / "e-1.0.dist-info"
+    bare.mkdir(parents=True)
+    (bare / "METADATA").write_text("Metadata-Version: 2.1\nName: e\nVersion: 1.0\n")
+    assert requires_dist(bare.parent, "e-1.0-py3-none-any.whl") == []  # a wheel's metadata is complete
+
+    # An sdist's PKG-INFO, above a src/ layout too. One that lists nothing doesn't show there is nothing:
+    # older setuptools left requirements to egg-info/requires.txt.
+    top = tmp_path / "s-1.0"
+    (top / "src").mkdir(parents=True)
+    (top / "PKG-INFO").write_text(
+        "Metadata-Version: 2.1\nName: s\nVersion: 1.0\nRequires-Dist: pydantic>=1\n"
+    )
+    assert requires_dist(top, "s-1.0.tar.gz") == requires_dist(top / "src", "s-1.0.tar.gz") == ["pydantic>=1"]
+    (top / "PKG-INFO").write_text("Metadata-Version: 2.1\nName: s\nVersion: 1.0\n")
+    assert requires_dist(top, "s-1.0.tar.gz") is None
+    assert requires_dist(tmp_path, "w-2.0.0.tar.gz") is None  # no PKG-INFO

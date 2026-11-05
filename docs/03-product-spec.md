@@ -61,6 +61,7 @@ All tools are read-only and idempotent, and return structured output (pydantic m
   - `unexpected_kwarg`
   - `missing_argument`
   - `circular_import` and `unknown` are recognized and declined.
+- **Errors raised inside a library:** when library A calls library B with an argument B no longer takes, Python raises at A's call site, so B isn't among the frames (openai calling `httpx.Client(proxies=...)`). When the frames' packages show no change, the other indexed packages with that name are searched. First come those that the package whose code raised lists in its `Requires-Dist` at the installed release, then the rest, with installed packages first in each group. Only concrete changes count, and the search stops at the first group that has one. The note names the calling package and says whether it lists the changed one in its requirements.
 - **Output:** `findings[]`, best first. Each finding carries:
   - `issue`: `symbol_removed`, `param_removed`, `never_existed`, `symbol_not_yet_added`, `param_not_yet_added`, `param_now_required`, `module_removed`, or `present_in_installed_version`
   - `last_version_with` and `first_version_without` for a removal; `last_version_without` and `first_version_with` for a `*_not_yet_added` finding

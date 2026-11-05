@@ -240,6 +240,8 @@ def _build(
                     root, file = pinned_root, pinned_file
                     break
         snap = build_snapshot(spec.name, version, list(spec.import_names), root, list(spec.namespace_skip))
+        # The analysed code's own requirements: a wrapper release's are those of the distribution it pins.
+        snap.requires = pypi.requires_dist(root, file.filename)
     snap.source_file = file.filename
     return snap
 

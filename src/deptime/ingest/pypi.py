@@ -227,6 +227,40 @@ def _is_exact_pin(req: Requirement, version: Version) -> bool:
         return False
 
 
+# Metadata is untrusted. litellm 1.106 lists 109 requirements, most behind its `proxy` extras.
+MAX_REQUIRES = 500
+
+
+def requires_dist(root: Path, filename: str) -> list[str] | None:
+    """The `Requires-Dist` of an extracted artifact, each requirement normalized, in metadata order (DT-DATA-14).
+
+    Extras and environment markers are kept: an integration behind an extra is still code the package calls.
+    A wheel's `.dist-info/METADATA` is read, else an sdist's `PKG-INFO`; None when there is no metadata, or an
+    sdist's lists no requirement (older setuptools left them to `requires.txt`, so "none" isn't known).
+    Unparseable lines are skipped.
+    """
+    if filename.endswith(".whl"):
+        files = sorted(root.glob("*.dist-info/METADATA"))
+    else:
+        top = root.parent if root.name == "src" else root  # see _search_root
+        files = [top / "PKG-INFO"] if (top / "PKG-INFO").is_file() else []
+    if not files:
+        return None
+    out: list[str] = []
+    for metadata in files:
+        headers = HeaderParser().parsestr(metadata.read_text(encoding="utf-8", errors="replace"))
+        for line in headers.get_all("Requires-Dist") or []:
+            try:
+                req = str(Requirement(line))
+            except InvalidRequirement:
+                continue
+            if req not in out:
+                out.append(req)
+    if not out and not filename.endswith(".whl"):
+        return None
+    return out[:MAX_REQUIRES]
+
+
 def same_version_pins(root: Path, version: str) -> list[str]:
     """Distributions an extracted wheel always requires at exactly its own version, in metadata order.
 

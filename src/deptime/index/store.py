@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -10,6 +11,7 @@ from datetime import UTC, datetime
 from importlib import resources
 from pathlib import Path
 
+from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
 
 from deptime.config import PackageSpec
@@ -19,6 +21,7 @@ from deptime.ingest.replacements import PublicNames, mine
 from deptime.ingest.snapshot import ApiSnapshot, LazySnapshot, SymbolRecord
 
 SCHEMA_VERSION = "1"
+REQUIREMENT_NAME_RE = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?")  # PEP 508's name
 MOVED_CONFIDENCE = 0.6
 # A removed module-level name whose object is still public under another module-level path (DT-CORE-22): importing
 # that path gives the same object. Evidence from the index's own rows, not text, so not above prose's threshold.
@@ -176,6 +179,9 @@ class IndexStore:
             spans = {r[1] for r in self.conn.execute("PRAGMA table_info(spans)")}
             if "deprecated_params" not in spans:
                 self.conn.execute("ALTER TABLE spans ADD COLUMN deprecated_params TEXT")
+            releases = {r[1] for r in self.conn.execute("PRAGMA table_info(releases)")}
+            if "requires" not in releases:
+                self.conn.execute("ALTER TABLE releases ADD COLUMN requires TEXT")
             self.conn.execute(
                 "INSERT OR REPLACE INTO meta(key, value) VALUES ('schema_version', ?)", (SCHEMA_VERSION,)
             )
@@ -223,6 +229,7 @@ class IndexStore:
                     released_at.get(snap.version),
                     source_files.get(snap.version),
                     len(snap.errors),
+                    None if snap.requires is None else json.dumps(snap.requires),
                 )
             )
             for path, rec in snap.symbols.items():
@@ -333,7 +340,8 @@ class IndexStore:
                 (name, json.dumps(list(spec.import_names)), spec.tier, _now()),
             )
             self.conn.executemany(
-                "INSERT INTO releases(package, version, ordinal, released_at, source_file, error_count) VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT INTO releases(package, version, ordinal, released_at, source_file, error_count, requires)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?)",
                 release_rows,
             )
             self.conn.executemany(
@@ -397,8 +405,7 @@ class IndexStore:
         """One indexed release, rebuilt from its spans: lets ingestion keep a release whose cached snapshot is
         gone. Symbols round-trip exactly; analysis error messages survive only as a count."""
         rel = self.conn.execute(
-            "SELECT ordinal, error_count FROM releases WHERE package = ? AND version = ?",
-            (spec.name, version),
+            "SELECT * FROM releases WHERE package = ? AND version = ?", (spec.name, version)
         ).fetchone()
         if rel is None:
             return None
@@ -419,7 +426,35 @@ class IndexStore:
             for r in rows
         }
         errors = ["analysis problem recorded by an earlier run"] * rel["error_count"]
-        return ApiSnapshot(spec.name, version, list(spec.import_names), symbols, errors)
+        requires = rel["requires"] if "requires" in rel.keys() else None  # noqa: SIM118
+        return ApiSnapshot(
+            spec.name,
+            version,
+            list(spec.import_names),
+            symbols,
+            errors,
+            requires=None if requires is None else json.loads(requires),
+        )
+
+    def declared_dependencies(self, name: str, ordinal: int | None = None) -> set[str]:
+        """Canonical names of the distributions `name` requires, extras included (DT-DATA-14): at the release
+        `ordinal`, or in any indexed release when that's None or the release's requirements are unknown. Empty
+        when no release's are known (an index from before they were recorded)."""
+        if "requires" not in {r[1] for r in self.conn.execute("PRAGMA table_info(releases)")}:
+            return set()
+        where, args = "package = ? AND requires IS NOT NULL", [name]
+        if (
+            ordinal is not None
+            and self.conn.execute(
+                "SELECT 1 FROM releases WHERE package = ? AND ordinal = ? AND requires IS NOT NULL",
+                (name, ordinal),
+            ).fetchone()
+        ):
+            where, args = where + " AND ordinal = ?", [name, ordinal]
+        rows = self.conn.execute(
+            f"SELECT DISTINCT r.value FROM releases, json_each(releases.requires) AS r WHERE {where}", args
+        ).fetchall()
+        return {canonicalize_name(m.group(0)) for (req,) in rows if (m := REQUIREMENT_NAME_RE.match(req))}
 
     def version_at(self, name: str, ordinal: int) -> str | None:
         row = self.conn.execute(

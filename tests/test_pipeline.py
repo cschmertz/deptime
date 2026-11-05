@@ -528,7 +528,13 @@ WRAPPED_PROJECTS = {
         "wrapped_cli-2.0.0-py3-none-any.whl": _wrapper("wrapped-cli", "2.0.0", "wrapped-slim==2.0.0")
     },
     "wrapped-slim": {
-        "wrapped_slim-2.0.0-py3-none-any.whl": _zip({"wrapped/__init__.py": "class New:\n    pass\n"})
+        "wrapped_slim-2.0.0-py3-none-any.whl": _zip(
+            {
+                "wrapped/__init__.py": "class New:\n    pass\n",
+                "wrapped_slim-2.0.0.dist-info/METADATA": "Metadata-Version: 2.1\nName: wrapped-slim\n"
+                "Version: 2.0.0\nRequires-Dist: httpx>=0.27\n",
+            }
+        )
     },
 }
 
@@ -555,6 +561,10 @@ def test_wrapper_release_is_analysed_from_the_distribution_it_pins(tmp_path):
     assert "wrapped.New" in ApiSnapshot.load(snapshot_path(tmp_path, "wrapped", "2.0.0")).symbols
     expected = {"1.0.0": "wrapped-1.0.0-py3-none-any.whl", "2.0.0": "wrapped_slim-2.0.0-py3-none-any.whl"}
     assert {r["version"]: r["source_file"] for r in store.releases("wrapped")} == expected
+    # The analysed code's requirements (DT-DATA-14): the pinned distribution's; 1.0.0's wheel has no metadata.
+    requires = {"1.0.0": None, "2.0.0": '["httpx>=0.27"]'}
+    assert {r["version"]: r["requires"] for r in store.releases("wrapped")} == requires
+    assert ApiSnapshot.load(snapshot_path(tmp_path, "wrapped", "2.0.0")).requires == ["httpx>=0.27"]
     assert [p for p in tmp_path.rglob("*") if p.is_file() and "snapshots" not in p.parts] == []
 
     # CI's publish job assembles from cached snapshots and records the same source files.
@@ -565,3 +575,4 @@ def test_wrapper_release_is_analysed_from_the_distribution_it_pins(tmp_path):
         )
     assert again.cached == ["1.0.0", "2.0.0"]
     assert {r["version"]: r["source_file"] for r in fresh.releases("wrapped")} == expected
+    assert {r["version"]: r["requires"] for r in fresh.releases("wrapped")} == requires

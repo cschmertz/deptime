@@ -106,6 +106,9 @@ class ErrorSignal:
     frames: list[Frame] = field(default_factory=list)
     # The exception type printed last when it only wraps this one (`raise X from exc`, or raised while handling it).
     wrapped_in: str | None = None
+    # Owners an unexpected keyword argument may really belong to: the class the caller constructed, whose
+    # `__init__` passed `**kwargs` on to the parent the message names (DT-CORE-27).
+    forwarded_owners: list[str] = field(default_factory=list)
 
     @property
     def library_modules(self) -> list[str]:
@@ -270,7 +273,26 @@ def _signal_at(lines: list[str], exc_index: int, exc_type: str, exc_msg: str) ->
         "too_many_positional",
     }:
         _owner_from_constructor_call(signal)
+    if signal.kind == "unexpected_kwarg":
+        _owner_forwarded_kwargs(signal)
     return signal
+
+
+def _owner_forwarded_kwargs(signal: ErrorSignal) -> None:
+    """An `__init__` that passes `**kwargs` on to its parent raises in the parent's name (DT-CORE-27): gradio 6's
+    `gr.Blocks(theme=...)` fails as `BlockContext.__init__() got an unexpected keyword argument 'theme'`. The
+    class the frame before it calls (a CapWords name) may have taken that argument once."""
+    frames = [f for f in signal.frames if f.code]
+    if len(frames) < 2 or frames[-1].function != "__init__" or "**" not in (frames[-1].code or ""):
+        return
+    calls = [c for c in CALL_RE.findall(frames[-2].code or "") if c.rsplit(".", 1)[-1][:1].isupper()]
+    if not calls:
+        return
+    owner = f"{calls[-1].rsplit('.', 1)[-1]}.__init__"
+    if owner != signal.owner and owner not in signal.forwarded_owners:
+        signal.forwarded_owners.append(owner)
+        if calls[-1] not in signal.referenced_names:
+            signal.referenced_names.append(calls[-1])
 
 
 def _owner_from_constructor_call(signal: ErrorSignal) -> None:

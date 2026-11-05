@@ -1426,3 +1426,116 @@ def test_internal_moves_and_deprecations_follow_the_rows():
         "'_stack' is deprecated.",
     )
     assert "`__getattr__` serves the private name `_stack`" in f.explanation
+
+
+def test_an_inherited_member_is_named_on_the_class_that_defines_it():
+    # DT-CORE-28: Django 4.0 removed `HttpRequest.is_ajax()`; the error names the subclass, `WSGIRequest`.
+    spec = PackageSpec(name="dj", import_names=("dj",), tier="B")
+    canonical = "dj.http.request.HttpRequest.is_ajax"
+    mods = {
+        p: SymbolRecord(p, "module", p)
+        for p in ("dj", "dj.http", "dj.http.request", "dj.core", "dj.core.wsgi")
+    }
+    classes = {
+        p: SymbolRecord(p, "class", c)
+        for p, c in (
+            ("dj.http.HttpRequest", "dj.http.request.HttpRequest"),
+            ("dj.http.request.HttpRequest", "dj.http.request.HttpRequest"),
+            ("dj.core.wsgi.WSGIRequest", "dj.core.wsgi.WSGIRequest"),
+        )
+    }
+    members = {
+        p: SymbolRecord(p, "function", canonical, [])
+        for p in (
+            "dj.http.HttpRequest.is_ajax",
+            "dj.http.request.HttpRequest.is_ajax",
+            "dj.core.wsgi.WSGIRequest.is_ajax",
+        )
+    }
+    store = IndexStore.memory()
+    store.rebuild_package(
+        spec,
+        [
+            ApiSnapshot("dj", "3.2", ["dj"], {**mods, **classes, **members}),
+            ApiSnapshot("dj", "4.0", ["dj"], {**mods, **classes}),
+        ],
+    )
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+    tb = "AttributeError: 'WSGIRequest' object has no attribute 'is_ajax'"
+    findings = dt.explain_error(tb, {"dj": "4.0"}).findings
+    assert [(f.symbol, f.issue, f.last_version_with) for f in findings] == [
+        ("dj.http.HttpRequest.is_ajax", "symbol_removed", "3.2")
+    ]
+    assert findings[0].explanation.startswith("WSGIRequest inherits is_ajax from HttpRequest.")
+    # A member from a mixin deeper in the package than the class users import stays on that class.
+    mixin = "dj.core.mixins.FastMixin.vector_params"
+    store.rebuild_package(
+        spec,
+        [
+            ApiSnapshot(
+                "dj",
+                "3.2",
+                ["dj"],
+                {
+                    **mods,
+                    **classes,
+                    **members,
+                    "dj.Client": SymbolRecord("dj.Client", "class", "dj.core.client.Client"),
+                    "dj.Client.vector_params": SymbolRecord("dj.Client.vector_params", "function", mixin, []),
+                    mixin: SymbolRecord(mixin, "function", mixin, []),
+                },
+            ),
+            ApiSnapshot("dj", "4.0", ["dj"], {**mods, **classes}),
+        ],
+    )
+    f = dt.explain_error(
+        "AttributeError: 'Client' object has no attribute 'vector_params'", {"dj": "4.0"}
+    ).findings[0]
+    assert (f.symbol, f.issue) == ("dj.Client.vector_params", "symbol_removed")
+    assert "inherits" not in f.explanation
+    # A member the subclass defines itself stays on the subclass.
+    assert (
+        dt.explain_error("AttributeError: 'HttpRequest' object has no attribute 'is_ajax'", {"dj": "4.0"})
+        .findings[0]
+        .symbol
+        == "dj.http.HttpRequest.is_ajax"
+    )
+
+
+def test_an_argument_forwarded_to_the_parent_is_found_on_the_called_class():
+    # DT-CORE-27: gradio 6 took `theme` out of Blocks.__init__, which passes **kwargs on to BlockContext.__init__.
+    from tests.test_tracebacks import GRADIO_TB
+
+    spec = PackageSpec(name="gradio", import_names=("gradio",), tier="B")
+    base = {
+        "gradio": SymbolRecord("gradio", "module", "gradio"),
+        "gradio.Blocks": SymbolRecord("gradio.Blocks", "class", "gradio.Blocks"),
+        "gradio.BlockContext": SymbolRecord("gradio.BlockContext", "class", "gradio.BlockContext"),
+        "gradio.BlockContext.__init__": SymbolRecord(
+            "gradio.BlockContext.__init__", "function", "gradio.BlockContext.__init__", [_param("render")]
+        ),
+    }
+
+    def blocks(*params: str) -> SymbolRecord:
+        kwargs = {"name": "kwargs", "kind": "variadic keyword", "default": None, "annotation": None}
+        return SymbolRecord(
+            "gradio.Blocks.__init__", "function", "gradio.Blocks.__init__", [*map(_param, params), kwargs]
+        )
+
+    store = IndexStore.memory()
+    store.rebuild_package(
+        spec,
+        [
+            ApiSnapshot(
+                "gradio", "5.50.0", ["gradio"], {**base, "gradio.Blocks.__init__": blocks("theme", "title")}
+            ),
+            ApiSnapshot("gradio", "6.0.0", ["gradio"], {**base, "gradio.Blocks.__init__": blocks("title")}),
+        ],
+    )
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+    f = dt.explain_error(GRADIO_TB, {"gradio": "6.0.0"}).findings[0]
+    assert (f.symbol, f.issue, f.last_version_with) == (
+        "gradio.Blocks.__init__(theme)",
+        "param_removed",
+        "5.50.0",
+    )

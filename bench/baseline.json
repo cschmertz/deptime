@@ -2,11 +2,11 @@
   "index_built_at": "2026-11-05T21:45:30+00:00",
   "summary": {
     "cases": 199,
-    "known_gap_share": 3.5,
+    "known_gap_share": 2.5,
     "overall": {
-      "root_cause": 96.5,
-      "root_cause_and_boundary": 96.5,
-      "boundary": 96.4,
+      "root_cause": 97.5,
+      "root_cause_and_boundary": 97.5,
+      "boundary": 97.4,
       "replacement": 68.8,
       "replacement_uncurated": 58.3
     },
@@ -21,9 +21,9 @@
       },
       "B": {
         "cases": 103,
-        "root_cause": 94.2,
-        "root_cause_and_boundary": 94.2,
-        "boundary": 94.2,
+        "root_cause": 96.1,
+        "root_cause_and_boundary": 96.1,
+        "boundary": 96.1,
         "replacement": 82.5,
         "replacement_uncurated": 68.4
       }
@@ -39,9 +39,9 @@
       },
       "reported": {
         "cases": 191,
-        "root_cause": 96.9,
-        "root_cause_and_boundary": 96.9,
-        "boundary": 96.8,
+        "root_cause": 97.9,
+        "root_cause_and_boundary": 97.9,
+        "boundary": 97.9,
         "replacement": 67.0,
         "replacement_uncurated": 56.0
       }
@@ -175,8 +175,8 @@
       "replacement_uncurated": true
     },
     "django-httprequest-is-ajax-coldfront": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": null,
       "replacement_uncurated": null
     },
@@ -325,8 +325,8 @@
       "replacement_uncurated": null
     },
     "gradio-blocks-theme-moved-to-launch-smolagents": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": false,
       "replacement_uncurated": false
     },

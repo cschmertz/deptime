@@ -694,10 +694,15 @@ class DepTime:
             owner_leaf = signal.owner.rsplit(".", 1)[-1]
             paths = self._rank(self.store.find_by_suffix([name], f"{owner_leaf}.{signal.name}"), signal)
             if paths:
-                return [
-                    self._symbol_finding(spec, p, resolved, exact, installed_version, message=signal.message)
-                    for p in paths
-                ]
+                findings = []
+                for path, inherited in self._defining_paths(name, paths):
+                    f = self._symbol_finding(
+                        spec, path, resolved, exact, installed_version, message=signal.message
+                    )
+                    if inherited:
+                        f = f.model_copy(update={"explanation": f"{inherited} {f.explanation}"})
+                    findings.append(f)
+                return findings
             owners = self._rank(self.store.find_by_suffix([name], owner_leaf), signal)
             return (
                 [
@@ -714,17 +719,58 @@ class DepTime:
                 else []
             )
         if signal.kind in {"unexpected_kwarg", "missing_argument"} and signal.owner:
-            paths = self._rank(self.store.find_by_suffix([name], signal.owner), signal)
             param = signal.kwarg if signal.kind == "unexpected_kwarg" else (signal.missing_args or [None])[0]
-            out = [
-                self._param_finding(
-                    spec, p, param, signal.kind, resolved, exact, installed_version, message=signal.message
-                )
-                for p in paths
-                if param
-            ]
-            return [f for f in out if f is not None]
+            out = []
+            # The owner the message names, then a class whose __init__ passed **kwargs on to it (DT-CORE-27).
+            for owner in [signal.owner, *signal.forwarded_owners]:
+                paths = self._rank(self.store.find_by_suffix([name], owner), signal)
+                out += [
+                    self._param_finding(
+                        spec,
+                        p,
+                        param,
+                        signal.kind,
+                        resolved,
+                        exact,
+                        installed_version,
+                        message=signal.message,
+                    )
+                    for p in paths
+                    if param
+                ]
+            # A concrete change first, so the per-package limit never drops it behind inconclusive ones.
+            return sorted((f for f in out if f is not None), key=lambda f: f.issue in INCONCLUSIVE_ISSUES)
         return []
+
+    def _defining_paths(self, name: str, paths: list[str]) -> list[tuple[str, str | None]]:
+        """Each path, or for a member a class inherits, the defining class's shortest public path with the same
+        object (DT-CORE-28): Django 4.0's removal of `is_ajax` reads `'WSGIRequest' object has no attribute
+        'is_ajax'`, and the release notes say `HttpRequest.is_ajax()`. Only when the defining class's path is no
+        deeper than the subclass's. Paired with a sentence saying so."""
+        assert self.store is not None
+        out: list[tuple[str, str | None]] = []
+        for path in paths:
+            spans = self.store.spans(name, path)
+            canonical = spans[-1]["canonical"] if spans else None
+            owner, _, member = path.rpartition(".")
+            defining, _, defined = (canonical or "").rpartition(".")
+            cls, sub = defining.rpartition(".")[2], owner.rpartition(".")[2]
+            choice: tuple[str, str | None] = (path, None)
+            if canonical and defined == member and cls and cls != sub:
+                same = [
+                    p
+                    for _, p in self.store.find_by_suffix([name], f"{cls}.{member}")
+                    if p.rpartition(".")[0].rpartition(".")[2] == cls
+                    and any(s["canonical"] == canonical for s in self.store.spans(name, p))
+                ]
+                best = min(same, key=lambda p: (p.count("."), len(p), p)) if same else None
+                # Not a mixin deeper in the package than the class users import (qdrant-client's
+                # `QdrantClient.get_fastembed_vector_params` comes from `qdrant_fastembed.QdrantFastembedMixin`).
+                if best and best.count(".") <= path.count("."):
+                    choice = (best, f"{sub} inherits {member} from {cls}.")
+            if choice[0] not in [p for p, _ in out]:
+                out.append(choice)
+        return out
 
     @staticmethod
     def _rank(pairs: list[tuple[str, str]], signal: ErrorSignal) -> list[str]:

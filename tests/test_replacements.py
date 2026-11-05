@@ -623,3 +623,27 @@ def test_a_dotted_target_is_found_under_an_ancestor_or_as_a_sibling():
     assert lc.resolve(
         "langchain_community.ClovaXEmbeddings", "langchain_community.embeddings.ClovaEmbeddings", 4
     ) == ("langchain_community.embeddings.ClovaXEmbeddings", True)
+
+
+def test_an_argument_to_pass_to_another_callable_instead():
+    # gradio 5.50 (DT-CORE-27 case) and scikit-learn 1.1: the same argument, given to another call.
+    message = (
+        "The 'theme' parameter in the Blocks constructor will be removed in Gradio 6.0. "
+        "You will need to pass 'theme' to Blocks.launch() instead."
+    )
+    assert [(h.target, h.confidence) for h in param_alternatives(message, ["theme"], ["theme", "css"])] == [
+        ("Blocks.launch(theme)", 0.8)
+    ]
+    message = "Deprecated since version 1.1: Pass the parameter `pdp_lim` to sklearn.inspection.PartialDependenceDisplay.plot() instead."
+    assert param_alternatives(message, ["pdp_lim"], ["pdp_lim"])[0].target == (
+        "sklearn.inspection.PartialDependenceDisplay.plot(pdp_lim)"
+    )
+    # Another argument passed to something else is not this one's replacement.
+    message = "'cache' is deprecated. Pass 'store' to Session.open() instead."
+    assert not [h for h in param_alternatives(message, ["cache"], ["cache", "store"]) if "open" in h.target]
+    assert param_alternatives(
+        "Pass `Embeddings` instance to `embeddings` instead.", ["embedding_function"], []
+    ) == [
+        Hint("Embeddings", 0.6, "Pass `Embeddings` instance to `embeddings` instead."),
+        Hint("embeddings", 0.59, "Pass `Embeddings` instance to `embeddings` instead."),
+    ]

@@ -347,12 +347,22 @@ def names_argument(message: str, name: str) -> bool:
     )
 
 
+# "You will need to pass 'theme' to Blocks.launch() instead" (gradio 5.50), "Pass the parameter `pdp_lim` to
+# sklearn.inspection.PartialDependenceDisplay.plot() instead": the same argument, given to another callable.
+PASS_TO_RE = re.compile(
+    rf"\bpass\s+(?:the\s+{_PARAM_NOUN}\s+)?{_QUOTES}(?P<p>\w+){_QUOTES}\s+to\s+{_QUOTES}"
+    rf"(?P<f>[A-Za-z_][\w.]*)\(\){_QUOTES}\s+instead\b",
+    re.I,
+)
+
+
 def param_alternatives(message: str, deprecated: list[str], params: list[str]) -> list[Hint]:
     """What to pass instead of the `deprecated` arguments: every other quoted name, and parameters named after a
     cue ("please use log_output", "in favor of `.condition`"), in the message's order. A parameter of the
     function scores 0.8 when its sentence has a cue before it ("Use 'proxy' or 'mounts' instead") or "instead"
     after it ("Please configure the 'retry' object instead"), anything else 0.6: polars' "…only be included if `k`
-    is larger…" mentions `k` in passing (DT-CORE-12). Ties keep the message's order."""
+    is larger…" mentions `k` in passing (DT-CORE-12). Ties keep the message's order. First, at 0.8, another callable
+    to pass the same argument to ("pass 'theme' to Blocks.launch() instead" gives `Blocks.launch(theme)`)."""
     found = [(m.start(), m.end(), m.group("t")) for m in QUOTED_IDENT_RE.finditer(message)]
     found += [
         (m.start("t"), m.end("t"), m.group("t"))
@@ -366,7 +376,14 @@ def param_alternatives(message: str, deprecated: list[str], params: list[str]) -
     }
     names = [n for n in dict.fromkeys(n for _, _, n in sorted(found)) if n not in deprecated]
     evidence = message.strip()[:300]
-    return [Hint(n, round((0.8 if n in cued else 0.6) - 0.01 * i, 2), evidence) for i, n in enumerate(names)]
+    moved = [
+        Hint(f"{m.group('f')}({m.group('p')})", 0.8, evidence)
+        for m in PASS_TO_RE.finditer(message)
+        if m.group("p") in deprecated
+    ]
+    return moved + [
+        Hint(n, round((0.8 if n in cued else 0.6) - 0.01 * i, 2), evidence) for i, n in enumerate(names)
+    ]
 
 
 def param_deprecations(message: str | None, params: list[str]) -> dict[str, list[Hint]]:

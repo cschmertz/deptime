@@ -451,3 +451,25 @@ def test_import_name_without_its_module_takes_it_from_the_import_line():
         "qdrant_client.qdrant_fastembed",
         "IDF_EMBEDDING_MODELS",
     )
+
+
+GRADIO_TB = (
+    "Traceback (most recent call last):\n"
+    '  File "/venv/lib/python3.12/site-packages/smolagents/gradio_ui.py", line 419, in create_app\n'
+    '    with gr.Blocks(theme="ocean", fill_height=True) as demo:\n'
+    "         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n"
+    '  File "/venv/lib/python3.12/site-packages/gradio/blocks.py", line 1071, in __init__\n'
+    "    super().__init__(render=False, **kwargs)\n"
+    "TypeError: BlockContext.__init__() got an unexpected keyword argument 'theme'\n"
+)
+
+
+def test_an_argument_forwarded_by_kwargs_is_also_the_called_class_s():
+    # DT-CORE-27: gradio 6 moved `theme` from Blocks() to launch(); Blocks.__init__ passes **kwargs to its parent.
+    s = parse_traceback(GRADIO_TB)
+    assert (s.kind, s.owner, s.kwarg) == ("unexpected_kwarg", "BlockContext.__init__", "theme")
+    assert s.forwarded_owners == ["Blocks.__init__"]
+    # Only an __init__ that passes **kwargs on, and only a class the frame before it calls.
+    assert parse_traceback(GRADIO_TB.replace("**kwargs", "theme=theme")).forwarded_owners == []
+    assert parse_traceback(GRADIO_TB.replace("in __init__", "in render")).forwarded_owners == []
+    assert parse_traceback(GRADIO_TB.replace("gr.Blocks(", "gr.blocks(")).forwarded_owners == []

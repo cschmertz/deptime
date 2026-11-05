@@ -53,6 +53,8 @@ All tools are read-only and idempotent, and return structured output (pydantic m
 - **Input:**
   - `traceback`: the full traceback, or just the final exception line. Max 20,000 chars.
   - Versions: `installed_versions` as a dict, or `pip_freeze` as `pip freeze`/`pip list` text.
+  - The Python version, for a missing standard-library module: `"python"` in `installed_versions`, else the version the traceback's paths name (`lib/python3.12/`), reported as `signal.python_version`.
+  - A covered package listed under another distribution that installs the same code (`pinecone-client` 3.2.2 is pinecone 3.2.2) counts as that package. When another distribution installs other code under a covered import name (`agents`: TensorFlow Agents, ai-agents), the versions decide which one raised: a rival installed instead of the covered package, or a whole `pip_freeze` without it, puts the error in `not_covered` (DT-CORE-03).
 - **Signal kinds it handles:**
   - `import_name` (`cannot import name 'X' from 'm'`)
   - `module_missing`
@@ -130,7 +132,7 @@ All tools are read-only and idempotent, and return structured output (pydantic m
 - **Policy** (`src/deptime/coverage.toml`): for every minor series active since 2023-01-01, index every release, so a patch-level break gets its exact boundary (DT-DATA-19). No pre-releases and no yanked releases.
 - **Tier A (AI and agent stack, 27 packages):** openai, anthropic, google-genai, google-generativeai, mistralai, litellm, langchain (+core, community, openai), langgraph, llama-index-core, mcp, fastmcp, pydantic (+settings), pydantic-ai-slim, openai-agents, crewai, dspy, instructor, huggingface-hub, chromadb, qdrant-client, pinecone, weaviate-client, ollama.
 - **Tier B (libraries with documented breaking changes, 25 packages):** fastapi, starlette, httpx, sqlalchemy, sqlmodel, pandas, numpy (via its stubs), polars, scikit-learn, matplotlib, streamlit, gradio, django, flask, werkzeug, celery, redis, pymongo, selenium, urllib3, aiohttp, pytest, typer, click, marshmallow.
-- **Standard library:** module availability per Python version, from typeshed `stdlib/VERSIONS` (DT-DATA-06). This catches removals like `distutils`, `imp` and `cgi`.
+- **Standard library:** module availability per Python version, from typeshed `stdlib/VERSIONS` (DT-DATA-06; `src/deptime/stdlib_versions.txt`, read at query time). This catches removals like `distutils`, `imp` and `cgi`, and modules newer than the Python in use (`tomllib`). A finding about one has `package` `python`. The names inside standard modules (`collections.Mapping`) aren't tracked.
 - **Skipped in v1:** boto3 (generated code), torch and tensorflow (compiled), apache-airflow (too large), transformers (about 1.5M public paths per release, mostly inherited methods; it returns with DT-DATA-16).
 
 ## Non-goals for v1

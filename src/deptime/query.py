@@ -13,6 +13,7 @@ from pathlib import Path
 
 from packaging.utils import canonicalize_name
 
+from deptime import stdlib
 from deptime.config import Coverage, PackageSpec
 from deptime.index.store import IndexStore
 from deptime.ingest.diff import is_required
@@ -36,6 +37,8 @@ from deptime.tracebacks import ErrorSignal, parse_traceback
 from deptime.untrusted import instruction_like, untrusted_text
 
 MAX_DIFF_EVENTS = 500
+# The `package` of a finding about the standard library (DT-DATA-06).
+PYTHON = "python"
 MAX_FINDINGS_PER_PACKAGE = 5
 # Replacement hints below this stay in the structured `replacements` list (with their confidence) but are never
 # stated as advice in prose: agents read `explanation` as fact. Matches spike S2's precision threshold.
@@ -551,11 +554,22 @@ class DepTime:
             findings.extend(
                 self._findings_for(spec, signal, installed.get(spec.name))[:MAX_FINDINGS_PER_PACKAGE]
             )
-        if signal.kind in MODULE_SIGNALS and not named and signal.module:
-            not_covered.append(signal.module.split(".")[0])
-        callee: list[Finding] = []
         # The module whose code raised: a library's (in site-packages) or None for the user's own code.
         raiser = signal.frames[-1].module if signal.frames else None
+        stdlib_notes: list[str] = []
+        if signal.kind in MODULE_SIGNALS and not named and signal.module:
+            entry = stdlib.lookup(signal.module)
+            if entry is not None and signal.kind == "module_missing":
+                found, stdlib_notes = self._stdlib_findings(signal, entry, installed.get("python"), raiser)
+                findings += found
+            else:
+                not_covered.append(signal.module.split(".")[0])
+                if entry is not None:
+                    stdlib_notes.append(
+                        f"`{entry.module}` is in the standard library: DepTime knows which standard modules each "
+                        "Python version has, not the names inside them."
+                    )
+        callee: list[Finding] = []
         declared: set[str] = set()
         if signal.kind in OBJECT_SIGNALS and all(f.issue in INCONCLUSIVE_ISSUES for f in findings):
             declared = self._declared_by(raiser, installed, dropped)
@@ -572,7 +586,8 @@ class DepTime:
                 f"The last exception, {signal.wrapped_in}, was raised from or while handling this "
                 f"{signal.exception_type}, which is the one explained here."
             )
-        if not findings:
+        notes += stdlib_notes
+        if not findings and not stdlib_notes:
             notes.append(
                 "No version-history explanation found."
                 + (
@@ -581,7 +596,7 @@ class DepTime:
                     else " Pass installed_versions or pip_freeze so DepTime can check the versions you actually run."
                 )
             )
-        elif not installed:
+        elif not installed and any(f.package != PYTHON for f in findings):
             notes.append(
                 "installed_versions/pip_freeze not provided; status is inferred from the latest indexed release."
             )
@@ -621,6 +636,98 @@ class DepTime:
                     if s is not None:
                         found.setdefault(s.name, s)
         return list(found.values())
+
+    @staticmethod
+    def _stdlib_findings(
+        signal: ErrorSignal, entry: stdlib.StdlibModule, given: str | None, raiser: str | None
+    ) -> tuple[list[Finding], list[str]]:
+        """A missing standard-library module, against the Python version installed_versions gives as "python" or
+        the frames' paths name (DT-DATA-06). Without a version, the change the module had is reported at medium."""
+        version = given or signal.python_version
+        minor = stdlib.minor_of(version)
+        mod = entry.module
+        part = "" if mod == signal.module else f" `{signal.module}` is part of it."
+        you = (
+            f" You run Python {version}{'' if given else ' (from the traceback paths)'}."
+            if minor is not None
+            else ""
+        )
+        # Without a version, a module still there and added by the oldest Python typeshed supports is taken as there.
+        present = (
+            entry.has(minor)
+            if minor is not None
+            else entry.last is None and entry.first <= stdlib.OLDEST_MINOR
+        )
+        if present:
+            where = (
+                f"Python {version}"
+                if minor is not None
+                else "every Python 3 version"
+                if entry.first == 0
+                else f"Python 3.{entry.first} and later"
+            )
+            if mod != signal.module:
+                return [], [
+                    f"`{mod}` is in the standard library of {where}, and DepTime only knows the submodules typeshed's "
+                    f"stdlib/VERSIONS lists, so it can't tell whether `{signal.module}` ever existed."
+                ]
+            return [], [
+                f"`{mod}` is in the standard library of {where} (typeshed's stdlib/VERSIONS), so this isn't a version "
+                "change: some standard modules exist only on some platforms, or only when Python was built with the "
+                "system library they need."
+            ]
+        confidence: Confidence = "high" if minor is not None else "medium"
+        if entry.last is not None and (minor is None or minor > entry.last):
+            gone, last = f"3.{entry.last + 1}", f"3.{entry.last}"
+            unsure = (
+                ""
+                if minor is not None
+                else f' If you run Python {gone} or later, that is the cause; pass installed_versions={{"python": '
+                '"3.X"} to confirm.'
+            )
+            caller = raiser.split(".")[0] if raiser else None
+            theirs = (
+                f" The import is in {caller}'s code: a {caller} release made for Python {gone} may not need it; "
+                f"DepTime does not check {caller}'s side."
+                if caller
+                else ""
+            )
+            return [
+                Finding(
+                    package=PYTHON,
+                    symbol=mod,
+                    issue="module_removed",
+                    installed_version=version,
+                    resolved_version=f"3.{minor}" if minor is not None else None,
+                    last_version_with=last,
+                    first_version_without=gone,
+                    pin_to_restore=f"{PYTHON}<={last}",
+                    confidence=confidence,
+                    explanation=f"`{mod}` was removed from the standard library in Python {gone}; {last} is the last "
+                    f"version with it.{part}{you}{unsure}{theirs}",
+                )
+            ], []
+        first = f"3.{entry.first}"
+        unsure = (
+            ""
+            if minor is not None
+            else ' If you run an earlier Python, that is the cause; pass installed_versions={"python": "3.X"} to '
+            "confirm."
+        )
+        return [
+            Finding(
+                package=PYTHON,
+                symbol=mod,
+                issue="symbol_not_yet_added",
+                installed_version=version,
+                resolved_version=f"3.{minor}" if minor is not None else None,
+                last_version_without=f"3.{entry.first - 1}",
+                first_version_with=first,
+                pin_to_restore=f"{PYTHON}>={first}",
+                confidence=confidence,
+                explanation=f"`{mod}` was added to the standard library in Python {first}.{part}{you}{unsure}",
+            )
+        ], []
 
     def _read_aliases(self, installed: dict[str, str]) -> tuple[dict[str, str], dict[str, str]]:
         """Read a covered package's version off a distribution that installs the same code under another name

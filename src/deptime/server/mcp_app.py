@@ -76,7 +76,11 @@ def build_mcp(
             ),
         ],
         installed_versions: Annotated[
-            dict[str, str] | None, Field(description='Installed versions, e.g. {"httpx": "0.28.1"}.')
+            dict[str, str] | None,
+            Field(
+                description='Installed versions, e.g. {"httpx": "0.28.1"}. Add "python": "3.12" when a '
+                "standard-library module is missing."
+            ),
         ] = None,
         pip_freeze: Annotated[
             str | None,

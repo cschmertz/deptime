@@ -473,3 +473,51 @@ def test_an_argument_forwarded_by_kwargs_is_also_the_called_class_s():
     assert parse_traceback(GRADIO_TB.replace("**kwargs", "theme=theme")).forwarded_owners == []
     assert parse_traceback(GRADIO_TB.replace("in __init__", "in render")).forwarded_owners == []
     assert parse_traceback(GRADIO_TB.replace("gr.Blocks(", "gr.blocks(")).forwarded_owners == []
+
+
+def _frame(path: str) -> str:
+    return f'Traceback (most recent call last):\n  File "{path}", line 1, in <module>\n    import x\n'
+
+
+def test_the_python_version_comes_from_the_frames_paths():
+    # DT-DATA-06: which standard-library modules exist depends on it.
+    end = "ModuleNotFoundError: No module named 'distutils'\n"
+    for path, version in [
+        ("/venv/lib/python3.12/site-packages/numpy/distutils/core.py", "3.12"),
+        ("/home/u/.pyenv/versions/3.11.9/lib/python3.11/importlib/__init__.py", "3.11"),
+        ("/usr/local/lib64/python3.13t/site-packages/a.py", "3.13"),  # free-threaded build
+        (r"C:\Users\u\AppData\Local\Programs\Python\Python310\lib\site-packages\a.py", "3.10"),
+        (
+            r"C:\Program Files\WindowsApps\PythonSoftwareFoundation.Python.3.9_3.9.13_x64__qbz5n2kfra8p0\lib\a.py",
+            "3.9",
+        ),
+    ]:
+        assert parse_traceback(_frame(path) + end).python_version == version, path
+    # No minor version in the path (a Windows venv, Debian's dist-packages), or paths that disagree: unknown.
+    for text in [
+        _frame(r"D:\project\venv\lib\site-packages\agents\__init__.py") + end,
+        _frame("/usr/lib/python3/dist-packages/apt/__init__.py") + end,
+        _frame("/home/u/python3.10-notes/app.py") + end,
+        _frame("/a/lib/python3.11/x.py") + _frame("/b/lib/python3.12/y.py").split("\n", 1)[1] + end,
+        end,
+    ]:
+        assert parse_traceback(text).python_version is None, text
+    assert (
+        parse_traceback(_frame("/venv/lib/python3.12/site-packages/a.py") + end).to_model().python_version
+        == "3.12"
+    )
+
+
+def test_the_python_version_also_comes_from_ipython_s_frame_lines():
+    # IPython 8 prints `File <path>:<line>`, and JupyterLab links each file (natasha/corus#86).
+    end = "\nModuleNotFoundError: No module named 'cgi'\n"
+    ipython = (
+        "File ~/.cache/pypoetry/virtualenvs/x-py3.12/lib/python3.12/site-packages/skdatasets/cran.py:14\n"
+    )
+    jupyter = (
+        "http://localhost:8888/app/.venv/lib/python3.13/site-packages/corus/third/WikiExtractor.py#line=62\n"
+    )
+    assert parse_traceback(ipython + "---> 14 import cgi" + end).python_version == "3.12"
+    assert parse_traceback(jupyter + "---> 63 import cgi" + end).python_version == "3.13"
+    # Other text that names a path doesn't count.
+    assert parse_traceback("see /usr/lib/python3.12/cgi.py" + end).python_version is None

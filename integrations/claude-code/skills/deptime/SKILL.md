@@ -12,6 +12,7 @@ version questions deterministically. Prefer it over guessing or web searching fo
 
 1. Get the installed versions: run `uv pip freeze` (or `pip freeze`) in the project's environment.
 2. Call `explain_error` with the full traceback and that output as `pip_freeze`.
+   For a missing standard-library module (`distutils`, `imp`, `tomllib`), also pass `installed_versions={"python": "<python --version>"}`.
 3. Read `findings[0]`:
    - `param_removed` / `symbol_removed` / `module_removed` → use `replacements` (highest confidence first) or apply `pin_to_restore` if the user prefers not to migrate.
      With `internal: true` the name isn't public API, and the code using it is usually another library

@@ -135,6 +135,9 @@ class ErrorSignalOut(BaseModel):
     suggestion: str | None = None
     referenced_names: list[str] = Field(default_factory=list)
     frames: list[FrameOut] = Field(default_factory=list)
+    python_version: str | None = Field(
+        default=None, description="Python version (3.X) the traceback's file paths name, when they agree."
+    )
 
 
 class Finding(BaseModel):

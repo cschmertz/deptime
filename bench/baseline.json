@@ -1,16 +1,24 @@
 {
   "index_built_at": "2026-11-05T22:29:46+00:00",
   "summary": {
-    "cases": 199,
+    "cases": 204,
     "known_gap_share": 2.5,
     "overall": {
       "root_cause": 97.5,
       "root_cause_and_boundary": 97.5,
-      "boundary": 97.4,
+      "boundary": 97.5,
       "replacement": 69.8,
       "replacement_uncurated": 59.4
     },
     "by_tier": {
+      "-": {
+        "cases": 5,
+        "root_cause": 100.0,
+        "root_cause_and_boundary": 100.0,
+        "boundary": 100.0,
+        "replacement": null,
+        "replacement_uncurated": null
+      },
       "A": {
         "cases": 96,
         "root_cause": 99.0,
@@ -38,9 +46,9 @@
         "replacement_uncurated": 100.0
       },
       "reported": {
-        "cases": 191,
-        "root_cause": 97.9,
-        "root_cause_and_boundary": 97.9,
+        "cases": 196,
+        "root_cause": 98.0,
+        "root_cause_and_boundary": 98.0,
         "boundary": 97.9,
         "replacement": 68.1,
         "replacement_uncurated": 57.1
@@ -911,6 +919,36 @@
       "boundary": true,
       "replacement": true,
       "replacement_uncurated": false
+    },
+    "python-distutils-removed-thefuck": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
+    "python-distutils-removed-libyear": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
+    "python-imp-removed-mailnag": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
+    "python-imp-removed-cement": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
+    "python-cgi-removed-corus-ipython": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
     },
     "qdrant-client-search-removed-openuni": {
       "root_cause": true,

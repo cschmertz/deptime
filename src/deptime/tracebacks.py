@@ -32,6 +32,18 @@ EXC_LINE_RE = re.compile(  # openai's APIRemovedInV1 is the one supported except
 MAX_MESSAGE_LINES = 10  # lines after the exception line that may continue a multi-line message
 CARET_RE = re.compile(r"^\s*[~^]+\s*$")
 SITE_RE = re.compile(r"[\\/](?:site|dist)-packages[\\/](?P<rel>.+?)\.pyi?$")
+# The interpreter's version in a frame's path: `lib/python3.12/` (and `python3.13t`, free-threaded), Windows'
+# `Python312\`, the Microsoft Store's `PythonSoftwareFoundation.Python.3.12_` (DT-DATA-06).
+# Frame lines with no `File "..."`: IPython 8's `File <path>:<line>` and JupyterLab's link to each file.
+IPYTHON_FRAME_RES = (
+    re.compile(r"^\s*File (?P<file>\S+?\.pyi?):\d+"),
+    re.compile(r"^\s*(?P<file>(?:https?|file)://\S+?\.pyi?)#line=\d+\s*$"),
+)
+PYTHON_PATH_RES = (
+    re.compile(r"[\\/]python3\.(?P<minor>\d{1,2})t?[\\/]"),
+    re.compile(r"[\\/]Python3(?P<minor>\d{1,2})(?:-32|-arm64)?[\\/]", re.IGNORECASE),
+    re.compile(r"[\\/]PythonSoftwareFoundation\.Python\.3\.(?P<minor>\d{1,2})_"),
+)
 SUGGESTION_RE = re.compile(r"\.?\s*Did you mean:? '(?P<s>[\w.]+)'\??\s*$")
 DOTTED_RE = re.compile(r"(?<![\w.])([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+)")
 CALL_RE = re.compile(r"(?<![\w.])([A-Za-z_][\w.]*)\s*\(")
@@ -109,6 +121,8 @@ class ErrorSignal:
     # Owners an unexpected keyword argument may really belong to: the class the caller constructed, whose
     # `__init__` passed `**kwargs` on to the parent the message names (DT-CORE-27).
     forwarded_owners: list[str] = field(default_factory=list)
+    # "3.12" when the frames' paths name one Python version (DT-DATA-06).
+    python_version: str | None = None
 
     @property
     def library_modules(self) -> list[str]:
@@ -131,6 +145,7 @@ class ErrorSignal:
             missing_args=self.missing_args,
             suggestion=self.suggestion,
             referenced_names=self.referenced_names,
+            python_version=self.python_version,
             frames=[
                 FrameOut(file=f.file, line=f.line, function=f.function, module=f.module, code=f.code)
                 for f in self.frames
@@ -197,9 +212,29 @@ def parse_traceback(text: str) -> ErrorSignal | None:
             probe = ErrorSignal(kind="unknown", exception_type="", message="")
             _classify(probe, lines[i])
             if probe.kind != "unknown":
-                return _signal_at(lines, i, INFERRED_TYPE[probe.kind], lines[i].strip())
+                return _python_version_of(
+                    lines, _signal_at(lines, i, INFERRED_TYPE[probe.kind], lines[i].strip())
+                )
         return None
 
+    return _python_version_of(lines, _signal_in_chain(lines, found))
+
+
+def _python_version_of(lines: list[str], signal: ErrorSignal) -> ErrorSignal:
+    """Set the Python version that the paths of all the text's frames agree on, if any name one."""
+    files = [
+        fm.group("file")
+        for line in lines
+        for frame_re in (FRAME_RE, *IPYTHON_FRAME_RES)
+        if (fm := frame_re.match(line))
+    ]
+    versions = {m.group("minor") for file in files for rx in PYTHON_PATH_RES if (m := rx.search(file))}
+    signal.python_version = f"3.{versions.pop()}" if len(versions) == 1 else None
+    return signal
+
+
+def _signal_in_chain(lines: list[str], found: list[tuple[int, str, str]]) -> ErrorSignal:
+    """The last exception's signal, or the one it wraps (see parse_traceback)."""
     signal = _signal_at(lines, *found[-1])
     last = signal.exception_type
     for (cause, *rest), (effect, _, _) in zip(reversed(found[:-1]), reversed(found[1:]), strict=True):

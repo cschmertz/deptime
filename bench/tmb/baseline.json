@@ -1,21 +1,21 @@
 {
-  "index_built_at": "2026-11-05T02:54:03+00:00",
+  "index_built_at": "2026-11-05T21:45:30+00:00",
   "summary": {
     "cases": 29,
-    "known_gap_share": 10.3,
+    "known_gap_share": 6.9,
     "overall": {
-      "root_cause": 89.7,
-      "root_cause_and_boundary": 89.7,
-      "boundary": 89.7,
+      "root_cause": 93.1,
+      "root_cause_and_boundary": 93.1,
+      "boundary": 93.1,
       "replacement": 77.3,
       "replacement_uncurated": 68.2
     },
     "by_tier": {
       "B": {
         "cases": 29,
-        "root_cause": 89.7,
-        "root_cause_and_boundary": 89.7,
-        "boundary": 89.7,
+        "root_cause": 93.1,
+        "root_cause_and_boundary": 93.1,
+        "boundary": 93.1,
         "replacement": 77.3,
         "replacement_uncurated": 68.2
       }
@@ -23,9 +23,9 @@
     "by_origin": {
       "reported": {
         "cases": 29,
-        "root_cause": 89.7,
-        "root_cause_and_boundary": 89.7,
-        "boundary": 89.7,
+        "root_cause": 93.1,
+        "root_cause_and_boundary": 93.1,
+        "boundary": 93.1,
         "replacement": 77.3,
         "replacement_uncurated": 68.2
       }
@@ -63,8 +63,8 @@
       "replacement_uncurated": false
     },
     "tmb-flask-request-ctx-stack-flask-language": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": null,
       "replacement_uncurated": null
     },

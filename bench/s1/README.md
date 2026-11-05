@@ -65,4 +65,4 @@ gh run download <run id> -D <new empty dir>
 uv run python bench/s1/compare.py <that dir> --index <index.sqlite> --json <results.json>
 ```
 
-`compare.py` reads the artifacts as data and imports nothing it measures. Score against the same index `plan.json` was built from (its `index_built_at`).
+Add `--internal` to count the names the index records as not public API (DT-DATA-22) as present. `compare.py` reads the artifacts as data and imports nothing it measures. Score against the same index `plan.json` was built from (its `index_built_at`).

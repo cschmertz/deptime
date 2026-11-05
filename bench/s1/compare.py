@@ -11,6 +11,8 @@ Pass: at most 10% false absent overall (docs/07 §S1). The rate over every runti
 The gate leaves out a plain module's imports from elsewhere in its package (`module / dir / package`): they're
 implementation, not the lazy or dynamic exports R1 is about, and the index excludes them by design. The rate under
 the pre-registered rule, with them in, is printed next to it (bench/s1/README.md, "Amendment").
+
+With --internal, a name the index records as not public API (`internal_spans`, DT-DATA-22) counts as present too.
 """
 
 from __future__ import annotations
@@ -72,9 +74,16 @@ def main() -> int:
     ap.add_argument("--index", type=Path, required=True)
     ap.add_argument("--plan", type=Path, default=Path(__file__).with_name("plan.json"))
     ap.add_argument("--json", type=Path)
+    ap.add_argument("--internal", action="store_true", help="count internal rows (DT-DATA-22) as present")
     args = ap.parse_args()
     plan = json.loads(args.plan.read_text(encoding="utf-8"))
     store = IndexStore.open(args.index)
+
+    def present(name: str, path: str, ordinal: int) -> bool:
+        if store.span_at(name, path, ordinal) is not None:
+            return True
+        return args.internal and store.internal_span_at(name, path, ordinal) is not None
+
     probes = load_probes(args.probes)
     if not probes:
         raise SystemExit(f"no probe results under {args.probes}")
@@ -95,14 +104,17 @@ def main() -> int:
             rows.setdefault(f"{rec['module']}.{rec['name']}", rec)
         population = [{"path": p, **rec} for p, rec in rows.items()]
         for rec in population:
-            rec["present"] = store.span_at(name, rec["path"], ordinal) is not None
+            rec["present"] = present(name, rec["path"], ordinal)
         seed = f"{plan['seed']}:{name}:{version}"
         strict = sample(population, plan["per_stratum"], seed)
         population = [r for r in population if in_gate(r)]
         picked = sample(population, plan["per_stratum"], seed)
         for rec in picked:
             if not rec["present"]:
-                rec["seen_elsewhere"] = bool(store.spans(name, rec["path"]))
+                rec["seen_elsewhere"] = bool(
+                    store.spans(name, rec["path"])
+                    or (args.internal and store.internal_spans(name, rec["path"]))
+                )
         misses = [r for r in picked if not r["present"]]
         c = by_pkg[name]
         c["sampled"] += len(picked)
@@ -115,7 +127,7 @@ def main() -> int:
             by_stratum[r["stratum"], "sampled"] += 1
             by_stratum[r["stratum"], "missed"] += not r["present"]
         for r in rows.values():
-            if store.span_at(name, f"{r['module']}.{r['name']}", ordinal) is None:
+            if not present(name, f"{r['module']}.{r['name']}", ordinal):
                 by_shape[r["stratum"], r["how"], r["origin"]] += 1
         results.append(
             {
@@ -138,7 +150,8 @@ def main() -> int:
     strict = rate(
         sum(c["strict_missed"] for c in by_pkg.values()), sum(c["strict_sampled"] for c in by_pkg.values())
     )
-    print(f"# S1 false-absent rate (DT-SPIKE-01), index built {store.built_at()}\n")
+    rows = "public and internal rows" if args.internal else "public rows"
+    print(f"# S1 false-absent rate (DT-SPIKE-01), index built {store.built_at()}, {rows}\n")
     print(f"**{verdict}**: sampled {rate(missed, sampled)} (pass at <= {PASS_RATE:.0%}).\n")
     print(f"- {removed} of the misses are names seen in other releases, so they would read as removed.")
     print(f"- Pre-registered rule (plain-module package imports in): {strict}.")

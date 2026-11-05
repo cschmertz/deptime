@@ -1,0 +1,139 @@
+# Golden facts for each Tier A package (DT-QA-03): names its own documentation uses, which the newest indexed
+# release must have. tests/test_golden.py checks them against the published index after every build (bench.yml).
+# Like the benchmark's answers, each comes from the package's README, docs or source at a release, never from
+# DepTime. A name a later release drops is a real change: replace it with one that release documents.
+
+[[package]]
+name = "openai"
+present = ["openai.OpenAI", "openai.AsyncOpenAI"]
+evidence = "https://pypi.org/project/openai/3.46.0/ (README: `from openai import OpenAI`, `AsyncOpenAI`)"
+
+[[package]]
+name = "anthropic"
+present = ["anthropic.Anthropic"]
+evidence = "https://pypi.org/project/anthropic/2.6.0/ (README: `from anthropic import Anthropic`)"
+
+[[package]]
+name = "google-genai"
+present = ["google.genai.Client", "google.genai.types"]
+evidence = "https://pypi.org/project/google-genai/2.34.0/ (README: `from google import genai`, `genai.Client`, `from google.genai import types`)"
+
+[[package]]
+name = "google-generativeai"
+present = ["google.generativeai.configure", "google.generativeai.GenerativeModel"]
+evidence = "https://github.com/google-gemini/deprecated-generative-ai-python/blob/main/docs/api/google/generativeai.md (`genai.configure`, `genai.GenerativeModel`)"
+
+[[package]]
+name = "mistralai"
+present = ["mistralai.client.Mistral"]
+evidence = "https://pypi.org/project/mistralai/3.7.0/ (README: `from mistralai.client import Mistral`)"
+
+[[package]]
+name = "litellm"
+present = ["litellm.completion"]
+evidence = "https://pypi.org/project/litellm/1.108.0/ (README: `from litellm import completion`)"
+
+[[package]]
+name = "langchain"
+present = ["langchain.agents.create_agent", "langchain.chat_models.init_chat_model"]
+evidence = "https://docs.langchain.com/oss/python/langchain/quickstart (`from langchain.agents import create_agent`, `from langchain.chat_models import init_chat_model`)"
+
+[[package]]
+name = "langchain-core"
+present = ["langchain_core.messages.BaseMessage", "langchain_core.load.dumpd"]
+evidence = "https://docs.langchain.com/oss/python/langgraph/quickstart (`from langchain_core.messages import BaseMessage`); https://docs.langchain.com/oss/python/langchain/messages (`from langchain_core.load import dumpd, load`)"
+
+[[package]]
+name = "langchain-community"
+present = ["langchain_community.vectorstores.FAISS"]
+evidence = "https://github.com/langchain-ai/langchain-community/blob/libs/community/v0.4.2/libs/community/langchain_community/vectorstores/__init__.py (`__all__` lists \"FAISS\")"
+
+[[package]]
+name = "langchain-openai"
+present = ["langchain_openai.ChatOpenAI"]
+evidence = "https://docs.langchain.com/oss/python/integrations/chat/openai (`from langchain_openai import ChatOpenAI`)"
+
+[[package]]
+name = "langgraph"
+present = ["langgraph.graph.StateGraph", "langgraph.graph.add_messages"]
+evidence = "https://docs.langchain.com/oss/python/langgraph/quickstart (`from langgraph.graph import StateGraph, START, END`, `from langgraph.graph import add_messages`)"
+
+[[package]]
+name = "llama-index-core"
+present = ["llama_index.core.VectorStoreIndex", "llama_index.core.SimpleDirectoryReader"]
+evidence = "https://github.com/run-llama/llama_index/blob/main/README.md (`from llama_index.core import VectorStoreIndex, SimpleDirectoryReader`)"
+
+[[package]]
+name = "mcp"
+present = ["mcp.server.MCPServer", "mcp.Client"]
+evidence = "https://pypi.org/project/mcp/2.3.0/ (README: `from mcp.server import MCPServer`, `from mcp import Client`)"
+
+[[package]]
+name = "fastmcp"
+present = ["fastmcp.FastMCP"]
+evidence = "https://pypi.org/project/fastmcp/4.1.6/ (README: `from fastmcp import FastMCP`)"
+
+[[package]]
+name = "pydantic"
+present = ["pydantic.BaseModel", "pydantic.TypeAdapter"]
+evidence = "https://pypi.org/project/pydantic/2.14.3/ (README: `from pydantic import BaseModel`, `TypeAdapter`)"
+
+[[package]]
+name = "pydantic-settings"
+present = ["pydantic_settings.BaseSettings", "pydantic_settings.SettingsConfigDict"]
+evidence = "https://docs.pydantic.dev/latest/concepts/pydantic_settings/ (`from pydantic_settings import BaseSettings, SettingsConfigDict`)"
+
+[[package]]
+name = "pydantic-ai-slim"
+present = ["pydantic_ai.Agent", "pydantic_ai.RunContext"]
+evidence = "https://github.com/pydantic/pydantic-ai/blob/main/README.md (`from pydantic_ai import Agent, RunContext`)"
+
+[[package]]
+name = "openai-agents"
+present = ["agents.Agent", "agents.Runner"]
+evidence = "https://pypi.org/project/openai-agents/0.24.0/ (README: `from agents import Agent, Runner`)"
+
+[[package]]
+name = "crewai"
+present = ["crewai.Crew", "crewai.Agent"]
+evidence = "https://pypi.org/project/crewai/1.15.35/ (README: `from crewai import Crew, Agent, Task, Process`)"
+
+[[package]]
+name = "dspy"
+present = ["dspy.LM", "dspy.Predict"]
+evidence = "https://dspy.ai/ (`dspy.LM(...)`, `dspy.Predict(...)`)"
+
+[[package]]
+name = "instructor"
+present = ["instructor.from_provider", "instructor.Partial"]
+evidence = "https://pypi.org/project/instructor/1.17.0/ (README: `instructor.from_provider(...)`, `from instructor import Partial`)"
+
+[[package]]
+name = "huggingface-hub"
+present = ["huggingface_hub.hf_hub_download", "huggingface_hub.snapshot_download"]
+evidence = "https://pypi.org/project/huggingface-hub/2.4.0/ (README: `from huggingface_hub import hf_hub_download`, `snapshot_download`)"
+
+[[package]]
+name = "chromadb"
+present = ["chromadb.Client"]
+evidence = "https://pypi.org/project/chromadb/1.5.9/ (README: `chromadb.Client()`)"
+
+[[package]]
+name = "qdrant-client"
+present = ["qdrant_client.QdrantClient", "qdrant_client.models.Distance"]
+evidence = "https://pypi.org/project/qdrant-client/1.20.0/ (README: `from qdrant_client import QdrantClient`, `from qdrant_client.models import Distance, VectorParams`)"
+
+[[package]]
+name = "pinecone"
+present = ["pinecone.Pinecone", "pinecone.AsyncPinecone"]
+evidence = "https://pypi.org/project/pinecone/10.3.0/ (README: `from pinecone import Pinecone`, `AsyncPinecone`)"
+
+[[package]]
+name = "weaviate-client"
+present = ["weaviate.connect_to_local"]
+evidence = "https://docs.weaviate.io/weaviate/client-libraries/python (`weaviate.connect_to_local()`)"
+
+[[package]]
+name = "ollama"
+present = ["ollama.chat", "ollama.Client"]
+evidence = "https://pypi.org/project/ollama/0.6.3/ (README: `from ollama import chat`, `from ollama import Client`)"

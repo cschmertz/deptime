@@ -58,9 +58,10 @@ include = ["/src/deptime", "/tests", "/integrations", "/README.md", "/LICENSE", 
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra -m 'not network'"
+addopts = "-ra -m 'not network and not published'"
 markers = [
   "network: hits PyPI and downloads wheels (run with: pytest -m network)",
+  "published: checks the published index and PyPI (deptime index pull, then: pytest -m published)",
 ]
 
 [tool.ruff]

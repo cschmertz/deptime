@@ -5,14 +5,16 @@ name: bench
 # changes and after every index build, so a regression in either the code or the data is caught.
 # The TimeMachine-bench holdout (bench/tmb, DT-QA-04) is checked the same way against bench/tmb/baseline.json.
 # bench/curated_check.py fails if a curated hint (DT-DATA-08) names something the index doesn't have.
+# tests/test_golden.py (DT-QA-03) checks the newest releases: each package's is indexed within 24 h of upload, and
+# each Tier A package's has the names its documentation uses (tests/golden/tier_a.toml).
 # Record an intended change with: python -m deptime.bench bench/cases --write-baseline bench/baseline.json
 # (and bench/tmb/cases with bench/tmb/baseline.json)
 on:
   push:
     branches: [main]
-    paths: ["src/**", "bench/**", "uv.lock", ".github/workflows/bench.yml"]
+    paths: ["src/**", "bench/**", "tests/golden/**", "tests/test_golden.py", "uv.lock", ".github/workflows/bench.yml"]
   pull_request:
-    paths: ["src/**", "bench/**", "uv.lock", ".github/workflows/bench.yml"]
+    paths: ["src/**", "bench/**", "tests/golden/**", "tests/test_golden.py", "uv.lock", ".github/workflows/bench.yml"]
   workflow_run:
     workflows: [build-index]
     types: [completed] # even a partly failed build may have published
@@ -47,10 +49,15 @@ jobs:
         run: |
           set -o pipefail
           uv run --no-dev python bench/curated_check.py 2>&1 | tee report-curated.txt
+      - name: Golden tests against the published index (DT-QA-03)
+        if: success() || failure()
+        run: |
+          set -o pipefail
+          uv run --locked pytest -m published tests/test_golden.py -p no:cacheprovider 2>&1 | tee report-golden.txt
       - name: Add the reports to the job summary
         if: always()
         run: |
-          for f in report.txt report-tmb.txt report-curated.txt; do
+          for f in report.txt report-tmb.txt report-curated.txt report-golden.txt; do
             if [ -f "$f" ]; then
               { echo "### $f"; echo '```'; cat "$f"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
             fi

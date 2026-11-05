@@ -9,6 +9,7 @@ Read `README.md` first. The plan is in `BACKLOG.md`; put its IDs (e.g. `DT-CORE-
 ```bash
 uv run ruff format src tests && uv run ruff check src tests && uv run pytest     # before every commit
 uv run pytest -m network                  # opt-in: real PyPI (Python sockets may be blocked in some sandboxes)
+uv run pytest -m published                # opt-in: golden tests on the published index (`deptime index pull` first)
 uv run deptime mcp                        # local stdio server
 ```
 

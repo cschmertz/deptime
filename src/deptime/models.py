@@ -207,6 +207,11 @@ class CoverageEntry(BaseModel):
     first_version: str | None
     latest_version: str | None
     indexed_at: str | None
+    latest_released_at: str | None = Field(
+        default=None,
+        description="When latest_version was uploaded to PyPI. A release newer than the index is answered for "
+        "latest_version, the nearest one it has.",
+    )
 
 
 class CoverageResult(BaseModel):

@@ -62,7 +62,7 @@ uv run python -m deptime.bench bench/cases --baseline bench/baseline.json      #
 uv run python -m deptime.bench bench/cases --write-baseline bench/baseline.json  # record an intended change
 ```
 
-`.github/workflows/bench.yml` runs the baseline check on code changes and after every nightly `build-index`. A regression is measured on the cases that both the baseline and the current run contain. So adding new cases never fails it, and only a case that used to pass and now fails does. After a fix makes cases pass, write a new baseline so they're protected too.
+`.github/workflows/bench.yml` runs the baseline check on code changes and after every `build-index` run. A regression is measured on the cases that both the baseline and the current run contain. So adding new cases never fails it, and only a case that used to pass and now fails does. After a fix makes cases pass, write a new baseline so they're protected too.
 
 The seed file (`cases/seed.jsonl`) contains well-documented, real-world breaks. Cases marked `known_gap` say which backlog item fixes them.
 

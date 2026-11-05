@@ -13,7 +13,7 @@ from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion
 
-# Rolling GitHub Release that CI refreshes nightly (.github/workflows/build-index.yml).
+# Rolling GitHub Release that CI refreshes twice a day (.github/workflows/build-index.yml).
 DEFAULT_INDEX_URL = "https://github.com/cschmertz/deptime/releases/download/index"
 
 

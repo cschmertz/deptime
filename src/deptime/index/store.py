@@ -255,7 +255,7 @@ class IndexStore:
     def _init_schema(self) -> None:
         with self.conn:
             self.conn.executescript(_schema_sql())
-            # Columns added since an index file was created (the nightly adds to the published index). Readers
+            # Columns added since an index file was created (each build adds to the published index). Readers
             # never need them, so the schema version doesn't change.
             spans = {r[1] for r in self.conn.execute("PRAGMA table_info(spans)")}
             if "deprecated_params" not in spans:

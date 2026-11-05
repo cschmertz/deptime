@@ -1,6 +1,8 @@
 name: build-index
 
-# Nightly: analyse new PyPI releases and publish the prebuilt index to the rolling `index` pre-release.
+# Twice a day: analyse new PyPI releases and publish the prebuilt index to the rolling `index` pre-release.
+# Scheduled runs start hours after their cron time and about a run apart, so with one a day a release uploaded
+# just after a run started waited ~27 h; two keep it under the 24 h freshness bound (DT-DATA-04).
 # Local installs download <repo>/releases/download/index/{manifest.json,index.sqlite.xz} (see config.DEFAULT_INDEX_URL);
 # index.sqlite.gz holds the same file for clients released before DT-DATA-35.
 #
@@ -11,7 +13,7 @@ name: build-index
 # haven't changed keeps its rows as they are (DT-DATA-41).
 on:
   schedule:
-    - cron: "17 4 * * *" # daily at 04:17 UTC
+    - cron: "17 4,16 * * *" # 04:17 and 16:17 UTC
   workflow_dispatch:
 
 permissions:
@@ -173,7 +175,7 @@ jobs:
         run: |
           gh release view index >/dev/null 2>&1 || gh release create index --prerelease \
             --title "DepTime index (rolling)" \
-            --notes "Nightly prebuilt index, downloaded automatically by \`deptime mcp\` and \`deptime index pull\`."
+            --notes "Prebuilt index, rebuilt twice a day and downloaded automatically by \`deptime mcp\` and \`deptime index pull\`."
           # The manifest goes last, so it never describes files that aren't uploaded yet.
           gh release upload index dist/index.sqlite.xz dist/index.sqlite.gz --clobber
           gh release upload index dist/manifest.json --clobber

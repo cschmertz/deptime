@@ -1615,3 +1615,60 @@ def test_the_shipped_coverage_names_the_collisions():
     assert typer.alias_version({"typer-slim": "0.21.1"}) == ("typer-slim", "0.21.1")
     assert typer.alias_version({"typer-slim": "0.22.0"}) is None  # an empty wheel requiring typer from 0.22.0
     assert typer.alias_version({"typer-slim": "not a version"}) is None
+
+
+def test_an_installed_release_newer_than_the_index_is_a_window_with_no_upper_end(dt):
+    # DT-DATA-04: httpx 0.29.0 came out after the index was built. Only the error shows a change after 0.28.1.
+    f = dt.explain_error(NEW_THING_TB, {"httpx": "0.29.0"}).findings[0]
+    assert (f.issue, f.last_version_with, f.first_version_without, f.pin_to_restore, f.confidence) == (
+        "symbol_removed",
+        "0.28.1",
+        None,
+        "httpx<=0.28.1",
+        "medium",
+    )
+    built = dt.store.built_at()[:10]
+    assert f.explanation.startswith(
+        f"httpx.NewThing disappears after httpx 0.28.1, the newest release the index has (built {built}): your "
+        "0.29.0 is newer and not indexed yet. If no newer release changed it, the error has another cause"
+    )
+    kwarg = dt.explain_error(
+        "TypeError: Client.__init__() got an unexpected keyword argument 'timeout'", {"httpx": "0.29.0"}
+    ).findings[0]
+    assert (kwarg.issue, kwarg.last_version_with, kwarg.confidence) == ("param_removed", "0.28.1", "medium")
+    # A change the index shows is answered as before.
+    proxies = dt.explain_error(HTTPX_TB, {"httpx": "0.29.0"}).findings[0]
+    assert (proxies.issue, proxies.last_version_with, proxies.first_version_without) == (
+        "param_removed",
+        "0.27.2",
+        "0.28.1",
+    )
+
+
+def test_a_name_no_indexed_release_has_is_low_when_the_installed_release_is_newer(dt):
+    f = dt.explain_error(
+        "ImportError: cannot import name 'BrandNew' from 'httpx'", {"httpx": "0.29.0"}
+    ).findings[0]
+    assert (f.issue, f.confidence) == ("never_existed", "low")
+    assert (
+        "Your 0.29.0 is newer than 0.28.1, the newest release the index has, so DepTime can't tell"
+        in f.explanation
+    )
+    assert (
+        dt.explain_error("ImportError: cannot import name 'BrandNew' from 'httpx'", {"httpx": "0.28.1"})
+        .findings[0]
+        .confidence
+        == "medium"
+    )
+    res = dt.check_symbols("httpx", "0.29.0", [SymbolQuery(path="BrandNew")])
+    assert res.note.endswith(
+        "your 0.29.0 is newer and not indexed yet, so names added after 0.28.1 read missing."
+    )
+    assert dt.check_symbols("httpx", "0.27.5", [SymbolQuery(path="Client")]).note == (
+        "0.27.5 is not indexed; answered for the nearest earlier indexed release 0.27.2."
+    )
+
+
+def test_coverage_gives_the_newest_release_s_upload_date(dt):
+    entry = dt.coverage_report().packages[0]
+    assert (entry.latest_version, entry.latest_released_at) == ("0.28.1", "2024-12-06T00:00:00+00:00")

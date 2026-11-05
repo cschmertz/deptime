@@ -14,7 +14,7 @@ import sys
 from collections.abc import Callable
 from contextlib import ExitStack
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import UTC, date, datetime
 from functools import cache, partial
 from importlib import resources
 from pathlib import Path
@@ -41,9 +41,12 @@ class IngestReport:
     stats: RebuildStats | None = None
     # Its rows were kept: nothing they are assembled from changed since they were written (DT-DATA-41).
     unchanged: bool = False
+    # Upload time of each selected release (ISO 8601), for the freshness check (DT-DATA-04).
+    uploaded: dict[str, str | None] = field(default_factory=dict)
 
 
 COVERAGE_BAR = 0.9  # DT-DATA-01: share of each package's selected releases the index must hold
+FRESHNESS_HOURS = 24  # DT-DATA-04: a selected release is indexed within this long of its upload
 _CACHED_ONLY_MISS = "no cached snapshot (cached-only run)"
 
 
@@ -53,8 +56,48 @@ def _cell(text: str, limit: int = 200) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
-def coverage_summary(reports: list[IngestReport], max_listed: int = 5) -> str:
-    """A Markdown summary of a run for CI's workflow page: totals, then a row per package with a failure."""
+def _hours_before(now: datetime, uploaded: str | None) -> float | None:
+    try:
+        return (now - datetime.fromisoformat(uploaded)).total_seconds() / 3600 if uploaded else None
+    except (TypeError, ValueError):  # unreadable, or without a timezone
+        return None
+
+
+def freshness_summary(reports: list[IngestReport], now: datetime) -> str:
+    """One paragraph on the freshness bound (DT-DATA-04): the selected releases uploaded more than
+    FRESHNESS_HOURS before `now` that aren't indexed, and the newest release that is."""
+    late, newest = [], None
+    for r in reports:
+        done = {*r.cached, *r.built, *r.carried}
+        for v in r.selected:
+            age = _hours_before(now, r.uploaded.get(v))
+            if age is None:
+                continue
+            if v not in done and age > FRESHNESS_HOURS:
+                late.append((age, r.package, v))
+            elif v in done and (newest is None or age < newest[0]):
+                newest = (age, r.package, v)
+    if late:
+        listed = ", ".join(
+            f"{p} {_cell(v, 40)} ({age:.0f} h)" for age, p, v in sorted(late, reverse=True)[:10]
+        )
+        text = (
+            f"**{len(late)} selected release{'s' if len(late) > 1 else ''} uploaded more than {FRESHNESS_HOURS} h "
+            f"before this run {'aren' if len(late) > 1 else 'isn'}'t indexed**: "
+            f"{listed}{' and more' if len(late) > 10 else ''}."
+        )
+    else:
+        text = f"Every selected release uploaded more than {FRESHNESS_HOURS} h before this run is indexed."
+    if newest is not None:
+        text += (
+            f" The newest indexed release is {newest[1]} {newest[2]}, uploaded {newest[0]:.0f} h before it."
+        )
+    return f"Freshness (bound: {FRESHNESS_HOURS} h from upload): {text}"
+
+
+def coverage_summary(reports: list[IngestReport], max_listed: int = 5, now: datetime | None = None) -> str:
+    """A Markdown summary of a run for CI's workflow page: totals and freshness, then a row per package with a
+    failure."""
     counted = [r for r in reports if r.selected]
     selected = sum(len(r.selected) for r in counted)
     indexed = {r.package: len(set(r.selected) & {*r.cached, *r.built, *r.carried}) for r in counted}
@@ -67,6 +110,8 @@ def coverage_summary(reports: list[IngestReport], max_listed: int = 5) -> str:
         "",
         f"{len(reports)} packages: {total} of {selected} selected releases indexed{share}. "
         f"Bar: {COVERAGE_BAR:.0%} of each package's selected releases. {verdict}",
+        "",
+        freshness_summary(reports, now or datetime.now(UTC)),
     ]
     if unchanged := sum(r.unchanged for r in reports):
         lines += [
@@ -342,6 +387,7 @@ def ingest_package(
         else:
             selected = pypi.select_versions(releases, policy, today)
         report.selected = [str(r.version) for r in selected]
+        report.uploaded = {str(r.version): _released_at(r) for r in selected}
         log(f"[{spec.name}] {len(selected)} releases selected")
         if assemble and not versions and _keep_rows(spec, selected, store, cache_dir, indexed, cached_only):
             on_disk = _on_disk(cache_dir, spec, report.selected)

@@ -64,6 +64,11 @@ NO_INDEX_NOTE = (
     "DepTime has no index yet. The first run downloads it in the background; retry in a minute, "
     "or run `deptime index pull`."
 )
+# After a change that only the error shows, past the newest indexed release (DT-DATA-04).
+OTHER_CAUSE = (
+    " If no newer release changed it, the error has another cause (a different interpreter or venv, a shadowing"
+    " local module, or a lazily-imported optional dependency)."
+)
 # Findings that don't identify a version change (the name is unknown, or present at the installed version).
 INCONCLUSIVE_ISSUES = {"never_existed", "present_in_installed_version"}
 MODULE_SIGNALS = {"import_name", "module_missing", "module_attribute"}
@@ -294,6 +299,7 @@ class DepTime:
                         first_version=rels[0]["version"] if rels else None,
                         latest_version=rels[-1]["version"] if rels else None,
                         indexed_at=row["indexed_at"],
+                        latest_released_at=rels[-1]["released_at"] if rels else None,
                     )
                 )
         return CoverageResult(
@@ -452,7 +458,12 @@ class DepTime:
             results=results,
             note=None
             if exact
-            else f"{version} is not indexed; answered for the nearest earlier indexed release {row['version']}.",
+            else f"{version} is not indexed; answered for the nearest earlier indexed release {row['version']}."
+            + (
+                f" That is {self._newest_note(name, version)}, so names added after {row['version']} read missing."
+                if self._ahead(name, row, exact)
+                else ""
+            ),
         )
 
     def diff_versions(
@@ -979,18 +990,37 @@ class DepTime:
     def _window(
         self, name: str, resolved: sqlite3.Row | None, exact: bool, installed: str | None, changed_at
     ) -> tuple[str, str, str] | None:
-        """When `installed` is not indexed, it sits between two indexed releases; report a change inside that window."""
+        """When `installed` is not indexed, it sits between two indexed releases; report a change inside that window.
+
+        Past the newest indexed release the window has no upper end, and the error is the only sign of a change:
+        the release that made it isn't indexed yet (DT-DATA-04). The returned upper bound is then None."""
         if resolved is None or exact:
             return None
         nxt = resolved["ordinal"] + 1
         upper = self._version(name, nxt)
-        if upper is None or not changed_at(nxt):
-            return None
         lo = resolved["version"]
+        if upper is None:
+            return (lo, None, f"after {name} {lo}, {self._newest_note(name, installed)}")
+        if not changed_at(nxt):
+            return None
         return (
             lo,
             upper,
             f"between {name} {lo} and {upper} (your {installed} is in that window and not indexed)",
+        )
+
+    def _ahead(self, name: str, resolved: sqlite3.Row | None, exact: bool) -> bool:
+        """Whether the installed release is newer than every indexed one (`resolved` is the newest, inexactly)."""
+        assert self.store is not None
+        return resolved is not None and not exact and self._version(name, resolved["ordinal"] + 1) is None
+
+    def _newest_note(self, name: str, installed: str | None) -> str:
+        """ "the newest release the index has (built …): your X is newer and not indexed yet"."""
+        assert self.store is not None
+        built = (self.store.built_at() or "")[:10]
+        return (
+            f"the newest release the index has{f' (built {built})' if built else ''}: your {installed} is newer and "
+            "not indexed yet"
         )
 
     def _error_hints(
@@ -1087,7 +1117,7 @@ class DepTime:
         }
         ordinal = resolved["ordinal"] if resolved else rels[-1]["ordinal"]
         if not spans:
-            return self._never_existed(name, path, rels, resolved, ordinal, module, base)
+            return self._never_existed(name, path, rels, resolved, exact, ordinal, module, base)
 
         def has(o: int) -> sqlite3.Row | None:
             return self.store.span_at(name, path, o) or self.store.internal_span_at(name, path, o)
@@ -1113,7 +1143,8 @@ class DepTime:
                     replacements=_merge(live, indexed),
                     pin_to_restore=f"{name}<={lo}",
                     confidence="medium",
-                    explanation=f"{not_public}{path} disappears {text}.",
+                    explanation=f"{not_public}{path} disappears {text}."
+                    + (OTHER_CAUSE if hi is None else ""),
                     internal=internal,
                 )
             return Finding(
@@ -1211,6 +1242,7 @@ class DepTime:
         path: str,
         rels: list[sqlite3.Row],
         resolved: sqlite3.Row | None,
+        exact: bool,
         ordinal: int,
         module: bool,
         base: dict,
@@ -1242,10 +1274,16 @@ class DepTime:
             )
         else:
             explanation += " It may be misremembered or belong to another package."
+        ahead = self._ahead(name, resolved, exact)
+        if ahead:
+            explanation += (
+                f" Your {base['installed_version']} is newer than {rels[-1]['version']}, the newest release the index"
+                " has, so DepTime can't tell whether a later release adds it."
+            )
         return Finding(
             **base,
             issue="never_existed",
-            confidence="medium" if resolved and not dynamic and not unindexed_member else "low",
+            confidence="medium" if resolved and not dynamic and not unindexed_member and not ahead else "low",
             explanation=explanation + _before_index(rels),
         )
 
@@ -1345,17 +1383,24 @@ class DepTime:
                 replacements=_merge(live, replacements),
                 pin_to_restore=f"{name}<={lo}",
                 confidence="medium",
-                explanation=f"{path} stops accepting `{param}` {text}.",
+                explanation=f"{path} stops accepting `{param}` {text}." + (OTHER_CAUSE if hi is None else ""),
             )
         if not had:
             if any(s["params"] is None for s in spans):
                 return None  # some releases have no known signature, so "never accepted" can't be shown
+            ahead = self._ahead(name, resolved, exact)
             return Finding(
                 **base,
                 issue="never_existed",
                 replacements=replacements,
-                confidence="medium" if resolved else "low",
+                confidence="medium" if resolved and not ahead else "low",
                 explanation=f"{path} never accepted `{param}` in any indexed release ({rels[0]['version']}..{rels[-1]['version']})."
+                + (
+                    f" Your {installed} is newer than {rels[-1]['version']}, the newest release the index has, so"
+                    " DepTime can't tell whether a later release adds it."
+                    if ahead
+                    else ""
+                )
                 + _before_index(rels),
             )
         earlier = [s for s in had if s["last_ordinal"] < ordinal]

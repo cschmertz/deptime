@@ -5,7 +5,7 @@ DepTime is **local-first** ([ADR 0007](adr/0007-open-source-local-first.md)). Th
 ## Overview
 
 ```
- ┌──────────────── GitHub Actions, nightly (.github/workflows/build-index.yml) ──────────────────────────────────────┐
+ ┌──────────────── GitHub Actions, twice a day (.github/workflows/build-index.yml) ──────────────────────────────────┐
  │                                                                                                                 │
  │  PyPI JSON Simple API ─► select versions ─► download + sha256 verify ─► safe extract ─► griffe STATIC load       │
  │  (PEP 691/700)          (coverage policy)   (200 MB cap)               (zip-slip guard,  (never import/exec)    │
@@ -67,10 +67,10 @@ The full schema is in `src/deptime/index/schema.sql`.
 - **`internal_spans`**: the same encoding for names modules bind that aren't public API: private names, a module's imports from outside the standard library, the private names a module `__getattr__` serves, and every name in a private module (DT-DATA-22). Integration libraries import them (motor imported pymongo 4.8's `pymongo.cursor._QUERY_OPTIONS`) and break when they go. Kind and canonical path only, no signatures, and no events, so `diff_versions` is unchanged. Not recorded: class members other than the public ones, names only type checkers see, and the standard library's names. Clients from before DT-DATA-22 don't read the table.
 - **`events`**: diff facts per release. `prev_ordinal IS NULL` marks state already present in the earliest indexed release, which is why `deprecated_in = "<=X"`.
 - **`replacements`**: candidates per symbol, or per `func(param)`, with confidence, source and evidence.
-- **Snapshots** (`.json.gz`) are the immutable intermediate. CI caches them, so a nightly run only analyses new releases, and the whole index can be rebuilt from them after any change to the diff logic.
+- **Snapshots** (`.json.gz`) are the immutable intermediate. CI caches them, so a scheduled run only analyses new releases, and the whole index can be rebuilt from them after any change to the diff logic.
   - Each covered package gets its own CI job, with its own runner, log and snapshot cache, so one heavy package can't take the others down. These jobs only build snapshots (`deptime ingest --snapshots-only`). A final job assembles the index from their snapshots with `deptime ingest --all --cached-only`, which never downloads or analyses a release (DT-DATA-03).
   - The index rebuild streams snapshots from disk in version order, holding at most two, so memory doesn't grow with a package's release count.
-  - Each package's rows are stored with a fingerprint of what they were assembled from: a hash of its snapshot files, release dates, coverage entry and the assembly code. A package whose fingerprint matches tonight's inputs keeps its rows, so a nightly assembles only the packages with a new release (DT-DATA-41). Rows that took anything from the index itself have no fingerprint and are always rebuilt.
+  - Each package's rows are stored with a fingerprint of what they were assembled from: a hash of its snapshot files, release dates, coverage entry and the assembly code. A package whose fingerprint matches this run's inputs keeps its rows, so a scheduled run assembles only the packages with a new release (DT-DATA-41). Rows that took anything from the index itself have no fingerprint and are always rebuilt.
 
 ## Index distribution
 

@@ -6,7 +6,7 @@ import io
 import sys
 import weakref
 import zipfile
-from datetime import date
+from datetime import UTC, date, datetime
 from importlib import resources
 
 import httpx
@@ -576,3 +576,58 @@ def test_wrapper_release_is_analysed_from_the_distribution_it_pins(tmp_path):
     assert again.cached == ["1.0.0", "2.0.0"]
     assert {r["version"]: r["source_file"] for r in fresh.releases("wrapped")} == expected
     assert {r["version"]: r["requires"] for r in fresh.releases("wrapped")} == requires
+
+
+def test_a_release_yanked_after_it_was_indexed_is_dropped(tmp_path):
+    """DT-DATA-04: yanked on PyPI after a run indexed it, a release leaves the index at the next rebuild, from
+    the snapshot cache too (CI's assembly), and isn't kept as if its build had failed."""
+    store = IndexStore.memory()
+    with _client() as client:
+        ingest_package(SPEC, POLICY, store, tmp_path, client=client, today=TODAY, log=_quiet)
+    assert [r["version"] for r in store.releases("fakepkg")] == ["1.0.0", "2.0.0"]
+
+    def yanked(request: httpx.Request) -> httpx.Response:
+        page = _simple_index()
+        for f in page["files"]:
+            f["yanked"] = f["filename"].startswith("fakepkg-2.0.0") and "broken build"
+        return httpx.Response(200, json=page)
+
+    for cached_only in (True, False):
+        with httpx.Client(transport=httpx.MockTransport(yanked)) as client:
+            report = ingest_package(
+                SPEC, POLICY, store, tmp_path, client=client, today=TODAY, cached_only=cached_only, log=_quiet
+            )
+        assert report.selected == ["1.0.0"] and report.failed == {} and report.carried == []
+        assert [r["version"] for r in store.releases("fakepkg")] == ["1.0.0"]
+
+
+def test_the_summary_says_which_releases_are_past_the_freshness_bound():
+    """DT-DATA-04: a selected release is indexed within 24 h of its upload."""
+    now = datetime(2026, 11, 5, 12, tzinfo=UTC)
+    fresh = IngestReport(
+        "fresh",
+        selected=["1", "2"],
+        cached=["1", "2"],
+        uploaded={"1": "2026-10-01T00:00:00+00:00", "2": "2026-11-05T09:00:00+00:00"},
+    )
+    text = coverage_summary([fresh], now=now)
+    assert (
+        "Freshness (bound: 24 h from upload): Every selected release uploaded more than 24 h before this run is "
+        "indexed. The newest indexed release is fresh 2, uploaded 3 h before it." in text
+    )
+    late = IngestReport(
+        "late",
+        selected=["1", "2", "3"],
+        cached=["1"],
+        failed={"2": "boom", "3": "no cached snapshot (cached-only run)"},
+        uploaded={
+            "1": "2026-10-01T00:00:00+00:00",
+            "2": "2026-11-04T02:00:00+00:00",
+            "3": "2026-11-05T11:00:00+00:00",
+        },
+    )
+    text = coverage_summary([fresh, late], now=now)
+    # Release 3 failed too, but is within the bound.
+    assert (
+        "**1 selected release uploaded more than 24 h before this run isn't indexed**: late 2 (34 h)." in text
+    )

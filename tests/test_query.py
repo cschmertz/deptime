@@ -645,6 +645,78 @@ def test_error_raised_inside_a_dependency_finds_the_called_package(store):
     assert [(f.package, f.issue, f.confidence) for f in res.findings] == [("httpx", "param_removed", "low")]
 
 
+GENAI = PackageSpec(name="google-genai", import_names=("google.genai",), tier="A")
+
+
+def test_suffix_lookups_find_members_and_paths_whose_parent_has_no_row(store):
+    # A dotted suffix is matched through its parent's tail (DT-CORE-16); `google`, above `google.genai`, has no row.
+    sym = {
+        p: SymbolRecord(p, k, p, params)
+        for p, k, params in [
+            ("google.genai", "module", None),
+            ("google.genai.Client", "class", None),
+            ("google.genai.Client.__init__", "function", [_param("api_key")]),
+        ]
+    }
+    store.rebuild_package(GENAI, [ApiSnapshot("google-genai", "1.0.0", ["google.genai"], sym)])
+    assert store.packages_with_suffix("Client.__init__") == ["google-genai", "httpx"]
+    assert store.find_by_suffix(["httpx", "google-genai"], "Client.__init__") == [
+        ("httpx", "httpx.Client.__init__"),
+        ("google-genai", "google.genai.Client.__init__"),
+    ]
+    assert store.find_by_suffix(["httpx", "google-genai"], "Client.__init__", limit=1) == [
+        ("httpx", "httpx.Client.__init__")
+    ]
+    assert store.packages_with_suffix("google.genai") == ["google-genai"]
+    assert store.find_by_suffix(["google-genai"], "google.genai") == [("google-genai", "google.genai")]
+    assert store.packages_with_suffix("genai.Client.__init__") == ["google-genai"]
+    assert store.packages_with_suffix("Client") == ["google-genai", "httpx"]
+    assert store.packages_with_suffix("Client.missing") == []
+    assert store.find_by_suffix(["httpx"], "google.genai") == []
+
+
+class _Recorder:
+    """Records each statement an IndexStore runs, so a test can ask SQLite how it plans them."""
+
+    def __init__(self, conn):
+        self.conn, self.calls = conn, []
+
+    def execute(self, sql, params=()):
+        self.calls.append((sql, params))
+        return self.conn.execute(sql, params)
+
+    def plans(self) -> list[str]:
+        out = [
+            " | ".join(r[3] for r in self.conn.execute("EXPLAIN QUERY PLAN " + s, p)) for s, p in self.calls
+        ]
+        self.calls.clear()
+        return out
+
+
+def test_lookups_by_path_and_suffix_use_their_indexes(store):
+    # DT-CORE-16: each wrong plan read every row of a package; on the published index the search of every package
+    # for an error's owner took up to a second. Without ANALYZE statistics, SQLite's choice follows the query text.
+    real = store.conn
+    rec = store.conn = _Recorder(real)
+    try:
+        store.events("httpx", "httpx.Client.__init__")
+        assert ["events_by_path" in p for p in rec.plans()] == [True]
+        for packages, suffix in [
+            (["httpx"], "Client"),
+            (["httpx"], "Client.__init__"),
+            (None, "Client.__init__"),
+        ]:
+            if packages is None:
+                store.packages_with_suffix(suffix)
+            else:
+                store.find_by_suffix(packages, suffix)
+            (plan,) = rec.plans()
+            assert "USING INDEX spans_by_tail" in plan, (suffix, plan)
+            assert "spans_1 (package=?)" not in plan and "SCAN spans" not in plan, (suffix, plan)
+    finally:
+        store.conn = real
+
+
 def _rec(path: str, kind: str = "attribute", params: list[dict] | None = None) -> SymbolRecord:
     return SymbolRecord(path, kind, path, params)
 

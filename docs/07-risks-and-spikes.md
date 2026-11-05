@@ -53,6 +53,10 @@
   - nightly incremental under 30 min;
   - p95 under 20 ms;
   - a cold build fits a 6-hour Actions job, otherwise split it into a matrix.
+- **Result (2026-11-05): passed** on the published index (52 packages, 6,599 releases):
+  - `.xz` 70.9 MB;
+  - nightly 8.4 min, and 162 min for the last cold build (the longest job 124 min, one job per package);
+  - p95 in-process over the 196 bench and holdout tracebacks: `explain_error` 3.5 ms, `symbol_history` 1.6 ms, `coverage` 7.6 ms. `explain_error` was 25.5 ms until DT-CORE-16 fixed two query plans.
 
 ### S5 — Client compatibility for local and hosted modes
 - **Local:**

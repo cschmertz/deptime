@@ -455,8 +455,11 @@ class IndexStore:
         ).fetchone()
 
     def events(self, name: str, path: str) -> list[sqlite3.Row]:
+        # `+ordinal`: ordering by the bare column made SQLite read the package's events through events_by_ordinal
+        # and filter on path, a scan of every event the package has (4.5 ms a call, hundreds of calls when the
+        # error's owner is searched in every package).
         return self.conn.execute(
-            "SELECT * FROM events WHERE package = ? AND path = ? ORDER BY ordinal, kind", (name, path)
+            "SELECT * FROM events WHERE package = ? AND path = ? ORDER BY +ordinal, kind", (name, path)
         ).fetchall()
 
     def events_between(
@@ -507,25 +510,49 @@ class IndexStore:
             (name, len(prefix), prefix),
         ).fetchall()
 
+    @staticmethod
+    def _suffix_query(suffix: str, packages: Sequence[str] | None) -> tuple[str, list]:
+        """A query for `package, path` of the public paths equal to or ending with `.suffix`, in any version.
+
+        Rows are found by tail, and each costs a read from the table. A member's own tail can match tens of
+        thousands of rows (61,023 for `__init__`), so a dotted suffix is matched on its parent's tail (38 for
+        `Client`) and the member is then looked up by its path (DT-CORE-16): `Client.__init__` took 1.3 s cold.
+        The suffix as a whole path is looked up by path too, since a top-level name such as `google.genai`'s
+        `google` has no row of its own. Callers apply DISTINCT outside: inside, it made SQLite read every span of
+        the package in path order rather than use the tail index.
+        """
+        in_packages = f" AND p.package IN ({','.join('?' * len(packages))})" if packages is not None else ""
+        parent, _, leaf = suffix.rpartition(".")
+        if not parent:
+            sql = (
+                f"SELECT p.package AS package, p.path AS path FROM spans p WHERE p.tail = ?{in_packages}"
+                " AND (p.path = ? OR substr(p.path, -?) = ?)"
+            )
+            return sql, [suffix, *(packages or ()), suffix, len(suffix) + 1, "." + suffix]
+        sql = (
+            "SELECT p.package AS package, p.path || '.' || ? AS path FROM spans p"
+            f" WHERE p.tail = ?{in_packages} AND (p.path = ? OR substr(p.path, -?) = ?)"
+            " AND EXISTS (SELECT 1 FROM spans s WHERE s.package = p.package AND s.path = p.path || '.' || ?)"
+            " UNION SELECT p.package, p.path FROM spans p"
+            f" WHERE p.package IN (SELECT name FROM packages){in_packages} AND p.path = ?"
+        )
+        ptail = parent.rsplit(".", 1)[-1]
+        whole = [*(packages or ()), suffix]
+        return sql, [leaf, ptail, *(packages or ()), parent, len(parent) + 1, "." + parent, leaf, *whole]
+
     def packages_with_suffix(self, suffix: str) -> list[str]:
         """Indexed packages with a public path equal to or ending with `.suffix` in any indexed version."""
-        dotted = "." + suffix
-        rows = self.conn.execute(
-            "SELECT DISTINCT package FROM spans WHERE tail = ? AND (path = ? OR substr(path, -?) = ?) ORDER BY package",
-            (suffix.rsplit(".", 1)[-1], suffix, len(dotted), dotted),
-        ).fetchall()
+        sql, params = self._suffix_query(suffix, None)
+        rows = self.conn.execute(f"SELECT DISTINCT package FROM ({sql}) ORDER BY package", params).fetchall()
         return [r["package"] for r in rows]
 
     def find_by_suffix(self, packages: list[str], suffix: str, limit: int = 20) -> list[tuple[str, str]]:
         """(package, path) pairs whose public path equals or ends with `.suffix`, across all indexed versions."""
         if not packages:
             return []
-        tail = suffix.rsplit(".", 1)[-1]
-        dotted = "." + suffix
-        marks = ",".join("?" * len(packages))
+        sql, params = self._suffix_query(suffix, packages)
         rows = self.conn.execute(
-            f"SELECT DISTINCT package, path FROM spans WHERE tail = ? AND package IN ({marks}) "
-            "AND (path = ? OR substr(path, -?) = ?) ORDER BY length(path), path LIMIT ?",
-            (tail, *packages, suffix, len(dotted), dotted, limit),
+            f"SELECT DISTINCT package, path FROM ({sql}) ORDER BY length(path), path LIMIT ?",
+            [*params, limit],
         ).fetchall()
         return [(r["package"], r["path"]) for r in rows]

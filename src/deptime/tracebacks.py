@@ -34,6 +34,7 @@ CARET_RE = re.compile(r"^\s*[~^]+\s*$")
 SITE_RE = re.compile(r"[\\/](?:site|dist)-packages[\\/](?P<rel>.+?)\.pyi?$")
 SUGGESTION_RE = re.compile(r"\.?\s*Did you mean:? '(?P<s>[\w.]+)'\??\s*$")
 DOTTED_RE = re.compile(r"(?<![\w.])([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+)")
+CALL_RE = re.compile(r"(?<![\w.])([A-Za-z_][\w.]*)\s*\(")
 FROM_IMPORT_RE = re.compile(r"^\s*from\s+(?P<mod>[\w.]+)\s+import\s+(?P<names>[\w\s,()]+)")
 
 CIRCULAR_RE = re.compile(r"partially initialized module '(?P<module>[\w.]+)'")
@@ -262,7 +263,24 @@ def _signal_at(lines: list[str], exc_index: int, exc_type: str, exc_msg: str) ->
         _classify(signal, message_core)
     if signal.kind == "unexpected_kwarg" and signal.owner is None:
         _owner_from_call_site(signal, lines)
+    if signal.owner == "__init__" and signal.kind in {
+        "unexpected_kwarg",
+        "missing_argument",
+        "too_many_positional",
+    }:
+        _owner_from_constructor_call(signal)
     return signal
+
+
+def _owner_from_constructor_call(signal: ErrorSignal) -> None:
+    """Python 3.9 and earlier say `__init__() got an unexpected keyword argument 'x'` with no class (DT-CORE-26):
+    take the class the raising frame calls (`client = genai.GenerativeModel(`), a CapWords name."""
+    code = next((f.code for f in reversed(signal.frames) if f.code), None)
+    calls = [c for c in CALL_RE.findall(code or "") if c.rsplit(".", 1)[-1][:1].isupper()]
+    if calls:
+        signal.owner = f"{calls[-1].rsplit('.', 1)[-1]}.__init__"
+        if calls[-1] not in signal.referenced_names:
+            signal.referenced_names.append(calls[-1])
 
 
 def _owner_from_call_site(signal: ErrorSignal, lines: list[str]) -> None:

@@ -415,3 +415,25 @@ def test_lazy_loader_attribute_message():
         "cached_download",
         "hf_hub_download",
     )
+
+
+def test_python39_constructor_message_takes_the_class_from_the_call():
+    # DT-CORE-26: before 3.10 a constructor's TypeError names no class.
+    s = parse_traceback(
+        "Traceback (most recent call last):\n"
+        '  File "/venv/lib/python3.9/site-packages/langchain_google_genai/chat_models.py", line 645, in _prepare_chat\n'
+        "    client = genai.GenerativeModel(\n"
+        "TypeError: __init__() got an unexpected keyword argument 'tools'\n"
+    )
+    assert (s.kind, s.owner, s.kwarg) == ("unexpected_kwarg", "GenerativeModel.__init__", "tools")
+    assert "genai.GenerativeModel" in s.referenced_names
+
+
+def test_python39_constructor_message_keeps_init_without_a_class_call():
+    s = parse_traceback(
+        "Traceback (most recent call last):\n"
+        '  File "/app/x.py", line 3, in <module>\n'
+        "    super().__init__(**kwargs)\n"
+        "TypeError: __init__() got an unexpected keyword argument 'tools'\n"
+    )
+    assert s.owner == "__init__"

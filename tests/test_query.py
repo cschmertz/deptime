@@ -189,6 +189,28 @@ def test_never_existed_on_an_owner_with_getattr_is_low_confidence():
     assert "__getattr__" not in f.explanation
 
 
+def test_a_submodule_imported_as_a_name_is_a_removed_module():
+    # DT-QA-01 cases: `from urllib3.contrib import appengine` and `instructor.client` name a submodule.
+    spec = PackageSpec(name="pkgm", import_names=("pkgm",), tier="B")
+    mod = SymbolRecord("pkgm", "module", "pkgm")
+    sub = SymbolRecord("pkgm.sub", "module", "pkgm.sub")
+    store = IndexStore.memory()
+    store.rebuild_package(
+        spec,
+        [
+            ApiSnapshot("pkgm", "1.0", ["pkgm"], {"pkgm": mod, "pkgm.sub": sub}),
+            ApiSnapshot("pkgm", "2.0", ["pkgm"], {"pkgm": mod}),
+        ],
+    )
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+    for tb in (
+        "ImportError: cannot import name 'sub' from 'pkgm' (/venv/lib/python3.12/site-packages/pkgm/__init__.py)",
+        "AttributeError: module 'pkgm' has no attribute 'sub'",
+    ):
+        f = dt.explain_error(tb, {"pkgm": "2.0"}).findings[0]
+        assert (f.symbol, f.issue, f.last_version_with) == ("pkgm.sub", "module_removed", "1.0")
+
+
 def test_no_parameter_verdict_without_a_signature():
     # DT-CORE-20: an unresolved alias has no signature (pytest.skip before `_pytest` was loaded), so a
     # kwarg error against it says nothing about whether the parameter existed.

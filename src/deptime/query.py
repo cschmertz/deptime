@@ -811,7 +811,7 @@ class DepTime:
                 live = self._error_hints(spec, path, [ordinal, ordinal + 1], message)
                 return Finding(
                     **base,
-                    issue="module_removed" if module else "symbol_removed",
+                    issue="module_removed" if module or spans[-1]["kind"] == "module" else "symbol_removed",
                     last_version_with=lo,
                     first_version_without=hi,
                     deprecated_in=dep_version,
@@ -837,9 +837,11 @@ class DepTime:
             replacements = _merge(self._error_hints(spec, path, [ordinal, last_ord + 1], message), indexed)
             strong = [r for r in replacements if r.confidence >= EXPLAIN_MIN_CONFIDENCE]
             hint = f" Use {strong[0].target} instead." if strong else ""
+            # `from pkg import sub` and `pkg.sub` name a submodule as an attribute; the index knows it's a module.
+            was_module = module or max(before, key=lambda s: s["last_ordinal"])["kind"] == "module"
             return Finding(
                 **base,
-                issue="module_removed" if module else "symbol_removed",
+                issue="module_removed" if was_module else "symbol_removed",
                 last_version_with=last_with,
                 first_version_without=first_without,
                 deprecated_in=dep_version,

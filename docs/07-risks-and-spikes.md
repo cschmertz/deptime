@@ -41,6 +41,11 @@
 ### S3 — Traceback → package/version mapping
 - **Method:** 100 tracebacks spanning Python 3.10–3.14, pytest output, chained exceptions, and library-specific exceptions (openai `APIRemovedInV1`, pydantic `PydanticImportError`, mcp 2.x's annotated `ModuleNotFoundError`).
 - **Pass:** ≥ 90% correct kind + package.
+- **Result (2026-11-05): passed on the holdout, 93.8%** (690/736; `bench/s3/results-2026-11-05.md`).
+  - **Cases:** real output of known breaks, run in GitHub Actions on Python 3.10–3.14 (`bench/s3/`, `s3.yml`) and printed ten ways: a script (and with colour on 3.13+), pytest (default and `--tb=short`), unittest, `raise … from`, an exception raised while handling another, `logging.exception`, an `asyncio.TaskGroup` and IPython. Generated and committed before DepTime ran on them.
+  - **First run, 22 breaks: 73.1%** (708/968). Chained exceptions scored 0%: the parser read the wrapper. So did huggingface_hub's own "No huggingface_hub attribute …" message. Library-specific messages inside an `ExceptionGroup` were missed. pytest, unittest, logging, IPython, colour and 3.14's new suggestions were already fine.
+  - **Fix:** DT-CORE-25 follows a chain to the exception the last one wraps, reads `ExceptionGroup` sub-exceptions, and reads the lazy-loader message.
+  - **Holdout, 16 other breaks, scored once with the fix: 93.8%.** Kind is right in all 736; the 46 misses are one break, a user's `ParamType` subclass that click 8.2 calls with a new argument (DT-CORE-02).
 
 ### S4 — Index size, build time, download size
 - **Method:** build the full policy history for Tier A + B in GitHub Actions. Measure:

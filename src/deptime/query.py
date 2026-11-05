@@ -480,6 +480,11 @@ class DepTime:
         rank = {"high": 0, "medium": 1, "low": 2}
         findings.sort(key=lambda f: (rank[f.confidence], f.issue == "present_in_installed_version"))
         notes = []
+        if signal.wrapped_in:
+            notes.append(
+                f"The last exception, {signal.wrapped_in}, was raised from or while handling this "
+                f"{signal.exception_type}, which is the one explained here."
+            )
         if not findings:
             notes.append(
                 "No version-history explanation found."

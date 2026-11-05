@@ -284,3 +284,134 @@ def test_pluggy_hook_argument_behind_the_internalerror_prefix():
         "PluginValidationError",
     )
     assert s.frames[0].module == "pluggy._manager"
+
+
+# S3 (DT-SPIKE-03): shapes from bench/s3/cases.jsonl, real output of Python 3.10-3.14.
+CHAINED_FROM_TB = """\
+Traceback (most recent call last):
+  File "/home/dev/project/chain_from.py", line 3, in start
+    import app
+  File "/home/dev/project/app.py", line 1, in <module>
+    from langchain.chains import LLMChain
+ModuleNotFoundError: No module named 'langchain.chains'
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/dev/project/chain_from.py", line 11, in <module>
+    start()
+    ~~~~~^^
+  File "/home/dev/project/chain_from.py", line 7, in start
+    raise RuntimeError("could not start the service") from exc
+RuntimeError: could not start the service
+"""
+
+CHAINED_DURING_TB = """\
+Traceback (most recent call last):
+  File "/home/dev/project/chain_during.py", line 3, in start
+    import app
+  File "/home/dev/project/app.py", line 1, in <module>
+    from pydantic import BaseSettings
+  File "/home/dev/project/.venv/lib/python3.13/site-packages/pydantic/__init__.py", line 442, in __getattr__
+    return _getattr_migration(attr_name)
+  File "/home/dev/project/.venv/lib/python3.13/site-packages/pydantic/_migration.py", line 305, in wrapper
+    raise PydanticImportError(
+    ...<3 lines>...
+    )
+pydantic.errors.PydanticImportError: `BaseSettings` has been moved to the `pydantic-settings` package. See https://pydantic.dev/docs/validation/2.14/migration/#basesettings-has-moved-to-pydantic-settings
+
+For further information visit https://errors.pydantic.dev/2.14/u/import-error
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/dev/project/chain_during.py", line 11, in <module>
+    start()
+    ~~~~~^^
+  File "/home/dev/project/chain_during.py", line 7, in start
+    raise RuntimeError("could not start the service")
+RuntimeError: could not start the service
+"""
+
+TASKGROUP_TB = """\
+  + Exception Group Traceback (most recent call last):
+  |   File "/home/dev/project/with_taskgroup.py", line 15, in <module>
+  |     asyncio.run(run())
+  |   File "/home/dev/project/with_taskgroup.py", line 11, in run
+  |     async with asyncio.TaskGroup() as tg:
+  |                ^^^^^^^^^^^^^^^^^^^
+  |   File "/opt/s3/python/cpython-3.12.16-linux-x86_64-gnu/lib/python3.12/asyncio/taskgroups.py", line 164, in _aexit
+  |     raise BaseExceptionGroup(
+  | ExceptionGroup: unhandled errors in a TaskGroup (1 sub-exception)
+  +-+---------------- 1 ----------------
+    | Traceback (most recent call last):
+    |   File "/home/dev/project/with_taskgroup.py", line 7, in job
+    |     app.main()
+    |   File "/home/dev/project/app.py", line 5, in main
+    |     return np.float_(1.5)
+    |            ^^^^^^^^^
+    |   File "/home/dev/project/.venv/lib/python3.12/site-packages/numpy/__init__.py", line 763, in __getattr__
+    |     raise AttributeError(
+    | AttributeError: `np.float_` was removed in the NumPy 2.0 release. Use `np.float64` instead.
+    +------------------------------------
+"""
+
+
+def test_raise_from_reads_the_cause_when_the_wrapper_is_not_a_version_symptom():
+    s = parse_traceback(CHAINED_FROM_TB)
+    assert (s.kind, s.module, s.exception_type) == (
+        "module_missing",
+        "langchain.chains",
+        "ModuleNotFoundError",
+    )
+    assert s.wrapped_in == "RuntimeError"
+    assert [f.function for f in s.frames] == ["start", "<module>"]  # the cause's own block
+
+
+def test_during_handling_reads_the_library_exception_it_interrupted():
+    s = parse_traceback(CHAINED_DURING_TB)
+    assert (s.kind, s.module, s.name) == ("import_name", "pydantic", "BaseSettings")
+    assert s.wrapped_in == "RuntimeError"
+
+
+def test_a_classified_last_exception_is_kept_over_its_cause():
+    tb = CHAINED_FROM_TB.replace(
+        "RuntimeError: could not start the service", "AttributeError: module 'app' has no attribute 'serve'"
+    )
+    s = parse_traceback(tb)
+    assert (s.kind, s.module, s.name, s.wrapped_in) == ("module_attribute", "app", "serve", None)
+
+
+def test_an_unrelated_earlier_exception_is_not_a_cause():
+    # Two separate errors in one log: no chain marker joins them, so the last one stands alone.
+    tb = CHAINED_FROM_TB.replace("The above exception was the direct cause of the following exception:", "")
+    s = parse_traceback(tb)
+    assert (s.kind, s.exception_type, s.wrapped_in) == ("unknown", "RuntimeError", None)
+
+
+def test_exception_group_sub_exception_keeps_library_message_and_frames():
+    s = parse_traceback(TASKGROUP_TB)
+    assert (s.kind, s.module, s.name, s.exception_type) == (
+        "module_attribute",
+        "numpy",
+        "float_",
+        "AttributeError",
+    )
+    assert s.library_modules == ["numpy"]
+
+
+def test_lazy_loader_attribute_message():
+    # huggingface_hub (and scientific-python's lazy_loader) word a missing attribute their own way.
+    s = parse_traceback(
+        "app.py:5: in main\n"
+        '    return huggingface_hub.cached_download("https://huggingface.co/gpt2/resolve/main/config.json")\n'
+        ".venv/lib/python3.12/site-packages/huggingface_hub/__init__.py:1251: in __getattr__\n"
+        '    raise AttributeError(f"No {package_name} attribute {name}")\n'
+        "E   AttributeError: No huggingface_hub attribute cached_download. Did you mean: 'hf_hub_download'?\n"
+    )
+    assert (s.kind, s.module, s.name, s.suggestion) == (
+        "module_attribute",
+        "huggingface_hub",
+        "cached_download",
+        "hf_hub_download",
+    )

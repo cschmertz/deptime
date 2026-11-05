@@ -17,7 +17,14 @@ MAX_ACCEPTED_CHARS = 200_000  # the MCP tool's input limit; the parser itself ke
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 # Column-0 prefixes that wrap whole lines: pytest's "E   " and "INTERNALERROR> ", and a compose service's "api-1  | ".
 LINE_PREFIX_RE = re.compile(r"^(?:E\s+|INTERNALERROR>\s?|[\w.-]+\s*\|\s?)")
+# The bars an ExceptionGroup (3.11+) draws in front of each sub-exception's lines, one per nesting level.
+GROUP_BAR_RE = re.compile(r"^\s*\|(?: |$)")
 TRACEBACK_HEADER = "Traceback (most recent call last):"
+# The lines Python prints between a chained exception and the one it caused (DT-SPIKE-03).
+CHAIN_MARKERS = {
+    "The above exception was the direct cause of the following exception:",
+    "During handling of the above exception, another exception occurred:",
+}
 FRAME_RE = re.compile(r'^\s*File "(?P<file>[^"]+)", line (?P<line>\d+)(?:, in (?P<func>.+?))?\s*$')
 EXC_LINE_RE = re.compile(  # openai's APIRemovedInV1 is the one supported exception without the usual suffix
     r"^(?P<type>(?:[A-Za-z_]\w*\.)*(?:[A-Za-z_]\w*)?(?:Error|Exception|APIRemovedInV1))(?::\s?(?P<msg>.*))?$"
@@ -54,6 +61,8 @@ PYDANTIC_REMOVED_RE = re.compile(r"`(?P<module>[\w.]+):(?P<name>\w+)` has been r
 PYDANTIC_MOVED_RE = re.compile(r"`(?P<name>BaseSettings)` has been moved to the `pydantic-settings` package")
 PYDANTIC_REMOVED_KWARG_RE = re.compile(r"`(?P<kwarg>\w+)` is removed[.,] use ")
 OPENAI_V1_RE = re.compile(r"You tried to access openai\.(?P<name>\w+), but this is no longer supported")
+# huggingface_hub's lazy loader, worded like scientific-python's lazy_loader: "No huggingface_hub attribute x".
+LAZY_ATTR_RE = re.compile(r"^No (?P<module>[A-Za-z_][\w.]*) attribute (?P<name>\w+)$")
 HOOK_ARG_RE = re.compile(
     r"for hook '(?P<hook>\w+)'.*?Argument\(s\) \{'(?P<arg>\w+)'.*? are declared in the hookimpl", re.S
 )
@@ -93,6 +102,8 @@ class ErrorSignal:
     suggestion: str | None = None
     referenced_names: list[str] = field(default_factory=list)
     frames: list[Frame] = field(default_factory=list)
+    # The exception type printed last when it only wraps this one (`raise X from exc`, or raised while handling it).
+    wrapped_in: str | None = None
 
     @property
     def library_modules(self) -> list[str]:
@@ -125,7 +136,14 @@ class ErrorSignal:
 def _clean_lines(text: str) -> list[str]:
     # Keep the tail: Python prints the exception line last, after any amount of log output.
     text = ANSI_RE.sub("", text[-MAX_INPUT_CHARS:])
-    return [LINE_PREFIX_RE.sub("", line.rstrip("\r")) for line in text.splitlines()]
+    return [_unprefixed(line.rstrip("\r")) for line in text.splitlines()]
+
+
+def _unprefixed(line: str) -> str:
+    line = LINE_PREFIX_RE.sub("", line)
+    while m := GROUP_BAR_RE.match(line):
+        line = line[m.end() :]
+    return line
 
 
 def _exception_text(line: str) -> str:
@@ -156,26 +174,43 @@ def _referenced_names(code_lines: list[str]) -> list[str]:
 
 
 def parse_traceback(text: str) -> ErrorSignal | None:
-    """Return the signal for the *last* exception in `text`, or None if no exception line is found."""
+    """Return the signal for the *last* exception in `text`, or None if no exception line is found.
+
+    When that exception only wraps another (a chain: `raise X from exc`, or an exception raised while handling one)
+    and isn't a shape DepTime analyses itself, the nearest exception down the chain that is one is returned
+    instead, with `wrapped_in` naming the last one."""
     lines = _clean_lines(text)
 
-    exc_index, exc_type, exc_msg = -1, "", ""
-    for i, line in enumerate(lines):
-        m = EXC_LINE_RE.match(_exception_text(line))
-        if m:
-            exc_index, exc_type, exc_msg = i, m.group("type"), (m.group("msg") or "").strip()
-    if exc_index < 0:
+    found = [
+        (i, m.group("type"), (m.group("msg") or "").strip())
+        for i, line in enumerate(lines)
+        if (m := EXC_LINE_RE.match(_exception_text(line)))
+    ]
+    if not found:
         # Logged, quoted or JSON-wrapped errors lose their exception line: use the last known message.
         for i in range(len(lines) - 1, -1, -1):
             probe = ErrorSignal(kind="unknown", exception_type="", message="")
             _classify(probe, lines[i])
             if probe.kind != "unknown":
-                exc_index, exc_type, exc_msg = i, INFERRED_TYPE[probe.kind], lines[i].strip()
-                break
-        else:
-            return None
+                return _signal_at(lines, i, INFERRED_TYPE[probe.kind], lines[i].strip())
+        return None
 
-    # Frames belong to the traceback block that precedes the final exception line.
+    signal = _signal_at(lines, *found[-1])
+    last = signal.exception_type
+    for (cause, *rest), (effect, _, _) in zip(reversed(found[:-1]), reversed(found[1:]), strict=True):
+        if signal.kind != "unknown" or not any(
+            line.strip() in CHAIN_MARKERS for line in lines[cause + 1 : effect]
+        ):
+            break
+        signal = _signal_at(lines, cause, *rest)
+        signal.wrapped_in = last if signal.kind != "unknown" else None
+    if signal.kind == "unknown":
+        return _signal_at(lines, *found[-1])
+    return signal
+
+
+def _signal_at(lines: list[str], exc_index: int, exc_type: str, exc_msg: str) -> ErrorSignal:
+    """The signal for the exception printed at `lines[exc_index]`, with the frames of its own traceback block."""
     start = 0
     for i in range(exc_index, -1, -1):
         if lines[i].strip() == TRACEBACK_HEADER:
@@ -251,6 +286,8 @@ def _classify_library(signal: ErrorSignal, text: str) -> None:
     elif exc == "AttributeError" and (m := NUMPY_MEMBER_REMOVED_RE.search(text)):
         signal.kind, signal.name = "object_attribute", m.group("name")
         signal.owner = NUMPY_MEMBER_OWNERS[m.group("owner")]
+    elif exc == "AttributeError" and (m := LAZY_ATTR_RE.match(text.split("\n", 1)[0])):
+        signal.kind, signal.module, signal.name = "module_attribute", m.group("module"), m.group("name")
     elif exc == "PydanticImportError" and (m := PYDANTIC_REMOVED_RE.search(text)):
         signal.kind, signal.module, signal.name = "import_name", m.group("module"), m.group("name")
     elif exc == "PydanticImportError" and (m := PYDANTIC_MOVED_RE.search(text)):

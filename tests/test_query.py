@@ -33,6 +33,22 @@ def test_explain_removed_kwarg_with_exact_installed_version(dt):
     assert top.confidence == "high"
 
 
+def test_explain_a_wrapped_error_explains_the_cause_and_says_so(dt):
+    # S3 (DT-SPIKE-03): `raise RuntimeError(...) from exc` around the httpx break.
+    tb = (
+        HTTPX_TB
+        + "\nThe above exception was the direct cause of the following exception:\n\n"
+        + "Traceback (most recent call last):\n"
+        + '  File "/home/u/app/main.py", line 9, in <module>\n'
+        + '    raise RuntimeError("could not start the service") from exc\n'
+        + "RuntimeError: could not start the service\n"
+    )
+    res = dt.explain_error(tb, {"httpx": "0.28.1"})
+    assert (res.signal.kind, res.signal.exception_type) == ("unexpected_kwarg", "TypeError")
+    assert res.findings[0].symbol == "httpx.Client.__init__(proxies)"
+    assert "The last exception, RuntimeError, was raised from or while handling this TypeError" in res.note
+
+
 def test_explain_unindexed_version_reports_the_window(dt):
     # 0.28.0 is not indexed: nearest lower (0.27.2) still accepts `proxies`, next indexed (0.28.1) does not.
     res = dt.explain_error(HTTPX_TB, pip_freeze="httpx==0.28.0\nidna==3.10\n")

@@ -47,3 +47,9 @@ The first run's misses were fixed from those same cases (DT-CORE-25), so a secon
 ```bash
 uv run python bench/s3/score.py bench/s3/holdout-cases.jsonl
 ```
+
+## Results
+
+- **First run (2026-11-05): 73.1%** kind + package (708/968), below the bar: chained exceptions 0%, huggingface_hub's own message 0%, library messages inside an `ExceptionGroup` missed. DT-CORE-25 fixes all three; afterwards 968/968, a regression check on the cases the fix was designed from.
+- **Holdout (2026-11-05): 93.8%** (690/736), above the bar. Kind is right in every case; the 46 misses are one break, click's `get_metavar(ctx)` (DT-CORE-02).
+- See `results-2026-11-05.md`.

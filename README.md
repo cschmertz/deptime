@@ -56,6 +56,21 @@ That's the real `explain_error` answer from the published index, trimmed. The fu
 
 > **Status:** alpha. The prebuilt index is rebuilt nightly. Known gaps are tracked in [BACKLOG.md](https://github.com/cschmertz/deptime/blob/main/BACKLOG.md).
 
+## How well it works
+
+Each check's right answers were written down before DepTime first ran on it ([bench/](https://github.com/cschmertz/deptime/tree/main/bench)). Judge DepTime by the first run: the fixes since then were designed from its misses, so the later numbers are flattering.
+
+| Check | Cases | First run | Now |
+|---|---|---|---|
+| Right package, name and breaking release for a traceback from a GitHub issue | 32 collected 2026-11-05 | 68.8% | 96.9% |
+| The same, on a holdout fixed in advance from [TimeMachine-bench](https://github.com/tohoku-nlp/timemachine-bench) | 29 | 72.4% | 93.1% |
+| Error kind and package read from the traceback: scripts, pytest, chained exceptions, `ExceptionGroup`, IPython, Python 3.10–3.14 | 736, holdout fixed in advance | 93.8% | 93.8% |
+| Replacement hints at confidence ≥ 0.75 that are right | hints for 50 documented migrations | 11 of 11 | 42 of 45 |
+| Documented migrations that get a right hint at ≥ 0.75 | 50 | 11 | 42 (32 without hand-checked hints from migration guides) |
+| Names that exist at runtime but read as absent | 2,428 sampled at runtime from 10 dynamic packages | 5.1% | 1.2% |
+
+Across all 191 real tracebacks in the benchmark, including the ones fixes were designed from, DepTime names the right package, name and release for 97.9%, and a right replacement is among its first three for 68.1%. CI re-scores the 191 and the holdout on every code change and every nightly index, and fails on a drop of more than 2 points.
+
 ## Install
 
 Requires [uv](https://docs.astral.sh/uv/).

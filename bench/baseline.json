@@ -1,5 +1,5 @@
 {
-  "index_built_at": "2026-11-05T21:45:30+00:00",
+  "index_built_at": "2026-11-05T22:29:46+00:00",
   "summary": {
     "cases": 199,
     "known_gap_share": 2.5,
@@ -7,8 +7,8 @@
       "root_cause": 97.5,
       "root_cause_and_boundary": 97.5,
       "boundary": 97.4,
-      "replacement": 68.8,
-      "replacement_uncurated": 58.3
+      "replacement": 69.8,
+      "replacement_uncurated": 59.4
     },
     "by_tier": {
       "A": {
@@ -24,8 +24,8 @@
         "root_cause": 96.1,
         "root_cause_and_boundary": 96.1,
         "boundary": 96.1,
-        "replacement": 82.5,
-        "replacement_uncurated": 68.4
+        "replacement": 84.2,
+        "replacement_uncurated": 70.2
       }
     },
     "by_origin": {
@@ -42,8 +42,8 @@
         "root_cause": 97.9,
         "root_cause_and_boundary": 97.9,
         "boundary": 97.9,
-        "replacement": 67.0,
-        "replacement_uncurated": 56.0
+        "replacement": 68.1,
+        "replacement_uncurated": 57.1
       }
     }
   },
@@ -327,8 +327,8 @@
     "gradio-blocks-theme-moved-to-launch-smolagents": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false,
-      "replacement_uncurated": false
+      "replacement": true,
+      "replacement_uncurated": true
     },
     "httpx-asyncclient-app-kwarg-datasette": {
       "root_cause": true,

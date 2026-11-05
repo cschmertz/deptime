@@ -437,3 +437,17 @@ def test_python39_constructor_message_keeps_init_without_a_class_call():
         "TypeError: __init__() got an unexpected keyword argument 'tools'\n"
     )
     assert s.owner == "__init__"
+
+
+def test_import_name_without_its_module_takes_it_from_the_import_line():
+    # DT-QA-01: a pasted message trimmed to `cannot import name 'X'`; the frame's import names the module.
+    s = parse_traceback(
+        'File ".../llama_index/vector_stores/qdrant/base.py", line 54, in <module>\n'
+        "    from qdrant_client.qdrant_fastembed import IDF_EMBEDDING_MODELS\n"
+        "ImportError: cannot import name 'IDF_EMBEDDING_MODELS'\n"
+    )
+    assert (s.kind, s.module, s.name) == (
+        "import_name",
+        "qdrant_client.qdrant_fastembed",
+        "IDF_EMBEDDING_MODELS",
+    )

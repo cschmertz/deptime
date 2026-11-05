@@ -39,6 +39,7 @@ FROM_IMPORT_RE = re.compile(r"^\s*from\s+(?P<mod>[\w.]+)\s+import\s+(?P<names>[\
 
 CIRCULAR_RE = re.compile(r"partially initialized module '(?P<module>[\w.]+)'")
 IMPORT_NAME_RE = re.compile(r"cannot import name '(?P<name>[\w.]+)' from '(?P<module>[\w.]+)'")
+BARE_IMPORT_NAME_RE = re.compile(r"cannot import name '(?P<name>\w+)'\s*$")
 NO_MODULE_RE = re.compile(r"No module named '(?P<module>[\w.]+)'")
 MODULE_ATTR_RE = re.compile(r"module '?(?P<module>[\w.]+)'? has no attribute '?(?P<name>\w+)'?")
 TYPE_ATTR_RE = re.compile(r"type object '(?P<owner>[\w.]+)' has no attribute '(?P<name>\w+)'")
@@ -328,6 +329,12 @@ def _classify(signal: ErrorSignal, msg: str) -> None:
         signal.kind, signal.module = "circular_import", m.group("module")
     elif m := IMPORT_NAME_RE.search(msg):
         signal.kind, signal.module, signal.name = "import_name", m.group("module"), m.group("name")
+    elif (m := BARE_IMPORT_NAME_RE.search(msg)) and (
+        imported := [r for r in signal.referenced_names if r.endswith("." + m.group("name"))]
+    ):
+        # A pasted message trimmed to `cannot import name 'X'`: the frame's `from M import X` names the module.
+        signal.kind, signal.name = "import_name", m.group("name")
+        signal.module = imported[-1].removesuffix("." + m.group("name"))
     elif m := NO_MODULE_RE.search(msg):
         signal.kind, signal.module = "module_missing", m.group("module")
     elif m := MODULE_ATTR_RE.search(msg):

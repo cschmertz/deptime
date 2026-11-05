@@ -1,5 +1,5 @@
 {
-  "index_built_at": "2026-11-04T23:42:13+00:00",
+  "index_built_at": "2026-11-05T02:54:03+00:00",
   "summary": {
     "cases": 29,
     "known_gap_share": 10.3,
@@ -7,7 +7,8 @@
       "root_cause": 89.7,
       "root_cause_and_boundary": 89.7,
       "boundary": 89.7,
-      "replacement": 68.2
+      "replacement": 77.3,
+      "replacement_uncurated": 68.2
     },
     "by_tier": {
       "B": {
@@ -15,7 +16,8 @@
         "root_cause": 89.7,
         "root_cause_and_boundary": 89.7,
         "boundary": 89.7,
-        "replacement": 68.2
+        "replacement": 77.3,
+        "replacement_uncurated": 68.2
       }
     },
     "by_origin": {
@@ -24,7 +26,8 @@
         "root_cause": 89.7,
         "root_cause_and_boundary": 89.7,
         "boundary": 89.7,
-        "replacement": 68.2
+        "replacement": 77.3,
+        "replacement_uncurated": 68.2
       }
     }
   },
@@ -32,147 +35,176 @@
     "tmb-django-conf-urls-url-django-faktura": {
       "root_cause": true,
       "boundary": true,
-      "replacement": true
+      "replacement": true,
+      "replacement_uncurated": true
     },
     "tmb-django-conf-urls-url-orderingsystem": {
       "root_cause": true,
       "boundary": true,
-      "replacement": true
+      "replacement": true,
+      "replacement_uncurated": true
     },
     "tmb-django-translation-ugettext-lazy-django-antispam": {
       "root_cause": true,
       "boundary": true,
-      "replacement": true
+      "replacement": true,
+      "replacement_uncurated": true
     },
     "tmb-flask-before-first-request-helloflask": {
       "root_cause": true,
       "boundary": true,
-      "replacement": null
+      "replacement": null,
+      "replacement_uncurated": null
     },
     "tmb-flask-json-jsonencoder-the-real-devops-challenge": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": false,
+      "replacement_uncurated": false
     },
     "tmb-flask-request-ctx-stack-flask-language": {
       "root_cause": false,
       "boundary": false,
-      "replacement": null
+      "replacement": null,
+      "replacement_uncurated": null
     },
     "tmb-marshmallow-field-fail-queue-messaging": {
       "root_cause": false,
       "boundary": false,
-      "replacement": false
+      "replacement": false,
+      "replacement_uncurated": false
     },
     "tmb-marshmallow-field-init-default-marshmallow-dataclass": {
       "root_cause": true,
       "boundary": true,
-      "replacement": true
+      "replacement": true,
+      "replacement_uncurated": true
     },
     "tmb-marshmallow-version-django-rest-marshmallow": {
       "root_cause": true,
       "boundary": true,
-      "replacement": null
+      "replacement": null,
+      "replacement_uncurated": null
     },
     "tmb-numpy-asfarray-fatpack": {
       "root_cause": true,
       "boundary": true,
-      "replacement": true
+      "replacement": true,
+      "replacement_uncurated": true
     },
     "tmb-numpy-inf-segmentation-metrics": {
       "root_cause": true,
       "boundary": true,
-      "replacement": true
+      "replacement": true,
+      "replacement_uncurated": true
     },
     "tmb-numpy-infinity-laptimize": {
       "root_cause": true,
       "boundary": true,
-      "replacement": true
+      "replacement": true,
+      "replacement_uncurated": true
     },
     "tmb-numpy-mat-audio-dspy": {
       "root_cause": true,
       "boundary": true,
-      "replacement": true
+      "replacement": true,
+      "replacement_uncurated": true
     },
     "tmb-numpy-math-pydistinct": {
       "root_cause": true,
       "boundary": true,
-      "replacement": null
+      "replacement": null,
+      "replacement_uncurated": null
     },
     "tmb-numpy-nan-fides": {
       "root_cause": true,
       "boundary": true,
-      "replacement": true
+      "replacement": true,
+      "replacement_uncurated": true
     },
     "tmb-numpy-nan-fiuba-opiniones-de-curso": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true,
+      "replacement_uncurated": false
     },
     "tmb-numpy-nan-inferelator": {
       "root_cause": true,
       "boundary": true,
-      "replacement": true
+      "replacement": true,
+      "replacement_uncurated": true
     },
     "tmb-numpy-nan-optics-functions": {
       "root_cause": true,
       "boundary": true,
-      "replacement": true
+      "replacement": true,
+      "replacement_uncurated": true
     },
     "tmb-numpy-ndarray-itemset-pynite": {
       "root_cause": true,
       "boundary": true,
-      "replacement": null
+      "replacement": null,
+      "replacement_uncurated": null
     },
     "tmb-numpy-ndarray-tostring-sonipy": {
       "root_cause": false,
       "boundary": false,
-      "replacement": false
+      "replacement": false,
+      "replacement_uncurated": false
     },
     "tmb-numpy-ninf-hiscore": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": false,
+      "replacement_uncurated": false
     },
     "tmb-numpy-product-h5py-like": {
       "root_cause": true,
       "boundary": true,
-      "replacement": true
+      "replacement": true,
+      "replacement_uncurated": true
     },
     "tmb-numpy-product-insurapy": {
       "root_cause": true,
       "boundary": true,
-      "replacement": true
+      "replacement": true,
+      "replacement_uncurated": true
     },
     "tmb-numpy-product-sdmpy": {
       "root_cause": true,
       "boundary": true,
-      "replacement": true
+      "replacement": true,
+      "replacement_uncurated": true
     },
     "tmb-pandas-read-csv-error-bad-lines-gwas-sumstats-validator": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": true,
+      "replacement_uncurated": false
     },
     "tmb-scikit-learn-utils-check-matplotlib-support-py-mcc-f1": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false
+      "replacement": false,
+      "replacement_uncurated": false
     },
     "tmb-sqlalchemy-connection-connect-kylinpy": {
       "root_cause": true,
       "boundary": true,
-      "replacement": null
+      "replacement": null,
+      "replacement_uncurated": null
     },
     "tmb-sqlalchemy-orm-relation-bugtracker": {
       "root_cause": true,
       "boundary": true,
-      "replacement": true
+      "replacement": true,
+      "replacement_uncurated": true
     },
     "tmb-werkzeug-urls-url-decode-lemon": {
       "root_cause": true,
       "boundary": true,
-      "replacement": null
+      "replacement": null,
+      "replacement_uncurated": null
     }
   }
 }

@@ -4,9 +4,10 @@ name: s3
 # (a script, pytest, unittest, chained exceptions, logging, a TaskGroup, IPython). Running the snippets imports the
 # packages under test, which invariant 1 forbids anywhere else, so it happens here only: an ephemeral runner, one
 # throwaway venv per scenario, and each run by bench/s3/run.py with no network, a separate user and an empty
-# environment. It runs only on a push to the spike/s3 branch. Collect the artifacts locally:
-#   gh run download <run id> -D <empty dir>
-#   uv run python bench/s3/collect.py <that dir> bench/s3/scenarios.json bench/s3/cases.jsonl
+# environment. It runs only on a push to the spike/s3 branch. Collect each set's artifacts locally:
+#   gh run download <run id> -p 's3-holdout-*' -D <empty dir>
+#   uv run python bench/s3/collect.py <that dir> bench/s3/holdout.json bench/s3/holdout-cases.jsonl
+# (and the same with 's3-scenarios-*', scenarios.json and cases.jsonl)
 on:
   push:
     branches: [spike/s3]
@@ -24,6 +25,7 @@ jobs:
       fail-fast: false
       matrix:
         python: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        set: [scenarios, holdout]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -31,11 +33,11 @@ jobs:
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           enable-cache: false
-      - name: Tracebacks on Python ${{ matrix.python }}
-        run: python3 -I bench/s3/run.py --scenarios bench/s3/scenarios.json --python "${{ matrix.python }}" --out "$RUNNER_TEMP/s3-out"
+      - name: Tracebacks for ${{ matrix.set }} on Python ${{ matrix.python }}
+        run: python3 -I bench/s3/run.py --scenarios "bench/s3/${{ matrix.set }}.json" --python "${{ matrix.python }}" --out "$RUNNER_TEMP/s3-out"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
-          name: s3-py${{ matrix.python }}
+          name: s3-${{ matrix.set }}-py${{ matrix.python }}
           path: ${{ runner.temp }}/s3-out
           if-no-files-found: error

@@ -1,0 +1,217 @@
+{
+ "exclude_newer": "2026-11-01T00:00:00Z",
+ "always": [
+  "pytest",
+  "ipython"
+ ],
+ "scenarios": [
+  {
+   "id": "django-force-text",
+   "package": "django",
+   "kind": "import_name",
+   "requires": [
+    "django>=4.0"
+   ],
+   "app": "from django.utils.encoding import force_text\n\n\ndef main():\n    return force_text(b\"abc\")\n",
+   "expect": "cannot import name 'force_text'",
+   "evidence": [
+    "bench/cases/django.jsonl#django-force-text-oscar-phonenumber"
+   ]
+  },
+  {
+   "id": "typer-clear",
+   "package": "typer",
+   "kind": "import_name",
+   "requires": [
+    "typer>=0.26"
+   ],
+   "app": "from typer import clear\n\n\ndef main():\n    return clear()\n",
+   "expect": "cannot import name 'clear'",
+   "evidence": [
+    "bench/cases/typer.jsonl#typer-clear-export-removed-async-typer"
+   ]
+  },
+  {
+   "id": "redis-int-or-none",
+   "package": "redis",
+   "kind": "import_name",
+   "requires": [
+    "redis>=5.0"
+   ],
+   "app": "from redis.client import int_or_none\n\n\ndef main():\n    return int_or_none(\"1\")\n",
+   "expect": "cannot import name 'int_or_none'",
+   "evidence": [
+    "bench/cases/redis.jsonl#redis-int-or-none-import-tair"
+   ]
+  },
+  {
+   "id": "langchain-core-pydantic-v1",
+   "package": "langchain-core",
+   "kind": "module_missing",
+   "requires": [
+    "langchain-core>=1.0"
+   ],
+   "app": "from langchain_core.pydantic_v1 import BaseModel\n\n\nclass Query(BaseModel):\n    text: str\n\n\ndef main():\n    return Query(text=\"hi\")\n",
+   "expect": "No module named 'langchain_core.pydantic_v1'",
+   "evidence": [
+    "bench/cases/langchain-core.jsonl#langchain-core-pydantic-v1-module-removed-un"
+   ]
+  },
+  {
+   "id": "numpy-product",
+   "package": "numpy",
+   "kind": "module_attribute",
+   "requires": [
+    "numpy>=2.0"
+   ],
+   "app": "import numpy as np\n\n\ndef main():\n    return np.product([1, 2, 3])\n",
+   "expect": "product",
+   "evidence": [
+    "bench/cases/numpy.jsonl#numpy-product-chaospy"
+   ]
+  },
+  {
+   "id": "streamlit-experimental-rerun",
+   "package": "streamlit",
+   "kind": "module_attribute",
+   "requires": [
+    "streamlit>=1.37"
+   ],
+   "app": "import streamlit as st\n\n\ndef main():\n    st.experimental_rerun()\n",
+   "expect": "experimental_rerun",
+   "evidence": [
+    "bench/cases/streamlit.jsonl#streamlit-experimental-rerun-spacy-streamlit"
+   ]
+  },
+  {
+   "id": "werkzeug-version",
+   "package": "werkzeug",
+   "kind": "module_attribute",
+   "requires": [
+    "werkzeug>=3.1"
+   ],
+   "app": "import werkzeug\n\n\ndef main():\n    return werkzeug.__version__\n",
+   "expect": "__version__",
+   "evidence": [
+    "bench/cases/werkzeug.jsonl#werkzeug-version-attr-flask-2-2-4"
+   ]
+  },
+  {
+   "id": "sqlalchemy-orm-relation",
+   "package": "sqlalchemy",
+   "kind": "module_attribute",
+   "requires": [
+    "sqlalchemy>=2.0"
+   ],
+   "app": "from sqlalchemy import orm\n\n\ndef main():\n    return orm.relation(\"Parent\")\n",
+   "expect": "relation",
+   "evidence": [
+    "bench/tmb/cases#tmb-sqlalchemy-orm-relation-bugtracker"
+   ]
+  },
+  {
+   "id": "pandas-iteritems",
+   "package": "pandas",
+   "kind": "object_attribute",
+   "requires": [
+    "pandas>=2.0"
+   ],
+   "app": "import pandas as pd\n\n\ndef main():\n    df = pd.DataFrame({\"a\": [1]})\n    return list(df.iteritems())\n",
+   "expect": "iteritems",
+   "evidence": [
+    "bench/cases/pandas.jsonl#pandas-dataframe-iteritems-cnvkit"
+   ]
+  },
+  {
+   "id": "polars-expr-apply",
+   "package": "polars",
+   "kind": "object_attribute",
+   "requires": [
+    "polars>=1.0"
+   ],
+   "app": "import polars as pl\n\n\ndef main():\n    df = pl.DataFrame({\"a\": [1, 2]})\n    return df.select(pl.col(\"a\").apply(lambda x: x + 1))\n",
+   "expect": "has no attribute 'apply'",
+   "evidence": [
+    "bench/cases/polars.jsonl#polars-expr-apply-removed"
+   ]
+  },
+  {
+   "id": "matplotlib-tostring-rgb",
+   "package": "matplotlib",
+   "kind": "object_attribute",
+   "requires": [
+    "matplotlib>=3.10"
+   ],
+   "app": "import matplotlib\n\nmatplotlib.use(\"Agg\")\nimport matplotlib.pyplot as plt  # noqa: E402\n\n\ndef main():\n    fig = plt.figure()\n    fig.canvas.draw()\n    return fig.canvas.tostring_rgb()\n",
+   "expect": "tostring_rgb",
+   "evidence": [
+    "bench/cases/matplotlib.jsonl#matplotlib-tostring-rgb-rvc-webui"
+   ]
+  },
+  {
+   "id": "pandas-read-csv-error-bad-lines",
+   "package": "pandas",
+   "kind": "unexpected_kwarg",
+   "requires": [
+    "pandas>=2.0"
+   ],
+   "app": "import io\n\nimport pandas as pd\n\n\ndef main():\n    return pd.read_csv(io.StringIO(\"a\\n1\\n\"), error_bad_lines=False)\n",
+   "expect": "unexpected keyword argument 'error_bad_lines'",
+   "evidence": [
+    "bench/cases/pandas.jsonl#pandas-read-csv-error-bad-lines-freesurfer"
+   ]
+  },
+  {
+   "id": "selenium-chrome-executable-path",
+   "package": "selenium",
+   "kind": "unexpected_kwarg",
+   "requires": [
+    "selenium>=4.10"
+   ],
+   "app": "from selenium import webdriver\n\n\ndef main():\n    return webdriver.Chrome(executable_path=\"/usr/bin/chromedriver\")\n",
+   "expect": "unexpected keyword argument 'executable_path'",
+   "evidence": [
+    "bench/cases/selenium.jsonl#selenium-chrome-executable-path-webbot"
+   ]
+  },
+  {
+   "id": "redis-errors-kwarg",
+   "package": "redis",
+   "kind": "unexpected_kwarg",
+   "requires": [
+    "redis>=6.0"
+   ],
+   "app": "import redis\n\n\ndef main():\n    return redis.Redis(host=\"localhost\", errors=\"strict\")\n",
+   "expect": "unexpected keyword argument 'errors'",
+   "evidence": [
+    "bench/cases/redis.jsonl#redis-errors-kwarg-splitio"
+   ]
+  },
+  {
+   "id": "scikit-learn-mse-squared",
+   "package": "scikit-learn",
+   "kind": "unexpected_kwarg",
+   "requires": [
+    "scikit-learn>=1.6"
+   ],
+   "app": "from sklearn.metrics import mean_squared_error\n\n\ndef main():\n    return mean_squared_error([1.0, 2.0], [1.0, 2.5], squared=False)\n",
+   "expect": "unexpected keyword argument 'squared'",
+   "evidence": [
+    "bench/cases/scikit-learn.jsonl#scikit-learn-mean-squared-error-squared-relbench"
+   ]
+  },
+  {
+   "id": "click-get-metavar-ctx",
+   "package": "click",
+   "kind": "unexpected_kwarg",
+   "requires": [
+    "click>=8.2"
+   ],
+   "app": "import click\nfrom click.testing import CliRunner\n\n\nclass LogParam(click.ParamType):\n    name = \"log\"\n\n    def get_metavar(self, param):\n        return \"LOG\"\n\n\n@click.command()\n@click.option(\"--level\", type=LogParam())\ndef cli(level):\n    pass\n\n\ndef main():\n    return CliRunner().invoke(cli, [\"--help\"], catch_exceptions=False).output\n",
+   "expect": "unexpected keyword argument 'ctx'",
+   "evidence": [
+    "bench/cases/click.jsonl#click-paramtype-get-metavar-ctx-filesender"
+   ]
+  }
+ ]
+}

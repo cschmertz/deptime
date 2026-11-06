@@ -521,3 +521,22 @@ def test_the_python_version_also_comes_from_ipython_s_frame_lines():
     assert parse_traceback(jupyter + "---> 63 import cgi" + end).python_version == "3.13"
     # Other text that names a path doesn't count.
     assert parse_traceback("see /usr/lib/python3.12/cgi.py" + end).python_version is None
+
+
+def test_the_python_version_also_comes_from_the_import_error_s_own_path():
+    # DT-DATA-47: `cannot import name 'X' from 'm' (<path>)` names the file of `m`, for a standard module the
+    # Python's own library.
+    msg = "ImportError: cannot import name 'Mapping' from 'collections' (/usr/lib/python3.10/collections/__init__.py)\n"
+    assert parse_traceback(msg).python_version == "3.10"
+    windows = (
+        "ImportError: cannot import name 'coroutine' from 'asyncio' "
+        r"(C:\Users\u\AppData\Local\Programs\Python\Python311\Lib\asyncio\__init__.py)" + "\n"
+    )
+    assert parse_traceback(windows).python_version == "3.11"
+    # It agrees with the frames, or the version stays unknown.
+    other = _frame("/venv/lib/python3.12/site-packages/a.py") + msg
+    assert parse_traceback(other).python_version is None
+    assert (
+        parse_traceback("ImportError: cannot import name 'x' from 'm' (unknown location)\n").python_version
+        is None
+    )

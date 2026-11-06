@@ -142,9 +142,78 @@ def test_a_library_that_imports_a_removed_module(dt):
     )
 
 
-def test_a_name_inside_a_standard_module_is_not_covered(dt):
+def test_a_name_inside_a_standard_module_that_never_changes_is_not_covered(dt):
+    # Since DT-DATA-47 a name whose presence changes is answered (below); one typeshed never lists isn't.
     res = dt.explain_error(
-        "ImportError: cannot import name 'Mapping' from 'collections' (/usr/lib/python3.10/x.py)"
+        "ImportError: cannot import name 'Mappings' from 'collections' (/usr/lib/python3.10/x.py)"
     )
     assert res.findings == [] and res.not_covered == ["collections"]
-    assert "`collections` is in the standard library: DepTime knows which standard modules" in res.note
+    assert "`collections` is in the standard library. DepTime knows which standard modules" in res.note
+    assert "`Mappings` isn't one of them." in res.note
+
+
+def test_the_shipped_names_table_reads_and_has_the_known_changes():
+    # DT-DATA-47: names inside standard modules, from typeshed's stubs (tools/stdlib_names.py).
+    text = resources.files("deptime").joinpath("stdlib_names.txt").read_text(encoding="utf-8")
+    lines = [line for line in text.splitlines() if line.strip() and not line.startswith("#")]
+    assert len(lines) > 1000 and all(stdlib.NAME_LINE_RE.match(line) for line in lines)
+    mapping = stdlib.lookup_name("collections", "Mapping")
+    assert (mapping.ranges, mapping.moved) == (((9, 9),), "collections.abc.Mapping")
+    assert stdlib.lookup_name("asyncio", "coroutine").ranges == ((9, 10),)
+    assert stdlib.lookup_name("configparser", "SafeConfigParser").ranges == ((9, 11),)
+    assert stdlib.lookup_name("ssl", "wrap_socket").ranges == ((9, 11),)
+    assert stdlib.lookup_name("typing", "Self").ranges == ((11, None),)
+    # Every version with the module has it, or it isn't a public name: not listed.
+    assert stdlib.lookup_name("collections", "OrderedDict") is None
+    assert stdlib.lookup_name("collections", "_chain") is None
+
+
+def _import_tb(name: str, module: str, minor: int) -> str:
+    return f"ImportError: cannot import name '{name}' from '{module}' (/usr/lib/python3.{minor}/{module}/__init__.py)\n"
+
+
+def test_a_removed_standard_name(dt):
+    res = dt.explain_error(_import_tb("Mapping", "collections", 10))
+    (f,) = res.findings
+    assert (f.package, f.symbol, f.issue, f.confidence) == (
+        "python",
+        "collections.Mapping",
+        "symbol_removed",
+        "high",
+    )
+    assert (f.installed_version, f.last_version_with, f.first_version_without, f.pin_to_restore) == (
+        "3.10",
+        "3.9",
+        "3.10",
+        "python<=3.9",
+    )
+    assert [(r.target, r.confidence, r.source) for r in f.replacements] == [
+        ("collections.abc.Mapping", 0.75, "moved_heuristic")
+    ]
+    assert (f.fix.kind, f.fix.new, f.fix.same_object, f.fix.verified_at) == (
+        "path",
+        "collections.abc.Mapping",
+        True,
+        "3.10",
+    )
+    assert f.explanation.startswith(
+        "`collections.Mapping` was removed from the standard library in Python 3.10; 3.9 is the last version with it"
+    )
+    assert res.not_covered == []
+
+
+def test_a_standard_name_added_later_or_present(dt):
+    (f,) = dt.explain_error(_import_tb("Self", "typing", 10)).findings
+    assert (f.issue, f.last_version_without, f.first_version_with, f.pin_to_restore) == (
+        "symbol_not_yet_added",
+        "3.10",
+        "3.11",
+        "python>=3.11",
+    )
+    present = dt.explain_error(_import_tb("Self", "typing", 12))
+    assert present.findings == [] and "isn't a version change" in present.note
+    # Without a version, the change at medium; one the table doesn't list keeps the module-only note.
+    (f,) = dt.explain_error("AttributeError: module 'asyncio' has no attribute 'coroutine'\n").findings
+    assert (f.issue, f.last_version_with, f.confidence) == ("symbol_removed", "3.10", "medium")
+    other = dt.explain_error(_import_tb("OrderedDict", "collections", 12))
+    assert other.findings == [] and "`OrderedDict` isn't one of them" in other.note

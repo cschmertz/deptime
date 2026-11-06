@@ -1,29 +1,29 @@
 {
-  "index_built_at": "2026-11-05T22:29:46+00:00",
+  "index_built_at": "2026-11-06T19:18:37+00:00",
   "summary": {
-    "cases": 204,
-    "known_gap_share": 2.5,
+    "cases": 210,
+    "known_gap_share": 2.4,
     "overall": {
-      "root_cause": 97.5,
-      "root_cause_and_boundary": 97.5,
-      "boundary": 97.5,
-      "replacement": 69.8,
-      "replacement_uncurated": 59.4
+      "root_cause": 98.1,
+      "root_cause_and_boundary": 98.1,
+      "boundary": 98.1,
+      "replacement": 70.1,
+      "replacement_uncurated": 59.8
     },
     "by_tier": {
       "-": {
-        "cases": 5,
+        "cases": 11,
         "root_cause": 100.0,
         "root_cause_and_boundary": 100.0,
         "boundary": 100.0,
-        "replacement": null,
-        "replacement_uncurated": null
+        "replacement": 100.0,
+        "replacement_uncurated": 100.0
       },
       "A": {
         "cases": 96,
-        "root_cause": 99.0,
-        "root_cause_and_boundary": 99.0,
-        "boundary": 98.9,
+        "root_cause": 100.0,
+        "root_cause_and_boundary": 100.0,
+        "boundary": 100.0,
         "replacement": 48.7,
         "replacement_uncurated": 43.6
       },
@@ -46,12 +46,12 @@
         "replacement_uncurated": 100.0
       },
       "reported": {
-        "cases": 196,
-        "root_cause": 98.0,
-        "root_cause_and_boundary": 98.0,
-        "boundary": 97.9,
-        "replacement": 68.1,
-        "replacement_uncurated": 57.1
+        "cases": 202,
+        "root_cause": 98.5,
+        "root_cause_and_boundary": 98.5,
+        "boundary": 98.5,
+        "replacement": 68.5,
+        "replacement_uncurated": 57.6
       }
     }
   },
@@ -950,6 +950,42 @@
       "replacement": null,
       "replacement_uncurated": null
     },
+    "python-collections-mapping-removed-attrdict": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true,
+      "replacement_uncurated": true
+    },
+    "python-asyncio-coroutine-removed-knotter": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
+    "python-asyncio-coroutine-removed-tenacity": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
+    "python-configparser-safeconfigparser-removed-rltrader": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
+    "python-ssl-wrap-socket-removed-eventlet": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
+    "python-pkgutil-impimporter-removed-pipenv": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
     "qdrant-client-search-removed-openuni": {
       "root_cause": true,
       "boundary": true,
@@ -1245,8 +1281,8 @@
       "replacement_uncurated": null
     },
     "weaviate-client-collections-get-all-removed-haystack": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": null,
       "replacement_uncurated": null
     },

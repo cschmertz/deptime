@@ -589,15 +589,23 @@ class DepTime:
         stdlib_notes: list[str] = []
         if signal.kind in MODULE_SIGNALS and not named and signal.module:
             entry = stdlib.lookup(signal.module)
+            changed = stdlib.lookup_name(signal.module, signal.name) if entry and signal.name else None
             if entry is not None and signal.kind == "module_missing":
                 found, stdlib_notes = self._stdlib_findings(signal, entry, installed.get("python"), raiser)
+                findings += found
+            elif changed is not None:
+                found, stdlib_notes = self._stdlib_name_findings(
+                    signal, changed, installed.get("python"), raiser
+                )
                 findings += found
             else:
                 not_covered.append(signal.module.split(".")[0])
                 if entry is not None:
                     stdlib_notes.append(
-                        f"`{entry.module}` is in the standard library: DepTime knows which standard modules each "
-                        "Python version has, not the names inside them."
+                        f"`{entry.module}` is in the standard library. DepTime knows which standard modules each "
+                        "Python version has, and the names inside them that typeshed's stubs show changing between "
+                        "Python 3.9 and 3.15"
+                        + (f"; `{signal.name}` isn't one of them." if signal.name else ".")
                     )
         callee: list[Finding] = []
         declared: set[str] = set()
@@ -911,6 +919,124 @@ class DepTime:
                 pin_to_restore=f"{PYTHON}>={first}",
                 confidence=confidence,
                 explanation=f"`{mod}` was added to the standard library in Python {first}.{part}{you}{unsure}",
+            )
+        ], []
+
+    @staticmethod
+    def _stdlib_name_findings(
+        signal: ErrorSignal, entry: stdlib.StdlibName, given: str | None, raiser: str | None
+    ) -> tuple[list[Finding], list[str]]:
+        """A name inside a standard module that some Python versions have and others don't (DT-DATA-47), against
+        the Python version installed_versions gives as "python" or the traceback's paths name. Without one, its
+        change is reported at medium."""
+        version = given or signal.python_version
+        minor = stdlib.minor_of(version)
+        path = entry.path
+        if (
+            minor is not None
+            and not stdlib.NAMES_FIRST <= minor <= stdlib.NAMES_LAST
+            and not entry.has(minor)
+        ):
+            return [], [
+                f"`{path}` changes between Python 3.{stdlib.NAMES_FIRST} and 3.{stdlib.NAMES_LAST}, the versions "
+                f"DepTime knows the standard library's names for, and you run Python {version}."
+            ]
+        if minor is not None and entry.has(minor):
+            return [], [
+                f"`{path}` is in Python {version}'s standard library (typeshed's stubs), so this isn't a version "
+                "change: a local file named like the module can shadow it, and some names exist only on some platforms."
+            ]
+        you = (
+            f" You run Python {version}{'' if given else ' (from the traceback paths)'}."
+            if minor is not None
+            else ""
+        )
+        caller = (
+            raiser.split(".")[0] if raiser and raiser.split(".")[0] != signal.module.split(".")[0] else None
+        )
+        resolved = f"3.{minor}" if minor is not None else None
+        confidence: Confidence = "high" if minor is not None else "medium"
+        last = entry.last_before(minor) if minor is not None else None
+        if minor is None and entry.ranges[-1][1] is not None:
+            last = entry.ranges[-1][1]
+        if last is not None:
+            gone = f"3.{last + 1}"
+            unsure = (
+                ""
+                if minor is not None
+                else f' If you run Python {gone} or later, that is the cause; pass installed_versions={{"python": '
+                '"3.X"} to confirm.'
+            )
+            theirs = (
+                f" The name is used in {caller}'s code: a {caller} release made for Python {gone} may not need it; "
+                f"DepTime does not check {caller}'s side."
+                if caller
+                else ""
+            )
+            replacements, fix, moved = [], None, ""
+            if entry.moved:
+                evidence = (
+                    f"typeshed's stubs give `{entry.moved}` the same object in Python {gone}, the first version "
+                    f"without `{path}`."
+                )
+                replacements = [
+                    Replacement(
+                        target=entry.moved, confidence=0.75, source="moved_heuristic", evidence=evidence
+                    )
+                ]
+                module, _, name = entry.moved.rpartition(".")
+                home, still = stdlib.lookup(module), stdlib.lookup_name(module, name)
+                at = minor if minor is not None else last + 1
+                if home is not None and home.has(at) and (still is None or still.has(at)):
+                    fix = Fix(
+                        kind="path",
+                        old=path,
+                        new=entry.moved,
+                        verified_at=f"3.{at}",
+                        same_object=True,
+                        confidence=0.75,
+                        source="moved_heuristic",
+                        evidence=evidence,
+                    )
+                moved = f" The same object is `{entry.moved}`."
+            return [
+                Finding(
+                    package=PYTHON,
+                    symbol=path,
+                    issue="symbol_removed",
+                    installed_version=version,
+                    resolved_version=resolved,
+                    last_version_with=f"3.{last}",
+                    first_version_without=gone,
+                    replacements=replacements,
+                    fix=fix,
+                    pin_to_restore=f"{PYTHON}<=3.{last}",
+                    confidence=confidence,
+                    explanation=f"`{path}` was removed from the standard library in Python {gone}; 3.{last} is the "
+                    f"last version with it (typeshed's stubs).{moved}{you}{unsure}{theirs}",
+                )
+            ], []
+        first = entry.first_after(minor) if minor is not None else entry.ranges[0][0]
+        assert first is not None
+        unsure = (
+            ""
+            if minor is not None
+            else ' If you run an earlier Python, that is the cause; pass installed_versions={"python": "3.X"} to '
+            "confirm."
+        )
+        return [
+            Finding(
+                package=PYTHON,
+                symbol=path,
+                issue="symbol_not_yet_added",
+                installed_version=version,
+                resolved_version=resolved,
+                last_version_without=f"3.{first - 1}",
+                first_version_with=f"3.{first}",
+                pin_to_restore=f"{PYTHON}>=3.{first}",
+                confidence=confidence,
+                explanation=f"`{path}` was added to the standard library in Python 3.{first} (typeshed's stubs).{you}"
+                f"{unsure}",
             )
         ], []
 

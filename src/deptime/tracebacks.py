@@ -51,6 +51,8 @@ FROM_IMPORT_RE = re.compile(r"^\s*from\s+(?P<mod>[\w.]+)\s+import\s+(?P<names>[\
 
 CIRCULAR_RE = re.compile(r"partially initialized module '(?P<module>[\w.]+)'")
 IMPORT_NAME_RE = re.compile(r"cannot import name '(?P<name>[\w.]+)' from '(?P<module>[\w.]+)'")
+# The file of the module it imports from, which Python appends: for a standard module, its own library (DT-DATA-47).
+IMPORT_NAME_PATH_RE = re.compile(r"cannot import name '[\w.]+' from '[\w.]+' \((?P<file>[^()]+\.pyi?)\)")
 BARE_IMPORT_NAME_RE = re.compile(r"cannot import name '(?P<name>\w+)'\s*$")
 NO_MODULE_RE = re.compile(r"No module named '(?P<module>[\w.]+)'")
 MODULE_ATTR_RE = re.compile(r"module '?(?P<module>[\w.]+)'? has no attribute '?(?P<name>\w+)'?")
@@ -228,6 +230,8 @@ def _python_version_of(lines: list[str], signal: ErrorSignal) -> ErrorSignal:
         for frame_re in (FRAME_RE, *IPYTHON_FRAME_RES)
         if (fm := frame_re.match(line))
     ]
+    if signal.kind == "import_name" and (m := IMPORT_NAME_PATH_RE.search(signal.message)):
+        files.append(m.group("file"))
     versions = {m.group("minor") for file in files for rx in PYTHON_PATH_RES if (m := rx.search(file))}
     signal.python_version = f"3.{versions.pop()}" if len(versions) == 1 else None
     return signal

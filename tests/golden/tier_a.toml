@@ -108,6 +108,18 @@ name = "instructor"
 present = ["instructor.from_provider", "instructor.Partial"]
 evidence = "https://pypi.org/project/instructor/1.17.0/ (README: `instructor.from_provider(...)`, `from instructor import Partial`)"
 
+# GPT2Tokenizer's from_pretrained is inherited (from PreTrainedTokenizerBase): stored with own members (DT-DATA-16),
+# it is looked up through the class's MRO. AutoModelForCausalLM is rebound to `auto_class_update(...)` (DT-DATA-50).
+[[package]]
+name = "transformers"
+present = [
+  "transformers.pipeline",
+  "transformers.GPT2Tokenizer.from_pretrained",
+  "transformers.AutoModelForCausalLM.from_pretrained",
+  "transformers.AutoTokenizer.from_pretrained",
+]
+evidence = "https://pypi.org/project/transformers/5.22.1/ (README: `from transformers import pipeline`); https://github.com/huggingface/transformers/blob/v5.22.1/src/transformers/generation/utils.py (`tokenizer = GPT2Tokenizer.from_pretrained(\"gpt2\")`, `model = AutoModelForCausalLM.from_pretrained(\"openai-community/gpt2\")`); https://github.com/huggingface/transformers/blob/v5.22.1/src/transformers/models/auto/tokenization_auto.py (`tokenizer = AutoTokenizer.from_pretrained(\"google-bert/bert-base-cased\")`)"
+
 [[package]]
 name = "huggingface-hub"
 present = ["huggingface_hub.hf_hub_download", "huggingface_hub.snapshot_download"]

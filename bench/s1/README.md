@@ -9,6 +9,7 @@
 - **Packages (10):** langchain, langchain-community, langchain-core, openai, pydantic, huggingface-hub, litellm, pydantic-ai-slim, instructor and numpy. That's docs/07's list without transformers, which is out of coverage (DT-DATA-16), plus the packages the index shows to be most dynamic: lazy `__getattr__` hooks, `TYPE_CHECKING` re-exports, unresolved aliases and stubs.
 - **Releases (5 per package):** spread evenly in time across the indexed range, first and latest included (`plan.py` → `plan.json`).
 - **Python:** each release runs on the newest Python that had been out for six months when it shipped. Dependencies are resolved as of a week after the release (`--exclude-newer`).
+- **transformers (added 2026-11-06, DT-DATA-05):** covered since DT-DATA-16, so it's probed too, from its own plan (`plan-transformers.json`, chosen the same way from the index built 2026-11-06) and reported apart from the ten, which stay the gate. The sandbox installs no torch, so names that need it are sampled only where transformers still lists them without it.
 - **Symbols (50 per release):** 25 from package `__init__` modules, where lazy re-exports live, and 25 from all other modules, with a fixed seed per release. When one stratum runs short, the other tops it up. The report also gives the rate over every runtime name.
 
 ## What counts as public at runtime
@@ -60,6 +61,7 @@ Before probing, the job checks from inside the sandbox that the probe isn't root
 
 ```bash
 uv run python bench/s1/plan.py --index <index.sqlite> > bench/s1/plan.json   # choose the sample
+uv run python bench/s1/plan.py --index <index.sqlite> --packages transformers > bench/s1/plan-transformers.json
 git push origin spike/s1                                                      # runs s1.yml
 gh run download <run id> -D <new empty dir>
 uv run python bench/s1/compare.py <that dir> --index <index.sqlite> --json <results.json>

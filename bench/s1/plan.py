@@ -1,6 +1,7 @@
 """Choose the S1 sample (DT-SPIKE-01): 5 indexed releases per package, and the Python to probe each one on.
 
   uv run python bench/s1/plan.py --index ~/.cache/deptime/index.sqlite > bench/s1/plan.json
+  uv run python bench/s1/plan.py --index <index.sqlite> --packages transformers > bench/s1/plan-transformers.json
 
 Reads the index only. Releases are spread evenly in time across each package's indexed range, first and latest
 included (by ordinal, langchain's 349 0.0.x releases would take three of the five). Each one is probed on the
@@ -70,11 +71,12 @@ def entry(row) -> dict:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--index", type=Path, required=True)
+    ap.add_argument("--packages", nargs="+", default=list(PACKAGES), help="default: the pre-registered ten")
     args = ap.parse_args()
     store = IndexStore.open(args.index)
     coverage = load_coverage()
     packages = []
-    for name in PACKAGES:
+    for name in args.packages:
         spec = coverage.get(name)
         # Only releases the index analysed from a wheel: the sandbox installs wheels only (openai 0.26 is sdist-only).
         rows = [

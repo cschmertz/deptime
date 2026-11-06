@@ -169,14 +169,14 @@ def attempt(package: str, roots: list[str], entry: dict, python: str, dest: Path
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--plan", type=Path, required=True)
+    ap.add_argument("--plan", type=Path, nargs="+", required=True, help="the first plan listing the package")
     ap.add_argument("--package", required=True)
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args()
-    plan = json.loads(args.plan.read_text(encoding="utf-8"))
-    spec = next((p for p in plan["packages"] if p["name"] == args.package), None)
+    plans = [json.loads(p.read_text(encoding="utf-8")) for p in args.plan]
+    spec = next((p for plan in plans for p in plan["packages"] if p["name"] == args.package), None)
     if spec is None:
-        sys.exit(f"{args.package} is not in {args.plan}")
+        sys.exit(f"{args.package} is not in {', '.join(map(str, args.plan))}")
     prepare()
     dest = args.out / args.package
     dest.mkdir(parents=True, exist_ok=True)

@@ -120,8 +120,8 @@ def build_mcp(
         description=(
             "Batch-check that symbols, and the keyword arguments you plan to pass, exist in a specific version of a package. "
             "Returns present/missing per symbol, rejected kwargs, deprecation notes, and hints. Use it to preflight code "
-            "against the version you have installed; for one symbol across all releases use symbol_history, and after an "
-            "exception use explain_error."
+            "against the version you have installed: pass the symbols, or the code itself. For one symbol across all "
+            "releases use symbol_history, and after an exception use explain_error."
         ),
         annotations=READ_ONLY,
     )
@@ -129,14 +129,22 @@ def build_mcp(
         package: Annotated[str, Field(max_length=100, description=PACKAGE_HELP)],
         version: Annotated[str, Field(max_length=50, description="Installed version, e.g. '0.28.1'.")],
         symbols: Annotated[
-            list[SymbolQuery],
+            list[SymbolQuery] | None,
             Field(
                 max_length=100,
                 description="Up to 100 symbols, each a public dotted path plus the keyword arguments you plan to pass.",
             ),
-        ],
+        ] = None,
+        code: Annotated[
+            str | None,
+            Field(
+                max_length=100_000,
+                description="Python code to check instead of, or as well as, `symbols`: the package names it imports, "
+                "the attributes it reads off them and the keyword arguments it passes are read with `ast` (never run).",
+            ),
+        ] = None,
     ) -> CheckSymbolsResult:
-        return deptime.check_symbols(package, version, symbols)
+        return deptime.check_symbols(package, version, symbols, code)
 
     @mcp.tool(
         name="diff_versions",

@@ -43,8 +43,12 @@ def _dispatch(dt: DepTime, tool: str, body: dict[str, Any]) -> BaseModel:
     if tool == "symbol_history":
         return dt.symbol_history(body["package"], body["path"])
     if tool == "check_symbols":
+        code = body.get("code")
         return dt.check_symbols(
-            body["package"], body["version"], [SymbolQuery.model_validate(s) for s in body["symbols"]]
+            body["package"],
+            body["version"],
+            [SymbolQuery.model_validate(s) for s in body.get("symbols") or []],
+            code if isinstance(code, str) else None,
         )
     if tool == "diff_versions":
         return dt.diff_versions(

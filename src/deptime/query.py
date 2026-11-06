@@ -15,7 +15,7 @@ from pathlib import Path
 from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
 
-from deptime import stdlib
+from deptime import snippet, stdlib
 from deptime import suppressions as project
 from deptime.config import Coverage, PackageSpec
 from deptime.index.location import active_index
@@ -45,6 +45,7 @@ from deptime.tracebacks import ErrorSignal, parse_traceback
 from deptime.untrusted import instruction_like, untrusted_text
 
 MAX_DIFF_EVENTS = 500
+MAX_CODE_SYMBOLS = 300  # names read from a snippet that check_symbols checks (DT-CORE-07)
 # The `package` of a finding about the standard library (DT-DATA-06).
 PYTHON = "python"
 MAX_FINDINGS_PER_PACKAGE = 5
@@ -474,9 +475,52 @@ class DepTime:
             internal=_is_internal(last),
         )
 
-    def check_symbols(self, package: str, version: str, symbols: list[SymbolQuery]) -> CheckSymbolsResult:
+    def check_symbols(
+        self, package: str, version: str, symbols: list[SymbolQuery] | None = None, code: str | None = None
+    ) -> CheckSymbolsResult:
+        """Each symbol, and with `code`, what the snippet uses from the package (DT-CORE-07), at `version`."""
         name = canonicalize_name(package)
         spec = self._spec(name)
+        queries, read = list(symbols or []), None
+        if code is not None:
+            uses = snippet.uses_in(code, tuple(spec.import_names))
+            if uses is None:
+                read = "The code doesn't parse as Python, so nothing was read from it."
+            else:
+                queries, count = self._code_queries(name, version, queries, uses)
+                read = f"{count} name{'' if count == 1 else 's'} of {name} read from the code."
+                if len(queries) > MAX_CODE_SYMBOLS:
+                    read += f" Only the first {MAX_CODE_SYMBOLS} names are checked."
+                    queries = queries[:MAX_CODE_SYMBOLS]
+        result = self._check_symbols(name, spec, version, queries)
+        if read:
+            result.note = " ".join(n for n in (read, result.note) if n)
+        return result
+
+    def _code_queries(
+        self, name: str, version: str, given: list[SymbolQuery], uses: snippet.Uses
+    ) -> tuple[list[SymbolQuery], int]:
+        """`given` plus the snippet's paths, with the keyword arguments passed to each; an attribute read off an object
+        a call built counts only where the index shows that call builds a class at `version`."""
+        merged: dict[str, list[str]] = {}
+        for q in given:
+            merged.setdefault(q.path, []).extend(q.kwargs)
+        found = dict(uses.paths)
+        row = self.store.resolve_version(name, version)[0] if self.store and self._indexed(name) else None
+        for (built_by, attr), kwargs in uses.members.items():
+            span = (
+                self.store.span_at(name, built_by, row["ordinal"]) if row is not None and self.store else None
+            )
+            if span is not None and span["kind"] == "class":
+                found.setdefault(f"{built_by}.{attr}", []).extend(kwargs)
+        for path, kwargs in found.items():
+            known = merged.setdefault(path, [])
+            known.extend(k for k in kwargs if k not in known)
+        return [SymbolQuery(path=p, kwargs=k) for p, k in merged.items()], len(found)
+
+    def _check_symbols(
+        self, name: str, spec: PackageSpec, version: str, symbols: list[SymbolQuery]
+    ) -> CheckSymbolsResult:
         if not self._indexed(name):
             return CheckSymbolsResult(
                 package=name,

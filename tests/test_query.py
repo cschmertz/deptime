@@ -1938,3 +1938,42 @@ def test_too_many_positional_arguments_finds_the_parameter_that_left_the_positio
         ).findings
         == []
     )
+
+
+def test_check_symbols_reads_what_a_snippet_uses(dt):
+    # DT-CORE-07: the code itself, read with ast and never run.
+    code = (
+        "import httpx\n"
+        "import os\n"
+        "from httpx import OldThing as Old, Client\n"
+        "client = httpx.Client(proxies='http://x', timeout=3)\n"
+        "client.get('https://example.com')\n"
+        "with httpx.Client(auth=None) as c:\n"
+        "    c.stream('GET', 'x')\n"
+        "httpx.request('GET', 'u', proxies={})\n"
+        "fetch = httpx.request\n"
+        "os.path.join('a', 'b')\n"
+    )
+    res = dt.check_symbols("httpx", "0.28.1", code=code)
+    got = {r.path: (r.status, r.rejected_kwargs) for r in res.results}
+    assert got == {
+        "httpx": ("present", []),
+        "httpx.OldThing": ("missing", []),
+        "httpx.Client": ("present", ["proxies"]),
+        "httpx.Client.get": ("present", []),
+        "httpx.Client.stream": ("missing", []),
+        "httpx.request": ("present", ["proxies"]),
+    }
+    assert res.note.startswith("6 names of httpx read from the code.")
+    # Given symbols come first and merge with the code's; code that doesn't parse says so.
+    both = dt.check_symbols(
+        "httpx", "0.28.1", [SymbolQuery(path="httpx.NewThing")], code="import httpx.Client"
+    )
+    assert [r.path for r in both.results] == ["httpx.NewThing", "httpx.Client"]
+    assert dt.check_symbols("httpx", "0.28.1", code="def (").note.startswith("The code doesn't parse")
+
+
+def test_an_attribute_of_what_a_function_returns_isnt_guessed(dt):
+    # Only a call the index shows builds a class makes an object whose attributes are checked.
+    res = dt.check_symbols("httpx", "0.28.1", code="import httpx\nr = httpx.request('GET', 'u')\nr.json()\n")
+    assert [r.path for r in res.results] == ["httpx", "httpx.request"]

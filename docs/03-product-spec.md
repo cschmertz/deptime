@@ -103,6 +103,7 @@ All tools are read-only and idempotent, and return structured output (pydantic m
 ### `check_symbols(package, version, symbols[{path, kwargs[]}]) → CheckSymbolsResult`
 
 - A batch pre-flight check before writing code. Each symbol gets `present`, `missing` or `not_indexed`, plus `rejected_kwargs` and a deprecation note.
+- `code` (DT-CORE-07) checks a snippet instead of, or as well as, `symbols`: read with `ast`, never run, it gives the package's modules and names the code imports, the attribute chains it reads off them, the keyword arguments of each call to one, and the attributes it reads off an object it builds by calling one (`client = httpx.Client()` then `client.get(...)`), only where the index shows that call builds a class. The note says how many names it read.
 - If `version` isn't indexed, the answer uses the nearest earlier indexed release and says so in the response.
 
 ### `diff_versions(package, from_version, to_version?, used_symbols?, include_added?, limit?) → DiffResult`

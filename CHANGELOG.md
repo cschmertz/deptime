@@ -34,6 +34,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
   removed modules and names (DT-DATA-48). The Python version is also read from the file an `ImportError` names.
 - `too_many_positional` errors are explained: a parameter that became keyword-only is the new issue
   `param_kind_changed`, with a `fix` of the new kind `keyword` (DT-CORE-09).
+- `check_symbols(code=...)` checks what a snippet uses from the package, read with `ast` (DT-CORE-07); `symbols` is
+  now optional.
 - Answers about a package DepTime doesn't index point to `coverage` and to the package request form;
   `docs/coverage.md` lists what's indexed (DT-OSS-11).
 

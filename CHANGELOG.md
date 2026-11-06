@@ -40,6 +40,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
   as frames (DT-CORE-02).
 - `check_symbols(code=...)` checks what a snippet uses from the package, read with `ast` (DT-CORE-07); `symbols` is
   now optional.
+- `python -m deptime.site build` writes rename-map pages for five migrations from the index (DT-GTM-01).
 - Answers about a package DepTime doesn't index point to `coverage` and to the package request form;
   `docs/coverage.md` lists what's indexed (DT-OSS-11).
 

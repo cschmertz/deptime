@@ -552,7 +552,8 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
 
 ## M2 — Distribution (DT-GTM)
 
-- [ ] **DT-GTM-01**: Generate the 5 rename-map pages from the index (`site/`) · `P0` `M` · deps: DATA-01
+- [x] **DT-GTM-01**: Generate the 5 rename-map pages from the index (`site/`) · `P0` `M` · deps: DATA-01
+  - Done 2026-11-06: `python -m deptime.site build` (`src/deptime/site.py`) writes the five pages from the index's events and replacements (at 0.75 or more, as answers state them), plus `index.html`, `llms.txt` and `sitemap.xml`. On the format-17 index: MCP 1.x → 2.x 30 names replaced and 343 removed with none stated; LangChain 0.3 → 1.x 439 and 417 (langchain and langchain-core, 400 rows a section each); google-generativeai → google-genai 13 (curated); pydantic v1 → v2 210 and 400; openai 0.x → 1.x 37 and 271. Hosting them is DT-GTM-02's.
 - [ ] **DT-GTM-02**: Landing page (or GitHub Pages) with install, demo, benchmark, privacy · `P1` `S`
 - [x] **DT-GTM-03**: Registry listings · `P0` `S` · deps: OSS-05
   - AC: official MCP Registry `server.json` (PyPI package, stdio) under `io.github.cschmertz/deptime`; listed in the main MCP directories.

@@ -2,10 +2,10 @@
 
 Static pages generated **from the index**, never written by hand. That way every fact (removed symbol, version boundary, replacement) traces back to the same data the MCP tools serve.
 
-Planned generator: `uv run python -m deptime.site build --out site/dist`. It will:
-1. Run `diff_versions` for each migration below and group events by symbol.
-2. Render one page per migration: a table of old → new symbols, version boundaries, replacement evidence, and install instructions.
-3. Emit `sitemap.xml` and `llms.txt`.
+Generator: `uv run python -m deptime.site build --out site/dist [--index PATH] [--base-url URL]` (`src/deptime/site.py`). For each migration below, between the newest release of the old series and the newest of the new one, it:
+1. lists the names and arguments that were removed, moved or deprecated and what the index says replaces them (the library's deprecation text, the project's migration guide as a curated hint, or the same object at another path), with the evidence quoted and escaped;
+2. lists the module-level names removed with no stated replacement;
+3. writes one page per migration, `index.html`, `llms.txt` and, with `--base-url`, `sitemap.xml`.
 
 | Page | Diff |
 |---|---|

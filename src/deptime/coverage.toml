@@ -12,9 +12,10 @@
 #                  version as this package's when this one isn't listed (DT-CORE-03).
 # `shares_import_name_with` = distributions that install *other* code under the same import name; explain_error
 #                  uses installed_versions or pip_freeze to tell which one raised (DT-CORE-03).
-# `own_members`  = store each class's own members once, with its MRO, and look inherited members up when queried,
-#                  rather than storing every member under every class that has it (DT-DATA-16). The answers are the
-#                  same; an index with such a package has schema version 2, which deptime 0.1.5 and older can't read.
+# `own_members`  = true (the default): store each class's own members once, with its MRO, and look inherited members
+#                  up when queried, rather than storing every member under every class that has it (DT-DATA-16,
+#                  DT-DATA-49). The answers are the same; an index with such a package has schema version 2, which
+#                  deptime 0.1.5 and older can't read. `false` stores every member under every class.
 
 [policy]
 # For every minor series (X.Y) that has a release on/after `since`, index every release: a patch-level break
@@ -155,7 +156,6 @@ import_names = ["transformers"]
 tier = "A"
 # 5.22.1 has 1.6M public paths, 83% of them inherited members repeated under thousands of model classes; stored with
 # own members, 37k paths and 109k own members (DT-DATA-16).
-own_members = true
 
 [[package]]
 name = "huggingface-hub"

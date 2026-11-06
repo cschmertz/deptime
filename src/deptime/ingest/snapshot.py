@@ -31,7 +31,7 @@ from deptime.ingest.replacements import (
     worded_deprecated,
 )
 
-SNAPSHOT_FORMAT = 16  # bump when extraction changes: cached snapshots in another format are rebuilt
+SNAPSHOT_FORMAT = 17  # bump when extraction changes: cached snapshots in another format are rebuilt
 MAX_DEPTH = 12  # guards pathological re-export cycles
 
 DEPRECATED_DECORATOR_RE = re.compile(r"^(?:[\w.]+\.)?deprecated\b(?:\(.*\))?$", re.S)
@@ -87,6 +87,10 @@ class ClassRecord:
     # Its own members by name, each with `path` = the class's canonical path + "." + name. The same names as a
     # public class's members: public names, `__init__` and `__call__`.
     members: dict[str, SymbolRecord] = field(default_factory=dict)
+    # Its own members that aren't public API (DT-DATA-46), kind and canonical path only: its private names, and for
+    # a class that is neither public nor a public class's base, every member. Dunders other than `__init__` and
+    # `__call__` aren't recorded.
+    internal: dict[str, SymbolRecord] = field(default_factory=dict)
 
 
 def resolve_member(classes: dict[str, ClassRecord], cls: str, name: str) -> SymbolRecord | None:
@@ -145,7 +149,12 @@ class ApiSnapshot:
         payload["symbols"] = [asdict(s) for s in self.symbols.values()]
         payload["internal"] = [asdict(s) for s in self.internal.values()]
         payload["classes"] = [
-            {"path": c.path, "mro": c.mro, "members": [asdict(m) for m in c.members.values()]}
+            {
+                "path": c.path,
+                "mro": c.mro,
+                "members": [asdict(m) for m in c.members.values()],
+                "internal": [asdict(m) for m in c.internal.values()],
+            }
             for c in self.classes.values()
         ]
         with gzip.open(path, "wt", encoding="utf-8") as fh:
@@ -159,11 +168,44 @@ class ApiSnapshot:
         internal = {s["path"]: SymbolRecord(**s) for s in payload.pop("internal", [])}
         classes = {
             c["path"]: ClassRecord(
-                c["path"], c["mro"], {m["path"].rpartition(".")[2]: SymbolRecord(**m) for m in c["members"]}
+                c["path"],
+                c["mro"],
+                {m["path"].rpartition(".")[2]: SymbolRecord(**m) for m in c["members"]},
+                {m["path"].rpartition(".")[2]: SymbolRecord(**m) for m in c.get("internal", [])},
             )
             for c in payload.pop("classes", [])
         }
         return cls(symbols=symbols, internal=internal, classes=classes, **payload)
+
+    def with_own_members(self) -> ApiSnapshot:
+        """This snapshot stored with own members (DT-DATA-49). One that isn't, such as a release rebuilt from an
+        index's rows, has each public class's members, own and inherited, as its own, and no MRO: they resolve the
+        same, so its diff against a release built with own members shows only what changed."""
+        if self.own_members:
+            return self
+        symbols: dict[str, SymbolRecord] = {}
+        classes: dict[str, ClassRecord] = {}
+        homes = {p: r.canonical for p, r in self.symbols.items() if r.kind == "class" and r.canonical}
+        for path, rec in self.symbols.items():
+            parent, _, name = path.rpartition(".")
+            cls = homes.get(parent)
+            if cls is None:
+                symbols[path] = rec
+                continue
+            members = classes.setdefault(cls, ClassRecord(cls, [])).members
+            members.setdefault(name, replace(rec, path=f"{cls}.{name}"))
+        for cls in homes.values():
+            classes.setdefault(cls, ClassRecord(cls, []))
+        return replace(self, symbols=symbols, own_members=True, classes=classes)
+
+    def without_own_members(self) -> ApiSnapshot:
+        """This snapshot with every class member under each public path of its class, as one not stored with own
+        members has them."""
+        return (
+            replace(self, symbols=self.expanded(), own_members=False, classes={})
+            if self.own_members
+            else self
+        )
 
     def expanded(self) -> dict[str, SymbolRecord]:
         """`symbols` with every public class's members, own and inherited, under each of its public paths: what a
@@ -1808,9 +1850,23 @@ def _string_keys(node: ast.expr) -> dict[str, str | None] | None:
 
 
 def _table_keys(node: ast.expr, tables: dict[str, dict[str, Any]]) -> frozenset[str] | None:
-    """A literal collection of strings, or a module-level table's keys: `list(_module_lookup.keys())`."""
+    """A literal collection of strings, or a module-level table's keys: `list(_module_lookup.keys())`. A starred
+    element adds the keys of a table this module fills, and nothing otherwise (DT-DATA-28: instructor 1.17's
+    `[..., *PUBLIC_FACTORY_ATTRS.keys()]`, a dict another module computes), so the names it lists literally stay."""
     if (literal := _string_keys(node)) is not None:
         return frozenset(literal)
+    if isinstance(node, (ast.List, ast.Tuple, ast.Set)) and any(
+        isinstance(e, ast.Starred) for e in node.elts
+    ):
+        names: set[str] = set()
+        for e in node.elts:
+            if isinstance(e, ast.Constant) and isinstance(e.value, str):
+                names.add(e.value)
+            elif isinstance(e, ast.Starred):
+                names |= _table_keys(e.value, tables) or set()
+            else:
+                return None
+        return frozenset(names)
     if (
         isinstance(node, ast.Call)
         and isinstance(node.func, ast.Name)
@@ -2122,6 +2178,7 @@ class _Served:
 
     names: dict[str, list[ast.stmt]] = field(default_factory=dict)
     forwards: list[tuple[str, frozenset[str], list[ast.stmt]]] = field(default_factory=list)
+    returns: dict[str, ast.expr | None] = field(default_factory=dict)  # each name's `return` value
 
 
 def _absolute(module_path: str, is_init: bool, level: int, name: str | None) -> str:
@@ -2292,6 +2349,7 @@ def _reach(
                 served.forwards.append((target, live.names, trail))
             for name in shim.exports - live.names if live.exclude else live.names:
                 served.names.setdefault(name, trail)
+                served.returns.setdefault(name, st.value)
             return None
         if isinstance(st, ast.Raise):
             return None
@@ -2586,6 +2644,8 @@ class _GetattrShim:
     copied: frozenset[str] = frozenset()
     deleted: frozenset[str] = frozenset()
     private: dict[str, str | None] = field(default_factory=dict)
+    # Served names whose branch returns `getattr(<module>, name)`: the module, whose object it is (DT-DATA-32).
+    sources: dict[str, str] = field(default_factory=dict)
 
 
 def _copies_into_globals(loop: ast.For) -> bool:
@@ -2682,15 +2742,19 @@ def getattr_served(mod: griffe.Module) -> _GetattrShim:
     _reach(func.body, _Names(frozenset(), exclude=True), [], shim, served)
     names: dict[str, str | None] = {}
     private: dict[str, str | None] = {}
+    sources: dict[str, str] = {}
     for name, trail in sorted(served.names.items()):
         if name.isidentifier():
             into = private if _is_private(name) else names
             into[name] = _shim_message(trail, name, shim)
+            value = served.returns.get(name)
+            if value is not None and (source := _forwarded(value, trail, shim)):
+                sources[name] = source
     if not served.forwards:
-        return _GetattrShim(names, deleted=frozenset(deleted), private=private)
+        return _GetattrShim(names, deleted=frozenset(deleted), private=private, sources=sources)
     own, copied = _module_names(tree.body)
     forwards = [_Forward(target, excluded, trail, shim) for target, excluded, trail in served.forwards]
-    return _GetattrShim(names, forwards, own, copied, frozenset(deleted), private)
+    return _GetattrShim(names, forwards, own, copied, frozenset(deleted), private, sources)
 
 
 @dataclass(frozen=True)
@@ -2751,6 +2815,9 @@ def module_imports(mod: griffe.Module) -> _Imports:
 
 # `__all__` built by code rather than written out: a method call, `+=`, or a value that isn't a literal.
 _ALL_IN_CODE_RE = re.compile(r"__all__\s*(?:\.\s*\w+\s*\(|\+=|=\s*(?![\s\[(=]))")
+# A literal `__all__` with a starred element: instructor 1.17's `[..., *PUBLIC_FACTORY_ATTRS.keys()]`. griffe can't
+# evaluate it and reads no `__all__` at all (DT-DATA-28).
+_ALL_STARRED_RE = re.compile(r"__all__\s*(?::[^=\n]*)?=\s*[\[(][^\])]*\*")
 
 
 @dataclass(frozen=True)
@@ -2818,6 +2885,17 @@ class _RuntimeAll:
         self.active: set[str] = set()
 
     @staticmethod
+    def starred(mod: griffe.Module) -> bool:
+        """Whether `mod`'s `.py` assigns `__all__` a literal with a starred element."""
+        path = mod.filepath
+        if not isinstance(path, Path) or path.suffix != ".py":
+            return False
+        try:
+            return bool(_ALL_STARRED_RE.search(path.read_text(encoding="utf-8", errors="replace")))
+        except OSError:
+            return False
+
+    @staticmethod
     def needed(mod: griffe.Module) -> bool:
         """Whether griffe may have misread `mod.__all__`: a stub replaced it, or code builds it."""
         path = mod.filepath
@@ -2827,7 +2905,11 @@ class _RuntimeAll:
             text = path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             return False
-        return "__all__" in text and (path.with_suffix(".pyi").exists() or bool(_ALL_IN_CODE_RE.search(text)))
+        return "__all__" in text and (
+            path.with_suffix(".pyi").exists()
+            or bool(_ALL_IN_CODE_RE.search(text))
+            or bool(_ALL_STARRED_RE.search(text))
+        )
 
     def of(self, mod: griffe.Module) -> _Exports:
         if mod.path in self.cache:
@@ -3008,8 +3090,31 @@ def _resolve(member: griffe.Object | griffe.Alias) -> griffe.Object | None:
         return member  # type: ignore[return-value]
     try:
         return member.final_target  # type: ignore[union-attr]
-    except (griffe.AliasResolutionError, griffe.CyclicAliasError):
+    except griffe.CyclicAliasError:
+        return _through_cycle(member)  # type: ignore[arg-type]
+    except griffe.AliasResolutionError:
         return None
+
+
+def _through_cycle(alias: griffe.Alias) -> griffe.Object | None:
+    """What an import griffe reports as cyclic names, found by following each import's path by hand (DT-DATA-32).
+
+    From numpy 2.2, `numpy._core.multiarray.ndarray` imports `numpy.ndarray`, a class the stub defines, yet griffe
+    reports the cycle `numpy._core.ndarray` -> `numpy._core.numeric.ndarray` -> `numpy._core.multiarray.ndarray` ->
+    `numpy.ndarray` -> `numpy._core.ndarray`. The `numpy.core` forwarders then served `ndarray`, `dtype`, `nditer`
+    and `broadcast` as unresolved imports in 2.2-2.4 and as classes before and after. None for a real cycle."""
+    seen: set[str] = set()
+    obj: griffe.Object | griffe.Alias = alias
+    while obj.is_alias:
+        path = obj.target_path  # type: ignore[union-attr]
+        if path in seen:
+            return None
+        seen.add(path)
+        try:
+            obj = alias.modules_collection.get_member(path)
+        except (KeyError, ValueError, AttributeError, griffe.AliasResolutionError, griffe.CyclicAliasError):
+            return None  # a path through another import griffe can't follow (chromadb 0.5.7)
+    return obj  # type: ignore[return-value]
 
 
 class _Walker:
@@ -3023,6 +3128,7 @@ class _Walker:
         self.exported: dict[str, frozenset[str]] = {}
         self.finished: set[str] = set()
         self.unlisting: set[tuple[str, str]] = set()
+        self.private_classes: dict[str, griffe.Class] = {}  # classes `internal` finds, by canonical path
 
     def _shapes(self, mod: griffe.Module) -> _Imports:
         if mod.path not in self.imports:
@@ -3111,6 +3217,11 @@ class _Walker:
         reexporter = mod.path if (public_path == mod.path or forwarded) and mod.is_init_module else None
         walk_from = None if forwarded else reexporter
         exported = self._exported(mod)
+        if exported and not mod.exports and _RuntimeAll.starred(mod):
+            # griffe read no `__all__` from one it can't evaluate (DT-DATA-28): instructor 1.17's
+            # `instructor.v2` lists its lazy names next to `*PUBLIC_FACTORY_ATTRS.keys()`, and its imports and
+            # `__all__` itself read as public.
+            mod.exports = sorted(exported)
         for name, member in list(mod.members.items()):
             if member.is_alias and member.wildcard:  # type: ignore[union-attr]  # a star import griffe couldn't expand
                 continue
@@ -3135,7 +3246,27 @@ class _Walker:
                 # it binds only for type checkers (pandas 3.1's `RollingGroupby`, under `if TYPE_CHECKING:`).
                 member = mod.members.get(name)
                 if member is None or name in shim.deleted or not member.runtime:
-                    self.record(SymbolRecord(f"{public_path}.{name}", "getattr", canonical, None, message))
+                    path = f"{public_path}.{name}"
+                    if not self._served_object(mod, path, name, shim, message, depth):
+                        self.record(SymbolRecord(path, "getattr", canonical, None, message))
+
+    def _served_object(
+        self, mod: griffe.Module, path: str, name: str, shim: _GetattrShim, message: str | None, depth: int
+    ) -> bool:
+        """Record a name `__getattr__` serves as `getattr(<module>, name)` as that module's object, with the
+        branch's warning (DT-DATA-32): django 6.0's `core.mail.SafeMIMEText` is `core.mail.message.SafeMIMEText`,
+        and its members read removed in 6.0. False when the module or the name in it can't be found."""
+        source = shim.sources.get(name)
+        target = _module_at(mod, source) if source else None
+        found = target.members.get(name) if target is not None and target.path != mod.path else None
+        resolved = _resolve(found) if found is not None else None
+        if resolved is None or resolved.is_module:
+            return False
+        self.member(found, path, depth)  # type: ignore[arg-type]
+        rec = self.snap.symbols.get(path)
+        if rec is not None and message and rec.deprecated is None:
+            self.snap.symbols[path] = replace(rec, deprecated=message)
+        return rec is not None
 
     def forward(
         self, mod: griffe.Module, public_path: str, depth: int, forward: _Forward, shim: _GetattrShim
@@ -3317,6 +3448,10 @@ class _Walker:
                 rec = self._internal_record(path, member)
                 if rec is not None:
                     self.snap.internal[path] = rec
+                    if self.snap.own_members and rec.kind == "class" and self._internal(rec.canonical or ""):
+                        target = _resolve(member)
+                        if isinstance(target, griffe.Class):
+                            self.private_classes.setdefault(target.path, target)
             hook = mod.members.get("__getattr__")
             if hook is not None and not hook.is_alias:
                 if mod.path not in self.shims:
@@ -3359,11 +3494,13 @@ class _Walker:
             if _is_member_name(name) and (rec := _member_record(f"{public_path}.{name}", member)):
                 self.record(rec)
 
-    def _class_record(self, cls: griffe.Class) -> None:
+    def _class_record(self, cls: griffe.Class, public: bool = True) -> None:
         """Record `cls` with its MRO and own members, and the own members of each class in its MRO (DT-DATA-16).
         Inherited members are looked up as griffe's `all_members` finds them: no MRO when griffe can't compute
-        one (an inheritance cycle), and an error recorded when resolving the bases fails otherwise."""
-        rec = self._own_members(cls)
+        one (an inheritance cycle), and an error recorded when resolving the bases fails otherwise. `public`: a
+        class users reach by a public path; else one that isn't public API, whose members are all internal and
+        whose failures aren't the release's (DT-DATA-46)."""
+        rec = self._own_members(cls, public)
         if rec.mro is not None:
             return
         try:
@@ -3371,26 +3508,48 @@ class _Walker:
         except ValueError:  # an inheritance cycle: all_members has no inherited members then
             mro = []
         except Exception as exc:  # griffe raises several resolution errors for external bases
-            self.snap.errors.append(f"{cls.path}: inherited members unavailable ({type(exc).__name__})")
+            if public:
+                self.snap.errors.append(f"{cls.path}: inherited members unavailable ({type(exc).__name__})")
             mro = []
         rec.mro = [base.path for base in mro]
         for base in mro:
-            self._own_members(base)
+            self._own_members(base, public)
 
-    def _own_members(self, cls: griffe.Class) -> ClassRecord:
+    def _own_members(self, cls: griffe.Class, public: bool = True) -> ClassRecord:
         rec = self.snap.classes.get(cls.path)
         if rec is None:
             rec = self.snap.classes[cls.path] = ClassRecord(cls.path)
             for name, member in cls.members.items():
-                if _is_member_name(name):
-                    path = f"{cls.path}.{name}"
+                path = f"{cls.path}.{name}"
+                if public and _is_member_name(name):
                     rec.members[name] = _member_record(path, member) or SymbolRecord(path, HIDDEN)
+                elif _is_member_name(name) or _is_private(name):
+                    rec.internal[name] = _internal_member(path, member)
         return rec
+
+    def record_private_classes(self) -> None:
+        """Record the classes `internal` found that no public path reaches (DT-DATA-46), after every public walk:
+        haystack called weaviate's `client.collections._get_all()`, a method the private `_Collections` inherited
+        from `_CollectionsBase` until 4.7.0. Classes public paths reach keep the members they have."""
+        for cls in self.private_classes.values():
+            try:
+                self._class_record(cls, public=False)
+            except Exception:  # the public API is recorded; one class's bases mustn't sink it
+                continue
 
 
 def _is_member_name(name: str) -> bool:
     """A class member the index records: a public name, `__init__` or `__call__`."""
     return not name.startswith("_") or name in {"__init__", "__call__"}
+
+
+def _internal_member(path: str, member: griffe.Object | griffe.Alias) -> SymbolRecord:
+    """A member that isn't public API (DT-DATA-46): kind and canonical path only, as other internal names; `HIDDEN`
+    when griffe can't resolve it or it is neither function, attribute nor class."""
+    target = _resolve(member)
+    if target is None or not (target.is_function or target.is_attribute or target.is_class):
+        return SymbolRecord(path, HIDDEN)
+    return SymbolRecord(path, target.kind.value, target.path)
 
 
 def _member_record(path: str, member: griffe.Object | griffe.Alias) -> SymbolRecord | None:
@@ -3437,25 +3596,30 @@ class _RuntimeElse(griffe.Extension):
 
 
 class _Rebound(griffe.Extension):
-    """A class its module rebinds to a call on itself is still that class (DT-DATA-50). griffe records
-    `AutoModel = auto_class_update(AutoModel)` as an attribute, so transformers' 41 Auto classes had no members, and
-    `AutoModelForCausalLM.from_pretrained` read `never_existed`. Not when the call is a deprecation wrapper: the
-    attribute is where its message is read (`_wrapper_deprecation`)."""
+    """A class or function its scope rebinds to a call on itself is still that class or function (DT-DATA-50). griffe
+    records `AutoModel = auto_class_update(AutoModel)` as an attribute, so transformers' 41 Auto classes had no
+    members, and `AutoModelForCausalLM.from_pretrained` read `never_existed`; django's `args_check =
+    staticmethod(args_check)` and `as_manager = classmethod(as_manager)` had no signature. Not when the call is a
+    deprecation wrapper: the attribute is where its message is read (`_wrapper_deprecation`). `property(f)` stays an
+    attribute, as griffe has `@property`."""
 
     def __init__(self) -> None:
         super().__init__()
-        self.classes: dict[str, griffe.Class] = {}
+        self.defined: dict[str, griffe.Class | griffe.Function] = {}
 
     def on_class_instance(self, *, cls: griffe.Class, **kwargs: Any) -> None:
-        self.classes[cls.path] = cls
+        self.defined[cls.path] = cls
+
+    def on_function_instance(self, *, func: griffe.Function, **kwargs: Any) -> None:
+        self.defined[func.path] = func
 
     def on_attribute_instance(
         self, *, node: ast.AST | griffe.ObjectNode, attr: griffe.Attribute, **kwargs: Any
     ) -> None:
-        cls = self.classes.get(attr.path)
+        obj = self.defined.get(attr.path)
         value = getattr(node, "value", None)
         if (
-            cls is None
+            obj is None
             or attr.parent is None
             or not isinstance(value, ast.Call)
             or not value.args
@@ -3464,7 +3628,13 @@ class _Rebound(griffe.Extension):
             or _wrapper_deprecation(attr)
         ):
             return
-        attr.parent.set_member(attr.name, cls)
+        if isinstance(obj, griffe.Function):
+            wrapper = ast.unparse(value.func)
+            if wrapper.rpartition(".")[2] in {"property", "cached_property"}:
+                return
+            if wrapper in {"classmethod", "staticmethod"}:
+                obj.labels.add(wrapper)
+        attr.parent.set_member(attr.name, obj)
 
 
 _NAMED_KINDS = frozenset(
@@ -3653,6 +3823,7 @@ def build_snapshot(
                 walker.internal(loaded)
             except Exception as exc:  # the public API is already recorded; don't lose it over these
                 snap.errors.append(f"internal names of {import_name}: {type(exc).__name__}: {exc}")
+        walker.record_private_classes()
     finally:
         _READINGS = None
         _clear_griffe_caches()

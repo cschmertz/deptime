@@ -21,6 +21,7 @@ from deptime.query import DepTime
 from tests.conftest import HTTPX, RELEASED_AT, SNAPSHOTS
 
 SPEC = PackageSpec(name="fakepkg", import_names=("fakepkg",), tier="B")
+CLASSIC = PackageSpec(name="fakepkg", import_names=("fakepkg",), tier="B", own_members=False)
 POLICY = VersionPolicy(date(2023, 1, 1), 12, False, False)
 V1_INIT = (
     "import warnings\n\n"
@@ -212,15 +213,43 @@ def test_cached_snapshot_with_other_namespace_skips_is_rebuilt(tmp_path):
 def test_switching_a_package_to_own_members_rebuilds_its_snapshots(tmp_path):
     """DT-DATA-16: `own_members` changes what a snapshot records, so a cached one of the other kind is rebuilt."""
     store = IndexStore.memory()
-    _full_ingest(store, tmp_path)
-    own = PackageSpec(name="fakepkg", import_names=("fakepkg",), tier="B", own_members=True)
     with _client() as client:
-        report = ingest_package(own, POLICY, store, tmp_path, client=client, today=TODAY, log=_quiet)
+        ingest_package(CLASSIC, POLICY, store, tmp_path, client=client, today=TODAY, log=_quiet)
+    assert not store.stores_own_members("fakepkg")
+    with _client() as client:
+        report = ingest_package(SPEC, POLICY, store, tmp_path, client=client, today=TODAY, log=_quiet)
     assert report.cached == [] and report.built == ["1.0.0", "2.0.0"]
     snap = ApiSnapshot.load(snapshot_path(tmp_path, "fakepkg", "1.0.0"))
     assert snap.own_members and snap.classes
     assert store.stores_own_members("fakepkg")
     assert store.conn.execute("SELECT value FROM meta WHERE key = 'schema_version'").fetchone()[0] == "2"
+
+
+def test_a_release_carried_from_rows_stored_the_other_way_answers_the_same(tmp_path):
+    """DT-DATA-49: the first build after a package switches to own members carries a release that fails to build
+    from the index's rows, which store every member under every class. Its members mustn't read removed."""
+    classic = IndexStore.memory()
+    with _client() as client:
+        ingest_package(CLASSIC, POLICY, classic, tmp_path / "a", client=client, today=TODAY, log=_quiet)
+    mixed = IndexStore.memory()
+    with _client() as client:
+        ingest_package(CLASSIC, POLICY, mixed, tmp_path / "b", client=client, today=TODAY, log=_quiet)
+    with _client(only=("fakepkg-1.0.0-py3-none-any.whl",)) as client:  # fresh cache; 2.0.0 download fails
+        report = ingest_package(SPEC, POLICY, mixed, tmp_path / "c", client=client, today=TODAY, log=_quiet)
+    assert report.carried == ["2.0.0"] and mixed.stores_own_members("fakepkg")
+    # The events diff_versions reads: not `added` and `removed` on `Client.__init__` in 2.0.0.
+    stored = "SELECT path, ordinal, prev_ordinal, kind, detail FROM events ORDER BY path, ordinal, kind"
+    assert [tuple(r) for r in mixed.conn.execute(stored)] == [tuple(r) for r in classic.conn.execute(stored)]
+    paths = [r[0] for r in classic.conn.execute("SELECT DISTINCT path FROM spans")]
+    assert any(p.startswith("fakepkg.Client.") for p in paths)
+    span = ("first_ordinal", "last_ordinal", "kind", "canonical", "params", "deprecated", "deprecated_params")
+    for path in paths:
+        assert [[r[c] for c in span] for r in mixed.spans("fakepkg", path)] == [
+            [r[c] for c in span] for r in classic.spans("fakepkg", path)
+        ], path
+        assert [(r["ordinal"], r["kind"], r["detail"]) for r in mixed.events("fakepkg", path)] == [
+            (r["ordinal"], r["kind"], r["detail"]) for r in classic.events("fakepkg", path)
+        ], path
 
 
 def test_versions_run_adds_to_indexed_releases(tmp_path):

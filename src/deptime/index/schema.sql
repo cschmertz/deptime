@@ -69,6 +69,8 @@ CREATE TABLE IF NOT EXISTS classes (
   PRIMARY KEY (package, cls, first_ordinal)
 ) WITHOUT ROWID;
 
+-- Keyed by name before class (DT-DATA-49), so a lookup by name alone, the search for an error's attribute in every
+-- package, reads only the rows with that name; a lookup by name and class reads the same rows either way.
 CREATE TABLE IF NOT EXISTS members (
   package       TEXT NOT NULL,
   cls           TEXT NOT NULL,             -- canonical path of the class that defines it
@@ -80,7 +82,22 @@ CREATE TABLE IF NOT EXISTS members (
   params        TEXT,
   deprecated    TEXT,
   deprecated_params TEXT,
-  PRIMARY KEY (package, cls, name, first_ordinal)
+  PRIMARY KEY (package, name, cls, first_ordinal)
+) WITHOUT ROWID;
+
+-- A class's own members that aren't public API (DT-DATA-46), for a package stored with own members, encoded like
+-- internal_spans: its private names, and every member of a class that is neither public nor a public class's base
+-- (weaviate's `_Collections._get_all`, inherited from `_CollectionsBase`). Looked up through `classes` as members
+-- are. Clients from before DT-DATA-46 don't read this table.
+CREATE TABLE IF NOT EXISTS internal_members (
+  package       TEXT NOT NULL,
+  cls           TEXT NOT NULL,             -- canonical path of the class that defines it
+  name          TEXT NOT NULL,
+  first_ordinal INTEGER NOT NULL,
+  last_ordinal  INTEGER NOT NULL,
+  kind          TEXT NOT NULL,             -- as in internal_spans, or 'hidden': ends the lookup, but isn't recorded
+  canonical     TEXT,
+  PRIMARY KEY (package, name, cls, first_ordinal)
 ) WITHOUT ROWID;
 
 CREATE TABLE IF NOT EXISTS events (

@@ -10,6 +10,7 @@ from collections import OrderedDict, defaultdict
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
+from functools import cache
 from importlib import resources
 from pathlib import Path
 
@@ -307,11 +308,53 @@ def member_lookup(
     return lookup
 
 
+def member_heirs(
+    span_rows: Sequence[tuple[str, int, int, tuple]],
+    class_rows: Sequence[tuple[str, int, int, tuple]],
+    lookup: Callable[[str], tuple[int, str, str] | None],
+) -> Callable[[str], list[str]]:
+    """For a package stored with own members (DT-DATA-49): given a member under a path of the class that defines
+    it, the same member under the public paths of the classes that inherit it, as a build that stores every member
+    under every class lists them. For naming a hint's target by its shortest public path."""
+    owner_of: dict[str, set[str]] = defaultdict(set)  # a class's path (public or label) -> canonical classes
+    paths_of: dict[str, set[str]] = defaultdict(set)  # canonical class -> its public paths
+    for path, _first, _last, state in span_rows:
+        if state[0] == "class" and state[1]:
+            owner_of[path].add(state[1])
+            paths_of[state[1]].add(path)
+    heirs_of: dict[str, set[str]] = defaultdict(set)  # canonical class -> classes with it in their MRO
+    for cls, _first, _last, (mro, label) in class_rows:
+        owner_of[label].add(cls)
+        for base in json.loads(mro) if mro else ():
+            heirs_of[base].add(cls)
+
+    @cache
+    def heirs(path: str) -> list[str]:
+        parent, _, name = path.rpartition(".")
+        out = []
+        for defining in owner_of.get(parent, ()):
+            for heir in sorted(heirs_of.get(defining, ())):
+                for home in sorted(paths_of.get(heir, ())):
+                    found = lookup(f"{home}.{name}")
+                    if found is not None and found[2] == defining:
+                        out.append(f"{home}.{name}")
+        return out
+
+    return heirs
+
+
 def _at_label(
-    hint: CuratedHint, lookup: Callable[[str], tuple[int, str, str] | None], label_of: Mapping[str, str]
+    hint: CuratedHint,
+    lookup: Callable[[str], tuple[int, str, str] | None],
+    label_of: Mapping[str, str],
+    rows: set[str],
 ) -> CuratedHint:
-    """A curated hint on a class member, moved to the member of its defining class's label (DT-DATA-16)."""
+    """A curated hint on an inherited class member, moved to the member of its defining class's label (DT-DATA-16).
+    One on a path the package's rows have stays: chromadb's `EmbeddingFunction.__call__(texts)` hint was moved to
+    the class's later label, which never took `texts`, and was lost (DT-DATA-49)."""
     func, paren, param = hint.path.partition("(")
+    if func in rows:
+        return hint
     found = lookup(func)
     if found is None or found[2] not in label_of:
         return hint
@@ -354,6 +397,7 @@ class IndexStore:
         self.path = path  # the file, for a store opened from one
         self.conn.row_factory = sqlite3.Row
         self._internal: bool | None = None  # whether the index has internal_spans (DT-DATA-22)
+        self._internal_members: bool | None = None  # whether it has internal_members (DT-DATA-46)
         self._own: frozenset[str] | None = None  # packages stored with own members (DT-DATA-16)
         self._members: OrderedDict[tuple[str, str], tuple[list[dict], list[tuple[int, int, str]]]] = (
             OrderedDict()
@@ -390,6 +434,16 @@ class IndexStore:
             releases = {r[1] for r in self.conn.execute("PRAGMA table_info(releases)")}
             if "requires" not in releases:
                 self.conn.execute("ALTER TABLE releases ADD COLUMN requires TEXT")
+            key = [
+                r[1]
+                for r in sorted(self.conn.execute("PRAGMA table_info(members)"), key=lambda r: r[5])
+                if r[5]
+            ]
+            if key == ["package", "cls", "name", "first_ordinal"]:  # keyed by class first, before DT-DATA-49
+                self.conn.execute("ALTER TABLE members RENAME TO members_by_class")
+                self.conn.executescript(_schema_sql())
+                self.conn.execute("INSERT INTO members SELECT * FROM members_by_class")
+                self.conn.execute("DROP TABLE members_by_class")
             self._stamp_schema()
 
     def _stamp_schema(self) -> None:
@@ -433,6 +487,8 @@ class IndexStore:
         open_classes: dict[str, tuple[int, int, tuple]] = {}
         member_rows: list[tuple] = []
         open_members: dict[tuple[str, str], tuple[int, int, tuple]] = {}
+        internal_member_rows: list[tuple] = []  # (canonical class, name) -> (first, last, (kind, canonical))
+        open_internal_members: dict[tuple[str, str], tuple[int, int, tuple]] = {}
         events: list[tuple[int, int | None, ChangeEvent]] = []
         prev: ApiSnapshot | None = None
         for item in ordered:
@@ -440,6 +496,9 @@ class IndexStore:
             if snap is None:
                 fingerprint = None  # the rows no longer match the inputs it describes
                 continue
+            # Every release of a package stored one way (DT-DATA-49): a release carried from rows written the other
+            # way, by an index from before a package switched, would otherwise read as removing every member.
+            snap = snap.with_own_members() if spec.own_members else snap.without_own_members()
             i = len(release_rows)
             release_rows.append(
                 (
@@ -462,8 +521,14 @@ class IndexStore:
                     _extend(open_classes, class_rows, cls, (mro, label), i)  # type: ignore[arg-type]
                     for member, mrec in crec.members.items():
                         _extend(open_members, member_rows, (cls, member), _state(mrec), i)  # type: ignore[arg-type]
+                    for member, mrec in crec.internal.items():
+                        key = (cls, member)
+                        _extend(
+                            open_internal_members, internal_member_rows, key, (mrec.kind, mrec.canonical), i
+                        )  # type: ignore[arg-type]
             _close(open_classes, class_rows, i)  # type: ignore[arg-type]
             _close(open_members, member_rows, i)  # type: ignore[arg-type]
+            _close(open_internal_members, internal_member_rows, i)  # type: ignore[arg-type]
             for path, rec in snap.internal.items():
                 _extend(open_internal, internal_rows, path, (rec.kind, rec.canonical, rec.deprecated), i)
             _close(open_internal, internal_rows, i)
@@ -476,11 +541,13 @@ class IndexStore:
         internal_rows.extend((path, *cur) for path, cur in open_internal.items())
         class_rows.extend((cls, *cur) for cls, cur in open_classes.items())
         member_rows.extend((key, *cur) for key, cur in open_members.items())
+        internal_member_rows.extend((key, *cur) for key, cur in open_internal_members.items())
         # Names hints are checked against: a package stored with own members has its members in other rows.
         name_rows = (
             [*span_rows, *own_member_rows(span_rows, class_rows, member_rows)] if class_rows else span_rows
         )
         lookup = member_lookup(span_rows, class_rows, member_rows) if class_rows else None
+        heirs = member_heirs(span_rows, class_rows, lookup) if lookup is not None else None
 
         repl: dict[tuple[str, str], tuple[float, str, str]] = {}
 
@@ -501,6 +568,7 @@ class IndexStore:
             ((path, first, last, state[3]) for path, first, last, state in name_rows if state[3]),
             (path for path, _first, _last, state in name_rows if state[0] == "attribute"),
             (lambda path: (found[0], found[1]) if (found := lookup(path)) else None) if lookup else None,
+            heirs,
         )
         for ordinal, _prev, ev in events:
             if ev.kind == "deprecated":
@@ -549,7 +617,8 @@ class IndexStore:
         # is a curated hint on a member a class inherits, which `name_rows` lists only under the defining class.
         label_of = {cls: label for cls, _first, _last, (_mro, label) in class_rows}
         if lookup is not None:
-            hints = [_at_label(hint, lookup, label_of) for hint in hints]
+            rows = {path for path, _f, _l, _s in name_rows}
+            hints = [_at_label(hint, lookup, label_of, rows) for hint in hints]
         relabel = {
             path: label_of[state[1]]
             for path, _f, _l, state in span_rows
@@ -570,6 +639,7 @@ class IndexStore:
         with self.conn:
             for table, col in (
                 ("assembly", "package"),
+                ("internal_members", "package"),
                 ("members", "package"),
                 ("classes", "package"),
                 ("internal_spans", "package"),
@@ -618,6 +688,14 @@ class IndexStore:
                 ],
             )
             self.conn.executemany(
+                "INSERT INTO internal_members(package, cls, name, first_ordinal, last_ordinal, kind, canonical)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                [
+                    (name, cls, member, first, last, *state)
+                    for (cls, member), first, last, state in internal_member_rows
+                ],
+            )
+            self.conn.executemany(
                 "INSERT INTO events(package, path, ordinal, prev_ordinal, kind, detail) VALUES (?, ?, ?, ?, ?, ?)",
                 [
                     (name, ev.path, o, p, ev.kind, json.dumps(ev.detail, sort_keys=True))
@@ -635,6 +713,7 @@ class IndexStore:
             self._stamp_schema()
         with self._lock:
             self._own = None
+            self._internal = self._internal_members = None
             self._members.clear()
         return RebuildStats(
             name,
@@ -730,6 +809,14 @@ class IndexStore:
                 member = f"{r['cls']}.{r['name']}"
                 rec = SymbolRecord(member, HIDDEN) if r["kind"] == HIDDEN else _record(member, r)
                 classes[r["cls"]].members[r["name"]] = rec
+            if self.has_internal_members():
+                for r in self.conn.execute(
+                    "SELECT cls, name, kind, canonical FROM internal_members"
+                    " WHERE package = ? AND first_ordinal <= ? AND last_ordinal >= ?",
+                    (spec.name, rel["ordinal"], rel["ordinal"]),
+                ):
+                    member = f"{r['cls']}.{r['name']}"
+                    classes[r["cls"]].internal[r["name"]] = SymbolRecord(member, r["kind"], r["canonical"])
         return ApiSnapshot(
             spec.name,
             version,
@@ -894,23 +981,158 @@ class IndexStore:
             )
         return self._internal
 
+    def has_internal_members(self) -> bool:
+        """Whether the index records class members that aren't public API (DT-DATA-46)."""
+        if self._internal_members is None:
+            self._internal_members = (
+                self.conn.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'internal_members'"
+                ).fetchone()
+                is not None
+            )
+        return self._internal_members
+
     def internal_spans(self, name: str, path: str) -> list[sqlite3.Row]:
-        """`path`'s spans as a name that isn't public API, each with `internal` = 1."""
+        """`path`'s spans as a name that isn't public API, each with `internal` = 1: a module's name (DT-DATA-22),
+        or a class's private member or a private class's member (DT-DATA-46), with `member_of` = the class's path."""
         if not self.has_internal():
             return []
-        return self.conn.execute(
+        rows = self.conn.execute(
             "SELECT *, 1 AS internal FROM internal_spans WHERE package = ? AND path = ? ORDER BY first_ordinal",
             (name, path),
         ).fetchall()
+        members = self._internal_member_spans(name, path)
+        return sorted([*rows, *members], key=lambda r: r["first_ordinal"]) if members else rows  # type: ignore[list-item]
 
     def internal_span_at(self, name: str, path: str, ordinal: int) -> sqlite3.Row | None:
         if not self.has_internal():
             return None
-        return self.conn.execute(
+        row = self.conn.execute(
             "SELECT *, 1 AS internal FROM internal_spans"
             " WHERE package = ? AND path = ? AND first_ordinal <= ? AND last_ordinal >= ?",
             (name, path, ordinal, ordinal),
         ).fetchone()
+        if row is None:
+            spans = self._internal_member_spans(name, path)
+            row = next((r for r in spans if r["first_ordinal"] <= ordinal <= r["last_ordinal"]), None)
+        return row
+
+    def records_internal_members(self, name: str, classes: set[str]) -> bool:
+        """Whether the index has the members that aren't public API of every class in `classes` (DT-DATA-46)."""
+        if not classes or not self.has_internal_members() or not self.stores_own_members(name):
+            return False
+        return all(
+            self.conn.execute(
+                "SELECT 1 FROM classes WHERE package = ? AND cls = ? LIMIT 1", (name, cls)
+            ).fetchone()
+            for cls in classes
+        )
+
+    def find_internal_classes(self, name: str, suffix: str, limit: int = 20) -> list[tuple[str, str]]:
+        """(package, path) of the classes that aren't public API whose path is or ends with `.suffix` (DT-DATA-46).
+        It reads every internal name of the package, so it's for a private class name, which public paths rarely
+        have."""
+        if not self.has_internal():
+            return []
+        rows = self.conn.execute(
+            "SELECT DISTINCT package, path, path = canonical AS defined FROM internal_spans"
+            " WHERE package = ? AND kind = 'class' AND (path = ? OR substr(path, -?) = ?)"
+            " ORDER BY length(path), path LIMIT ?",
+            (name, suffix, len(suffix) + 1, "." + suffix, limit),
+        ).fetchall()
+        # Where it's defined, rather than a module that imports it (`weaviate.client._Collections`).
+        defined = [r for r in rows if r["defined"]] or rows
+        return list(dict.fromkeys((r["package"], r["path"]) for r in defined))
+
+    def _internal_member_spans(self, name: str, path: str) -> list[dict]:
+        """For `<class path>.<name>` in a package stored with own members: the spans in which the name, looked up
+        as Python does through the class and its MRO, is a member that isn't public API (DT-DATA-46). The class's
+        path can be public or internal: a public class's private member, or a private class's member, which a
+        public base can define. A public class's public member is `_resolved`'s."""
+        parent, _, leaf = path.rpartition(".")
+        if not parent or not self.has_internal_members() or not self.stores_own_members(name):
+            return []
+        key = (name, "\0internal\0" + path)
+        with self._lock:
+            if (hit := self._members.get(key)) is not None:
+                self._members.move_to_end(key)
+                return hit[0]
+        owners = [
+            (r["first_ordinal"], r["last_ordinal"], r["canonical"], False)
+            for r in self.conn.execute(
+                "SELECT first_ordinal, last_ordinal, canonical FROM spans"
+                " WHERE package = ? AND path = ? AND kind = 'class'",
+                (name, parent),
+            )
+        ] + [
+            (r["first_ordinal"], r["last_ordinal"], r["canonical"], True)
+            for r in self.conn.execute(
+                "SELECT first_ordinal, last_ordinal, canonical FROM internal_spans"
+                " WHERE package = ? AND path = ? AND kind = 'class'",
+                (name, parent),
+            )
+        ]
+        found: dict[int, tuple] = {}  # ordinal -> (kind, canonical)
+        if owners:
+            mros: dict[str, list[tuple[int, int, list[str]]]] = {}
+            for cls in {c for _f, _l, c, _i in owners if c}:
+                rows = self.conn.execute(
+                    "SELECT first_ordinal, last_ordinal, mro FROM classes WHERE package = ? AND cls = ?",
+                    (name, cls),
+                )
+                mros[cls] = [(r[0], r[1], json.loads(r[2]) if r[2] else []) for r in rows]
+            candidates = sorted(
+                set(mros) | {b for spans in mros.values() for _f, _l, mro in spans for b in mro}
+            )
+            marks = ",".join("?" * len(candidates))
+            public: dict[str, list[tuple[int, int, tuple | None]]] = defaultdict(list)
+            for r in self.conn.execute(
+                f"SELECT cls, first_ordinal, last_ordinal, kind, canonical FROM members"
+                f" WHERE package = ? AND name = ? AND cls IN ({marks})",
+                (name, leaf, *candidates),
+            ):
+                public[r["cls"]].append(
+                    (r[1], r[2], None if r["kind"] == HIDDEN else (r["kind"], r["canonical"]))
+                )
+            internal: dict[str, list[tuple[int, int, tuple | None]]] = defaultdict(list)
+            for r in self.conn.execute(
+                f"SELECT cls, first_ordinal, last_ordinal, kind, canonical FROM internal_members"
+                f" WHERE package = ? AND name = ? AND cls IN ({marks})",
+                (name, leaf, *candidates),
+            ):
+                internal[r["cls"]].append(
+                    (r[1], r[2], None if r["kind"] == HIDDEN else (r["kind"], r["canonical"]))
+                )
+            for first, last, cls, private_owner in owners:
+                for o in range(first, last + 1):
+                    mro = next((m for f, end, m in mros.get(cls, ()) if f <= o <= end), [])
+                    for owner in [cls, *mro]:
+                        hit = next((st for f, end, st in public.get(owner, ()) if f <= o <= end), ())
+                        if hit != ():
+                            if hit is not None and private_owner:  # a public name, but of a private class
+                                found[o] = hit
+                            break
+                        hit = next((st for f, end, st in internal.get(owner, ()) if f <= o <= end), ())
+                        if hit != ():
+                            if hit is not None:
+                                found[o] = hit
+                            break
+        spans: list[dict] = []
+        for o in sorted(found):
+            last = spans[-1] if spans else None
+            if last and last["last_ordinal"] == o - 1 and (last["kind"], last["canonical"]) == found[o]:
+                last["last_ordinal"] = o
+            else:
+                kind, canonical = found[o]
+                spans.append(
+                    {"package": name, "path": path, "first_ordinal": o, "last_ordinal": o, "kind": kind}
+                    | {"canonical": canonical, "deprecated": None, "internal": 1, "member_of": parent}
+                )
+        with self._lock:
+            self._members[key] = (spans, [])
+            if len(self._members) > MEMBER_CACHE_SIZE:
+                self._members.popitem(last=False)
+        return spans
 
     def events(self, name: str, path: str) -> list[sqlite3.Row]:
         # `+ordinal`: ordering by the bare column made SQLite read the package's events through events_by_ordinal
@@ -949,14 +1171,17 @@ class IndexStore:
 
     def _labels(self, name: str, path: str) -> list[str]:
         """For a class member of a package stored with own members, where its defining classes keep their
-        members' events and hints (DT-DATA-16): each one's label and the member's name, `path` itself left out."""
+        members' events and hints (DT-DATA-16): each one's label and the member's name, `path` itself left out.
+        Every label a class had up to the last release it defines the member in: a deprecation is stored once, at
+        the label of the release that brings it, and sqlalchemy's `Select` was `sqlalchemy.sql.Select` in 1.4, so
+        2.0's `sqlalchemy.Select.column` lost its hint (DT-DATA-49)."""
         _spans, defined = self._resolved(name, path)
         leaf = path.rpartition(".")[2]
         out: dict[str, None] = {}
-        for first, last, cls in defined:
+        for _first, last, cls in defined:
             for r in self.conn.execute(
-                "SELECT label FROM classes WHERE package = ? AND cls = ? AND first_ordinal <= ? AND last_ordinal >= ?",
-                (name, cls, last, first),
+                "SELECT label FROM classes WHERE package = ? AND cls = ? AND first_ordinal <= ?",
+                (name, cls, last),
             ):
                 out[f"{r['label']}.{leaf}"] = None
         out.pop(path, None)
@@ -1096,7 +1321,7 @@ class IndexStore:
         the package in path order rather than use the tail index.
 
         A package stored with own members (DT-DATA-16) has a class's members in `members`, its own and those of
-        its MRO. A bare name is matched there only within `packages`, at the label of the class defining it.
+        its MRO. A bare name is matched there at the label of the class defining it.
         """
         in_packages = f" AND p.package IN ({','.join('?' * len(packages))})" if packages is not None else ""
         # Only the packages stored with own members: SQLite otherwise read every member row for a package without
@@ -1110,10 +1335,12 @@ class IndexStore:
                 " AND (p.path = ? OR substr(p.path, -?) = ?)"
             )
             params = [suffix, *(packages or ()), suffix, len(suffix) + 1, "." + suffix]
-            if own and packages is not None:
+            if own:
+                # UNION ALL: a UNION made SQLite read every span of the package in path order, not by tail.
                 sql += (
-                    " UNION SELECT m.package, c.label || '.' || m.name FROM members m JOIN classes c"
+                    " UNION ALL SELECT m.package, c.label || '.' || m.name FROM members m JOIN classes c"
                     " ON c.package = m.package AND c.cls = m.cls"
+                    " AND c.first_ordinal <= m.last_ordinal AND c.last_ordinal >= m.first_ordinal"
                     f" WHERE m.package IN ({','.join('?' * len(own))}) AND m.name = ? AND m.kind != ?"
                 )
                 params += [*own, suffix, HIDDEN]
@@ -1161,4 +1388,29 @@ class IndexStore:
             f"SELECT DISTINCT package, path FROM ({sql}) ORDER BY length(path), path LIMIT ?",
             [*params, limit],
         ).fetchall()
-        return [(r["package"], r["path"]) for r in rows]
+        pairs = [(r["package"], r["path"]) for r in rows]
+        if "." in suffix or not self._own_packages() & set(packages):
+            return pairs
+        # A bare name is matched at the label of the class defining it, which for a base no public path names
+        # is its canonical path: `httpx._client.BaseClient.build_request`. Name it under its public subclasses.
+        out: dict[tuple[str, str], None] = {}
+        for package, path in pairs:
+            owner = path.rpartition(".")[0]
+            if (
+                not owner
+                or self.conn.execute(
+                    "SELECT 1 FROM spans WHERE package = ? AND path = ? LIMIT 1", (package, owner)
+                ).fetchone()
+            ):
+                if self.spans(package, path):  # the label and the member in one release
+                    out[(package, path)] = None
+                continue
+            for r in self.conn.execute(
+                "SELECT DISTINCT c.label FROM classes c WHERE c.package = ? AND c.mro LIKE ?"
+                " AND EXISTS (SELECT 1 FROM spans p WHERE p.package = c.package AND p.path = c.label"
+                " AND p.kind = 'class') ORDER BY length(c.label), c.label LIMIT 3",
+                (package, f'%"{owner}"%'),
+            ):
+                if self.spans(package, heir := f"{r['label']}.{suffix}"):
+                    out[(package, heir)] = None
+        return sorted(out, key=lambda pp: (len(pp[1]), pp[1]))[:limit]

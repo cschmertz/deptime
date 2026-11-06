@@ -485,7 +485,7 @@ TABLES = {
     ),
     "tabled/mail/message.py": (
         "class EmailMessage:\n    pass\n\n\nclass BadHeaderError(ValueError):\n    pass\n\n\n"
-        "class SafeMIMEText:\n    pass\n"
+        "class SafeMIMEText:\n    def as_string(self):\n        pass\n"
     ),
     "tabled/lazy.py": (
         "_exports = {'Thing': ('._impl', 'Thing')}\n\n\n"
@@ -2288,12 +2288,21 @@ def test_a_getattr_that_looks_names_up_in_a_table_serves_its_keys(tmp_path):
     )
     # A dummy that raises when called (numpy's expired financial functions) and a raising branch serve nothing.
     assert not {"tabled.fv", "tabled.pmt", "tabled.object", "tabled.bool"} & set(snap.symbols)
+    # The branch returns `getattr(message, name)`: the name is that module's class, with the warning (DT-DATA-32).
     header = snap.symbols["tabled.mail.BadHeaderError"]
-    assert (header.kind, header.deprecated) == (
-        "getattr",
+    assert (header.kind, header.canonical, header.deprecated) == (
+        "class",
+        "tabled.mail.message.BadHeaderError",
         "BadHeaderError is deprecated. Replace with ValueError.",
     )
     assert snap.symbols["tabled.mail.SafeMIMEText"].deprecated == "SafeMIMEText is deprecated."
+    # Its members: django 6.0's `SafeMIMEText.as_string` read removed in 6.0.
+    assert "tabled.mail.SafeMIMEText.as_string" in snap.symbols
+    own = build_snapshot("tabled", "1.0", ["tabled"], _write(tmp_path / "own", TABLES), own_members=True)
+    assert (
+        own.expanded()["tabled.mail.SafeMIMEText.as_string"].canonical
+        == "tabled.mail.message.SafeMIMEText.as_string"
+    )
     assert snap.symbols["tabled.mail.EmailMessage"].kind == "class"
     thing = snap.symbols["tabled.lazy.Thing"]
     assert (thing.kind, thing.deprecated) == ("getattr", None)
@@ -2363,7 +2372,22 @@ REBOUND = {
         "class AutoModel(_BaseAuto):\n    pass\n\n"
         "AutoModel = auto_class_update(AutoModel, head_doc='models')\n\n"
         "class Legacy:\n    def run(self):\n        pass\n\n"
-        "Legacy = deprecated('Legacy is deprecated, use AutoModel instead')(Legacy)\n"
+        "Legacy = deprecated('Legacy is deprecated, use AutoModel instead')(Legacy)\n\n"
+        "def adds(n):\n    return lambda fn: fn\n\n"
+        "def CALLBACK(fn):\n    return fn\n\n"
+        "def notice(fmt, lst):\n    pass\n\n"
+        "notice = CALLBACK(notice)\n\n"
+        "def old(x):\n    pass\n\n"
+        "old = deprecated('old is deprecated, use notice instead')(old)\n\n"
+        "class Filter:\n"
+        "    def args_check(name, func, provided):\n        pass\n"
+        "    args_check = staticmethod(args_check)\n\n"
+        "    def as_manager(cls, extra=None):\n        pass\n"
+        "    as_manager = classmethod(as_manager)\n\n"
+        "    def append(self, item):\n        pass\n"
+        "    append = adds(1)(append)\n\n"
+        "    def session(self):\n        pass\n"
+        "    session = property(session, lambda s, x: None)\n"
     ),
 }
 
@@ -2378,6 +2402,109 @@ def test_a_class_rebound_to_a_call_on_itself_is_still_the_class(tmp_path):
         # A deprecation wrapper stays the attribute its message is read from.
         assert symbols["auto.Legacy"].kind == "attribute"
         assert "deprecated" in symbols["auto.Legacy"].deprecated
+
+
+# numpy 2.2+: `numpy._core.multiarray` star-imports a compiled module, and its stub imports `ndarray` from `numpy`,
+# whose stub defines it. griffe reports an alias cycle for every import of it under `numpy._core`.
+CYCLE = {
+    "cyc/__init__.py": "from cyc._core import ndarray\nfrom cyc import core\n__all__ = ['ndarray', 'core']\n",
+    "cyc/__init__.pyi": "class ndarray:\n    def reshape(self, shape): ...\n    def view(self): ...\n",
+    "cyc/_core/__init__.py": "from .numeric import *\nfrom . import multiarray\n",
+    "cyc/_core/numeric.py": "from .multiarray import ndarray\n__all__ = ['ndarray']\n",
+    "cyc/_core/multiarray.py": "from cyc._core._umath import *\n__all__ = ['ndarray']\n",
+    "cyc/_core/multiarray.pyi": "from cyc import ndarray\n",
+    "cyc/_core/loop.py": "from cyc._core.loop2 import thing\n",
+    "cyc/_core/loop2.py": "from cyc._core.loop import thing\n",
+    "cyc/core/__init__.py": "",
+    "cyc/core/multiarray.py": (
+        "def __getattr__(name):\n"
+        "    import warnings\n"
+        "    from cyc._core import multiarray\n"
+        "    warnings.warn('cyc.core is deprecated', DeprecationWarning)\n"
+        "    return getattr(multiarray, name)\n"
+    ),
+    "cyc/core/loop.py": (
+        "def __getattr__(name):\n    from cyc._core import loop\n    return getattr(loop, name)\n"
+    ),
+}
+
+
+def test_an_import_griffe_calls_cyclic_is_followed_by_hand(tmp_path):
+    # DT-DATA-32: from numpy 2.2 the `numpy.core` forwarders served `ndarray`, `dtype`, `nditer` and `broadcast` as
+    # unresolved imports, and as classes before and after.
+    for own in (False, True):
+        snap = build_snapshot("cyc", "1.0", ["cyc"], _write(tmp_path / str(own), CYCLE), own_members=own)
+        symbols = snap.expanded()
+        forwarded = symbols["cyc.core.multiarray.ndarray"]
+        assert (forwarded.kind, forwarded.canonical, forwarded.deprecated) == (
+            "class",
+            "cyc.ndarray",
+            "cyc.core is deprecated",
+        )
+        # With own members, a forwarded class has the members of the class it is.
+        assert ("cyc.core.multiarray.ndarray.reshape" in symbols) is own
+        # A real cycle stays an unresolved import.
+        assert symbols["cyc.core.loop.thing"].kind == "alias"
+
+
+# instructor 1.17's `instructor.v2`: lazy names listed next to the keys of a dict another module computes.
+STARRED_ALL = {
+    "ins/__init__.py": "",
+    "ins/v2/core/__init__.py": "",
+    "ins/v2/core/specs.py": "TABLE = dict((n, ('ins.v2.core.mode', n)) for n in ['from_x'])\n",
+    "ins/v2/core/mode.py": "class Mode:\n    pass\n",
+    "ins/v2/__init__.py": (
+        "from importlib import import_module\n"
+        "from ins.v2.core.specs import TABLE\n\n"
+        "__all__ = [\n    'Mode',\n    'core',\n    *TABLE.keys(),\n]\n\n"
+        "_LAZY = {'Mode': ('ins.v2.core.mode', 'Mode'), 'core': ('ins.v2.core', None), **TABLE}\n\n\n"
+        "def __getattr__(name):\n"
+        "    if name not in __all__:\n"
+        "        raise AttributeError(name)\n"
+        "    module_path, attr_name = _LAZY[name]\n"
+        "    module = import_module(module_path)\n"
+        "    return module if attr_name is None else getattr(module, attr_name)\n"
+    ),
+}
+
+
+def test_an_all_with_a_starred_element_keeps_its_literal_names(tmp_path):
+    # DT-DATA-28: griffe reads no `__all__` from one it can't evaluate, so instructor 1.17's `instructor.v2.Mode`,
+    # `Provider` and `patch_v2` were missing, and its imports and `__all__` read as public.
+    snap = build_snapshot("ins", "1.0", ["ins"], _write(tmp_path, STARRED_ALL))
+    top = {p: r.kind for p, r in snap.symbols.items() if p.startswith("ins.v2.") and p.count(".") == 2}
+    assert top == {"ins.v2.Mode": "getattr", "ins.v2.core": "module"}
+    assert "ins.v2.TABLE" in snap.internal
+
+
+def test_following_an_import_by_hand_gives_up_on_a_path_griffe_cant_follow(tmp_path):
+    # chromadb 0.5.7: the path runs through another distribution's module, and griffe raised from inside the walk.
+    from deptime.ingest.snapshot import _through_cycle
+
+    files = {"thru/__init__.py": "from elsewhere import ext\nfrom thru.ext.sub import thing\n"}
+    loaded = griffe.load("thru", search_paths=[str(_write(tmp_path, files))], allow_inspection=False)
+    assert _through_cycle(loaded.members["thing"]) is None
+
+
+def test_a_function_rebound_to_a_call_on_itself_is_still_the_function(tmp_path):
+    # DT-DATA-50: django's `args_check = staticmethod(args_check)` and `as_manager = classmethod(as_manager)` read as
+    # attributes without a signature, and so did django.contrib.gis's ctypes callbacks (`notice_h = NOTICEFUNC(...)`).
+    files = REBOUND | {"auto/__init__.py": "from auto.models import Filter, notice, old\n"}
+    for own in (False, True):
+        snap = build_snapshot("auto", "1.0", ["auto"], _write(tmp_path / str(own), files), own_members=own)
+        symbols = snap.expanded()
+        for path, params in (
+            ("auto.Filter.args_check", ["name", "func", "provided"]),
+            ("auto.Filter.as_manager", ["extra"]),
+            ("auto.Filter.append", ["item"]),
+            ("auto.notice", ["fmt", "lst"]),
+        ):
+            assert symbols[path].kind == "function", path
+            assert [p["name"] for p in symbols[path].params] == params
+        # `property(f)` is an attribute, as griffe has `@property`; a deprecation wrapper keeps its message there.
+        assert symbols["auto.Filter.session"].kind == "attribute"
+        assert symbols["auto.old"].kind == "attribute"
+        assert "deprecated" in symbols["auto.old"].deprecated
 
 
 def test_a_module_whose_top_level_always_raises_is_absent(tmp_path):

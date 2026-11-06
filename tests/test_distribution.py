@@ -52,7 +52,7 @@ def _local(settings, tmp_path):
 
 def test_pack_then_download_installs_a_working_index(tmp_path, settings, coverage):
     out, manifest = _published(tmp_path)
-    assert (manifest.packages, manifest.releases, manifest.schema_version) == (1, 3, "1")
+    assert (manifest.packages, manifest.releases, manifest.schema_version) == (1, 3, "2")
     assert json.loads((out / "manifest.json").read_text())["sha256"] == manifest.sha256
     cfg = _local(settings, tmp_path)
     with _client(out) as client:

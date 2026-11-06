@@ -15,6 +15,13 @@ on:
   schedule:
     - cron: "17 4,16 * * *" # 04:17 and 16:17 UTC
   workflow_dispatch:
+    inputs:
+      publish:
+        # false builds and packs the index and uploads it as this run's `index` artifact instead: a cold build
+        # on a branch can be checked before main publishes it. A branch's snapshot caches stay that branch's.
+        description: Publish the index to the rolling `index` release
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -159,7 +166,17 @@ jobs:
             echo "::warning::index.sqlite.xz is $xz_size bytes, above the 100 MB target"
           fi
 
+      - name: Hand the index over without publishing it
+        if: github.event_name == 'workflow_dispatch' && inputs.publish == false
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: index
+          path: dist/
+          retention-days: 3
+          compression-level: 0 # already compressed
+
       - name: Guard against publishing a shrunken index
+        if: github.event_name != 'workflow_dispatch' || inputs.publish != false
         run: |
           new=$(jq .packages dist/manifest.json)
           if gh release download index --pattern manifest.json --dir prev 2>/dev/null; then
@@ -172,6 +189,7 @@ jobs:
           fi
 
       - name: Publish to the rolling `index` release
+        if: github.event_name != 'workflow_dispatch' || inputs.publish != false
         run: |
           gh release view index >/dev/null 2>&1 || gh release create index --prerelease \
             --title "DepTime index (rolling)" \

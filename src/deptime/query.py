@@ -134,6 +134,8 @@ def _internal_reason(path: str, span: sqlite3.Row) -> str:
         return f"{module}'s `__getattr__` serves the private name `{leaf}`"
     if _is_private(leaf):
         return f"`{leaf}` is a private name"
+    if "member_of" in span.keys():  # noqa: SIM118  # a member of a class that isn't public API (DT-DATA-46)
+        return f"{span['member_of']} is a class that isn't public API"
     private = next((i for i, part in enumerate(path.split(".")[:-1]) if _is_private(part)), None)
     if private is not None:
         return f"it is in the private module {'.'.join(path.split('.')[: private + 1])}"
@@ -906,6 +908,9 @@ class DepTime:
                     findings.append(f)
                 return findings
             owners = self._rank(self.store.find_by_suffix([name], owner_leaf), signal)
+            if not owners and _is_private(owner_leaf):
+                # A private class users reach only through an instance (DT-DATA-46): weaviate's `_Collections`.
+                owners = self._rank(self.store.find_internal_classes(name, owner_leaf), signal)
             return (
                 [
                     self._symbol_finding(
@@ -1263,10 +1268,14 @@ class DepTime:
                 f" {owner} defines `__getattr__` at {self._version(name, ordinal)}, so it can create names"
                 " at runtime, which DepTime's static index can't see."
             )
-        # A class's private members, and a private class's members, aren't indexed (DT-DATA-22).
+        # A class's private members, and a private class's members, are indexed only for packages stored with own
+        # members, by indexes from DT-DATA-46 on, and only for a class the index has a record of.
         owners = [*self.store.spans(name, owner), *self.store.internal_spans(name, owner)] if owner else []
-        unindexed_member = any(s["kind"] == "class" for s in owners) and (
-            _is_private(leaf) or all(_is_internal(s) for s in owners)
+        classes = {s["canonical"] for s in owners if s["kind"] == "class"}
+        unindexed_member = (
+            bool(classes)
+            and (_is_private(leaf) or all(_is_internal(s) for s in owners))
+            and not self.store.records_internal_members(name, classes)
         )
         if unindexed_member:
             explanation += (

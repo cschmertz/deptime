@@ -442,7 +442,8 @@ class PublicNames:
     itself for a name a `__getattr__` serves (they all share its canonical). `deprecations` are (path, first
     ordinal, last ordinal, message) of the paths deprecated as a whole. `instances` are the paths of attributes:
     objects whose members the index doesn't record (DT-DATA-31). `members` gives the last ordinal and object of a
-    class member `spans` doesn't list, for a package stored with own members (DT-DATA-16): an inherited one.
+    class member `spans` doesn't list, for a package stored with own members (DT-DATA-16): an inherited one; `heirs`
+    gives, for a member `spans` lists, the paths of the public classes that inherit it.
     """
 
     def __init__(
@@ -452,6 +453,7 @@ class PublicNames:
         deprecations: Iterable[tuple[str, int, int, str]] = (),
         instances: Iterable[str] = (),
         members: Callable[[str], tuple[int, str] | None] | None = None,
+        heirs: Callable[[str], list[str]] | None = None,
     ):
         self.import_names = tuple(import_names)
         self._instances = frozenset(instances)
@@ -461,6 +463,7 @@ class PublicNames:
             if last >= self._last.get(path, -1):
                 self._last[path], self._object[path] = last, obj or path
         self._members = members
+        self._heirs = heirs
         self._inherited: dict[str, tuple[int, str] | None] = {}
         self._tails: dict[str, list[str]] | None = None
         self._deprecated: dict[str, list[tuple[int, int, str]]] = defaultdict(list)
@@ -471,14 +474,18 @@ class PublicNames:
         return next((m for first, last, m in self._deprecated.get(path, ()) if first <= at <= last), None)
 
     def _info(self, path: str) -> tuple[int, str | None]:
-        """`path`'s last ordinal and object; -1 and None when the package never had it."""
-        if path in self._last:
-            return self._last[path], self._object[path]
+        """`path`'s last ordinal and object; -1 and None when the package never had it. For a class member, the
+        later of its rows and its lookup: pandas 1.5's `DataFrame` defines `ffill`, and from 2.0 it inherits it, so
+        "Use DataFrame.ffill" on 2.0's `pad` named a path its rows end at 1.5 (DT-DATA-49)."""
+        own = (self._last[path], self._object[path]) if path in self._last else None
         if self._members is None:
-            return -1, None
+            return own or (-1, None)
         if path not in self._inherited:
             self._inherited[path] = self._members(path)
-        return self._inherited[path] or (-1, None)
+        inherited = self._inherited[path]
+        if own is None or inherited is None:
+            return own or inherited or (-1, None)
+        return inherited if inherited[0] > own[0] else own
 
     def _itself(self, target: str, path: str, since: int) -> bool:
         """`target` is the deprecated object at another path, deprecated there in the same words: langchain-
@@ -507,9 +514,14 @@ class PublicNames:
             for p in self._last:
                 self._tails[p.rpartition(".")[2]].append(p)
         same = self._info(path)[1] or path
-        return [
+        found = [
             p for p in self._tails.get(name, ()) if self._found(p, path, since) and self._object[p] != same
         ]
+        if self._heirs is not None:
+            # With own members, a class's inherited members aren't rows: "use `hset`" on redis meant `Redis.hset`,
+            # inherited from `HashCommands` (DT-DATA-49).
+            found += [q for p in found for q in self._heirs(p) if self._found(q, path, since)]
+        return list(dict.fromkeys(found))
 
     def _one(self, paths: list[str]) -> str | None:
         """The shortest of `paths` if they're all one object (re-exports of it), else None."""

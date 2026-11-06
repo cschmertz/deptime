@@ -258,13 +258,74 @@ def member_events(old: ApiSnapshot | None, new: ApiSnapshot) -> list[ChangeEvent
         else:
             pairs.append((None, cls, label))
     pairs.extend((cls, None, label) for cls, label in before.items() if cls not in matched)
+    # Names some class defines in one release and not the other, or defines differently: only those can resolve
+    # through another class in an unchanged chain of classes.
+    changed: set[str] = set()
+    for cls in set(old.classes) | set(new.classes):
+        a, b = old.classes.get(cls), new.classes.get(cls)
+        a_names, b_names = (a.members if a else {}), (b.members if b else {})
+        changed.update(n for n in a_names.keys() ^ b_names.keys())
+        changed.update(
+            n
+            for n in a_names.keys() & b_names.keys()
+            if (a_names[n].kind == HIDDEN) != (b_names[n].kind == HIDDEN)
+        )
     events = []
     for prev, cls, label in sorted(pairs, key=lambda p: p[2]):
         names = dict.fromkeys(
             [*(own_names(old, prev) if prev else ()), *(own_names(new, cls) if cls else ())]
         )
+        names.update(dict.fromkeys(_rehomed(old, prev, new, cls, changed)))
         for name in sorted(names):
             a = resolve_member(old.classes, prev, name) if prev else None
             b = resolve_member(new.classes, cls, name) if cls else None
             events.extend(path_events(f"{label}.{name}", a, b))
     return events
+
+
+def _chain(snap: ApiSnapshot, cls: str | None) -> list[str]:
+    rec = snap.classes.get(cls) if cls else None
+    return [cls, *(rec.mro or ())] if rec is not None and cls else []
+
+
+def _owner(snap: ApiSnapshot, chain: list[str], name: str) -> str | None:
+    """The class in `chain` whose member `name` Python finds, `HIDDEN` ones included, or None."""
+    for owner in chain:
+        rec = snap.classes.get(owner)
+        if rec is not None and name in rec.members:
+            return owner
+    return None
+
+
+def _rehomed(
+    old: ApiSnapshot, prev: str | None, new: ApiSnapshot, cls: str | None, changed: set[str]
+) -> list[str]:
+    """The inherited names a class resolves through another class than before, where its own label is the only
+    place the change shows (DT-DATA-49): gradio 4's `ImageMask` inherits `change` from `ImageEditor`, not from 3.x's
+    `Changeable`, and the `_js` -> `js` rename was in no class's own history; `Sub` stops inheriting `Mixin`, so
+    `Sub.mix` goes. Not a name the defining class gains or loses while it stays in the chain: its own label reports
+    that, once."""
+    if prev is None or cls is None:
+        return []
+    old_chain, new_chain = _chain(old, prev), _chain(new, cls)
+    if old_chain == new_chain:
+        candidates = changed
+    else:
+        candidates = {
+            n
+            for c in [*old_chain, *new_chain]
+            for snap in (old, new)
+            if (r := snap.classes.get(c))
+            for n in r.members
+        }
+    out = []
+    for name in candidates:
+        o1, o2 = _owner(old, old_chain, name), _owner(new, new_chain, name)
+        if o1 in (o2, prev) or o2 == cls:  # unchanged, or the class's own name, compared already
+            continue
+        if o1 is None and o2 in old_chain:  # a base it already had gained the name
+            continue
+        if o2 is None and (o1 in new_chain or o1 not in new.classes):  # a base it keeps lost it, or went
+            continue
+        out.append(name)
+    return out

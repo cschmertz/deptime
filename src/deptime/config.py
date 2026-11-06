@@ -118,8 +118,9 @@ class PackageSpec:
     installed_as: tuple[Requirement, ...] = ()
     # Distributions that install other code under the same import name, canonical names (DT-CORE-03).
     shares_import_name_with: tuple[str, ...] = ()
-    # Store each class's own members once, with its MRO, and resolve inherited members when queried (DT-DATA-16).
-    own_members: bool = False
+    # Store each class's own members once, with its MRO, and resolve inherited members when queried (DT-DATA-16;
+    # every package since DT-DATA-49).
+    own_members: bool = True
 
     def alias_version(self, installed: dict[str, str]) -> tuple[str, str] | None:
         """(distribution, version) of the first `installed_as` entry that `installed` lists in its range."""
@@ -194,7 +195,7 @@ def load_coverage(path: Path | None = None) -> Coverage:
             namespace_skip=tuple(p.get("namespace_skip", ())),
             installed_as=tuple(Requirement(r) for r in p.get("installed_as", ())),
             shares_import_name_with=tuple(canonicalize_name(n) for n in p.get("shares_import_name_with", ())),
-            own_members=bool(p.get("own_members", False)),
+            own_members=bool(p.get("own_members", True)),
         )
         for p in raw.get("package", [])
     )

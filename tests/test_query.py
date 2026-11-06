@@ -832,20 +832,28 @@ def test_lookups_by_path_and_suffix_use_their_indexes(store):
     store.stores_own_members("httpx")  # read once per store (DT-DATA-16), not per lookup
     rec = store.conn = _Recorder(real)
     try:
+        # httpx is stored with own members (DT-DATA-49): a member's events come from its class's rows, each read
+        # by its key.
         store.events("httpx", "httpx.Client.__init__")
-        assert ["events_by_path" in p for p in rec.plans()] == [True]
+        plans = rec.plans()
+        assert "events_by_path" in plans[0] and all(p.startswith("SEARCH") for p in plans), plans
         for packages, suffix in [
             (["httpx"], "Client"),
             (["httpx"], "Client.__init__"),
             (None, "Client.__init__"),
+            (None, "Client"),
         ]:
             if packages is None:
                 store.packages_with_suffix(suffix)
             else:
                 store.find_by_suffix(packages, suffix)
-            (plan,) = rec.plans()
+            # A bare name's results are each checked by path (DT-DATA-49).
+            plan, *checks = rec.plans()
+            assert all("(package=? AND path=?)" in c for c in checks), checks
             assert "USING INDEX spans_by_tail" in plan, (suffix, plan)
             assert "spans_1 (package=?)" not in plan and "SCAN spans" not in plan, (suffix, plan)
+            # Members by name: never every member row of a package.
+            assert "SEARCH m USING PRIMARY KEY (package=?)" not in plan, (suffix, plan)
     finally:
         store.conn = real
 
@@ -1015,7 +1023,7 @@ def test_argument_deprecations_round_trip_and_reach_answers(tmp_path):
     spec, snaps = _constraints()
     store = IndexStore.memory()
     store.rebuild_package(spec, snaps)
-    assert store.snapshot_at(spec, "5.1").symbols == snaps[1].symbols
+    assert store.snapshot_at(spec, "5.1").expanded() == snaps[1].symbols
     dt = DepTime(store, Coverage(POLICY, (spec,)))
 
     f = dt.explain_error(
@@ -1101,7 +1109,7 @@ def test_an_index_from_before_argument_deprecations_still_opens(tmp_path):
     old.close()
     again = IndexStore.open(path, readonly=False)
     again.rebuild_package(spec, snaps)
-    assert again.snapshot_at(spec, "5.1").symbols == snaps[1].symbols
+    assert again.snapshot_at(spec, "5.1").expanded() == snaps[1].symbols
 
 
 def test_an_indexed_hint_names_a_path_the_index_has():

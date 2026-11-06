@@ -1793,3 +1793,17 @@ def test_the_changelog_link_comes_from_the_release_metadata():
         == {"Changelog": "javascript:alert(1)"}
     )
     assert dt._changelog("httpx", 1) is None and dt._changelog("httpx", 0) is None
+
+
+def test_a_package_deptime_doesnt_index_points_to_coverage_and_the_request_form(dt):
+    # DT-OSS-11: say what is covered and how to ask, not just "not covered".
+    res = dt.explain_error("ImportError: cannot import name 'Sessionx' from 'requests_toolbelt'\n")
+    assert res.findings == [] and res.not_covered == ["requests_toolbelt"]
+    assert "the `coverage` tool lists the packages it does" in res.note
+    assert "issues/new?template=package-request.yml" in res.note
+    # A standard module isn't a package to ask for.
+    std = dt.explain_error(
+        "ImportError: cannot import name 'Mappings' from 'collections' (/usr/lib/python3.10/x.py)"
+    )
+    assert "package-request" not in std.note
+    assert "package-request.yml" in dt.symbol_history("requests", "requests.get").note

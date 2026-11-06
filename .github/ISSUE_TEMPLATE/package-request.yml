@@ -17,6 +17,18 @@ body:
       placeholder: "langchain_anthropic"
     validations:
       required: true
+  - type: input
+    id: releases
+    attributes:
+      label: Releases in use
+      description: The versions you run, and the ones you upgrade between.
+      placeholder: "0.3.4 -> 1.0.0"
+  - type: textarea
+    id: error
+    attributes:
+      label: An example error
+      description: A traceback or message from an upgrade, with any private paths or values removed.
+      render: text
   - type: textarea
     id: why
     attributes:

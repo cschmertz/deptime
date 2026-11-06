@@ -74,6 +74,8 @@ OTHER_CAUSE = (
     " If no newer release changed it, the error has another cause (a different interpreter or venv, a shadowing"
     " local module, or a lazily-imported optional dependency)."
 )
+# Where a user asks for a package DepTime doesn't index (DT-OSS-11).
+PACKAGE_REQUEST_URL = "https://github.com/cschmertz/deptime/issues/new?template=package-request.yml"
 # DT-CORE-29: a finding's fix comes from a replacement at least this sure, or from the same object at another path.
 FIX_MIN_CONFIDENCE = 0.75
 FIXABLE_ISSUES = {"symbol_removed", "param_removed", "module_removed", "never_existed"}
@@ -350,7 +352,8 @@ class DepTime:
         return (
             f"{name} is configured but not indexed yet."
             if configured
-            else f"{name} is not in DepTime's coverage; call the `coverage` tool for the list."
+            else f"{name} is not in DepTime's coverage; call the `coverage` tool for the list, or ask for it at "
+            f"{PACKAGE_REQUEST_URL}."
         )
 
     # ------------------------------------------------------------------ tools
@@ -703,6 +706,13 @@ class DepTime:
                 f"The failing call is made inside {caller}'s code, and the change is in {changed}, {calls}. "
                 f"Either pin {changed} (see pin_to_restore) or use a {caller} release that supports your {changed} "
                 f"version; DepTime does not check {caller}'s side."
+            )
+        # A distribution DepTime doesn't index (not a standard module): where to look, and where to ask (DT-OSS-11).
+        unindexed = sorted({n for n in not_covered if stdlib.lookup(n) is None})
+        if unindexed and not findings:
+            notes.append(
+                f"DepTime doesn't index {_and([f'`{n}`' for n in unindexed])}: the `coverage` tool lists the packages "
+                f"it does, and {PACKAGE_REQUEST_URL} asks for one."
             )
         note = " ".join(notes) or None
         return ExplainResult(

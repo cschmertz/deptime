@@ -1977,3 +1977,34 @@ def test_an_attribute_of_what_a_function_returns_isnt_guessed(dt):
     # Only a call the index shows builds a class makes an object whose attributes are checked.
     res = dt.check_symbols("httpx", "0.28.1", code="import httpx\nr = httpx.request('GET', 'u')\nr.json()\n")
     assert [r.path for r in res.results] == ["httpx", "httpx.request"]
+
+
+def test_a_method_named_without_its_class_says_which_classes_fit():
+    # DT-CORE-31 (partly): `sort() got an unexpected keyword argument` names no class.
+    spec = PackageSpec(name="p12", import_names=("p12",), tier="B")
+    mod = SymbolRecord("p12", "module", "p12")
+
+    def release(version: str, new: bool) -> ApiSnapshot:
+        params = [_param("by", "positional or keyword", None)] + (
+            [_param("descending", default="False")] if new else []
+        )
+        symbols = {"p12": mod}
+        for cls in ("Frame", "Series"):
+            symbols[f"p12.{cls}"] = SymbolRecord(f"p12.{cls}", "class", f"p12.{cls}")
+            symbols[f"p12.{cls}.sort"] = SymbolRecord(
+                f"p12.{cls}.sort", "function", f"p12.{cls}.sort", params
+            )
+        return ApiSnapshot("p12", version, ["p12"], symbols)
+
+    store = IndexStore.memory()
+    store.rebuild_package(spec, [release("1.0", False), release("2.0", True)])
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+    res = dt.explain_error(
+        "TypeError: sort() got an unexpected keyword argument 'descending'", {"p12": "1.0"}
+    )
+    assert {f.symbol for f in res.findings} == {"p12.Frame.sort(descending)", "p12.Series.sort(descending)"}
+    assert "names `sort()` without its class, and 2 classes' `sort` changed the same way" in res.note
+    one = dt.explain_error(
+        "TypeError: Frame.sort() got an unexpected keyword argument 'descending'", {"p12": "1.0"}
+    )
+    assert one.note is None or "without its class" not in one.note

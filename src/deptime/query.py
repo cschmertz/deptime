@@ -766,6 +766,8 @@ class DepTime:
         below, findings = len(findings) - len(kept), kept
         notes = list(owner_notes)
         notes += [alias_notes[p] for p in sorted({f.package for f in findings}) if p in alias_notes]
+        if signal.kind in {"unexpected_kwarg", "missing_argument", "too_many_positional"} and signal.owner:
+            notes += self._owner_unknown_note(signal.owner, findings)
         if signal.wrapped_in:
             notes.append(
                 f"The last exception, {signal.wrapped_in}, was raised from or while handling this "
@@ -1477,6 +1479,29 @@ class DepTime:
             )
             return [f for f in found if f is not None]
         return []
+
+    @staticmethod
+    def _owner_unknown_note(owner: str, findings: list[Finding]) -> list[str]:
+        """An error that names a method without its class (`sort() got an unexpected keyword argument`, as older
+        Pythons and some wrappers print it), matched in several classes that changed the same way (DT-CORE-31)."""
+        if "." in owner:
+            return []
+        top = findings[0] if findings else None
+        same = [
+            f
+            for f in findings
+            if top is not None
+            and (f.package, f.issue, f.last_version_with, f.first_version_with)
+            == (top.package, top.issue, top.last_version_with, top.first_version_with)
+            and f.symbol.partition("(")[0].rpartition(".")[2] == owner
+        ]
+        classes = [f.symbol.partition("(")[0].rpartition(".")[0].rpartition(".")[2] for f in same]
+        if len(set(classes)) < 2:
+            return []
+        return [
+            f"The error names `{owner}()` without its class, and {len(classes)} classes' `{owner}` changed the same way "
+            f"({_and([f'`{c}`' for c in classes])}); the findings list each, with the same versions and pin."
+        ]
 
     @staticmethod
     def _inferred(f: Finding, why: str) -> Finding:

@@ -103,7 +103,7 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
   - AC: Claude Code, Cursor, Codex CLI, VS Code and Claude Desktop with `uvx deptime mcp`; handshake-era clients against hosted mode; the matrix published in the README.
   - Done so far (2026-11-05, `bench/s5/`, the matrix in the README): Claude Code 2.1.318 and Codex CLI 0.166.0 run `uvx deptime@0.1.4 mcp` and get the right answer. MCP Python SDK clients 1.0–1.30 and TypeScript SDK clients 1.0–1.32 (protocols 2024-11-05 to 2025-11-25) work over stdio, and from 1.8 and 1.10, the first with Streamable HTTP, against `deptime serve`: handshake-era clients are fine. First run: with an empty home, the first call returns the "no index yet" note and the index lands about 10 s later; an interrupted download recovers on the next start.
   - Found: on macOS with an x86_64 `uv`, the first `uvx deptime` compiles `cryptography` (no wheel since 49.0; required by the MCP SDK through `pyjwt[crypto]`) in 62 s, past Claude Code's 30 s MCP connection timeout. The README says to run `uvx deptime --help` once first.
-  - Left: Cursor, VS Code and Claude Desktop (GUI clients), and a claude.ai custom connector against a test deployment.
+  - Left: Cursor, VS Code and Claude Desktop (GUI clients), and a claude.ai custom connector against a test deployment; then a copy-paste configuration for each client in the README, checked in that client, not one command for all.
 - [ ] **DT-SPIKE-06**: S6 do agents call it unprompted (plugin vs. no plugin)? · `P1` `M`
 - [ ] **DT-SPIKE-07**: S7 first-run UX on macOS, Linux and Windows · `P1` `S`
   - AC: a useful answer within 60 s of first launch; Windows behaviour documented (feeds OSS-08).
@@ -138,6 +138,9 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
 - [x] **DT-OSS-10**: A failed first download recovers without a restart · `P0` `S`
   - AC: an index that appears on disk is opened on the next call (done); the refresh thread retries with backoff while there is no index; the note names the real cause (failed download, offline).
   - Done 2026-11-02 (`afdf8a0`): the refresh thread retries after 30 s, 1, 2, 5 and 10 minutes, then every 30 minutes, until an index lands or another process puts one on disk. Until then the note names the error and the next attempt ("could not download the index (ConnectError: …) … retrying in the background in 1 min"); with `DEPTIME_OFFLINE` set it says so and never retries.
+- [ ] **DT-OSS-11**: Package requests, and what an unsupported package gets · `P2` `S`
+  - Why: packages are added from breaks seen in issues; users have no way to ask for one, and a `not_covered` answer doesn't say what DepTime does cover or how to ask.
+  - AC: an issue template for a package request (distribution, import names, releases in use, an example error); `not_covered` answers point to `coverage` and to the template; a coverage page generated from the published index at each release lists every package with its first and latest indexed release and the build date, and says how an unsupported package is answered.
 
 ### Data (DT-DATA)
 - [x] **DT-DATA-01**: Index Tier A with the coverage policy · `P0` `M` · deps: SPIKE-01, SPIKE-04
@@ -497,6 +500,12 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
   - Why (DT-QA-01, 2026-11-05): Django 4.0 removed `HttpRequest.is_ajax()`; the error says `'WSGIRequest' object has no attribute 'is_ajax'`, and DepTime answers `django.core.handlers.wsgi.WSGIRequest.is_ajax`, right but not the name the release notes and search results use.
   - AC: a finding on an inherited member also names the defining class's public path (`django.http.HttpRequest.is_ajax`); the case passes.
   - Done 2026-11-05 (no format change): an inherited member is reported under the defining class's shortest public path with the same object, and the explanation starts "WSGIRequest inherits is_ajax from HttpRequest." Only when that path is no deeper than the subclass's, so a mixin buried in the package (qdrant-client's `QdrantFastembedMixin`) doesn't replace the class users import. The django case passes; on the benchmark one other answer changes, matplotlib's `QuadContourSet.collections` to `ContourSet.collections`, still right.
+- [ ] **DT-CORE-29**: Evidence to act on: both signatures, where to read the change, and a fix when the index proves one · `P1` `M`
+  - Why: a finding gives the releases on each side, the pin, hints and the deprecation text, but not the signature on each side or where the release is described, so an agent still looks those up; and a mechanical fix (an import that moved, an argument renamed) is often all it needs.
+  - AC: new fields only (the models are a public contract): the signature at `last_version_with` and at `first_version_without` (or the release the installed version resolves to) when the finding is about a callable; links to both releases on PyPI, and to the project's changelog or release page when its metadata names one (recorded at ingest from `Project-URL`); `fix` only where the index shows it — the same object importable from another path, an argument renamed by an event or a hint at ≥ 0.75 — with its evidence, and never written text (ADR 0006).
+- [ ] **DT-CORE-30**: Confidence that says why, and a threshold and suppressions a project can set · `P2` `M`
+  - Why: `confidence` is high, medium or low, and the reasons are in prose; an agent can't tell an exact indexed release from a window, or static evidence from a name a `__getattr__` may create, without parsing the explanation, and a project can't say a change doesn't matter to it.
+  - AC: each finding lists the factors behind its confidence (installed release indexed exactly or between two; static or dynamic module; public or internal name; hint stated by the library, inferred or curated) as a field; the tools take an optional minimum confidence; a project file lists suppressions by package, path and change kind, applied locally, with the count suppressed in every answer, never silently; docs/03 describes the factors.
 
 ### Quality (DT-QA)
 - [ ] **DT-QA-01**: 200-traceback benchmark from real GitHub issues (`bench/cases/*.jsonl`) · `P0` `L`
@@ -521,6 +530,10 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
 - [x] **DT-QA-06**: Investigate the unexplained bench misses · `P0` `S`
   - `never_existed` or a wrong boundary for `sqlalchemy.schema.ThreadLocalMetaData`, `langchain.server`, `litellm.llms.prompt_templates`, `instructor.core.patch.handle_response_model`, `AnthropicModel.__init__(api_key)` in pydantic-ai, and `numpy.product` (gone after 1.24.4 in the index; really 1.26). Each is an index false-absent or a wrong case: check the shipped wheels, never GitHub tags (crewai 0.67.1's tag lacks `LLM`, its wheel has it).
   - Done 2026-10-28, all six explained against the shipped wheels: `langchain.server` (lived only between the indexed 0.0.1 and 0.0.354) and pydantic-ai's `api_key` (removed in 0.0.45; 0.0.x indexed at 0.0.6 and 0.0.55) are DT-DATA-19; instructor's is an implementation import (DT-DATA-22); the other three are index bugs, now DT-DATA-23 (litellm), DT-DATA-24 (sqlalchemy) and DT-DATA-25 (numpy).
+- [ ] **DT-QA-07**: A fresh holdout each release, with upgrades that don't break, scored by change type and package · `P1` `M` · deps: QA-04
+  - Why: every benchmark case has a real break, so nothing measures how often DepTime flags code that still works after an upgrade; S1 covers only names read absent (1.2%). And the sets fixed in advance (TimeMachine-bench, S2, the 32 cases of 2026-11-05) stop being holdouts once fixes are designed from their misses.
+  - What: before each minor release, collect a new set under the DT-QA-01 rules and commit it before DepTime runs on it; score it once, then it joins `bench/cases`. Half of it doesn't break: names, arguments and imports real projects use that still work after an upgrade, taken from projects whose tests pass on both releases (TimeMachine-bench's verified repositories, and repositories that pin a covered package), asked through `check_symbols` and `diff_versions(used_symbols=...)`.
+  - AC: precision, recall and false-positive rate, each with its interval, by change type (removed, moved, parameter removed or renamed, now required, deprecated, not yet added) and by package and tier; the first scoring in `bench/` and leading the README's table; a fix designed from a set's misses is scored on the next set, not this one.
 
 ## M2 — Distribution (DT-GTM)
 

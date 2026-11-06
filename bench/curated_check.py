@@ -10,7 +10,6 @@ markupsafe instead") can't be checked here and is listed as such. Exits 1 if any
 
 import importlib
 import json
-import sqlite3
 import sys
 import tomllib
 from importlib import resources
@@ -18,29 +17,27 @@ from pathlib import Path
 
 from deptime.config import Settings, load_coverage
 from deptime.index.location import active_index
+from deptime.index.store import IndexStore
 
 index = Path(sys.argv[1]) if len(sys.argv) > 1 else active_index(Settings.from_env().index_path)
 if not index.is_file():
     sys.exit(f"no index at {index}: run `deptime index pull` first")
-db = sqlite3.connect(f"{index.resolve().as_uri()}?mode=ro", uri=True)
+# Through the store, which looks a class member up through the class's MRO when the index stores each class's
+# own members once (DT-DATA-16, DT-DATA-49): such members have no `spans` rows of their own.
+store = IndexStore.open(index)
 hints = tomllib.loads(resources.files("deptime").joinpath("curated.toml").read_text(encoding="utf-8"))["hint"]
 owner = {name: p.name for p in load_coverage().packages for name in p.import_names}
 
 
 def has(package: str, path: str) -> bool:
-    return (
-        db.execute("SELECT 1 FROM spans WHERE package = ? AND path = ? LIMIT 1", (package, path)).fetchone()
-        is not None
-    )
+    return bool(store.spans(package, path))
 
 
 def took(package: str, func: str) -> set[str]:
     names: set[str] = set()
-    for params, deprecated in db.execute(
-        "SELECT params, deprecated_params FROM spans WHERE package = ? AND path = ?", (package, func)
-    ):
-        names.update(p["name"] for p in json.loads(params or "[]"))
-        names.update(json.loads(deprecated or "{}"))
+    for span in store.spans(package, func):
+        names.update(p["name"] for p in json.loads(span["params"] or "[]"))
+        names.update(json.loads(span["deprecated_params"] or "{}"))
     return names
 
 

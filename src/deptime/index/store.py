@@ -1149,18 +1149,20 @@ class IndexStore:
         direct = self.conn.execute(
             "SELECT * FROM spans WHERE package = ? AND path = ?", (name, path)
         ).fetchall()
-        states = {
-            o: _record(path, r)
-            for r in [*direct, *member]
-            for o in range(r["first_ordinal"], r["last_ordinal"] + 1)
-        }
+        # A state only changes where a span starts or ends, so only those releases are compared: one record per
+        # span, not one per release (fastapi's `__init__` spans 100 releases; an argument error took 65 ms).
+        runs = [(r["first_ordinal"], r["last_ordinal"], _record(path, r)) for r in [*direct, *member]]
+        at: dict[int, SymbolRecord] = {}
+        for first, last, rec in runs:
+            at[first] = at[last] = rec
         count = self.conn.execute("SELECT COUNT(*) FROM releases WHERE package = ?", (name,)).fetchone()[0]
+        bounds = {o for first, last, _rec in runs for o in (first, last + 1) if o < count}
         out: list[dict] = []
-        for o in sorted(set(states) | {o + 1 for o in states if o + 1 < count}):
+        for o in sorted(bounds):
             if o == 0:
-                found, prev = initial_path_events(path, states[0]), None
+                found, prev = initial_path_events(path, at[0]), None
             else:
-                found, prev = path_events(path, states.get(o - 1), states.get(o)), o - 1
+                found, prev = path_events(path, at.get(o - 1), at.get(o)), o - 1
             out += [
                 {"package": name, "path": path, "ordinal": o, "prev_ordinal": prev, "kind": ev.kind}
                 | {"detail": json.dumps(ev.detail, sort_keys=True)}

@@ -2354,6 +2354,32 @@ def test_a_subpackage_that_star_imports_its_package_gets_all_of_it(tmp_path):
     assert "pstar.v1.main.helper" not in snap.symbols
 
 
+REBOUND = {
+    "auto/__init__.py": "from auto.models import AutoModel, Legacy\n__all__ = ['AutoModel', 'Legacy']\n",
+    "auto/models.py": (
+        "def deprecated(message):\n    return lambda cls: cls\n\n"
+        "def auto_class_update(cls, head_doc=''):\n    return cls\n\n"
+        "class _BaseAuto:\n    def from_pretrained(cls, name):\n        pass\n\n"
+        "class AutoModel(_BaseAuto):\n    pass\n\n"
+        "AutoModel = auto_class_update(AutoModel, head_doc='models')\n\n"
+        "class Legacy:\n    def run(self):\n        pass\n\n"
+        "Legacy = deprecated('Legacy is deprecated, use AutoModel instead')(Legacy)\n"
+    ),
+}
+
+
+def test_a_class_rebound_to_a_call_on_itself_is_still_the_class(tmp_path):
+    # DT-DATA-50: transformers' `AutoModel = auto_class_update(AutoModel)` read as an attribute without members.
+    for own in (False, True):
+        snap = build_snapshot("auto", "1.0", ["auto"], _write(tmp_path / str(own), REBOUND), own_members=own)
+        symbols = snap.expanded()
+        assert symbols["auto.AutoModel"].kind == "class"
+        assert symbols["auto.AutoModel.from_pretrained"].canonical == "auto.models._BaseAuto.from_pretrained"
+        # A deprecation wrapper stays the attribute its message is read from.
+        assert symbols["auto.Legacy"].kind == "attribute"
+        assert "deprecated" in symbols["auto.Legacy"].deprecated
+
+
 def test_a_module_whose_top_level_always_raises_is_absent(tmp_path):
     # DT-DATA-34: mcp 2.x's `mcp.server.fastmcp` placeholder read present, so "No module named
     # 'mcp.server.fastmcp'" on mcp 2.3.0 got no "removed in 2.0.0" answer.

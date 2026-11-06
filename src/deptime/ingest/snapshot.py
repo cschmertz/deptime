@@ -3436,6 +3436,37 @@ class _RuntimeElse(griffe.Extension):
             alias.runtime = True
 
 
+class _Rebound(griffe.Extension):
+    """A class its module rebinds to a call on itself is still that class (DT-DATA-50). griffe records
+    `AutoModel = auto_class_update(AutoModel)` as an attribute, so transformers' 41 Auto classes had no members, and
+    `AutoModelForCausalLM.from_pretrained` read `never_existed`. Not when the call is a deprecation wrapper: the
+    attribute is where its message is read (`_wrapper_deprecation`)."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.classes: dict[str, griffe.Class] = {}
+
+    def on_class_instance(self, *, cls: griffe.Class, **kwargs: Any) -> None:
+        self.classes[cls.path] = cls
+
+    def on_attribute_instance(
+        self, *, node: ast.AST | griffe.ObjectNode, attr: griffe.Attribute, **kwargs: Any
+    ) -> None:
+        cls = self.classes.get(attr.path)
+        value = getattr(node, "value", None)
+        if (
+            cls is None
+            or attr.parent is None
+            or not isinstance(value, ast.Call)
+            or not value.args
+            or not isinstance(value.args[0], ast.Name)
+            or value.args[0].id != attr.name
+            or _wrapper_deprecation(attr)
+        ):
+            return
+        attr.parent.set_member(attr.name, cls)
+
+
 _NAMED_KINDS = frozenset(
     {
         griffe.ParameterKind.positional_only,
@@ -3608,7 +3639,7 @@ def build_snapshot(
                     # None loads only a private sibling (`_pytest` for `pytest`), found in the same wheel because
                     # search_paths replaces sys.path; other distributions' names stay aliases.
                     resolve_external=None,
-                    extensions=griffe.load_extensions(_RuntimeElse(), _OverloadsOnly()),
+                    extensions=griffe.load_extensions(_RuntimeElse(), _OverloadsOnly(), _Rebound()),
                 )
             except Exception as exc:  # report and continue: one bad import name must not sink the release
                 snap.errors.append(f"load {import_name}: {type(exc).__name__}: {exc}")

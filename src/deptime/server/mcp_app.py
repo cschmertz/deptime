@@ -7,7 +7,7 @@ these strings alone. Keep them concrete, keep the "when to call" first, and re-r
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from mcp.server import MCPServer
 from mcp.types import ToolAnnotations
@@ -86,8 +86,14 @@ def build_mcp(
             str | None,
             Field(max_length=100_000, description="Output of `pip freeze` / `uv pip freeze` / `pip list`."),
         ] = None,
+        min_confidence: Annotated[
+            Literal["high", "medium", "low"] | None,
+            Field(
+                description="Leave out findings below this confidence; the answer counts them in below_min_confidence."
+            ),
+        ] = None,
     ) -> ExplainResult:
-        return deptime.explain_error(traceback, installed_versions, pip_freeze)
+        return deptime.explain_error(traceback, installed_versions, pip_freeze, min_confidence)
 
     @mcp.tool(
         name="symbol_history",

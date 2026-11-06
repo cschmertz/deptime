@@ -34,7 +34,12 @@ def load_deptime(settings: Settings) -> DepTime:
 
 def _dispatch(dt: DepTime, tool: str, body: dict[str, Any]) -> BaseModel:
     if tool == "explain_error":
-        return dt.explain_error(body["traceback"], body.get("installed_versions"), body.get("pip_freeze"))
+        return dt.explain_error(
+            body["traceback"],
+            body.get("installed_versions"),
+            body.get("pip_freeze"),
+            body.get("min_confidence"),
+        )
     if tool == "symbol_history":
         return dt.symbol_history(body["package"], body["path"])
     if tool == "check_symbols":

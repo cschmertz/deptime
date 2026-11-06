@@ -38,8 +38,13 @@ def _dt(settings: Settings) -> DepTime:
         if not settings.offline:
             _err(f"deptime: no index at {settings.index_path}; downloading it once…")
         _err(f"deptime: {ensure_index(settings).message}")
+    from deptime import suppressions
+
     return DepTime(
-        open_index(settings.index_path), load_coverage(settings.coverage_file), settings.index_path
+        open_index(settings.index_path),
+        load_coverage(settings.coverage_file),
+        settings.index_path,
+        suppressions.load(),
     )
 
 
@@ -110,7 +115,7 @@ def cmd_explain(args: argparse.Namespace, settings: Settings) -> int:
     text = Path(args.file).read_text() if args.file else sys.stdin.read()
     installed = dict(item.split("==", 1) for item in args.installed)
     freeze = Path(args.freeze).read_text() if args.freeze else None
-    _print(_dt(settings).explain_error(text, installed or None, freeze))
+    _print(_dt(settings).explain_error(text, installed or None, freeze, args.min_confidence))
     return 0
 
 
@@ -204,11 +209,18 @@ def cmd_index(args: argparse.Namespace, settings: Settings) -> int:
 
 def cmd_mcp(args: argparse.Namespace, settings: Settings) -> int:
     """Local stdio MCP server. stdout is the protocol channel: everything else goes to stderr."""
+    from deptime import suppressions
     from deptime.index.distribution import start_background_refresh
     from deptime.index.location import open_index
     from deptime.server.mcp_app import build_mcp
 
-    dt = DepTime(open_index(settings.index_path), load_coverage(settings.coverage_file), settings.index_path)
+    # The project the client started the server in: its suppressions apply here, never in hosted mode (DT-CORE-30).
+    dt = DepTime(
+        open_index(settings.index_path),
+        load_coverage(settings.coverage_file),
+        settings.index_path,
+        suppressions.load(),
+    )
     start_background_refresh(dt, settings)
     build_mcp(dt).run(transport="stdio")
     return 0
@@ -236,6 +248,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--file")
     p.add_argument("--installed", nargs="*", default=[], metavar="PKG==VER")
     p.add_argument("--freeze", help="path to `pip freeze` output")
+    p.add_argument(
+        "--min-confidence", choices=["high", "medium", "low"], help="leave out findings below this"
+    )
     p.set_defaults(func=cmd_explain)
 
     p = sub.add_parser("history", help="version history of one symbol")

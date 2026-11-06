@@ -13,8 +13,10 @@ from functools import lru_cache
 from pathlib import Path
 
 from packaging.utils import canonicalize_name
+from packaging.version import InvalidVersion, Version
 
 from deptime import stdlib
+from deptime import suppressions as project
 from deptime.config import Coverage, PackageSpec
 from deptime.index.location import active_index
 from deptime.index.store import IndexStore
@@ -24,6 +26,7 @@ from deptime.ingest.replacements import clean_evidence, expand_alias, mine, move
 from deptime.models import (
     CheckSymbolsResult,
     Confidence,
+    ConfidenceFactor,
     CoverageEntry,
     CoverageResult,
     DiffResult,
@@ -261,9 +264,17 @@ def _stdlib_fix(old: str, is_module: bool, replacements: list[Replacement], mino
 
 
 class DepTime:
-    def __init__(self, store: IndexStore | None, coverage: Coverage, index_path: Path | None = None):
+    def __init__(
+        self,
+        store: IndexStore | None,
+        coverage: Coverage,
+        index_path: Path | None = None,
+        suppressions: tuple[project.Suppression, ...] = (),
+    ):
         self._store = store
         self.coverage = coverage
+        # The project's own suppressions (DT-CORE-30): local mode only, and every answer counts what they leave out.
+        self.suppressions = suppressions
         # Opened lazily if it appears after start-up, e.g. another process finished the first download.
         self.index_path = index_path
         self._open_lock = threading.Lock()
@@ -408,6 +419,9 @@ class DepTime:
                 ),
             )
         last_ordinal = max(s["last_ordinal"] for s in spans)
+        events, hidden = self._unsuppressed(
+            name, [self._event(name, r) for r in self.store.events(name, full)]
+        )
         replacements = [self._replacement(r) for r in self._hints(name, full)]
         replacements += [
             self._replacement(r).model_copy(update={"target": f"{r['path']} -> {r['target']}"})
@@ -423,8 +437,10 @@ class DepTime:
             latest_indexed_version=latest["version"],
             present_in_latest=last_ordinal == latest["ordinal"],
             signature_at_last_seen=_params(spans[-1]["params"]),
-            events=[self._event(name, r) for r in self.store.events(name, full)],
+            events=events,
             replacements=replacements,
+            suppressed=hidden,
+            note=project.note(hidden, "event"),
         )
 
     def _internal_history(
@@ -576,29 +592,44 @@ class DepTime:
                 note="Could not resolve the version range against the index; see `coverage`.",
             )
         limit = max(1, min(limit, MAX_DIFF_EVENTS))
+        filtering = any(x.package == name for x in self.suppressions)
         rows, total = self.store.events_between(
             name,
             lo["ordinal"],
             hi["ordinal"],
-            limit,
+            MAX_DIFF_EVENTS if filtering else limit,  # room for what the suppressions leave out
             severity=SEVERITY,
             include_added=include_added,
             paths=[self._qualify(spec, u) for u in used_symbols or []],
         )
+        events, hidden = self._unsuppressed(name, [self._event(name, r) for r in rows])
+        notes = [
+            None
+            if lo["version"] == from_version or DATE_RE.match(from_version)
+            else f"from_version resolved to nearest indexed release {lo['version']}.",
+            project.note(hidden, "event"),
+        ]
         return DiffResult(
             package=name,
             from_version=lo["version"],
             to_version=hi["version"],
-            events=[self._event(name, r) for r in rows],
-            truncated=total > len(rows),
-            note=None
-            if lo["version"] == from_version or DATE_RE.match(from_version)
-            else f"from_version resolved to nearest indexed release {lo['version']}.",
+            events=events[:limit],
+            truncated=total > len(rows) or len(events) > limit,
+            note=" ".join(n for n in notes if n) or None,
+            suppressed=hidden,
         )
+
+    def _unsuppressed(self, name: str, events: list[HistoryEvent]) -> tuple[list[HistoryEvent], int]:
+        kept = [e for e in events if not any(x.matches(name, e.path, e.kind) for x in self.suppressions)]
+        return kept, len(events) - len(kept)
 
     # ------------------------------------------------------------------ explain_error
     def explain_error(
-        self, traceback: str, installed_versions: dict[str, str] | None = None, pip_freeze: str | None = None
+        self,
+        traceback: str,
+        installed_versions: dict[str, str] | None = None,
+        pip_freeze: str | None = None,
+        min_confidence: Confidence | None = None,
     ) -> ExplainResult:
         signal = parse_traceback(traceback)
         if signal is None:
@@ -673,6 +704,17 @@ class DepTime:
         rank = {"high": 0, "medium": 1, "low": 2}
         findings.sort(key=lambda f: (rank[f.confidence], f.issue == "present_in_installed_version"))
         findings = [self._act_on(f, installed) for f in findings]
+        findings = [
+            f.model_copy(update={"confidence_factors": self._factors(f, installed)}) for f in findings
+        ]
+        # The project's suppressions, then the confidence asked for (DT-CORE-30): counted, never silent.
+        kept = [
+            f for f in findings if not any(x.matches(f.package, f.symbol, f.issue) for x in self.suppressions)
+        ]
+        suppressed, findings = len(findings) - len(kept), kept
+        floor = rank.get(min_confidence, len(rank)) if isinstance(min_confidence, str) else len(rank)
+        kept = [f for f in findings if rank[f.confidence] <= floor]
+        below, findings = len(findings) - len(kept), kept
         notes = list(owner_notes)
         notes += [alias_notes[p] for p in sorted({f.package for f in findings}) if p in alias_notes]
         if signal.wrapped_in:
@@ -681,7 +723,13 @@ class DepTime:
                 f"{signal.exception_type}, which is the one explained here."
             )
         notes += stdlib_notes
-        if not findings and not stdlib_notes:
+        if suppressed:
+            notes.append(project.note(suppressed, "finding"))
+        if below:
+            notes.append(
+                f"{below} finding{'' if below == 1 else 's'} below {min_confidence} confidence left out (min_confidence)."
+            )
+        if not findings and not stdlib_notes and not suppressed and not below:
             notes.append(
                 "No version-history explanation found."
                 + (
@@ -716,8 +764,76 @@ class DepTime:
             )
         note = " ".join(notes) or None
         return ExplainResult(
-            signal=signal.to_model(), findings=findings, not_covered=sorted(set(not_covered)), note=note
+            signal=signal.to_model(),
+            findings=findings,
+            not_covered=sorted(set(not_covered)),
+            note=note,
+            suppressed=suppressed,
+            below_min_confidence=below,
         )
+
+    def _factors(self, f: Finding, installed: dict[str, str]) -> list[ConfidenceFactor]:
+        """Why `f` has its confidence (DT-CORE-30), from the same facts that set it."""
+        out: list[ConfidenceFactor] = []
+        top = {
+            "deprecation_message": "replacement_from_library",
+            "moved_heuristic": "replacement_inferred",
+            "curated": "replacement_curated",
+            "error_message": "replacement_from_error",
+        }
+        if f.package == PYTHON:
+            out.append(
+                "python_version_given"
+                if installed.get(PYTHON)
+                else "python_version_from_traceback"
+                if f.installed_version
+                else "python_version_unknown"
+            )
+            return out + ([top[f.replacements[0].source]] if f.replacements else [])  # type: ignore[list-item]
+        name = f.package
+        if not f.installed_version:
+            out.append("installed_version_unknown")
+        elif f.resolved_version is None:
+            out.append("installed_version_before_first")
+        else:
+            try:
+                exact = Version(f.resolved_version) == Version(f.installed_version)
+            except InvalidVersion:
+                exact = False
+            ahead = self._ahead(name, self._release(name, f.resolved_version), exact)
+            out.append(
+                "installed_version_indexed"
+                if exact
+                else "installed_version_after_newest"
+                if ahead
+                else "installed_version_between_releases"
+            )
+        anchor = self._release(name, f.resolved_version or f.last_version_with or f.first_version_with or "")
+        anchor = anchor or (self.store.newest_release(name) if self.store else None)
+        path = f.symbol.partition("(")[0]
+        if anchor is not None and self.store is not None:
+            o = anchor["ordinal"]
+            own = self.store.span_at(name, path, o)
+            parts = path.split(".")
+            module = next(
+                (
+                    m
+                    for i in range(len(parts) - 1, 0, -1)
+                    if (s := self.store.span_at(name, (m := ".".join(parts[:i])), o)) is not None
+                    and s["kind"] == "module"
+                ),
+                None,
+            )
+            if own is not None and own["kind"] == "getattr":
+                out.append("served_by_getattr")
+            elif module is not None and self.store.span_at(name, f"{module}.__getattr__", o) is not None:
+                out.append("module_has_getattr")
+            else:
+                out.append("module_static")
+        out.append("internal_name" if f.internal else "public_name")
+        if f.replacements:
+            out.append(top[f.replacements[0].source])  # type: ignore[arg-type]
+        return out
 
     def _act_on(self, f: Finding, installed: dict[str, str]) -> Finding:
         """What an agent needs to act on a finding without looking further (DT-CORE-29): the callable's signature on

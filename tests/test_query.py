@@ -1807,3 +1807,70 @@ def test_a_package_deptime_doesnt_index_points_to_coverage_and_the_request_form(
     )
     assert "package-request" not in std.note
     assert "package-request.yml" in dt.symbol_history("requests", "requests.get").note
+
+
+def test_a_finding_says_why_it_has_its_confidence(dt):
+    # DT-CORE-30: the factors behind `confidence`, as a field an agent can read.
+    exact = dt.explain_error(HTTPX_TB, {"httpx": "0.28.1"}).findings[0]
+    assert exact.confidence_factors == [
+        "installed_version_indexed",
+        "module_static",
+        "public_name",
+        "replacement_from_library",
+    ]
+    unknown = dt.explain_error(HTTPX_TB).findings[0]
+    assert unknown.confidence == "low" and unknown.confidence_factors[0] == "installed_version_unknown"
+    ahead = dt.explain_error(HTTPX_TB, {"httpx": "0.28.9"}).findings[0]
+    assert ahead.confidence_factors[0] == "installed_version_after_newest"
+
+
+def test_a_module_getattr_is_a_confidence_factor():
+    spec = PackageSpec(name="p10", import_names=("p10",), tier="B")
+    mod = SymbolRecord("p10", "module", "p10")
+    hook = SymbolRecord(
+        "p10.__getattr__", "function", "p10.__getattr__", [_param("name", "positional or keyword")]
+    )
+    old = SymbolRecord("p10.Old", "class", "p10._impl.Old")
+    store = IndexStore.memory()
+    store.rebuild_package(
+        spec,
+        [
+            ApiSnapshot("p10", "1.0", ["p10"], {"p10": mod, "p10.__getattr__": hook, "p10.Old": old}),
+            ApiSnapshot("p10", "2.0", ["p10"], {"p10": mod, "p10.__getattr__": hook}),
+        ],
+    )
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+    f = dt.explain_error("ImportError: cannot import name 'Old' from 'p10'", {"p10": "2.0"}).findings[0]
+    assert f.issue == "symbol_removed" and "module_has_getattr" in f.confidence_factors
+
+
+def test_min_confidence_and_suppressions_are_counted_never_silent(store, coverage, tmp_path):
+    from deptime import suppressions
+
+    dt = DepTime(store, coverage)
+    low = dt.explain_error(HTTPX_TB, min_confidence="medium")
+    assert low.findings == [] and low.below_min_confidence == 1
+    assert "1 finding below medium confidence left out (min_confidence)." in low.note
+    assert dt.explain_error(HTTPX_TB, min_confidence="low").findings  # low is the floor: everything stays
+    (tmp_path / "pyproject.toml").write_text(
+        '[[tool.deptime.suppress]]\npackage = "HTTPX"\npath = "httpx.Client"\nkind = "param_removed"\n'
+        'reason = "we pass mounts"\n\n[[tool.deptime.suppress]]\npath = "no.package"\n'
+    )
+    loaded = suppressions.load(tmp_path)
+    assert loaded == (suppressions.Suppression("httpx", "httpx.Client", "param_removed", "we pass mounts"),)
+    quiet = DepTime(store, coverage, suppressions=loaded)
+    res = quiet.explain_error(HTTPX_TB, {"httpx": "0.28.1"})
+    assert res.findings == [] and res.suppressed == 1
+    assert "1 finding left out by this project's suppressions" in res.note
+    assert "No version-history explanation found" not in res.note
+    diff = quiet.diff_versions("httpx", "0.26.0")
+    assert diff.suppressed >= 1 and all(
+        not e.path.startswith("httpx.Client.") or e.kind != "param_removed" for e in diff.events
+    )
+    assert "left out by this project's suppressions" in diff.note
+    history = quiet.symbol_history("httpx", "httpx.Client.__init__")
+    assert history.suppressed == 1 and all(e.kind != "param_removed" for e in history.events)
+    # deptime.toml wins over pyproject.toml; nothing to read is nothing suppressed.
+    (tmp_path / "deptime.toml").write_text('[[suppress]]\npackage = "numpy"\n')
+    assert suppressions.load(tmp_path) == (suppressions.Suppression("numpy"),)
+    assert suppressions.load(tmp_path / "missing") == ()

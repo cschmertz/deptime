@@ -122,6 +122,9 @@ All tools are read-only and idempotent, and return structured output (pydantic m
    - `high`: the installed version is indexed exactly.
    - `medium`: answered from the nearest indexed release, or from the window between two indexed releases.
    - `low`: no installed version was given.
+   - Each finding lists the facts behind it in `confidence_factors` (DT-CORE-30): `installed_version_indexed`, `_between_releases`, `_after_newest`, `_before_first` or `_unknown` (for the standard library, `python_version_given`, `_from_traceback` or `_unknown`); `module_static`, `module_has_getattr` (the name's module defines a `__getattr__` that can create names at runtime) or `served_by_getattr` (the name is one it serves); `public_name` or `internal_name`; and for the first replacement, `replacement_from_library`, `replacement_inferred`, `replacement_curated` or `replacement_from_error`.
+   - `explain_error(min_confidence=...)` leaves out findings below that level and counts them in `below_min_confidence`.
+7. **Suppressions are the project's, and counted.** A project lists changes that don't matter to it in `deptime.toml` (`[[suppress]]`), or `[[tool.deptime.suppress]]` in `pyproject.toml`, each with a `package` and optionally a `path` (it and everything under it), a `kind` (a finding's `issue` or an event's `kind`) and a `reason`. The local server reads them from the directory it runs in (or `DEPTIME_PROJECT_DIR`); hosted mode never does. `explain_error`, `diff_versions` and `symbol_history` leave matching findings and events out, count them in `suppressed`, and say so in `note`; `check_symbols` isn't affected.
 4. **Honest boundaries.**
    - `first_version_without` is the *first indexed* release without the symbol; unindexed releases may sit in between.
    - `pin_to_restore` therefore uses `<=last_version_with`, which is always correct, rather than `<first_version_without`.

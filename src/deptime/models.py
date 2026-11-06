@@ -13,6 +13,28 @@ from pydantic import AfterValidator, BaseModel, Field
 from deptime.untrusted import untrusted_code, untrusted_detail, untrusted_text
 
 Confidence = Literal["high", "medium", "low"]
+# Why a finding has its confidence (DT-CORE-30): how the installed version maps onto the index (or, for the standard
+# library, where the Python version comes from), whether the name's module can create names at runtime, whether the
+# name is public API, and where the first replacement comes from.
+ConfidenceFactor = Literal[
+    "installed_version_indexed",
+    "installed_version_between_releases",
+    "installed_version_after_newest",
+    "installed_version_before_first",
+    "installed_version_unknown",
+    "python_version_given",
+    "python_version_from_traceback",
+    "python_version_unknown",
+    "module_static",
+    "module_has_getattr",
+    "served_by_getattr",
+    "public_name",
+    "internal_name",
+    "replacement_from_library",
+    "replacement_inferred",
+    "replacement_curated",
+    "replacement_from_error",
+]
 # Text from library source (DT-CORE-08): cleaned whatever code path builds the answer. The schema is unchanged.
 UntrustedText = Annotated[str | None, AfterValidator(untrusted_text)]
 UntrustedCode = Annotated[str | None, AfterValidator(untrusted_code)]
@@ -109,6 +131,10 @@ class SymbolHistory(BaseModel):
         " in a private module. Code that uses one, usually another library, breaks when it changes, with no"
         " deprecation first.",
     )
+    suppressed: int = Field(
+        default=0,
+        description="Events left out by the project's suppressions; `note` says so whenever it isn't 0.",
+    )
 
 
 class SymbolQuery(BaseModel):
@@ -146,6 +172,10 @@ class DiffResult(BaseModel):
     events: list[HistoryEvent]
     truncated: bool = False
     note: str | None = None
+    suppressed: int = Field(
+        default=0,
+        description="Events left out by the project's suppressions; `note` says so whenever it isn't 0.",
+    )
 
 
 class FrameOut(BaseModel):
@@ -236,6 +266,15 @@ class Finding(BaseModel):
         description="The releases on each side of the change on PyPI, then the project's changelog or release notes"
         " when its metadata names them.",
     )
+    confidence_factors: list[ConfidenceFactor] = Field(
+        default_factory=list,
+        description="Why it has its confidence. installed_version_*: the installed version is an indexed release,"
+        " lies between two (or after the newest, or before the first), or wasn't given; python_version_*: for the"
+        " standard library, given, read from the traceback's paths, or unknown; module_static / module_has_getattr /"
+        " served_by_getattr: whether the name's module defines a __getattr__ that can create names at runtime, and"
+        " whether this name is one it serves; public_name / internal_name; replacement_*: where the first replacement"
+        " comes from (the library's own text, inferred from the index, a curated guide, or the error message).",
+    )
     fix: Fix | None = Field(
         default=None,
         description="A mechanical change the index proves, never written text: a replacement at confidence >= 0.75, or"
@@ -251,6 +290,14 @@ class ExplainResult(BaseModel):
         default_factory=list, description="Packages involved in the error that DepTime does not index."
     )
     note: str | None = None
+    suppressed: int = Field(
+        default=0,
+        description="Findings left out by the project's suppressions (deptime.toml or [tool.deptime] in"
+        " pyproject.toml); `note` says so whenever it isn't 0.",
+    )
+    below_min_confidence: int = Field(
+        default=0, description="Findings left out below the min_confidence asked for."
+    )
 
 
 class CoverageEntry(BaseModel):

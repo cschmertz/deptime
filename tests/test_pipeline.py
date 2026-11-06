@@ -613,7 +613,8 @@ def test_the_summary_says_which_releases_are_past_the_freshness_bound():
     text = coverage_summary([fresh], now=now)
     assert (
         "Freshness (bound: 24 h from upload): Every selected release uploaded more than 24 h before this run is "
-        "indexed. The newest indexed release is fresh 2, uploaded 3 h before it." in text
+        "indexed, up to each package's newest. The newest indexed release is fresh 2, uploaded 3 h before it."
+        in text
     )
     late = IngestReport(
         "late",
@@ -629,5 +630,15 @@ def test_the_summary_says_which_releases_are_past_the_freshness_bound():
     text = coverage_summary([fresh, late], now=now)
     # Release 3 failed too, but is within the bound.
     assert (
-        "**1 selected release uploaded more than 24 h before this run isn't indexed**: late 2 (34 h)." in text
+        "**1 release newer than its package's newest indexed one was uploaded more than 24 h before this run**: "
+        "late 2 (34 h)." in text
     )
+    # An old release that never builds (dspy 0.1.5) isn't a freshness miss once a newer one is indexed.
+    old = IngestReport(
+        "old",
+        selected=["0.1", "2.0"],
+        cached=["2.0"],
+        failed={"0.1": "no module"},
+        uploaded={"0.1": "2024-01-01T00:00:00+00:00", "2.0": "2026-10-01T00:00:00+00:00"},
+    )
+    assert "Every selected release uploaded more than 24 h" in coverage_summary([fresh, old], now=now)

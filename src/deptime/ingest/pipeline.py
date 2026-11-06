@@ -63,17 +63,27 @@ def _hours_before(now: datetime, uploaded: str | None) -> float | None:
         return None
 
 
+def _version(v: str) -> Version | None:
+    try:
+        return Version(v)
+    except packaging.version.InvalidVersion:
+        return None
+
+
 def freshness_summary(reports: list[IngestReport], now: datetime) -> str:
-    """One paragraph on the freshness bound (DT-DATA-04): the selected releases uploaded more than
-    FRESHNESS_HOURS before `now` that aren't indexed, and the newest release that is."""
+    """One paragraph on the freshness bound (DT-DATA-04): the selected releases newer than a package's newest
+    indexed one and uploaded more than FRESHNESS_HOURS before `now`, and the newest release that is indexed. An
+    older release that can't be analysed (dspy 0.1.5 has no `dspy`) is the coverage table's business."""
     late, newest = [], None
     for r in reports:
         done = {*r.cached, *r.built, *r.carried}
+        indexed = [x for v in done if (x := _version(v)) is not None]
+        top = max(indexed) if indexed else None
         for v in r.selected:
             age = _hours_before(now, r.uploaded.get(v))
             if age is None:
                 continue
-            if v not in done and age > FRESHNESS_HOURS:
+            if v not in done and age > FRESHNESS_HOURS and (top is None or (_version(v) or top) > top):
                 late.append((age, r.package, v))
             elif v in done and (newest is None or age < newest[0]):
                 newest = (age, r.package, v)
@@ -82,12 +92,16 @@ def freshness_summary(reports: list[IngestReport], now: datetime) -> str:
             f"{p} {_cell(v, 40)} ({age:.0f} h)" for age, p, v in sorted(late, reverse=True)[:10]
         )
         text = (
-            f"**{len(late)} selected release{'s' if len(late) > 1 else ''} uploaded more than {FRESHNESS_HOURS} h "
-            f"before this run {'aren' if len(late) > 1 else 'isn'}'t indexed**: "
+            f"**{len(late)} release{'s' if len(late) > 1 else ''} newer than {'their' if len(late) > 1 else 'its'} "
+            f"package's newest indexed one {'were' if len(late) > 1 else 'was'} uploaded more than {FRESHNESS_HOURS} h "
+            "before this run**: "
             f"{listed}{' and more' if len(late) > 10 else ''}."
         )
     else:
-        text = f"Every selected release uploaded more than {FRESHNESS_HOURS} h before this run is indexed."
+        text = (
+            f"Every selected release uploaded more than {FRESHNESS_HOURS} h before this run is indexed, up to each "
+            "package's newest."
+        )
     if newest is not None:
         text += (
             f" The newest indexed release is {newest[1]} {newest[2]}, uploaded {newest[0]:.0f} h before it."

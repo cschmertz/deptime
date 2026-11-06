@@ -1874,3 +1874,67 @@ def test_min_confidence_and_suppressions_are_counted_never_silent(store, coverag
     (tmp_path / "deptime.toml").write_text('[[suppress]]\npackage = "numpy"\n')
     assert suppressions.load(tmp_path) == (suppressions.Suppression("numpy"),)
     assert suppressions.load(tmp_path / "missing") == ()
+
+
+def test_too_many_positional_arguments_finds_the_parameter_that_left_the_positions():
+    # DT-CORE-09: "takes 1 positional argument but 2 were given" after a parameter became keyword-only, or went.
+    spec = PackageSpec(name="p11", import_names=("p11",), tier="B")
+    mod = SymbolRecord("p11", "module", "p11")
+    pk, kw = "positional or keyword", "keyword-only"
+
+    def release(version: str, new: bool) -> ApiSnapshot:
+        connect = [_param("host", pk, None), _param("port", kw if new else pk, "0")]
+        init = [_param("url", pk, None), _param("timeout", kw if new else pk, "5")]
+        send = [_param("data", pk, None)] + ([] if new else [_param("flags", pk, "0")])
+        symbols = {
+            "p11": mod,
+            "p11.connect": SymbolRecord("p11.connect", "function", "p11.connect", connect),
+            "p11.Client": SymbolRecord("p11.Client", "class", "p11.Client"),
+            "p11.Client.__init__": SymbolRecord(
+                "p11.Client.__init__", "function", "p11.Client.__init__", init
+            ),
+            "p11.send": SymbolRecord("p11.send", "function", "p11.send", send),
+        }
+        return ApiSnapshot("p11", version, ["p11"], symbols)
+
+    store = IndexStore.memory()
+    store.rebuild_package(spec, [release("1.0", False), release("1.1", False), release("2.0", True)])
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+    f = dt.explain_error(
+        "TypeError: connect() takes 1 positional argument but 2 were given", {"p11": "2.0"}
+    ).findings[0]
+    assert (f.symbol, f.issue, f.last_version_with, f.first_version_without, f.pin_to_restore) == (
+        "p11.connect(port)",
+        "param_kind_changed",
+        "1.1",
+        "2.0",
+        "p11<=1.1",
+    )
+    assert (f.fix.kind, f.fix.new, f.fix.same_object, f.fix.source, f.fix.verified_at) == (
+        "keyword",
+        "port",
+        True,
+        "signature",
+        "2.0",
+    )
+    assert f.explanation.startswith("`port` of p11.connect became keyword-only in p11 2.0")
+    # A method: Python counts the instance, the index doesn't.
+    tb = "TypeError: Client.__init__() takes 2 positional arguments but 3 were given"
+    m = dt.explain_error(tb, {"p11": "2.0"}).findings[0]
+    assert (m.symbol, m.issue) == ("p11.Client.__init__(timeout)", "param_kind_changed")
+    # A positional parameter that's gone reads like the removal it is.
+    gone = dt.explain_error("TypeError: send() takes 1 positional argument but 2 were given", {"p11": "2.0"})
+    assert (gone.findings[0].symbol, gone.findings[0].issue) == ("p11.send(flags)", "param_removed")
+    # Counts the installed signature can't produce, or a release that still takes them: no finding.
+    assert (
+        dt.explain_error(
+            "TypeError: connect() takes 3 positional arguments but 4 were given", {"p11": "2.0"}
+        ).findings
+        == []
+    )
+    assert (
+        dt.explain_error(
+            "TypeError: connect() takes 2 positional arguments but 3 were given", {"p11": "1.1"}
+        ).findings
+        == []
+    )

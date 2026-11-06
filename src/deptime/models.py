@@ -72,9 +72,9 @@ class Link(BaseModel):
 
 
 class Fix(BaseModel):
-    kind: Literal["path", "argument"] = Field(
+    kind: Literal["path", "argument", "keyword"] = Field(
         description="path: use the dotted path `new` where the code uses `old`; argument: pass the keyword argument"
-        " `new` instead of `old`."
+        " `new` instead of `old`; keyword: pass the argument the call gives by position as `new=...`."
     )
     old: str
     new: str
@@ -89,7 +89,12 @@ class Fix(BaseModel):
         " so read `evidence`.",
     )
     confidence: float = Field(ge=0, le=1, description="The confidence of the replacement it comes from.")
-    source: Literal["deprecation_message", "moved_heuristic", "curated", "error_message"]
+    source: Literal["deprecation_message", "moved_heuristic", "curated", "error_message", "signature"] = (
+        Field(
+            description="A replacement's source, or signature: the indexed signatures show it (a parameter that became"
+            " keyword-only)."
+        )
+    )
     evidence: UntrustedText = Field(default=None, description="The replacement's evidence.")
     signature: list[ParamInfo] | None = Field(
         default=None,
@@ -213,6 +218,7 @@ class Finding(BaseModel):
         "param_removed",
         "param_not_yet_added",
         "param_now_required",
+        "param_kind_changed",
         "module_removed",
         "present_in_installed_version",
     ]

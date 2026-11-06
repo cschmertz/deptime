@@ -77,6 +77,11 @@ OTHER_CAUSE = (
     " If no newer release changed it, the error has another cause (a different interpreter or venv, a shadowing"
     " local module, or a lazily-imported optional dependency)."
 )
+# "f() takes 2 positional arguments but 3 were given" (DT-CORE-09): the counts include a method's instance.
+POSITIONAL_COUNT_RE = re.compile(
+    r"takes (?:from \d+ to )?(?P<takes>\d+) positional arguments? but (?P<given>\d+) (?:were|was) given"
+)
+POSITIONAL_KINDS = {"positional-only", "positional or keyword"}
 # Where a user asks for a package DepTime doesn't index (DT-OSS-11).
 PACKAGE_REQUEST_URL = "https://github.com/cschmertz/deptime/issues/new?template=package-request.yml"
 # DT-CORE-29: a finding's fix comes from a replacement at least this sure, or from the same object at another path.
@@ -1418,7 +1423,98 @@ class DepTime:
                 ]
             # A concrete change first, so the per-package limit never drops it behind inconclusive ones.
             return sorted((f for f in out if f is not None), key=lambda f: f.issue in INCONCLUSIVE_ISSUES)
+        if signal.kind == "too_many_positional" and signal.owner:
+            paths = self._rank(self.store.find_by_suffix([name], signal.owner), signal)
+            found = (
+                self._positional_finding(spec, p, signal.message, resolved, exact, installed_version)
+                for p in paths
+            )
+            return [f for f in found if f is not None]
         return []
+
+    def _positional_finding(
+        self,
+        spec: PackageSpec,
+        path: str,
+        message: str,
+        resolved: sqlite3.Row | None,
+        exact: bool,
+        installed: str | None,
+    ) -> Finding | None:
+        """Too many positional arguments (DT-CORE-09): the last release whose signature still took them all by
+        position, and the first parameter that release takes by position and the installed one doesn't. One that
+        became keyword-only is `param_kind_changed`, with passing it by name as the fix; one that's gone is
+        `param_removed`. Only when the installed signature takes exactly the count the message gives."""
+        assert self.store is not None
+        m = POSITIONAL_COUNT_RE.search(message or "")
+        if m is None:
+            return None
+        name = spec.name
+        rels = self.store.releases(name)
+        ordinal = resolved["ordinal"] if resolved else rels[-1]["ordinal"]
+
+        def signature(o: int) -> list[dict] | None:
+            raw = self._callable_params(name, path, o)
+            return None if raw is None else json.loads(raw)
+
+        def positional(params: list[dict]) -> list[dict]:
+            return [p for p in params if p["kind"] in POSITIONAL_KINDS]
+
+        current = signature(ordinal)
+        if current is None or any(p["kind"] == "variadic positional" for p in current):
+            return None
+        offset = int(m["takes"]) - len(
+            positional(current)
+        )  # the instance Python counts and the index doesn't
+        if offset not in {0, 1}:
+            return None  # this signature doesn't produce the message
+        need, after = int(m["given"]) - offset, ordinal
+        for o in range(ordinal - 1, -1, -1):
+            before = signature(o)
+            if before is None:
+                continue
+            if len(positional(before)) < need and not any(p["kind"] == "variadic positional" for p in before):
+                after = o
+                continue
+            later = {p["name"]: p for p in signature(after) or []}
+            moved = next(
+                (p for p in positional(before) if p["name"] not in {q["name"] for q in positional(current)}),
+                None,
+            )
+            if moved is None:
+                return None
+            param, prev, changed_in = moved["name"], self._version(name, o), self._version(name, after)
+            if param not in later:
+                return self._param_finding(
+                    spec, path, param, "unexpected_kwarg", resolved, exact, installed, message=message
+                )
+            if later[param]["kind"] != "keyword-only":
+                return None
+            now = self._version(name, ordinal)
+            return Finding(
+                package=name,
+                symbol=f"{path}({param})",
+                issue="param_kind_changed",
+                installed_version=installed,
+                resolved_version=resolved["version"] if resolved else None,
+                last_version_with=prev,
+                first_version_without=changed_in,
+                pin_to_restore=f"{name}<={prev}",
+                confidence=self._confidence(resolved, exact),
+                fix=Fix(
+                    kind="keyword",
+                    old=param,
+                    new=param,
+                    verified_at=now or changed_in or "",
+                    same_object=True,
+                    confidence=1.0,
+                    source="signature",
+                    evidence=f"{path} takes `{param}` by position in {name} {prev} and only by keyword in {changed_in}.",
+                ),
+                explanation=f"`{param}` of {path} became keyword-only in {name} {changed_in}; {prev} still took it by "
+                f"position. Pass it as `{param}=...`, or pin {name}<={prev}.",
+            )
+        return None
 
     def _defining_paths(self, name: str, paths: list[str]) -> list[tuple[str, str | None]]:
         """Each path, or for a member a class inherits, the defining class's shortest public path with the same

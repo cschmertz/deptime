@@ -3162,3 +3162,87 @@ def test_snapshot_roundtrip_keeps_internal_names(tmp_path):
     snap.save(out)
     again = ApiSnapshot.load(out)
     assert again.internal == snap.internal and again.symbols == snap.symbols
+
+
+_LAZY_INIT = (
+    "from typing import TYPE_CHECKING\n"
+    "from ...utils import _LazyModule\n"
+    "from ...utils.import_utils import define_import_structure\n\n"
+    "if TYPE_CHECKING:\n"
+    "    from .{star} import *\n"
+    "else:\n"
+    "    import sys\n\n"
+    '    _file = globals()["__file__"]\n'
+    "    sys.modules[__name__] = _LazyModule(__name__, _file, define_import_structure(_file), module_spec=__spec__)\n"
+)
+
+# transformers 4.57: `_LazyModule(..., define_import_structure(_file))` exports what the folder's modules list, and
+# the generated `TYPE_CHECKING` imports can be stale (t5gemma's names `configuration_encdecgemma2`).
+LAZY_STRUCTURE = {
+    "tfm/__init__.py": (
+        "import sys\n"
+        "from pathlib import Path\n"
+        "from typing import TYPE_CHECKING\n"
+        "from .utils import _LazyModule\n"
+        "from .utils.import_utils import define_import_structure\n\n"
+        "if TYPE_CHECKING:\n"
+        "    from .configuration_utils import PretrainedConfig\n"
+        "    from .models import *\n"
+        "else:\n"
+        '    import_structure = define_import_structure(Path(__file__).parent / "models", prefix="models")\n'
+        '    sys.modules[__name__] = _LazyModule(__name__, globals()["__file__"], import_structure)\n'
+    ),
+    "tfm/configuration_utils.py": "class PretrainedConfig:\n    pass\n",
+    "tfm/utils/__init__.py": "class _LazyModule:\n    pass\n",
+    "tfm/utils/import_utils.py": (
+        "def define_import_structure(path, prefix=None):\n    return {}\n\n\n"
+        "def requires(*, backends=()):\n    return lambda obj: obj\n"
+    ),
+    "tfm/models/__init__.py": _LAZY_INIT.replace("...", "..").format(star="bert"),
+    "tfm/models/bert/__init__.py": _LAZY_INIT.format(star="configuration_bert"),
+    "tfm/models/bert/configuration_bert.py": 'class BertConfig:\n    pass\n\n\n__all__ = ["BertConfig"]\n',
+    "tfm/models/bert/modeling_bert.py": (
+        'class BertLayer:\n    pass\n\n\nclass BertModel:\n    pass\n\n\n__all__ = ["BertModel"]\n'
+    ),
+    "tfm/models/gemma/__init__.py": _LAZY_INIT.format(star="configuration_oldgemma"),
+    "tfm/models/gemma/configuration_gemma.py": (
+        'class GemmaConfig:\n    pass\n\n\n__all__ = ["Old"]\n__all__ = ["GemmaConfig"]\n'
+    ),
+    "tfm/models/gemma/modeling_gemma.py": (
+        "from ...utils.import_utils import requires\n\n\n"
+        '@requires(backends=("torch",))\nclass GemmaModel:\n    pass\n\n\nclass GemmaHelper:\n    pass\n'
+    ),
+    "tfm/models/gemma/modular_gemma.py": 'class ModularOnly:\n    pass\n\n\n__all__ = ["ModularOnly"]\n',
+    "tfm/models/gemma/convert_gemma.py": "def main():\n    pass\n",
+    "tfm/plain/__init__.py": "from tfm.utils.import_utils import define_import_structure\n",
+    "tfm/plain/things.py": 'class Thing:\n    pass\n\n\n__all__ = ["Thing"]\n',
+}
+
+
+def test_a_lazy_package_exports_what_its_folder_lists(tmp_path):
+    # DT-DATA-05: transformers 4.57's `models/__init__.py` leaves out 15 models and t5gemma's `__init__` star-imports
+    # a module that doesn't exist, so their names read absent though `_LazyModule` serves them.
+    for own in (False, True):
+        snap = build_snapshot(
+            "tfm", "1.0", ["tfm"], _write(tmp_path / str(own), LAZY_STRUCTURE), own_members=own
+        )
+        symbols = snap.expanded()
+        for path in ("tfm.models.gemma", "tfm.models", "tfm"):
+            assert (
+                symbols[f"{path}.GemmaConfig"].canonical == "tfm.models.gemma.configuration_gemma.GemmaConfig"
+            )
+            assert symbols[f"{path}.GemmaModel"].canonical == "tfm.models.gemma.modeling_gemma.GemmaModel"
+            bert = "tfm.models.bert" if path == "tfm.models.gemma" else path
+            assert symbols[f"{bert}.BertModel"].canonical == "tfm.models.bert.modeling_bert.BertModel"
+            assert f"{bert}.BertLayer" not in symbols
+            # Not listed, an older `__all__`, a `modular_*` source beside its generated `modeling_*` file, a script.
+            for name in ("GemmaHelper", "Old", "ModularOnly", "main"):
+                assert f"{path}.{name}" not in symbols
+        assert "tfm.PretrainedConfig" in symbols
+        # `_LazyModule` replaces the module: the helper it imported isn't served.
+        assert "tfm.define_import_structure" not in symbols
+        assert "tfm.models.gemma.define_import_structure" not in symbols
+        assert "tfm.plain.define_import_structure" in symbols
+        assert "tfm.models.gemma.modular_gemma.ModularOnly" in symbols
+        # Only a package that hands `define_import_structure` its own folder.
+        assert "tfm.plain.Thing" not in symbols

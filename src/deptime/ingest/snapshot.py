@@ -31,7 +31,7 @@ from deptime.ingest.replacements import (
     worded_deprecated,
 )
 
-SNAPSHOT_FORMAT = 17  # bump when extraction changes: cached snapshots in another format are rebuilt
+SNAPSHOT_FORMAT = 18  # bump when extraction changes: cached snapshots in another format are rebuilt
 MAX_DEPTH = 12  # guards pathological re-export cycles
 
 DEPRECATED_DECORATOR_RE = re.compile(r"^(?:[\w.]+\.)?deprecated\b(?:\(.*\))?$", re.S)
@@ -3637,6 +3637,160 @@ class _Rebound(griffe.Extension):
         attr.parent.set_member(attr.name, obj)
 
 
+def _file_expr(node: ast.expr, files: set[str]) -> bool:
+    """`__file__`, `globals()["__file__"]`, or a name the module bound to one of them."""
+    if isinstance(node, ast.Name):
+        return node.id == "__file__" or node.id in files
+    return (
+        isinstance(node, ast.Subscript)
+        and isinstance(node.value, ast.Call)
+        and isinstance(node.value.func, ast.Name)
+        and node.value.func.id == "globals"
+        and isinstance(node.slice, ast.Constant)
+        and node.slice.value == "__file__"
+    )
+
+
+def _structure_folder(node: ast.expr, files: set[str], here: Path) -> Path | None:
+    """The folder a `define_import_structure(<path>)` argument names: the module's own file (its folder), or
+    `Path(__file__).parent / "models"`, as transformers 5's top-level `__init__` passes."""
+    if _file_expr(node, files):
+        return here
+    parts: list[str] = []
+    while isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
+        if not (isinstance(node.right, ast.Constant) and isinstance(node.right.value, str)):
+            return None
+        parts.insert(0, node.right.value)
+        node = node.left
+    if not (
+        parts
+        and isinstance(node, ast.Attribute)
+        and node.attr == "parent"
+        and isinstance(node.value, ast.Call)
+        and ast.unparse(node.value.func) in {"Path", "pathlib.Path"}
+        and len(node.value.args) == 1
+        and _file_expr(node.value.args[0], files)
+    ):
+        return None
+    folder = here.joinpath(*parts)
+    return folder if all(p.isidentifier() for p in parts) else None
+
+
+def _requires_decorated(st: ast.stmt) -> bool:
+    if not isinstance(st, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+        return False
+    for dec in st.decorator_list:
+        func = dec.func if isinstance(dec, ast.Call) else dec
+        if isinstance(func, (ast.Name, ast.Attribute)) and ast.unparse(func).rpartition(".")[2] == "requires":
+            return True
+    return False
+
+
+class _ImportStructure(griffe.Extension):
+    """transformers' lazy packages export every name their folder's modules list (DT-DATA-05).
+
+    A model package's `__init__` hands `_LazyModule` `define_import_structure(_file)`, which reads, in every module
+    file below the package's folder, its `__all__` and the classes and functions decorated `@requires(...)`; the
+    `if TYPE_CHECKING:` imports are only for type checkers, generated, and sometimes stale. transformers 4.57's
+    `models/t5gemma/__init__.py` star-imports `configuration_encdecgemma2`, a module that doesn't exist, and
+    `models/__init__.py` leaves out SmolLM3, Apertus and 13 more models, so `transformers.SmolLM3ForCausalLM`
+    read absent in every 4.x release though it imports. Each such name becomes an import of it from the module
+    that lists it, unless the package already binds it. Read from the files with `ast`; nothing is imported."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.listed: dict[Path, list[str]] = {}
+
+    def on_module_members(
+        self, *, node: ast.AST | griffe.ObjectNode, mod: griffe.Module, **kwargs: Any
+    ) -> None:
+        if not (isinstance(node, ast.Module) and mod.is_init_module and isinstance(mod.filepath, Path)):
+            return
+        source = mod.imports.get("define_import_structure", "")
+        if not source.endswith(".define_import_structure") or not _within(source, mod.package.path):
+            return
+        files = {
+            t.id
+            for st in ast.walk(node)
+            if isinstance(st, ast.Assign) and _file_expr(st.value, set())
+            for t in st.targets
+            if isinstance(t, ast.Name)
+        }
+        here = mod.filepath.parent
+        found = False
+        for call in ast.walk(node):
+            if not (
+                isinstance(call, ast.Call)
+                and isinstance(call.func, ast.Name)
+                and call.func.id == "define_import_structure"
+                and call.args
+            ):
+                continue
+            folder = _structure_folder(call.args[0], files, here)
+            if folder is None or not folder.is_dir():
+                continue
+            found = True
+            prefix = ".".join([mod.path, *folder.relative_to(here).parts])
+            for name, module in self._exports(folder, prefix).items():
+                if name not in mod.members:
+                    mod.set_member(
+                        name, griffe.Alias(name, f"{module}.{name}", runtime=True, analysis="static")
+                    )
+        # The `_LazyModule` replaces the module, so the helper it imported isn't there at runtime.
+        helper = mod.members.get("define_import_structure")
+        if found and helper is not None and helper.is_alias:
+            mod.del_member("define_import_structure")
+
+    def _exports(self, folder: Path, prefix: str) -> dict[str, str]:
+        """Each name `define_import_structure(folder)` exports, and the module it's listed in: the module files
+        beside, then the folders below (their `__init__` excluded), skipping `modular_*` files beside a
+        `modeling_*` file (transformers' sources for generated code)."""
+        try:
+            entries = sorted(folder.iterdir())
+        except OSError:
+            return {}
+        files = [p for p in entries if p.is_file()]
+        modular = any("modular_" in p.name for p in files) and any("modeling_" in p.name for p in files)
+        found: dict[str, str] = {}
+        for path in files:
+            if path.suffix != ".py" or path.name == "__init__.py" or not path.stem.isidentifier():
+                continue
+            if modular and "modular_" in path.name:
+                continue
+            for name in self._listed(path):
+                found.setdefault(name, f"{prefix}.{path.stem}")
+        for sub in entries:
+            if sub.is_dir() and sub.name.isidentifier():
+                for name, module in self._exports(sub, f"{prefix}.{sub.name}").items():
+                    found.setdefault(name, module)
+        return found
+
+    def _listed(self, path: Path) -> list[str]:
+        if path not in self.listed:
+            decorated: list[str] = []
+            listed: list[str] = []  # the last `__all__ = [...]`, as transformers' `fetch__all__` reads it
+            try:
+                text = path.read_text(encoding="utf-8", errors="replace")
+                tree = _quiet_parse(text) if "__all__" in text or "@requires" in text else None
+            except (OSError, SyntaxError, ValueError):
+                tree = None
+            for st in tree.body if isinstance(tree, ast.Module) else ():
+                if _requires_decorated(st):
+                    decorated.append(st.name)  # type: ignore[union-attr]
+                elif (
+                    isinstance(st, ast.Assign)
+                    and any(isinstance(t, ast.Name) and t.id == "__all__" for t in st.targets)
+                    and isinstance(st.value, (ast.List, ast.Tuple))
+                ):
+                    listed = [
+                        e.value
+                        for e in st.value.elts
+                        if isinstance(e, ast.Constant) and isinstance(e.value, str)
+                    ]
+            self.listed[path] = [n for n in dict.fromkeys([*decorated, *listed]) if n.isidentifier()]
+        return self.listed[path]
+
+
 _NAMED_KINDS = frozenset(
     {
         griffe.ParameterKind.positional_only,
@@ -3809,7 +3963,9 @@ def build_snapshot(
                     # None loads only a private sibling (`_pytest` for `pytest`), found in the same wheel because
                     # search_paths replaces sys.path; other distributions' names stay aliases.
                     resolve_external=None,
-                    extensions=griffe.load_extensions(_RuntimeElse(), _OverloadsOnly(), _Rebound()),
+                    extensions=griffe.load_extensions(
+                        _RuntimeElse(), _OverloadsOnly(), _Rebound(), _ImportStructure()
+                    ),
                 )
             except Exception as exc:  # report and continue: one bad import name must not sink the release
                 snap.errors.append(f"load {import_name}: {type(exc).__name__}: {exc}")

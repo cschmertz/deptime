@@ -14,7 +14,8 @@ version questions deterministically. Prefer it over guessing or web searching fo
 2. Call `explain_error` with the full traceback and that output as `pip_freeze`.
    For a missing standard-library module (`distutils`, `imp`, `tomllib`), also pass `installed_versions={"python": "<python --version>"}`.
 3. Read `findings[0]`:
-   - `param_removed` / `symbol_removed` / `module_removed` → use `replacements` (highest confidence first) or apply `pin_to_restore` if the user prefers not to migrate.
+   - `fix`, when present, is the one change the index proves at the installed version: `path` (use `new` where the code uses `old`), `argument` (pass `new` instead of `old`) or `keyword` (pass the argument by name). With `same_object: false` it is a different object or parameter, so check its `signature` and `evidence` before rewriting the call.
+   - `param_removed` / `symbol_removed` / `module_removed` / `param_kind_changed` → otherwise use `replacements` (highest confidence first), or apply `pin_to_restore` if the user prefers not to migrate. `signature_before` and `signature_after` show the callable on each side, and `links` the release pages and changelog.
      With `internal: true` the name isn't public API, and the code using it is usually another library
      (see the traceback's frames): upgrade that library to a release that supports the new version, or pin.
    - `never_existed` → the name was probably misremembered; check `symbol_history` or the library's docs.
@@ -24,7 +25,8 @@ version questions deterministically. Prefer it over guessing or web searching fo
 
 ## Before writing code from memory
 
-Call `check_symbols` with the installed version and the symbols and keyword arguments you plan to use.
+Call `check_symbols` with the installed version and the symbols and keyword arguments you plan to use, or pass
+the code itself as `code`: DepTime reads the package names it imports and calls with `ast`, never running it.
 Use `diff_versions` with a date (your training cutoff, `YYYY-MM-DD`) to see what changed since then.
 
 ## Rules

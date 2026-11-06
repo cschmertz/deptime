@@ -563,6 +563,7 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
 - [x] **DT-GTM-04**: Claude Code plugin release (marketplace) · `P0` `S` · deps: SPIKE-06, OSS-05
   - Done 2026-11-05: the repo is its own marketplace (`.claude-plugin/marketplace.json`). On Claude Code 2.1.318, `claude plugin validate` passes for the marketplace and the plugin, and in an empty config `claude plugin marketplace add cschmertz/deptime` then `claude plugin install deptime@deptime` installs 0.1.5, enabled. The README gives both commands. Submitting it to Anthropic's plugin directory is left; whether agents call DepTime unprompted is DT-SPIKE-06.
 - [ ] **DT-GTM-05**: Cursor rule + AGENTS.md snippet, tested in fresh projects · `P1` `S`
+  - Done so far: `integrations/snippets/cursor-deptime.mdc` and `AGENTS.md`, and the Claude Code skill, say when to call DepTime; since 2026-11-06 they also tell an agent to apply `fix` (checking the new `signature` when `same_object` is false) and to pass code to `check_symbols`. Left: trying each in a fresh project.
 
 ## M3 — Optional hosted instance (DT-HOST)
 

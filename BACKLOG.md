@@ -125,8 +125,9 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
 - [x] **DT-OSS-05**: Tagged release through PyPI trusted publishing · `P0` `S` · deps: OSS-03
   - AC: trusted publisher configured; `git tag v0.1.0` publishes; `uvx deptime mcp` works from PyPI.
   - Done 2026-10-28: v0.1.0 published by `release.yml` with provenance; `uvx deptime@0.1.0 mcp` answered over stdio from an empty home.
-- [ ] **DT-OSS-06**: CHANGELOG + versioning policy · `P2` `S`
+- [x] **DT-OSS-06**: CHANGELOG + versioning policy · `P2` `S`
   - AC: Keep-a-Changelog file; semver for the CLI and tool contract; the index schema version is documented.
+  - Done 2026-11-06: `CHANGELOG.md` with every release since 0.1.0 and an Unreleased section, and a Versioning section: semver over the tool names and parameters, the result fields and the CLI; additive contract changes in 0.x patches; answers may change in any release; the index's `schema_version` (1, and 2 since DT-DATA-16, read by 0.1.6+) and what doesn't bump it; `SNAPSHOT_FORMAT` versions the build cache only.
 - [x] **DT-OSS-07**: Supply chain · `P1` `S`
   - AC: GitHub Actions pinned to SHAs; Dependabot for `uv.lock` and actions; `pip-audit` in CI.
   - Done 2026-10-31: every action is pinned to the commit its major tag pointed at (no change in behaviour), with the release in a comment. `.github/dependabot.yml` proposes weekly `uv` and `github-actions` updates, minor and patch grouped per ecosystem; griffe gets a PR of its own, since a new extractor can change snapshots without a `SNAPSHOT_FORMAT` bump. A ci job runs `pip-audit --strict` over every package in `uv.lock`, with pip-audit itself locked in an `audit` dependency group. Its first run found certifi 2026.7.22 still trusting the emSign roots behind compromised eMudhra intermediates (PYSEC-2026-4320); the lock now has 2026.10.23.

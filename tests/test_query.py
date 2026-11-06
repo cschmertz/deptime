@@ -1681,3 +1681,115 @@ def test_a_name_no_indexed_release_has_is_low_when_the_installed_release_is_newe
 def test_coverage_gives_the_newest_release_s_upload_date(dt):
     entry = dt.coverage_report().packages[0]
     assert (entry.latest_version, entry.latest_released_at) == ("0.28.1", "2024-12-06T00:00:00+00:00")
+
+
+def test_a_finding_carries_both_signatures_and_its_release_pages(dt):
+    # DT-CORE-29: what an agent would otherwise look up: the signature on each side and where to read the change.
+    f = dt.explain_error(HTTPX_TB, {"httpx": "0.28.1"}).findings[0]
+    assert f.symbol == "httpx.Client.__init__(proxies)"
+    assert "proxies" in [p.name for p in f.signature_before]
+    assert [p.name for p in f.signature_after] == ["auth", "proxy", "mounts", "timeout"]
+    assert [(link.title, link.url) for link in f.links] == [
+        ("httpx 0.27.2 on PyPI", "https://pypi.org/project/httpx/0.27.2/"),
+        ("httpx 0.28.1 on PyPI", "https://pypi.org/project/httpx/0.28.1/"),
+    ]
+    # "Use 'proxy' or 'mounts' instead": the library names two, so neither is the fix.
+    assert [r.target for r in f.replacements] == ["proxy", "mounts"] and f.fix is None
+
+
+def test_a_fix_is_a_replacement_the_index_shows_at_the_installed_release():
+    # DT-CORE-29: never a hint the installed release can't use, and never written text.
+    spec = PackageSpec(name="p8", import_names=("p8",), tier="B")
+    mod = SymbolRecord("p8", "module", "p8")
+    new = SymbolRecord("p8.New", "class", "p8._impl.New")
+    init = SymbolRecord("p8.New.__init__", "function", "p8._impl.New.__init__", [_param("size")])
+    old = SymbolRecord("p8.Old", "class", "p8._impl.Old", None, "Old is deprecated, use p8.New instead.")
+    snaps = [
+        ApiSnapshot("p8", "1.0", ["p8"], {"p8": mod, "p8.Old": old, "p8.New": new, "p8.New.__init__": init}),
+        ApiSnapshot("p8", "2.0", ["p8"], {"p8": mod}),
+        ApiSnapshot("p8", "3.0", ["p8"], {"p8": mod, "p8.New": new, "p8.New.__init__": init}),
+    ]
+    store = IndexStore.memory()
+    store.rebuild_package(spec, snaps)
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+    tb = "ImportError: cannot import name 'Old' from 'p8'"
+    at2 = dt.explain_error(tb, {"p8": "2.0"}).findings[0]
+    assert at2.issue == "symbol_removed" and at2.replacements[0].target == "p8.New"
+    assert at2.fix is None  # 2.0 has no `p8.New`
+    fix = dt.explain_error(tb, {"p8": "3.0"}).findings[0].fix
+    assert (fix.kind, fix.old, fix.new, fix.verified_at, fix.same_object, fix.source) == (
+        "path",
+        "p8.Old",
+        "p8.New",
+        "3.0",
+        False,
+        "deprecation_message",
+    )
+    assert [p.name for p in fix.signature] == ["size"] and "use p8.New" in fix.evidence
+    assert dt.explain_error(tb).findings[0].fix.verified_at == "3.0"  # no installed version: the newest
+
+
+def test_the_same_object_or_a_renamed_argument_is_a_drop_in_fix():
+    # DT-CORE-29 with DT-CORE-22 and DT-CORE-24: a path that still has the object, and a parameter that only changed
+    # case, need no other change.
+    spec = PackageSpec(name="p9", import_names=("p9",), tier="B")
+    mods = {p: SymbolRecord(p, "module", p) for p in ("p9", "p9.lib", "p9.lib.sets")}
+    union = SymbolRecord("p9.union1d", "function", "p9._impl.union1d", [])
+
+    def release(version: str, param: str, old_path: bool) -> ApiSnapshot:
+        f = SymbolRecord("p9.elicit", "function", "p9.elicit", [_param(param, "positional or keyword")])
+        symbols = {**mods, "p9.union1d": union, "p9.elicit": f}
+        if old_path:
+            symbols["p9.lib.sets.union1d"] = SymbolRecord(
+                "p9.lib.sets.union1d", "function", "p9._impl.union1d", []
+            )
+        return ApiSnapshot("p9", version, ["p9"], symbols)
+
+    store = IndexStore.memory()
+    store.rebuild_package(
+        spec, [release("1.0", "requestedSchema", True), release("2.0", "requested_schema", False)]
+    )
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+    moved = dt.explain_error(
+        "AttributeError: module 'p9.lib.sets' has no attribute 'union1d'", {"p9": "2.0"}
+    ).findings[0]
+    assert (moved.fix.kind, moved.fix.new, moved.fix.same_object, moved.fix.confidence) == (
+        "path",
+        "p9.union1d",
+        True,
+        0.75,
+    )
+    renamed = dt.explain_error(
+        "TypeError: elicit() got an unexpected keyword argument 'requestedSchema'", {"p9": "2.0"}
+    ).findings[0]
+    assert (renamed.fix.kind, renamed.fix.old, renamed.fix.new, renamed.fix.same_object) == (
+        "argument",
+        "requestedSchema",
+        "requested_schema",
+        True,
+    )
+
+
+def test_the_changelog_link_comes_from_the_release_metadata():
+    # DT-CORE-29: the project's own Project-URL entries, never a guessed URL; untrusted, so checked again on the way out.
+    from dataclasses import replace
+
+    urls = {"Homepage": "https://example.org", "Docs: Changelog": "https://example.org/changes"}
+    snaps = [
+        SNAPSHOTS[0],
+        replace(SNAPSHOTS[1], project_urls={"Changelog": "javascript:alert(1)"}),
+        replace(SNAPSHOTS[2], project_urls=urls),
+    ]
+    store = IndexStore.memory()
+    store.rebuild_package(HTTPX, snaps, RELEASED_AT)
+    assert store.snapshot_at(HTTPX, "0.28.1").project_urls == urls
+    dt = DepTime(store, Coverage(POLICY, (HTTPX,)))
+    f = dt.explain_error(HTTPX_TB, {"httpx": "0.28.1"}).findings[0]
+    assert (f.links[-1].title, f.links[-1].url) == ("httpx Docs: Changelog", "https://example.org/changes")
+    # 0.27.2's entry isn't a web page, so it gives no link; 0.26.0 has none and takes the nearest later release's.
+    assert (
+        store.project_urls("httpx", 1)
+        == store.project_urls("httpx", 0)
+        == {"Changelog": "javascript:alert(1)"}
+    )
+    assert dt._changelog("httpx", 1) is None and dt._changelog("httpx", 0) is None

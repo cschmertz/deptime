@@ -9,6 +9,7 @@ from deptime.ingest.pypi import (
     ReleaseFile,
     parse_simple_index,
     pick_file,
+    project_urls,
     requires_dist,
     same_version_pins,
     select_versions,
@@ -174,3 +175,26 @@ def test_requires_dist_keeps_every_requirement_normalized(tmp_path, monkeypatch)
     (top / "PKG-INFO").write_text("Metadata-Version: 2.1\nName: s\nVersion: 1.0\n")
     assert requires_dist(top, "s-1.0.tar.gz") is None
     assert requires_dist(tmp_path, "w-2.0.0.tar.gz") is None  # no PKG-INFO
+
+
+def test_project_urls_keeps_web_links_only(tmp_path, monkeypatch):
+    # DT-CORE-29: metadata is untrusted, and the changelog link comes from here.
+    info = tmp_path / "w-2.0.0.dist-info"
+    info.mkdir()
+    (info / "METADATA").write_text(
+        "Metadata-Version: 2.1\nName: w\nVersion: 2.0.0\n"
+        "Project-URL: Homepage, https://example.org\n"
+        "Project-URL: Changelog,  https://example.org/changes \n"
+        "Project-URL: Changelog, https://example.org/second\n"
+        "Project-URL: Script, javascript:alert(1)\n"
+        "Project-URL: Spaced, https://example.org/a b\n"
+        "Project-URL: no url here\n"
+    )
+    wheel = "w-2.0.0-py3-none-any.whl"
+    assert project_urls(tmp_path, wheel) == {
+        "Homepage": "https://example.org",
+        "Changelog": "https://example.org/changes",
+    }
+    monkeypatch.setattr("deptime.ingest.pypi.MAX_PROJECT_URLS", 1)
+    assert project_urls(tmp_path, wheel) == {"Homepage": "https://example.org"}
+    assert project_urls(info, wheel) is None  # no metadata there

@@ -239,11 +239,7 @@ def requires_dist(root: Path, filename: str) -> list[str] | None:
     sdist's lists no requirement (older setuptools left them to `requires.txt`, so "none" isn't known).
     Unparseable lines are skipped.
     """
-    if filename.endswith(".whl"):
-        files = sorted(root.glob("*.dist-info/METADATA"))
-    else:
-        top = root.parent if root.name == "src" else root  # see _search_root
-        files = [top / "PKG-INFO"] if (top / "PKG-INFO").is_file() else []
+    files = _metadata_files(root, filename)
     if not files:
         return None
     out: list[str] = []
@@ -259,6 +255,42 @@ def requires_dist(root: Path, filename: str) -> list[str] | None:
     if not out and not filename.endswith(".whl"):
         return None
     return out[:MAX_REQUIRES]
+
+
+MAX_PROJECT_URLS = 50
+MAX_URL_LENGTH = 500
+MAX_URL_LABEL = 100
+
+
+def _metadata_files(root: Path, filename: str) -> list[Path]:
+    """A wheel's `.dist-info/METADATA`, else an sdist's `PKG-INFO` (see `_search_root`)."""
+    if filename.endswith(".whl"):
+        return sorted(root.glob("*.dist-info/METADATA"))
+    top = root.parent if root.name == "src" else root
+    return [top / "PKG-INFO"] if (top / "PKG-INFO").is_file() else []
+
+
+def project_urls(root: Path, filename: str) -> dict[str, str] | None:
+    """The `Project-URL` entries of an extracted artifact, label to URL, in metadata order (DT-CORE-29). Metadata
+    is untrusted: only `https://` and `http://` URLs without whitespace or control characters are kept, and labels
+    and URLs are length-capped. None when there is no metadata."""
+    files = _metadata_files(root, filename)
+    if not files:
+        return None
+    out: dict[str, str] = {}
+    for metadata in files:
+        headers = HeaderParser().parsestr(metadata.read_text(encoding="utf-8", errors="replace"))
+        for entry in headers.get_all("Project-URL") or []:
+            label, sep, url = str(entry).partition(",")
+            label, url = " ".join(label.split()), url.strip()
+            if not (sep and label and url) or len(label) > MAX_URL_LABEL or len(url) > MAX_URL_LENGTH:
+                continue
+            if not url.lower().startswith(("https://", "http://")):
+                continue
+            if any(c.isspace() or ord(c) < 32 or ord(c) == 127 for c in url):
+                continue
+            out.setdefault(label, url)
+    return dict(list(out.items())[:MAX_PROJECT_URLS])
 
 
 def same_version_pins(root: Path, version: str) -> list[str]:

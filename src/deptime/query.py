@@ -9,6 +9,7 @@ import json
 import re
 import sqlite3
 import threading
+from functools import lru_cache
 from pathlib import Path
 
 from packaging.utils import canonicalize_name
@@ -27,7 +28,9 @@ from deptime.models import (
     DiffResult,
     ExplainResult,
     Finding,
+    Fix,
     HistoryEvent,
+    Link,
     ParamInfo,
     Replacement,
     SymbolCheck,
@@ -70,6 +73,13 @@ OTHER_CAUSE = (
     " If no newer release changed it, the error has another cause (a different interpreter or venv, a shadowing"
     " local module, or a lazily-imported optional dependency)."
 )
+# DT-CORE-29: a finding's fix comes from a replacement at least this sure, or from the same object at another path.
+FIX_MIN_CONFIDENCE = 0.75
+FIXABLE_ISSUES = {"symbol_removed", "param_removed", "module_removed", "never_existed"}
+PARAM_SYMBOL_RE = re.compile(r"(?P<path>[^()]+)\((?P<param>[^()]+)\)")
+DOTTED_RE = re.compile(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*")
+# Project-URL labels, normalized as PEP 753 does, that name a changelog or release notes, best first.
+CHANGELOG_LABELS = ("changelog", "releasenotes", "changes", "whatsnew", "history", "releases")
 # Findings that don't identify a version change (the name is unknown, or present at the installed version).
 INCONCLUSIVE_ISSUES = {"never_existed", "present_in_installed_version"}
 MODULE_SIGNALS = {"import_name", "module_missing", "module_attribute"}
@@ -99,7 +109,13 @@ def _and(items: list[str], word: str = "and") -> str:
 
 
 def _params(raw: str | None) -> list[ParamInfo] | None:
-    return None if raw is None else [ParamInfo(**p) for p in json.loads(raw)]
+    return None if raw is None else list(_parsed_params(raw))
+
+
+@lru_cache(maxsize=2048)
+def _parsed_params(raw: str) -> tuple[ParamInfo, ...]:
+    """A signature's parameters, validated once: transformers' configs take a hundred."""
+    return tuple(ParamInfo(**p) for p in json.loads(raw))
 
 
 def _deprecated_params(span: sqlite3.Row | None) -> dict[str, str]:
@@ -593,6 +609,7 @@ class DepTime:
                 findings = [f for f in findings if f.issue != "never_existed"] + callee
         rank = {"high": 0, "medium": 1, "low": 2}
         findings.sort(key=lambda f: (rank[f.confidence], f.issue == "present_in_installed_version"))
+        findings = [self._act_on(f, installed) for f in findings]
         notes = list(owner_notes)
         notes += [alias_notes[p] for p in sorted({f.package for f in findings}) if p in alias_notes]
         if signal.wrapped_in:
@@ -631,6 +648,160 @@ class DepTime:
         return ExplainResult(
             signal=signal.to_model(), findings=findings, not_covered=sorted(set(not_covered)), note=note
         )
+
+    def _act_on(self, f: Finding, installed: dict[str, str]) -> Finding:
+        """What an agent needs to act on a finding without looking further (DT-CORE-29): the callable's signature on
+        each side of the change, the two releases' PyPI pages and the project's changelog, and a fix where the index
+        proves one. Everything comes from the index; nothing is written."""
+        if self.store is None or f.package == PYTHON or not self._indexed(f.package):
+            return f
+        name = f.package
+        m = PARAM_SYMBOL_RE.fullmatch(f.symbol)
+        path, param = (m["path"], m["param"]) if m else (f.symbol, None)
+        not_yet = f.issue in {"symbol_not_yet_added", "param_not_yet_added"}
+        before = f.last_version_without if not_yet else f.last_version_with
+        after = (f.first_version_with if not_yet else f.first_version_without) or f.resolved_version
+        update: dict = {}
+        if f.issue not in {"never_existed", "module_removed"}:
+            update["signature_before"] = self._signature(name, path, before)
+            update["signature_after"] = self._signature(name, path, after)
+        links = [
+            Link(title=f"{name} {v} on PyPI", url=f"https://pypi.org/project/{name}/{v}/")
+            for v in dict.fromkeys(v for v in (before, after) if v)
+            if self._release(name, v) is not None
+        ]
+        anchor = self._release(name, after or before or "") or self.store.newest_release(name)
+        if anchor is not None and (changelog := self._changelog(name, anchor["ordinal"])) is not None:
+            links.append(changelog)
+        update["links"] = links
+        if f.issue in FIXABLE_ISSUES:
+            update["fix"] = self._fix(f, path, param, installed)
+        return f.model_copy(update=update)
+
+    def _release(self, name: str, version: str) -> sqlite3.Row | None:
+        """The indexed release a finding names: its versions are written as the index has them."""
+        assert self.store is not None
+        return self.store.release(name, version) if version else None
+
+    def _callable_params(self, name: str, path: str, ordinal: int) -> str | None:
+        """The JSON parameters of `path` at a release: a function's, or a class's `__init__`'s."""
+        assert self.store is not None
+        span = self.store.span_at(name, path, ordinal)
+        if span is None:
+            return None
+        if span["params"] is None and span["kind"] == "class":
+            init = self.store.span_at(name, f"{path}.__init__", ordinal)
+            return init["params"] if init else None
+        return span["params"]
+
+    def _signature(self, name: str, path: str, version: str | None) -> list[ParamInfo] | None:
+        rel = self._release(name, version) if version else None
+        return None if rel is None else _params(self._callable_params(name, path, rel["ordinal"]))
+
+    def _changelog(self, name: str, ordinal: int) -> Link | None:
+        """The changelog or release notes a release's `Project-URL` entries name (or the nearest release's)."""
+        assert self.store is not None
+        urls = self.store.project_urls(name, ordinal)
+        labels = {label: "".join(c for c in label.lower() if c.isalnum()) for label in urls}
+        for wanted in CHANGELOG_LABELS:
+            for label, norm in labels.items():
+                url = urls[label]
+                if not (norm == wanted or norm.endswith(wanted)):
+                    continue
+                if (
+                    not url.lower().startswith(("https://", "http://"))
+                    or len(url) > 500
+                    or any(c.isspace() or ord(c) < 32 for c in url)
+                    or instruction_like(label)
+                    or instruction_like(url)
+                ):
+                    continue
+                return Link(title=f"{name} {untrusted_text(label)}", url=url)
+        return None
+
+    def _verify_release(self, name: str, installed: dict[str, str]) -> sqlite3.Row | None:
+        """The release a fix is checked at: the installed version's indexed release (the nearest earlier one),
+        else the newest."""
+        assert self.store is not None
+        version = installed.get(name)
+        if version:
+            row, _ = self.store.resolve_version(name, version)
+            if row is not None:
+                return row
+        return self.store.newest_release(name)
+
+    def _fix(self, f: Finding, path: str, param: str | None, installed: dict[str, str]) -> Fix | None:
+        """The one change the index proves. A replacement qualifies at confidence >= 0.75, or when its target is the
+        very object the old path was, and only if the index shows the target at the installed release (else the
+        newest): a path there, or an argument the callable accepts there. The same object wins; otherwise exactly one
+        replacement must qualify, since the library naming two ("Use 'proxy' or 'mounts'") is a choice to make."""
+        assert self.store is not None
+        name = f.package
+        found: list[tuple[Fix, str]] = []  # each with the object it names, so two paths to one object agree
+        old = self._release(name, f.last_version_with or "")
+        was = self.store.span_at(name, path, old["ordinal"]) if old is not None else None
+        was_module = f.issue == "module_removed" or (was is not None and was["kind"] == "module")
+        checked: dict[str, sqlite3.Row | None] = {}
+
+        def verify(owner: str) -> sqlite3.Row | None:
+            if owner not in checked:
+                checked[owner] = self._verify_release(owner, installed)
+            return checked[owner]
+
+        for r in f.replacements:
+            if r.target == (param or path):
+                continue
+            if param is not None:
+                rel = verify(name)
+                if (
+                    r.confidence >= FIX_MIN_CONFIDENCE
+                    and r.target.isidentifier()
+                    and rel is not None
+                    and _accepts_kwarg(self._callable_params(name, path, rel["ordinal"]), r.target)
+                ):
+                    # A rename the index pairs in one release differs only in case or underscores (DT-CORE-24).
+                    renamed = r.source == "moved_heuristic"
+                    fix = Fix(
+                        kind="argument",
+                        old=param,
+                        new=r.target,
+                        verified_at=rel["version"],
+                        same_object=renamed,
+                        confidence=r.confidence,
+                        source=r.source,
+                        evidence=r.evidence,
+                    )
+                    found.append((fix, r.target))
+                continue
+            if not DOTTED_RE.fullmatch(r.target):
+                continue
+            # The package whose path it is: this one, or another indexed one (a curated cross-package hint).
+            owner = next(
+                (s.name for s in self.coverage.packages_for_module(r.target) if self._indexed(s.name)), None
+            )
+            rel = verify(owner) if owner else None
+            target = self.store.span_at(owner, r.target, rel["ordinal"]) if owner and rel else None
+            # A module for a module, and a name for a name: a package to install isn't a path to write.
+            if target is None or (target["kind"] == "module") != was_module:
+                continue
+            same = bool(was is not None and was["canonical"] and was["canonical"] == target["canonical"])
+            if r.confidence >= FIX_MIN_CONFIDENCE or same:
+                fix = Fix(
+                    kind="path",
+                    old=path,
+                    new=r.target,
+                    verified_at=rel["version"],
+                    same_object=same,
+                    confidence=r.confidence,
+                    source=r.source,
+                    evidence=r.evidence,
+                    signature=_params(self._callable_params(owner, r.target, rel["ordinal"])),
+                )
+                found.append((fix, target["canonical"] or r.target))
+        same = [fix for fix, _ in found if fix.same_object]
+        if same:
+            return same[0]
+        return found[0][0] if len({obj for _, obj in found}) == 1 else None
 
     def _candidates(self, signal: ErrorSignal, installed: dict[str, str]) -> list[PackageSpec]:
         found: dict[str, PackageSpec] = {}

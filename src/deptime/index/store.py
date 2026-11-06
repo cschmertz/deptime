@@ -434,6 +434,8 @@ class IndexStore:
             releases = {r[1] for r in self.conn.execute("PRAGMA table_info(releases)")}
             if "requires" not in releases:
                 self.conn.execute("ALTER TABLE releases ADD COLUMN requires TEXT")
+            if "project_urls" not in releases:
+                self.conn.execute("ALTER TABLE releases ADD COLUMN project_urls TEXT")
             key = [
                 r[1]
                 for r in sorted(self.conn.execute("PRAGMA table_info(members)"), key=lambda r: r[5])
@@ -509,6 +511,7 @@ class IndexStore:
                     source_files.get(snap.version),
                     len(snap.errors),
                     None if snap.requires is None else json.dumps(snap.requires),
+                    None if snap.project_urls is None else json.dumps(snap.project_urls),
                 )
             )
             for path, rec in snap.symbols.items():
@@ -659,8 +662,8 @@ class IndexStore:
                 (name, json.dumps(list(spec.import_names)), spec.tier, _now()),
             )
             self.conn.executemany(
-                "INSERT INTO releases(package, version, ordinal, released_at, source_file, error_count, requires)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO releases(package, version, ordinal, released_at, source_file, error_count, requires,"
+                " project_urls) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                 release_rows,
             )
             self.conn.executemany(
@@ -758,6 +761,17 @@ class IndexStore:
             "SELECT * FROM releases WHERE package = ? ORDER BY ordinal", (name,)
         ).fetchall()
 
+    def release(self, name: str, version: str) -> sqlite3.Row | None:
+        """The indexed release spelled exactly `version`, as the index writes it."""
+        return self.conn.execute(
+            "SELECT * FROM releases WHERE package = ? AND version = ?", (name, version)
+        ).fetchone()
+
+    def newest_release(self, name: str) -> sqlite3.Row | None:
+        return self.conn.execute(
+            "SELECT * FROM releases WHERE package = ? ORDER BY ordinal DESC LIMIT 1", (name,)
+        ).fetchone()
+
     def snapshot_at(self, spec: PackageSpec, version: str) -> ApiSnapshot | None:
         """One indexed release, rebuilt from its spans: lets ingestion keep a release whose cached snapshot is
         gone. Symbols round-trip exactly; analysis error messages survive only as a count."""
@@ -795,6 +809,7 @@ class IndexStore:
             }
         errors = ["analysis problem recorded by an earlier run"] * rel["error_count"]
         requires = rel["requires"] if "requires" in rel.keys() else None  # noqa: SIM118
+        urls = rel["project_urls"] if "project_urls" in rel.keys() else None  # noqa: SIM118
         classes: dict[str, ClassRecord] = {}
         if self.stores_own_members(spec.name):
             for r in self.conn.execute(
@@ -824,6 +839,7 @@ class IndexStore:
             symbols,
             errors,
             requires=None if requires is None else json.loads(requires),
+            project_urls=None if urls is None else json.loads(urls),
             internal=internal,
             own_members=bool(classes),
             classes=classes,
@@ -848,6 +864,26 @@ class IndexStore:
             f"SELECT DISTINCT r.value FROM releases, json_each(releases.requires) AS r WHERE {where}", args
         ).fetchall()
         return {canonicalize_name(m.group(0)) for (req,) in rows if (m := REQUIREMENT_NAME_RE.match(req))}
+
+    def project_urls(self, name: str, ordinal: int) -> dict[str, str]:
+        """The `Project-URL` entries recorded for the release `ordinal` (DT-CORE-29), else for the nearest release
+        after it that has some, else before it; empty in an index from before they were recorded."""
+        if "project_urls" not in {r[1] for r in self.conn.execute("PRAGMA table_info(releases)")}:
+            return {}
+        row = self.conn.execute(
+            "SELECT project_urls FROM releases WHERE package = ? AND project_urls IS NOT NULL"
+            " ORDER BY ordinal < ?, abs(ordinal - ?) LIMIT 1",
+            (name, ordinal, ordinal),
+        ).fetchone()
+        try:
+            urls = json.loads(row["project_urls"]) if row else {}
+        except ValueError:
+            return {}
+        return (
+            {k: v for k, v in urls.items() if isinstance(k, str) and isinstance(v, str)}
+            if isinstance(urls, dict)
+            else {}
+        )
 
     def version_at(self, name: str, ordinal: int) -> str | None:
         row = self.conn.execute(

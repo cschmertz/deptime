@@ -133,6 +133,8 @@ class ApiSnapshot:
     namespace_skip: list[str] = field(default_factory=list)
     # The analysed artifact's `Requires-Dist`, normalized (DT-DATA-14); None when unknown, and in older snapshots.
     requires: list[str] | None = None
+    # Its `Project-URL` entries, label to URL (DT-CORE-29); None when unknown, and in older snapshots.
+    project_urls: dict[str, str] | None = None
     # Names modules bind that aren't public API (DT-DATA-22), by path: private names, a module's imports from
     # outside the standard library, and everything in private modules. Kind and canonical path only, plus the
     # deprecation a module `__getattr__` serves a private name with. Never also in `symbols`.

@@ -304,6 +304,7 @@ def _build(
         )
         # The analysed code's own requirements: a wrapper release's are those of the distribution it pins.
         snap.requires = pypi.requires_dist(root, file.filename)
+        snap.project_urls = pypi.project_urls(root, file.filename)
     snap.source_file = file.filename
     return snap
 

@@ -42,6 +42,39 @@ class Replacement(BaseModel):
     )
 
 
+class Link(BaseModel):
+    title: str = Field(description="What the page is, e.g. 'httpx 0.28.0 on PyPI' or 'httpx Changelog'.")
+    url: str = Field(
+        description="A PyPI release page, or a page the project's own metadata (Project-URL) names. Untrusted data."
+    )
+
+
+class Fix(BaseModel):
+    kind: Literal["path", "argument"] = Field(
+        description="path: use the dotted path `new` where the code uses `old`; argument: pass the keyword argument"
+        " `new` instead of `old`."
+    )
+    old: str
+    new: str
+    verified_at: str = Field(
+        description="The indexed release in which the index shows `new`: the installed version's, else the newest."
+    )
+    same_object: bool = Field(
+        default=False,
+        description="True when nothing else needs to change: `new` is the very definition `old` was (a path), or the"
+        " same parameter renamed with only its case or underscores changed (an argument). False when it is another"
+        " object or parameter that the library, or a curated guide, names instead: its arguments or value may differ,"
+        " so read `evidence`.",
+    )
+    confidence: float = Field(ge=0, le=1, description="The confidence of the replacement it comes from.")
+    source: Literal["deprecation_message", "moved_heuristic", "curated", "error_message"]
+    evidence: UntrustedText = Field(default=None, description="The replacement's evidence.")
+    signature: list[ParamInfo] | None = Field(
+        default=None,
+        description="For a path to a callable (a class: its __init__), its parameters at `verified_at`.",
+    )
+
+
 class HistoryEvent(BaseModel):
     path: str
     version: str = Field(description="First indexed version where the change is observed.")
@@ -187,6 +220,27 @@ class Finding(BaseModel):
         description="True when the name isn't public API: a private name, a name a module imports for its own use, or a name"
         " in a private module. Code that uses one, usually another library, breaks when it changes, with no"
         " deprecation first.",
+    )
+    signature_before: list[ParamInfo] | None = Field(
+        default=None,
+        description="For a callable (a class: its __init__), its parameters at the release before the change:"
+        " last_version_with, or last_version_without for *_not_yet_added. None when it isn't a callable there.",
+    )
+    signature_after: list[ParamInfo] | None = Field(
+        default=None,
+        description="Its parameters at the release after the change: first_version_without, or first_version_with for"
+        " *_not_yet_added, else resolved_version. None when it isn't a callable there (a removed one).",
+    )
+    links: list[Link] = Field(
+        default_factory=list,
+        description="The releases on each side of the change on PyPI, then the project's changelog or release notes"
+        " when its metadata names them.",
+    )
+    fix: Fix | None = Field(
+        default=None,
+        description="A mechanical change the index proves, never written text: a replacement at confidence >= 0.75, or"
+        " the same object at another public path, that the index shows at the installed release (else the newest)."
+        " None when no replacement qualifies.",
     )
 
 

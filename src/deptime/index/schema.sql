@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS releases (
   source_file TEXT,                        -- artifact the snapshot was built from
   error_count INTEGER NOT NULL DEFAULT 0,  -- griffe load/resolution problems recorded in the snapshot
   requires    TEXT,                        -- JSON array of the artifact's Requires-Dist; NULL if unknown (DT-DATA-14)
+  project_urls TEXT,                       -- JSON object of its Project-URL entries, label to URL (DT-CORE-29)
   PRIMARY KEY (package, version),
   UNIQUE (package, ordinal)
 );

@@ -209,6 +209,20 @@ def test_cached_snapshot_with_other_namespace_skips_is_rebuilt(tmp_path):
     assert ApiSnapshot.load(snapshot_path(tmp_path, "fakepkg", "1.0.0")).namespace_skip == ["fakepkg.vendor"]
 
 
+def test_switching_a_package_to_own_members_rebuilds_its_snapshots(tmp_path):
+    """DT-DATA-16: `own_members` changes what a snapshot records, so a cached one of the other kind is rebuilt."""
+    store = IndexStore.memory()
+    _full_ingest(store, tmp_path)
+    own = PackageSpec(name="fakepkg", import_names=("fakepkg",), tier="B", own_members=True)
+    with _client() as client:
+        report = ingest_package(own, POLICY, store, tmp_path, client=client, today=TODAY, log=_quiet)
+    assert report.cached == [] and report.built == ["1.0.0", "2.0.0"]
+    snap = ApiSnapshot.load(snapshot_path(tmp_path, "fakepkg", "1.0.0"))
+    assert snap.own_members and snap.classes
+    assert store.stores_own_members("fakepkg")
+    assert store.conn.execute("SELECT value FROM meta WHERE key = 'schema_version'").fetchone()[0] == "2"
+
+
 def test_versions_run_adds_to_indexed_releases(tmp_path):
     """I-02: `ingest --versions 2.0.0` adds 2.0.0; it doesn't narrow the package to it."""
     store = IndexStore.memory()

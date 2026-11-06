@@ -49,7 +49,7 @@ from deptime.index.location import (
     remove_stale,
     versioned_name,
 )
-from deptime.index.store import SCHEMA_VERSION, IndexStore
+from deptime.index.store import READABLE_SCHEMA_VERSIONS, IndexStore
 
 __all__ = ["active_index", "meta_path", "open_index", "read_local_meta", "remove_stale"]
 
@@ -216,9 +216,10 @@ def _validate(path: Path) -> None:
         raise ValueError(f"downloaded index is not a SQLite database: {exc}") from exc
     try:
         row = store.conn.execute("SELECT value FROM meta WHERE key = 'schema_version'").fetchone()
-        if row is None or row["value"] != SCHEMA_VERSION:
+        if row is None or row["value"] not in READABLE_SCHEMA_VERSIONS:
             raise IndexIncompatible(
-                f"downloaded index has schema {row['value'] if row else '?'}, expected {SCHEMA_VERSION}"
+                f"downloaded index has schema {row['value'] if row else '?'}, expected one of"
+                f" {', '.join(READABLE_SCHEMA_VERSIONS)}"
             )
         store.conn.execute("SELECT 1 FROM packages LIMIT 1").fetchall()
     except sqlite3.DatabaseError as exc:
@@ -239,10 +240,10 @@ def download(
 ) -> Manifest:
     """Download, verify, validate and atomically install the published index at `dest`."""
     manifest = manifest or fetch_manifest(base_url, client)
-    if manifest.schema_version != SCHEMA_VERSION:
+    if manifest.schema_version not in READABLE_SCHEMA_VERSIONS:
         raise IndexIncompatible(
-            f"the published index uses schema {manifest.schema_version}; deptime {__version__} reads schema "
-            f"{SCHEMA_VERSION}. Upgrade deptime (for example `uvx deptime@latest`)."
+            f"the published index uses schema {manifest.schema_version}; deptime {__version__} reads schemas "
+            f"{', '.join(READABLE_SCHEMA_VERSIONS)}. Upgrade deptime (for example `uvx deptime@latest`)."
         )
     asset, expected_sha256, expected_size, opener = _asset(manifest)
     if expected_size > MAX_DOWNLOAD_BYTES:

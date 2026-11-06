@@ -441,7 +441,8 @@ class PublicNames:
     `spans` are (path, last indexed ordinal, object): the object is the path's canonical definition, or the path
     itself for a name a `__getattr__` serves (they all share its canonical). `deprecations` are (path, first
     ordinal, last ordinal, message) of the paths deprecated as a whole. `instances` are the paths of attributes:
-    objects whose members the index doesn't record (DT-DATA-31).
+    objects whose members the index doesn't record (DT-DATA-31). `members` gives the last ordinal and object of a
+    class member `spans` doesn't list, for a package stored with own members (DT-DATA-16): an inherited one.
     """
 
     def __init__(
@@ -450,6 +451,7 @@ class PublicNames:
         spans: Iterable[tuple[str, int, str | None]],
         deprecations: Iterable[tuple[str, int, int, str]] = (),
         instances: Iterable[str] = (),
+        members: Callable[[str], tuple[int, str] | None] | None = None,
     ):
         self.import_names = tuple(import_names)
         self._instances = frozenset(instances)
@@ -458,6 +460,8 @@ class PublicNames:
         for path, last, obj in spans:
             if last >= self._last.get(path, -1):
                 self._last[path], self._object[path] = last, obj or path
+        self._members = members
+        self._inherited: dict[str, tuple[int, str] | None] = {}
         self._tails: dict[str, list[str]] | None = None
         self._deprecated: dict[str, list[tuple[int, int, str]]] = defaultdict(list)
         for path, first, last, message in deprecations:
@@ -466,6 +470,16 @@ class PublicNames:
     def _deprecation(self, path: str, at: int) -> str | None:
         return next((m for first, last, m in self._deprecated.get(path, ()) if first <= at <= last), None)
 
+    def _info(self, path: str) -> tuple[int, str | None]:
+        """`path`'s last ordinal and object; -1 and None when the package never had it."""
+        if path in self._last:
+            return self._last[path], self._object[path]
+        if self._members is None:
+            return -1, None
+        if path not in self._inherited:
+            self._inherited[path] = self._members(path)
+        return self._inherited[path] or (-1, None)
+
     def _itself(self, target: str, path: str, since: int) -> bool:
         """`target` is the deprecated object at another path, deprecated there in the same words: langchain-
         community's "Please use `HanaDB` from the langchain_hana package" found on its own re-export (DT-CORE-23).
@@ -473,7 +487,7 @@ class PublicNames:
         message = self._deprecation(path, since)
         return (
             message is not None
-            and self._object.get(target) == self._object.get(path)
+            and self._info(target)[1] == self._info(path)[1]
             and self._deprecation(target, since) == message
         )
 
@@ -483,7 +497,7 @@ class PublicNames:
     def _found(self, candidate: str, path: str, since: int) -> bool:
         """`candidate` is public at release `since` or later. It can be the deprecated object at another path:
         numpy 2's `numpy.linalg.linalg.det` says to import `numpy.linalg.det`."""
-        return self._last.get(candidate, -1) >= since and candidate != path
+        return self._info(candidate)[0] >= since and candidate != path
 
     def _by_tail(self, name: str, path: str, since: int) -> list[str]:
         """Paths ending in `name` public at `since` or later, other than the deprecated object itself: a bare
@@ -492,14 +506,14 @@ class PublicNames:
             self._tails = defaultdict(list)
             for p in self._last:
                 self._tails[p.rpartition(".")[2]].append(p)
-        same = self._object.get(path, path)
+        same = self._info(path)[1] or path
         return [
             p for p in self._tails.get(name, ()) if self._found(p, path, since) and self._object[p] != same
         ]
 
     def _one(self, paths: list[str]) -> str | None:
         """The shortest of `paths` if they're all one object (re-exports of it), else None."""
-        if len({self._object[p] for p in paths}) != 1:
+        if len({self._info(p)[1] for p in paths}) != 1:
             return None
         return min(paths, key=lambda p: (p.count("."), len(p), p))
 

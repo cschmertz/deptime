@@ -46,7 +46,7 @@ Deprecation messages come from third-party source. A malicious or compromised pa
 
 ## Index distribution integrity
 
-- The download is checked against the manifest's sha256. Both come over HTTPS from GitHub Releases, and the index must open with a matching `schema_version` before it's atomically installed.
+- The download is checked against the manifest's sha256. Both come over HTTPS from GitHub Releases, and the index must open with a `schema_version` the client reads before it's atomically installed.
 - A failed or corrupt download never replaces the current index (tested).
 - A locally built index is never replaced automatically.
 - **Gap:** the manifest and the asset come from the same source. A compromised repo or token could publish a malicious index. DT-OSS-09 adds signed build provenance (GitHub artifact attestations) that clients can verify.

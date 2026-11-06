@@ -56,6 +56,33 @@ CREATE TABLE IF NOT EXISTS internal_spans (
   PRIMARY KEY (package, path, first_ordinal)
 ) WITHOUT ROWID;
 
+-- A package stored with its classes' own members (coverage.toml `own_members`, DT-DATA-16): its spans have no class
+-- members. A public class's members are looked up when queried: its own, then those of each class in its MRO, as
+-- Python finds them. An index with such a package has schema version 2: clients from before can't read it.
+CREATE TABLE IF NOT EXISTS classes (
+  package       TEXT NOT NULL,
+  cls           TEXT NOT NULL,             -- canonical path, e.g. transformers.modeling_utils.PreTrainedModel
+  first_ordinal INTEGER NOT NULL,
+  last_ordinal  INTEGER NOT NULL,
+  mro           TEXT,                      -- JSON array of canonical paths; NULL for a class recorded only as a base
+  label         TEXT NOT NULL,             -- its shortest public path, else cls: where its members' events are
+  PRIMARY KEY (package, cls, first_ordinal)
+) WITHOUT ROWID;
+
+CREATE TABLE IF NOT EXISTS members (
+  package       TEXT NOT NULL,
+  cls           TEXT NOT NULL,             -- canonical path of the class that defines it
+  name          TEXT NOT NULL,
+  first_ordinal INTEGER NOT NULL,
+  last_ordinal  INTEGER NOT NULL,
+  kind          TEXT NOT NULL,             -- as in spans, or 'hidden': ends the lookup, but isn't recorded
+  canonical     TEXT,
+  params        TEXT,
+  deprecated    TEXT,
+  deprecated_params TEXT,
+  PRIMARY KEY (package, cls, name, first_ordinal)
+) WITHOUT ROWID;
+
 CREATE TABLE IF NOT EXISTS events (
   package      TEXT NOT NULL,
   path         TEXT NOT NULL,

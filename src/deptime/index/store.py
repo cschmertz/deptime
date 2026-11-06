@@ -5,8 +5,10 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+import threading
+from collections import OrderedDict, defaultdict
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from importlib import resources
 from pathlib import Path
@@ -16,11 +18,23 @@ from packaging.version import InvalidVersion, Version
 
 from deptime.config import PackageSpec
 from deptime.ingest.curated import CURATED_CONFIDENCE, CuratedHint, hints_for
-from deptime.ingest.diff import ChangeEvent, diff_snapshots, initial_events
+from deptime.ingest.diff import (
+    ChangeEvent,
+    diff_snapshots,
+    initial_events,
+    initial_path_events,
+    labels,
+    path_events,
+)
 from deptime.ingest.replacements import PublicNames, mine
-from deptime.ingest.snapshot import ApiSnapshot, LazySnapshot, SymbolRecord
+from deptime.ingest.snapshot import HIDDEN, ApiSnapshot, ClassRecord, LazySnapshot, SymbolRecord
 
 SCHEMA_VERSION = "1"
+# Written when a package is stored with its classes' own members (DT-DATA-16): a client that doesn't resolve
+# inherited members would read them as missing, so it must not load the index.
+OWN_MEMBERS_SCHEMA_VERSION = "2"
+READABLE_SCHEMA_VERSIONS = (SCHEMA_VERSION, OWN_MEMBERS_SCHEMA_VERSION)
+MEMBER_CACHE_SIZE = 4096  # resolved member paths kept per open index
 REQUIREMENT_NAME_RE = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?")  # PEP 508's name
 MOVED_CONFIDENCE = 0.6
 # A removed module-level name whose object is still public under another module-level path (DT-CORE-22): importing
@@ -30,6 +44,9 @@ STRONG_HINT = 0.75  # a name that already has a hint this strong gets no DT-CORE
 # A parameter renamed in case or underscores on the same function (DT-CORE-24): the same name, so stronger
 # evidence than a module-level name that reappears elsewhere.
 RENAMED_PARAM_CONFIDENCE = 0.8
+
+
+_STATE_COLUMNS = ("kind", "canonical", "params", "deprecated", "deprecated_params")
 
 
 def _schema_sql() -> str:
@@ -199,6 +216,108 @@ def curated_rows(
     return rows
 
 
+def _state(rec: SymbolRecord) -> tuple:
+    """A record as a span's columns: `(kind, canonical, params, deprecated, deprecated_params)`."""
+    return (
+        rec.kind,
+        rec.canonical,
+        None if rec.params is None else json.dumps(rec.params),
+        rec.deprecated,
+        None if rec.deprecated_params is None else json.dumps(rec.deprecated_params, sort_keys=True),
+    )
+
+
+def _record(path: str, row: Mapping) -> SymbolRecord:
+    """A span's columns as a record of `path`."""
+    return SymbolRecord(
+        path,
+        row["kind"],
+        row["canonical"],
+        None if row["params"] is None else json.loads(row["params"]),
+        row["deprecated"],
+        None if row["deprecated_params"] is None else json.loads(row["deprecated_params"]),
+    )
+
+
+def own_member_rows(
+    span_rows: Sequence[tuple[str, int, int, tuple]],
+    class_rows: Sequence[tuple[str, int, int, tuple]],
+    member_rows: Sequence[tuple[tuple[str, str], int, int, tuple]],
+) -> list[tuple[str, int, int, tuple]]:
+    """For a package stored with own members (DT-DATA-16): each class's own members as span rows under each path
+    of the class, its public paths and its label, for what checks names against the package's rows (mining a
+    hint's target, applying a curated hint). Inherited members aren't repeated under subclasses."""
+    homes: dict[str, list[tuple[str, int, int]]] = defaultdict(list)  # canonical class -> (path, first, last)
+    for path, first, last, state in span_rows:
+        if state[0] == "class" and state[1]:
+            homes[state[1]].append((path, first, last))
+    for cls, first, last, (_mro, label) in class_rows:
+        if not any(p == label and f <= first and last <= end for p, f, end in homes[cls]):
+            homes[cls].append((label, first, last))
+    out = []
+    for (cls, name), first, last, state in member_rows:
+        if state[0] == HIDDEN:
+            continue
+        for path, f, end in homes.get(cls, ()):
+            if max(first, f) <= min(last, end):
+                out.append((f"{path}.{name}", max(first, f), min(last, end), state))
+    return out
+
+
+def member_lookup(
+    span_rows: Sequence[tuple[str, int, int, tuple]],
+    class_rows: Sequence[tuple[str, int, int, tuple]],
+    member_rows: Sequence[tuple[tuple[str, str], int, int, tuple]],
+) -> Callable[[str], tuple[int, str, str] | None]:
+    """For a package stored with own members (DT-DATA-16): a class member's last ordinal and object, as a build that
+    stores every member under every class has them, from the class at each release and its MRO, and the class that
+    defines it then. For checking a hint's target: `predict` on langchain's `BaseLanguageModel` says to use
+    `invoke`, which it inherits."""
+    # A class's paths, public ones and its label -> (first, last, canonical class)
+    classes: dict[str, list[tuple[int, int, str]]] = defaultdict(list)
+    for path, first, last, state in span_rows:
+        if state[0] == "class" and state[1]:
+            classes[path].append((first, last, state[1]))
+    mros: dict[str, list[tuple[int, int, list[str]]]] = defaultdict(list)
+    for cls, first, last, (mro, label) in class_rows:
+        mros[cls].append((first, last, json.loads(mro) if mro else []))
+        classes[label].append((first, last, cls))
+    members: dict[tuple[str, str], list[tuple[int, int, tuple]]] = defaultdict(list)
+    for key, first, last, state in member_rows:
+        members[key].append((first, last, state))
+
+    def resolve(cls: str, name: str, o: int) -> tuple[tuple, str] | None:
+        mro = next((m for f, end, m in mros.get(cls, ()) if f <= o <= end), [])
+        for owner in [cls, *mro]:
+            state = next((st for f, end, st in members.get((owner, name), ()) if f <= o <= end), None)
+            if state is not None:
+                return None if state[0] == HIDDEN else (state, owner)
+        return None
+
+    def lookup(path: str) -> tuple[int, str, str] | None:
+        parent, _, name = path.rpartition(".")
+        best: tuple[int, str, str] | None = None
+        for first, last, cls in classes.get(parent, ()):
+            for o in range(last, max(first, best[0] + 1 if best else first) - 1, -1):
+                if (found := resolve(cls, name, o)) is not None:
+                    best = (o, found[0][1] or path, found[1])
+                    break
+        return best
+
+    return lookup
+
+
+def _at_label(
+    hint: CuratedHint, lookup: Callable[[str], tuple[int, str, str] | None], label_of: Mapping[str, str]
+) -> CuratedHint:
+    """A curated hint on a class member, moved to the member of its defining class's label (DT-DATA-16)."""
+    func, paren, param = hint.path.partition("(")
+    found = lookup(func)
+    if found is None or found[2] not in label_of:
+        return hint
+    return replace(hint, path=f"{label_of[found[2]]}.{func.rpartition('.')[2]}{paren}{param}")
+
+
 def _extend(
     open_spans: dict[str, tuple[int, int, tuple]], rows: list[tuple], path: str, state: tuple, i: int
 ) -> None:
@@ -226,6 +345,7 @@ class RebuildStats:
     events: int
     replacements: int
     internal: int = 0
+    members: int = 0  # own members' spans, for a package stored with them (DT-DATA-16)
 
 
 class IndexStore:
@@ -234,6 +354,11 @@ class IndexStore:
         self.path = path  # the file, for a store opened from one
         self.conn.row_factory = sqlite3.Row
         self._internal: bool | None = None  # whether the index has internal_spans (DT-DATA-22)
+        self._own: frozenset[str] | None = None  # packages stored with own members (DT-DATA-16)
+        self._members: OrderedDict[tuple[str, str], tuple[list[dict], list[tuple[int, int, str]]]] = (
+            OrderedDict()
+        )
+        self._lock = threading.Lock()
 
     # ------------------------------------------------------------------ lifecycle
     @classmethod
@@ -265,9 +390,13 @@ class IndexStore:
             releases = {r[1] for r in self.conn.execute("PRAGMA table_info(releases)")}
             if "requires" not in releases:
                 self.conn.execute("ALTER TABLE releases ADD COLUMN requires TEXT")
-            self.conn.execute(
-                "INSERT OR REPLACE INTO meta(key, value) VALUES ('schema_version', ?)", (SCHEMA_VERSION,)
-            )
+            self._stamp_schema()
+
+    def _stamp_schema(self) -> None:
+        """Version 2 while some package is stored with own members (DT-DATA-16), else 1."""
+        own = self.conn.execute("SELECT 1 FROM classes LIMIT 1").fetchone() is not None
+        version = OWN_MEMBERS_SCHEMA_VERSION if own else SCHEMA_VERSION
+        self.conn.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('schema_version', ?)", (version,))
 
     def close(self) -> None:
         self.conn.close()
@@ -298,6 +427,12 @@ class IndexStore:
         open_spans: dict[str, tuple[int, int, tuple]] = {}  # path -> (first, last, state)
         internal_rows: list[tuple] = []
         open_internal: dict[str, tuple[int, int, tuple]] = {}
+        # For a package stored with own members (DT-DATA-16): canonical class -> (first, last, (mro, label)), and
+        # (canonical class, name) -> (first, last, state).
+        class_rows: list[tuple] = []
+        open_classes: dict[str, tuple[int, int, tuple]] = {}
+        member_rows: list[tuple] = []
+        open_members: dict[tuple[str, str], tuple[int, int, tuple]] = {}
         events: list[tuple[int, int | None, ChangeEvent]] = []
         prev: ApiSnapshot | None = None
         for item in ordered:
@@ -318,17 +453,17 @@ class IndexStore:
                 )
             )
             for path, rec in snap.symbols.items():
-                state = (
-                    rec.kind,
-                    rec.canonical,
-                    None if rec.params is None else json.dumps(rec.params),
-                    rec.deprecated,
-                    None
-                    if rec.deprecated_params is None
-                    else json.dumps(rec.deprecated_params, sort_keys=True),
-                )
-                _extend(open_spans, span_rows, path, state, i)
+                _extend(open_spans, span_rows, path, _state(rec), i)
             _close(open_spans, span_rows, i)
+            if snap.own_members:
+                for cls, label in labels(snap).items():
+                    crec = snap.classes[cls]
+                    mro = None if crec.mro is None else json.dumps(crec.mro)
+                    _extend(open_classes, class_rows, cls, (mro, label), i)  # type: ignore[arg-type]
+                    for member, mrec in crec.members.items():
+                        _extend(open_members, member_rows, (cls, member), _state(mrec), i)  # type: ignore[arg-type]
+            _close(open_classes, class_rows, i)  # type: ignore[arg-type]
+            _close(open_members, member_rows, i)  # type: ignore[arg-type]
             for path, rec in snap.internal.items():
                 _extend(open_internal, internal_rows, path, (rec.kind, rec.canonical, rec.deprecated), i)
             _close(open_internal, internal_rows, i)
@@ -339,6 +474,13 @@ class IndexStore:
             prev = snap
         span_rows.extend((path, *cur) for path, cur in open_spans.items())
         internal_rows.extend((path, *cur) for path, cur in open_internal.items())
+        class_rows.extend((cls, *cur) for cls, cur in open_classes.items())
+        member_rows.extend((key, *cur) for key, cur in open_members.items())
+        # Names hints are checked against: a package stored with own members has its members in other rows.
+        name_rows = (
+            [*span_rows, *own_member_rows(span_rows, class_rows, member_rows)] if class_rows else span_rows
+        )
+        lookup = member_lookup(span_rows, class_rows, member_rows) if class_rows else None
 
         repl: dict[tuple[str, str], tuple[float, str, str]] = {}
 
@@ -354,10 +496,11 @@ class IndexStore:
             spec.import_names,
             (
                 (path, last, None if state[0] == "getattr" else state[1])
-                for path, _first, last, state in span_rows
+                for path, _first, last, state in name_rows
             ),
-            ((path, first, last, state[3]) for path, first, last, state in span_rows if state[3]),
-            (path for path, _first, _last, state in span_rows if state[0] == "attribute"),
+            ((path, first, last, state[3]) for path, first, last, state in name_rows if state[3]),
+            (path for path, _first, _last, state in name_rows if state[0] == "attribute"),
+            (lambda path: (found[0], found[1]) if (found := lookup(path)) else None) if lookup else None,
         )
         for ordinal, _prev, ev in events:
             if ev.kind == "deprecated":
@@ -402,14 +545,33 @@ class IndexStore:
         ):
             add_repl(path, target, conf, "moved_heuristic", evidence)
         hints = hints_for(name) if curated is None else curated
-        for path, target, evidence in curated_rows(span_rows, hints):
+        # With own members, a member's hints from the library's text are at its class's label (DT-DATA-16), and so
+        # is a curated hint on a member a class inherits, which `name_rows` lists only under the defining class.
+        label_of = {cls: label for cls, _first, _last, (_mro, label) in class_rows}
+        if lookup is not None:
+            hints = [_at_label(hint, lookup, label_of) for hint in hints]
+        relabel = {
+            path: label_of[state[1]]
+            for path, _f, _l, state in span_rows
+            if state[0] == "class" and state[1] in label_of
+        }
+
+        def stated(path: str, target: str) -> float:
+            func, paren, param = path.partition("(")
+            parent, _, leaf = func.rpartition(".")
+            at_label = f"{relabel[parent]}.{leaf}{paren}{param}" if parent in relabel else path
+            return max(repl.get((path, target), (0.0,))[0], repl.get((at_label, target), (0.0,))[0])
+
+        for path, target, evidence in curated_rows(name_rows, hints):
             # The library's own text already says it: keep that, so what DepTime finds by itself stays visible.
-            if repl.get((path, target), (0.0,))[0] < STRONG_HINT:
+            if stated(path, target) < STRONG_HINT:
                 add_repl(path, target, CURATED_CONFIDENCE, "curated", evidence)
 
         with self.conn:
             for table, col in (
                 ("assembly", "package"),
+                ("members", "package"),
+                ("classes", "package"),
                 ("internal_spans", "package"),
                 ("replacements", "package"),
                 ("events", "package"),
@@ -444,6 +606,18 @@ class IndexStore:
                 [(name, path, first, last, *state) for path, first, last, state in internal_rows],
             )
             self.conn.executemany(
+                "INSERT INTO classes(package, cls, first_ordinal, last_ordinal, mro, label) VALUES (?, ?, ?, ?, ?, ?)",
+                [(name, cls, first, last, *state) for cls, first, last, state in class_rows],
+            )
+            self.conn.executemany(
+                "INSERT INTO members(package, cls, name, first_ordinal, last_ordinal, kind, canonical, params,"
+                " deprecated, deprecated_params) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [
+                    (name, cls, member, first, last, *state)
+                    for (cls, member), first, last, state in member_rows
+                ],
+            )
+            self.conn.executemany(
                 "INSERT INTO events(package, path, ordinal, prev_ordinal, kind, detail) VALUES (?, ?, ?, ?, ?, ?)",
                 [
                     (name, ev.path, o, p, ev.kind, json.dumps(ev.detail, sort_keys=True))
@@ -458,8 +632,18 @@ class IndexStore:
                 ],
             )
             self.conn.execute("INSERT OR REPLACE INTO meta(key, value) VALUES ('built_at', ?)", (_now(),))
+            self._stamp_schema()
+        with self._lock:
+            self._own = None
+            self._members.clear()
         return RebuildStats(
-            name, len(release_rows), len(span_rows), len(events), len(repl), len(internal_rows)
+            name,
+            len(release_rows),
+            len(span_rows),
+            len(events),
+            len(repl),
+            len(internal_rows),
+            len(member_rows),
         )
 
     def stamp_built_at(self) -> None:
@@ -532,6 +716,20 @@ class IndexStore:
             }
         errors = ["analysis problem recorded by an earlier run"] * rel["error_count"]
         requires = rel["requires"] if "requires" in rel.keys() else None  # noqa: SIM118
+        classes: dict[str, ClassRecord] = {}
+        if self.stores_own_members(spec.name):
+            for r in self.conn.execute(
+                "SELECT cls, mro FROM classes WHERE package = ? AND first_ordinal <= ? AND last_ordinal >= ?",
+                (spec.name, rel["ordinal"], rel["ordinal"]),
+            ):
+                classes[r["cls"]] = ClassRecord(r["cls"], None if r["mro"] is None else json.loads(r["mro"]))
+            for r in self.conn.execute(
+                "SELECT * FROM members WHERE package = ? AND first_ordinal <= ? AND last_ordinal >= ?",
+                (spec.name, rel["ordinal"], rel["ordinal"]),
+            ):
+                member = f"{r['cls']}.{r['name']}"
+                rec = SymbolRecord(member, HIDDEN) if r["kind"] == HIDDEN else _record(member, r)
+                classes[r["cls"]].members[r["name"]] = rec
         return ApiSnapshot(
             spec.name,
             version,
@@ -540,6 +738,8 @@ class IndexStore:
             errors,
             requires=None if requires is None else json.loads(requires),
             internal=internal,
+            own_members=bool(classes),
+            classes=classes,
         )
 
     def declared_dependencies(self, name: str, ordinal: int | None = None) -> set[str]:
@@ -584,16 +784,104 @@ class IndexStore:
         rows = [r for r in self.releases(name) if r["released_at"] and r["released_at"][:10] <= day]
         return rows[-1] if rows else None
 
+    def _own_packages(self) -> frozenset[str]:
+        """The packages stored with their classes' own members (DT-DATA-16)."""
+        if self._own is None:
+            try:
+                own = frozenset(r[0] for r in self.conn.execute("SELECT DISTINCT package FROM classes"))
+            except sqlite3.OperationalError:  # an index from before DT-DATA-16
+                own = frozenset()
+            self._own = own
+        return self._own
+
+    def stores_own_members(self, name: str) -> bool:
+        return name in self._own_packages()
+
+    def _resolved(self, name: str, path: str) -> tuple[list[dict], list[tuple[int, int, str]]]:
+        """For a class member of a package stored with own members (DT-DATA-16): its spans, shaped like rows of
+        `spans`, from the class at each release, then each class in its MRO, as Python looks a name up; and which
+        class defines it, over which releases, as `(first, last, canonical class)`. Empty for any other path."""
+        parent, _, leaf = path.rpartition(".")
+        if not parent or not self.stores_own_members(name):
+            return [], []
+        key = (name, path)
+        with self._lock:
+            if (hit := self._members.get(key)) is not None:
+                self._members.move_to_end(key)
+                return hit
+        owners = self.conn.execute(
+            "SELECT first_ordinal, last_ordinal, canonical FROM spans WHERE package = ? AND path = ? AND kind = 'class'",
+            (name, parent),
+        ).fetchall()
+        found: dict[int, tuple[tuple, str]] = {}  # ordinal -> (state, defining class)
+        if owners:
+            mros: dict[str, list[tuple[int, int, list[str]]]] = {}
+            for cls in {r["canonical"] for r in owners}:
+                rows = self.conn.execute(
+                    "SELECT first_ordinal, last_ordinal, mro FROM classes WHERE package = ? AND cls = ?",
+                    (name, cls),
+                )
+                mros[cls] = [(r[0], r[1], json.loads(r[2]) if r[2] else []) for r in rows]
+            candidates = sorted(
+                set(mros) | {b for spans in mros.values() for _f, _l, mro in spans for b in mro}
+            )
+            members: dict[str, list[tuple[int, int, tuple | None]]] = defaultdict(list)
+            for r in self.conn.execute(
+                "SELECT cls, first_ordinal, last_ordinal, kind, canonical, params, deprecated, deprecated_params"
+                f" FROM members WHERE package = ? AND name = ? AND cls IN ({','.join('?' * len(candidates))})",
+                (name, leaf, *candidates),
+            ):
+                state = None if r["kind"] == HIDDEN else tuple(r)[3:]
+                members[r["cls"]].append((r["first_ordinal"], r["last_ordinal"], state))
+            for span in owners:
+                cls = span["canonical"]
+                for o in range(span["first_ordinal"], span["last_ordinal"] + 1):
+                    mro = next((m for f, end, m in mros.get(cls, ()) if f <= o <= end), [])
+                    for owner in [cls, *mro]:
+                        hit = next((st for f, end, st in members.get(owner, ()) if f <= o <= end), ())
+                        if hit != ():
+                            if hit is not None:
+                                found[o] = (hit, owner)
+                            break
+        spans: list[dict] = []
+        defined: list[tuple[int, int, str]] = []
+        for o in sorted(found):
+            state, owner = found[o]
+            last = spans[-1] if spans else None
+            if last and last["last_ordinal"] == o - 1 and tuple(last[c] for c in _STATE_COLUMNS) == state:
+                last["last_ordinal"] = o
+            else:
+                spans.append(
+                    {"package": name, "path": path, "tail": leaf, "first_ordinal": o, "last_ordinal": o}
+                    | dict(zip(_STATE_COLUMNS, state, strict=True))
+                )
+            if defined and defined[-1][1] == o - 1 and defined[-1][2] == owner:
+                defined[-1] = (defined[-1][0], o, owner)
+            else:
+                defined.append((o, o, owner))
+        result = (spans, defined)
+        with self._lock:
+            self._members[key] = result
+            if len(self._members) > MEMBER_CACHE_SIZE:
+                self._members.popitem(last=False)
+        return result
+
     def spans(self, name: str, path: str) -> list[sqlite3.Row]:
-        return self.conn.execute(
+        rows = self.conn.execute(
             "SELECT * FROM spans WHERE package = ? AND path = ? ORDER BY first_ordinal", (name, path)
         ).fetchall()
+        member = self._resolved(name, path)[0]
+        return sorted([*rows, *member], key=lambda r: r["first_ordinal"]) if member else rows  # type: ignore[list-item]
 
     def span_at(self, name: str, path: str, ordinal: int) -> sqlite3.Row | None:
-        return self.conn.execute(
+        row = self.conn.execute(
             "SELECT * FROM spans WHERE package = ? AND path = ? AND first_ordinal <= ? AND last_ordinal >= ?",
             (name, path, ordinal, ordinal),
         ).fetchone()
+        if row is None:
+            spans = self._resolved(name, path)[0]
+            row = next((r for r in spans if r["first_ordinal"] <= ordinal <= r["last_ordinal"]), None)
+        return row
 
     def has_internal(self) -> bool:
         """Whether the index records internal names (DT-DATA-22); older ones don't have the table."""
@@ -628,9 +916,77 @@ class IndexStore:
         # `+ordinal`: ordering by the bare column made SQLite read the package's events through events_by_ordinal
         # and filter on path, a scan of every event the package has (4.5 ms a call, hundreds of calls when the
         # error's owner is searched in every package).
-        return self.conn.execute(
+        rows = self.conn.execute(
             "SELECT * FROM events WHERE package = ? AND path = ? ORDER BY +ordinal, kind", (name, path)
         ).fetchall()
+        member = self._resolved(name, path)[0]
+        if not member:
+            return rows
+        # A class member of a package stored with own members (DT-DATA-16): the events stored at its path are its
+        # defining class's, so they're worked out from its states, release by release, as an index build does.
+        direct = self.conn.execute(
+            "SELECT * FROM spans WHERE package = ? AND path = ?", (name, path)
+        ).fetchall()
+        states = {
+            o: _record(path, r)
+            for r in [*direct, *member]
+            for o in range(r["first_ordinal"], r["last_ordinal"] + 1)
+        }
+        count = self.conn.execute("SELECT COUNT(*) FROM releases WHERE package = ?", (name,)).fetchone()[0]
+        out: list[dict] = []
+        for o in sorted(set(states) | {o + 1 for o in states if o + 1 < count}):
+            if o == 0:
+                found, prev = initial_path_events(path, states[0]), None
+            else:
+                found, prev = path_events(path, states.get(o - 1), states.get(o)), o - 1
+            out += [
+                {"package": name, "path": path, "ordinal": o, "prev_ordinal": prev, "kind": ev.kind}
+                | {"detail": json.dumps(ev.detail, sort_keys=True)}
+                for ev in found
+            ]
+        out += [dict(r) for r in rows if r["kind"] == "moved"]  # pairs module-level paths, from the build
+        return sorted(out, key=lambda r: (r["ordinal"], r["kind"]))  # type: ignore[return-value]
+
+    def _labels(self, name: str, path: str) -> list[str]:
+        """For a class member of a package stored with own members, where its defining classes keep their
+        members' events and hints (DT-DATA-16): each one's label and the member's name, `path` itself left out."""
+        _spans, defined = self._resolved(name, path)
+        leaf = path.rpartition(".")[2]
+        out: dict[str, None] = {}
+        for first, last, cls in defined:
+            for r in self.conn.execute(
+                "SELECT label FROM classes WHERE package = ? AND cls = ? AND first_ordinal <= ? AND last_ordinal >= ?",
+                (name, cls, last, first),
+            ):
+                out[f"{r['label']}.{leaf}"] = None
+        out.pop(path, None)
+        return list(out)
+
+    def _event_paths(self, name: str, paths: list[str], after: int, upto: int) -> list[str]:
+        """`paths` and, for a package stored with own members (DT-DATA-16), where their members' events are:
+        a member's defining classes' labels, and for a class, its own label and those of its MRO, in (after, upto]."""
+        out = dict.fromkeys(paths)
+        for path in paths:
+            out.update(dict.fromkeys(self._labels(name, path)))
+            for span in self.conn.execute(
+                "SELECT canonical FROM spans WHERE package = ? AND path = ? AND kind = 'class'"
+                " AND first_ordinal <= ? AND last_ordinal > ?",
+                (name, path, upto, after),
+            ):
+                classes = [span["canonical"]]
+                for r in self.conn.execute(
+                    "SELECT mro FROM classes WHERE package = ? AND cls = ? AND first_ordinal <= ? AND last_ordinal > ?",
+                    (name, span["canonical"], upto, after),
+                ):
+                    classes += json.loads(r["mro"]) if r["mro"] else []
+                for cls in dict.fromkeys(classes):
+                    for r in self.conn.execute(
+                        "SELECT label FROM classes WHERE package = ? AND cls = ?"
+                        " AND first_ordinal <= ? AND last_ordinal > ?",
+                        (name, cls, upto, after),
+                    ):
+                        out[r["label"]] = None
+        return list(out)
 
     def events_between(
         self,
@@ -652,6 +1008,8 @@ class IndexStore:
         args: list[object] = [name, after_ordinal, upto_ordinal]
         if not include_added:
             where += " AND kind != 'added'"
+        if paths and self.stores_own_members(name):
+            paths = self._event_paths(name, paths, after_ordinal, upto_ordinal)
         if paths:
             where += (
                 " AND EXISTS (SELECT 1 FROM json_each(?) AS u"
@@ -668,20 +1026,66 @@ class IndexStore:
         return rows, total
 
     def replacements(self, name: str, path: str) -> list[sqlite3.Row]:
-        return self.conn.execute(
+        rows = self.conn.execute(
             "SELECT * FROM replacements WHERE package = ? AND path = ? ORDER BY confidence DESC, target",
             (name, path),
         ).fetchall()
+        func, paren, param = path.partition("(")
+        labels = self._labels(name, func)
+        if not labels:
+            return rows
+        # A class member of a package stored with own members (DT-DATA-16): its defining class's hints too.
+        best: dict[str, Mapping] = {r["target"]: r for r in rows}
+        for label in labels:
+            for r in self.conn.execute(
+                "SELECT * FROM replacements WHERE package = ? AND path = ?", (name, f"{label}{paren}{param}")
+            ):
+                target = (
+                    r["target"] if r["source"] == "curated" else self._sibling(name, r["target"], label, func)
+                )
+                if target not in best or best[target]["confidence"] < r["confidence"]:
+                    best[target] = dict(r) | {"path": path, "target": target}
+        return sorted(best.values(), key=lambda r: (-r["confidence"], r["target"]))  # type: ignore[return-value]
+
+    def _sibling(self, name: str, target: str, label: str, path: str) -> str:
+        """A hint's target on the defining class's member `label`, named as a member of `path`'s class, as a build
+        that stores every member under every class names it: when `path`'s class has a member of that name and the
+        target is the defining class's member of that name (`get_relevant_documents` on a retriever subclass says to
+        use `invoke`, which it inherits from `BaseRetriever`) or the same object."""
+        defining, parent = label.rpartition(".")[0], path.rpartition(".")[0]
+        owner, _, leaf = target.rpartition(".")
+        if not owner or "(" in target or f"{parent}.{leaf}" == target:
+            return target
+        sibling = f"{parent}.{leaf}"
+        mine = self.spans(name, sibling)
+        if not mine:
+            return target
+        if owner == defining:
+            return sibling
+        objects = {r["canonical"] for r in self.spans(name, target)}
+        return sibling if objects & {r["canonical"] for r in mine} else target
 
     def param_replacements(self, name: str, func_path: str) -> list[sqlite3.Row]:
         prefix = func_path + "("
-        return self.conn.execute(
+        rows = self.conn.execute(
             "SELECT * FROM replacements WHERE package = ? AND substr(path, 1, ?) = ? ORDER BY path, confidence DESC",
             (name, len(prefix), prefix),
         ).fetchall()
+        labels = self._labels(name, func_path)
+        if not labels:
+            return rows
+        best: dict[tuple[str, str], Mapping] = {(r["path"], r["target"]): r for r in rows}
+        for label in labels:
+            for r in self.conn.execute(
+                "SELECT * FROM replacements WHERE package = ? AND substr(path, 1, ?) = ?",
+                (name, len(label) + 1, label + "("),
+            ):
+                key = (func_path + r["path"][len(label) :], r["target"])
+                if key not in best or best[key]["confidence"] < r["confidence"]:
+                    best[key] = dict(r) | {"path": key[0]}
+        return sorted(best.values(), key=lambda r: (r["path"], -r["confidence"]))  # type: ignore[return-value]
 
-    @staticmethod
-    def _suffix_query(suffix: str, packages: Sequence[str] | None) -> tuple[str, list]:
+    def _suffix_query(self, suffix: str, packages: Sequence[str] | None) -> tuple[str, list]:
         """A query for `package, path` of the public paths equal to or ending with `.suffix`, in any version.
 
         Rows are found by tail, and each costs a read from the table. A member's own tail can match tens of
@@ -690,15 +1094,27 @@ class IndexStore:
         The suffix as a whole path is looked up by path too, since a top-level name such as `google.genai`'s
         `google` has no row of its own. Callers apply DISTINCT outside: inside, it made SQLite read every span of
         the package in path order rather than use the tail index.
+
+        A package stored with own members (DT-DATA-16) has a class's members in `members`, its own and those of
+        its MRO. A bare name is matched there only within `packages`, at the label of the class defining it.
         """
         in_packages = f" AND p.package IN ({','.join('?' * len(packages))})" if packages is not None else ""
+        own = bool(self._own_packages())
         parent, _, leaf = suffix.rpartition(".")
         if not parent:
             sql = (
                 f"SELECT p.package AS package, p.path AS path FROM spans p WHERE p.tail = ?{in_packages}"
                 " AND (p.path = ? OR substr(p.path, -?) = ?)"
             )
-            return sql, [suffix, *(packages or ()), suffix, len(suffix) + 1, "." + suffix]
+            params = [suffix, *(packages or ()), suffix, len(suffix) + 1, "." + suffix]
+            if own and packages is not None:
+                sql += (
+                    " UNION SELECT m.package, c.label || '.' || m.name FROM members m JOIN classes c"
+                    " ON c.package = m.package AND c.cls = m.cls"
+                    f" WHERE m.package IN ({','.join('?' * len(packages))}) AND m.name = ? AND m.kind != ?"
+                )
+                params += [*packages, suffix, HIDDEN]
+            return sql, params
         sql = (
             "SELECT p.package AS package, p.path || '.' || ? AS path FROM spans p"
             f" WHERE p.tail = ?{in_packages} AND (p.path = ? OR substr(p.path, -?) = ?)"
@@ -707,8 +1123,25 @@ class IndexStore:
             f" WHERE p.package IN (SELECT name FROM packages){in_packages} AND p.path = ?"
         )
         ptail = parent.rsplit(".", 1)[-1]
-        whole = [*(packages or ()), suffix]
-        return sql, [leaf, ptail, *(packages or ()), parent, len(parent) + 1, "." + parent, leaf, *whole]
+        tail_args = [ptail, *(packages or ()), parent, len(parent) + 1, "." + parent]
+        params = [leaf, *tail_args, leaf, *(packages or ()), suffix]
+        if own:
+            # The class's own member, or a member of a class in its MRO, in a release that has all three.
+            sql += (
+                " UNION SELECT p.package, p.path || '.' || ? FROM spans p"
+                f" WHERE p.tail = ?{in_packages} AND (p.path = ? OR substr(p.path, -?) = ?) AND p.kind = 'class'"
+                " AND EXISTS (SELECT 1 FROM members m WHERE m.package = p.package AND m.cls = p.canonical"
+                " AND m.name = ? AND m.kind != ? AND m.first_ordinal <= p.last_ordinal"
+                " AND m.last_ordinal >= p.first_ordinal"
+                # CROSS JOIN keeps this order: otherwise SQLite read every member of the package first.
+                " UNION ALL SELECT 1 FROM classes c CROSS JOIN json_each(c.mro) j CROSS JOIN members m"
+                " WHERE c.package = p.package AND c.cls = p.canonical AND c.first_ordinal <= p.last_ordinal"
+                " AND c.last_ordinal >= p.first_ordinal AND m.package = p.package AND m.cls = j.value"
+                " AND m.name = ? AND m.kind != ? AND max(p.first_ordinal, c.first_ordinal, m.first_ordinal)"
+                " <= min(p.last_ordinal, c.last_ordinal, m.last_ordinal))"
+            )
+            params += [leaf, *tail_args, leaf, HIDDEN, leaf, HIDDEN]
+        return sql, params
 
     def packages_with_suffix(self, suffix: str) -> list[str]:
         """Indexed packages with a public path equal to or ending with `.suffix` in any indexed version."""

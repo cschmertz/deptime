@@ -70,6 +70,51 @@ class SymbolRecord:
     deprecated_params: dict[str, str] | None = None
 
 
+# The kind of a class's own member that hides the same name in its bases but isn't recorded: an alias griffe can't
+# resolve, or an object that is neither function, attribute nor class. Looking the name up stops there, as griffe's
+# `all_members` does.
+HIDDEN = "hidden"
+
+
+@dataclass
+class ClassRecord:
+    """One class, for a package stored with its classes' own members (DT-DATA-16)."""
+
+    path: str  # canonical
+    # The classes it inherits from, canonical, in method resolution order. None for a class recorded only as
+    # another class's base.
+    mro: list[str] | None = None
+    # Its own members by name, each with `path` = the class's canonical path + "." + name. The same names as a
+    # public class's members: public names, `__init__` and `__call__`.
+    members: dict[str, SymbolRecord] = field(default_factory=dict)
+
+
+def resolve_member(classes: dict[str, ClassRecord], cls: str, name: str) -> SymbolRecord | None:
+    """`name` on the class `cls` as Python finds it: the class's own member, else the first class in its MRO that
+    has one. None when no class has it, or when the one that does is `HIDDEN`."""
+    rec = classes.get(cls)
+    if rec is None:
+        return None
+    for owner in [cls, *(rec.mro or ())]:
+        found = classes.get(owner)
+        member = found.members.get(name) if found is not None else None
+        if member is not None:
+            return None if member.kind == HIDDEN else member
+    return None
+
+
+def member_names(classes: dict[str, ClassRecord], cls: str) -> list[str]:
+    """The names `cls` has members under, own or inherited, `HIDDEN` ones included, in griffe's order."""
+    rec = classes.get(cls)
+    if rec is None:
+        return []
+    names: dict[str, None] = {}
+    for owner in [*reversed(rec.mro or ()), cls]:
+        found = classes.get(owner)
+        names.update(dict.fromkeys(found.members if found is not None else ()))
+    return list(names)
+
+
 @dataclass
 class ApiSnapshot:
     package: str
@@ -88,12 +133,21 @@ class ApiSnapshot:
     # outside the standard library, and everything in private modules. Kind and canonical path only, plus the
     # deprecation a module `__getattr__` serves a private name with. Never also in `symbols`.
     internal: dict[str, SymbolRecord] = field(default_factory=dict)
+    # Stored with each class's own members (coverage.toml `own_members`, DT-DATA-16): `symbols` then has no class
+    # members, and `classes` has, by canonical path, every class a public class is, with its MRO, and every class
+    # it inherits from. `expanded` gives the members under each public path.
+    own_members: bool = False
+    classes: dict[str, ClassRecord] = field(default_factory=dict)
 
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         payload = asdict(self)
         payload["symbols"] = [asdict(s) for s in self.symbols.values()]
         payload["internal"] = [asdict(s) for s in self.internal.values()]
+        payload["classes"] = [
+            {"path": c.path, "mro": c.mro, "members": [asdict(m) for m in c.members.values()]}
+            for c in self.classes.values()
+        ]
         with gzip.open(path, "wt", encoding="utf-8") as fh:
             json.dump(payload, fh, separators=(",", ":"), sort_keys=True)
 
@@ -103,7 +157,28 @@ class ApiSnapshot:
             payload = json.load(fh)
         symbols = {s["path"]: SymbolRecord(**s) for s in payload.pop("symbols")}
         internal = {s["path"]: SymbolRecord(**s) for s in payload.pop("internal", [])}
-        return cls(symbols=symbols, internal=internal, **payload)
+        classes = {
+            c["path"]: ClassRecord(
+                c["path"], c["mro"], {m["path"].rpartition(".")[2]: SymbolRecord(**m) for m in c["members"]}
+            )
+            for c in payload.pop("classes", [])
+        }
+        return cls(symbols=symbols, internal=internal, classes=classes, **payload)
+
+    def expanded(self) -> dict[str, SymbolRecord]:
+        """`symbols` with every public class's members, own and inherited, under each of its public paths: what a
+        snapshot not stored with own members records."""
+        if not self.own_members:
+            return self.symbols
+        out = dict(self.symbols)
+        for path, rec in self.symbols.items():
+            if rec.kind != "class" or rec.canonical not in self.classes:
+                continue
+            for name in member_names(self.classes, rec.canonical):
+                member = resolve_member(self.classes, rec.canonical, name)
+                if member is not None:
+                    out.setdefault(f"{path}.{name}", replace(member, path=f"{path}.{name}"))
+        return out
 
 
 @dataclass(frozen=True)
@@ -3272,26 +3347,64 @@ class _Walker:
 
     def cls(self, cls: griffe.Class, public_path: str) -> None:
         self.record(SymbolRecord(public_path, "class", cls.path, None, deprecation_message(cls)))
+        if self.snap.own_members:
+            self._class_record(cls)
+            return
         try:
             members = cls.all_members  # includes inherited members when bases resolve
         except Exception as exc:  # griffe raises several resolution errors for external bases
             self.snap.errors.append(f"{cls.path}: inherited members unavailable ({type(exc).__name__})")
             members = cls.members
         for name, member in members.items():
-            if name.startswith("_") and name not in {"__init__", "__call__"}:
-                continue
-            target = _resolve(member)
-            if target is None:
-                continue
-            path = f"{public_path}.{name}"
-            if target.is_function:
-                self.record(
-                    SymbolRecord(path, "function", target.path, _params(target), *deprecations(target))
-                )  # type: ignore[arg-type]
-            elif target.is_attribute:
-                self.record(SymbolRecord(path, "attribute", target.path, None, deprecation_message(target)))
-            elif target.is_class:
-                self.record(SymbolRecord(path, "class", target.path, None, deprecation_message(target)))
+            if _is_member_name(name) and (rec := _member_record(f"{public_path}.{name}", member)):
+                self.record(rec)
+
+    def _class_record(self, cls: griffe.Class) -> None:
+        """Record `cls` with its MRO and own members, and the own members of each class in its MRO (DT-DATA-16).
+        Inherited members are looked up as griffe's `all_members` finds them: no MRO when griffe can't compute
+        one (an inheritance cycle), and an error recorded when resolving the bases fails otherwise."""
+        rec = self._own_members(cls)
+        if rec.mro is not None:
+            return
+        try:
+            mro = cls.mro()
+        except ValueError:  # an inheritance cycle: all_members has no inherited members then
+            mro = []
+        except Exception as exc:  # griffe raises several resolution errors for external bases
+            self.snap.errors.append(f"{cls.path}: inherited members unavailable ({type(exc).__name__})")
+            mro = []
+        rec.mro = [base.path for base in mro]
+        for base in mro:
+            self._own_members(base)
+
+    def _own_members(self, cls: griffe.Class) -> ClassRecord:
+        rec = self.snap.classes.get(cls.path)
+        if rec is None:
+            rec = self.snap.classes[cls.path] = ClassRecord(cls.path)
+            for name, member in cls.members.items():
+                if _is_member_name(name):
+                    path = f"{cls.path}.{name}"
+                    rec.members[name] = _member_record(path, member) or SymbolRecord(path, HIDDEN)
+        return rec
+
+
+def _is_member_name(name: str) -> bool:
+    """A class member the index records: a public name, `__init__` or `__call__`."""
+    return not name.startswith("_") or name in {"__init__", "__call__"}
+
+
+def _member_record(path: str, member: griffe.Object | griffe.Alias) -> SymbolRecord | None:
+    """A class member's record at `path`; None for an alias griffe can't resolve and for other kinds of object."""
+    target = _resolve(member)
+    if target is None:
+        return None
+    if target.is_function:
+        return SymbolRecord(path, "function", target.path, _params(target), *deprecations(target))  # type: ignore[arg-type]
+    if target.is_attribute:
+        return SymbolRecord(path, "attribute", target.path, None, deprecation_message(target))
+    if target.is_class:
+        return SymbolRecord(path, "class", target.path, None, deprecation_message(target))
+    return None
 
 
 def _in_type_checking_else(node: ast.AST) -> bool:
@@ -3462,12 +3575,22 @@ def add_namespace_inits(search_path: Path, import_names: list[str], skip: list[s
 
 
 def build_snapshot(
-    package: str, version: str, import_names: list[str], search_path: Path, namespace_skip: list[str] = ()
+    package: str,
+    version: str,
+    import_names: list[str],
+    search_path: Path,
+    namespace_skip: list[str] = (),
+    own_members: bool = False,
 ) -> ApiSnapshot:
     """Snapshot the public API under `search_path`, a private extraction of one release: folders without
-    `__init__.py` get an empty one first (see `add_namespace_inits`)."""
+    `__init__.py` get an empty one first (see `add_namespace_inits`). `own_members` records each class's own
+    members once, with its MRO, rather than every member under every public path (DT-DATA-16)."""
     snap = ApiSnapshot(
-        package=package, version=version, import_names=list(import_names), namespace_skip=list(namespace_skip)
+        package=package,
+        version=version,
+        import_names=list(import_names),
+        namespace_skip=list(namespace_skip),
+        own_members=own_members,
     )
     add_namespace_inits(search_path, list(import_names), list(namespace_skip))
     walker = _Walker(snap, tuple(import_names))

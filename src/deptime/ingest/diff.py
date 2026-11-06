@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from deptime.ingest.replacements import Hint, param_alternatives, param_deprecations
-from deptime.ingest.snapshot import ApiSnapshot, SymbolRecord
+from deptime.ingest.snapshot import HIDDEN, ApiSnapshot, SymbolRecord, resolve_member
 
 MAX_MOVED_CANDIDATES = 3
 REQUIRED_KINDS = {"positional-only", "positional or keyword", "keyword-only"}
@@ -112,12 +112,76 @@ def _module_level(snap: ApiSnapshot, path: str) -> bool:
     return parent is not None and parent.kind == "module"
 
 
+def initial_path_events(path: str, rec: SymbolRecord) -> list[ChangeEvent]:
+    """The events of a path in the first indexed release: its deprecations, as `initial_events` reports them."""
+    return _deprecation_events(path, rec)
+
+
 def initial_events(snapshot: ApiSnapshot) -> list[ChangeEvent]:
     """Deprecations already present in the first indexed release (no previous release to diff against)."""
     events: list[ChangeEvent] = []
     for path in sorted(snapshot.symbols):
         events.extend(_deprecation_events(path, snapshot.symbols[path]))
+    if snapshot.own_members:
+        events.extend(member_events(None, snapshot))
     return events
+
+
+def _changed(path: str, a: SymbolRecord, b: SymbolRecord) -> list[ChangeEvent]:
+    """What changed on a path both releases have."""
+    events: list[ChangeEvent] = []
+    if a.kind != b.kind:
+        events.append(ChangeEvent(path, "kind_changed", {"from": a.kind, "to": b.kind}))
+    if a.params is not None and b.params is not None:
+        pa, pb = _params(a), _params(b)
+        renamed = renamed_params(pa, pb)
+        for name in sorted(pa.keys() - pb.keys()):
+            detail: dict[str, Any] = {"param": name, "absorbed_by_var_keyword": accepts_var_keyword(b)}
+            if name in renamed:
+                detail["renamed_to"] = renamed[name]
+            events.append(ChangeEvent(path, "param_removed", detail))
+        for name in sorted(pb.keys() - pa.keys()):
+            events.append(
+                ChangeEvent(path, "param_added", {"param": name, "required": is_required(pb[name])})
+            )
+        for name in sorted(pa.keys() & pb.keys()):
+            if pa[name].get("kind") != pb[name].get("kind"):
+                events.append(
+                    ChangeEvent(
+                        path,
+                        "param_kind_changed",
+                        {"param": name, "from": pa[name].get("kind"), "to": pb[name].get("kind")},
+                    )
+                )
+            was, now = is_required(pa[name]), is_required(pb[name])
+            if was != now:
+                kind = "param_now_required" if now else "param_now_optional"
+                events.append(
+                    ChangeEvent(
+                        path,
+                        kind,
+                        {
+                            "param": name,
+                            "default": pa[name].get("default") if now else pb[name].get("default"),
+                        },
+                    )
+                )
+    events.extend(_deprecation_events(path, b, a))
+    return events
+
+
+def path_events(path: str, old: SymbolRecord | None, new: SymbolRecord | None) -> list[ChangeEvent]:
+    """The events between two consecutive releases' records of one path (None where a release doesn't have it),
+    as `diff_snapshots` reports them, less `moved`, which pairs module-level paths with each other."""
+    if old is None and new is None:
+        return []
+    if old is None:
+        # A name can arrive deprecated: restored for a while (matplotlib 3.9.1's `cm.get_cmap`), or a new path to
+        # a deprecated function (DT-CORE-23).
+        return [ChangeEvent(path, "added", {"kind": new.kind}), *_deprecation_events(path, new)]  # type: ignore[union-attr]
+    if new is None:
+        return [ChangeEvent(path, "removed", {"kind": old.kind})]
+    return _changed(path, old, new)
 
 
 def diff_snapshots(old: ApiSnapshot, new: ApiSnapshot) -> list[ChangeEvent]:
@@ -131,16 +195,13 @@ def diff_snapshots(old: ApiSnapshot, new: ApiSnapshot) -> list[ChangeEvent]:
     # a class moves, its own event already says so. More than MAX_MOVED_CANDIDATES matches is no evidence at all.
     added_by_leaf: dict[str, list[str]] = defaultdict(list)
     for path in added:
-        events.append(ChangeEvent(path, "added", {"kind": new.symbols[path].kind}))
-        # A name can arrive deprecated: restored for a while (matplotlib 3.9.1's `cm.get_cmap`), or a new path to
-        # a deprecated function (DT-CORE-23).
-        events.extend(_deprecation_events(path, new.symbols[path]))
+        events.extend(path_events(path, None, new.symbols[path]))
         if _module_level(new, path):
             added_by_leaf[path.rsplit(".", 1)[-1]].append(path)
 
     for path in removed:
         rec = old.symbols[path]
-        events.append(ChangeEvent(path, "removed", {"kind": rec.kind}))
+        events.extend(path_events(path, rec, None))
         if not _module_level(old, path):
             continue
         leaf = path.rsplit(".", 1)[-1]
@@ -149,42 +210,61 @@ def diff_snapshots(old: ApiSnapshot, new: ApiSnapshot) -> list[ChangeEvent]:
             events.extend(ChangeEvent(path, "moved", {"to": target}) for target in same_kind)
 
     for path in sorted(old_paths & new_paths):
-        a, b = old.symbols[path], new.symbols[path]
-        if a.kind != b.kind:
-            events.append(ChangeEvent(path, "kind_changed", {"from": a.kind, "to": b.kind}))
-        if a.params is not None and b.params is not None:
-            pa, pb = _params(a), _params(b)
-            renamed = renamed_params(pa, pb)
-            for name in sorted(pa.keys() - pb.keys()):
-                detail: dict[str, Any] = {"param": name, "absorbed_by_var_keyword": accepts_var_keyword(b)}
-                if name in renamed:
-                    detail["renamed_to"] = renamed[name]
-                events.append(ChangeEvent(path, "param_removed", detail))
-            for name in sorted(pb.keys() - pa.keys()):
-                events.append(
-                    ChangeEvent(path, "param_added", {"param": name, "required": is_required(pb[name])})
-                )
-            for name in sorted(pa.keys() & pb.keys()):
-                if pa[name].get("kind") != pb[name].get("kind"):
-                    events.append(
-                        ChangeEvent(
-                            path,
-                            "param_kind_changed",
-                            {"param": name, "from": pa[name].get("kind"), "to": pb[name].get("kind")},
-                        )
-                    )
-                was, now = is_required(pa[name]), is_required(pb[name])
-                if was != now:
-                    kind = "param_now_required" if now else "param_now_optional"
-                    events.append(
-                        ChangeEvent(
-                            path,
-                            kind,
-                            {
-                                "param": name,
-                                "default": pa[name].get("default") if now else pb[name].get("default"),
-                            },
-                        )
-                    )
-        events.extend(_deprecation_events(path, b, a))
+        events.extend(_changed(path, old.symbols[path], new.symbols[path]))
+    if old.own_members or new.own_members:
+        events.extend(member_events(old, new))
+    return events
+
+
+def labels(snap: ApiSnapshot) -> dict[str, str]:
+    """Where each class of a snapshot stored with own members has its members' events (DT-DATA-16): its shortest
+    public path (fewest dots, then length), else its canonical path, for a base no public path names."""
+    out: dict[str, str] = {}
+    for path, rec in snap.symbols.items():
+        if rec.kind == "class" and rec.canonical in snap.classes:
+            best = out.get(rec.canonical)
+            if best is None or (path.count("."), len(path), path) < (best.count("."), len(best), best):
+                out[rec.canonical] = path
+    return {cls: out.get(cls, cls) for cls in snap.classes}
+
+
+def own_names(snap: ApiSnapshot, cls: str) -> list[str]:
+    rec = snap.classes.get(cls)
+    return [n for n, m in rec.members.items() if m.kind != HIDDEN] if rec is not None else []
+
+
+def member_events(old: ApiSnapshot | None, new: ApiSnapshot) -> list[ChangeEvent]:
+    """Events on class members for a package stored with own members (DT-DATA-16), each once, at the label of the
+    class that defines it: not on every subclass that inherits it. For each class, the names it defines in either
+    release are compared as the class resolves them, so a method that moves to a base class isn't removed. A class
+    that moves keeps its label's history when the label stays. `old` None: the first release, deprecations only."""
+    if old is None:
+        events: list[ChangeEvent] = []
+        for cls, label in labels(new).items():
+            for name in own_names(new, cls):
+                rec = resolve_member(new.classes, cls, name)
+                if rec is not None:
+                    events.extend(_deprecation_events(f"{label}.{name}", rec))
+        return events
+    before, after = labels(old), labels(new)
+    by_label = {label: cls for cls, label in before.items()}
+    pairs: list[tuple[str | None, str | None, str]] = []
+    matched: set[str] = set()
+    for cls, label in after.items():
+        prev = cls if cls in before else by_label.get(label)
+        if prev is not None and prev not in matched and (prev == cls or prev not in after):
+            matched.add(prev)
+            pairs.append((prev, cls, label))
+        else:
+            pairs.append((None, cls, label))
+    pairs.extend((cls, None, label) for cls, label in before.items() if cls not in matched)
+    events = []
+    for prev, cls, label in sorted(pairs, key=lambda p: p[2]):
+        names = dict.fromkeys(
+            [*(own_names(old, prev) if prev else ()), *(own_names(new, cls) if cls else ())]
+        )
+        for name in sorted(names):
+            a = resolve_member(old.classes, prev, name) if prev else None
+            b = resolve_member(new.classes, cls, name) if cls else None
+            events.extend(path_events(f"{label}.{name}", a, b))
     return events

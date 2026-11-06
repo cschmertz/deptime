@@ -829,6 +829,7 @@ def test_lookups_by_path_and_suffix_use_their_indexes(store):
     # DT-CORE-16: each wrong plan read every row of a package; on the published index the search of every package
     # for an error's owner took up to a second. Without ANALYZE statistics, SQLite's choice follows the query text.
     real = store.conn
+    store.stores_own_members("httpx")  # read once per store (DT-DATA-16), not per lookup
     rec = store.conn = _Recorder(real)
     try:
         store.events("httpx", "httpx.Client.__init__")

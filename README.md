@@ -69,7 +69,7 @@ Each check's right answers were written down before DepTime first ran on it ([be
 | Documented migrations that get a right hint at ≥ 0.75 | 50 | 11 | 42 (32 without hand-checked hints from migration guides) |
 | Names that exist at runtime but read as absent | 2,428 sampled at runtime from 10 dynamic packages | 5.1% | 1.2% |
 
-Across all 196 real tracebacks in the benchmark, including the ones fixes were designed from, DepTime names the right package, name and release for 98.0%, and a right replacement is among its first three for 68.1%. CI re-scores the 196 and the holdout on every code change and every published index, and fails on a drop of more than 2 points.
+Across all 196 real tracebacks in the benchmark, including the ones fixes were designed from, DepTime names the right package, name and release for 98.5%, and a right replacement is among its first three for 68.1%. CI re-scores the 196 and the holdout on every code change and every published index, and fails on a drop of more than 2 points.
 
 ## Install
 

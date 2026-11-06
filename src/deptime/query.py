@@ -1443,7 +1443,7 @@ class DepTime:
                     )
                 ]
                 if owners
-                else []
+                else self._subclass_member_findings(spec, signal, resolved, exact, installed_version)
             )
         if signal.kind in {"unexpected_kwarg", "missing_argument"} and signal.owner:
             param = signal.kwarg if signal.kind == "unexpected_kwarg" else (signal.missing_args or [None])[0]
@@ -1465,6 +1465,8 @@ class DepTime:
                     for p in paths
                     if param
                 ]
+            if not out and signal.kind == "unexpected_kwarg" and param:
+                out = self._override_findings(spec, signal, param, resolved, exact, installed_version)
             # A concrete change first, so the per-package limit never drops it behind inconclusive ones.
             return sorted((f for f in out if f is not None), key=lambda f: f.issue in INCONCLUSIVE_ISSUES)
         if signal.kind == "too_many_positional" and signal.owner:
@@ -1475,6 +1477,98 @@ class DepTime:
             )
             return [f for f in found if f is not None]
         return []
+
+    @staticmethod
+    def _inferred(f: Finding, why: str) -> Finding:
+        """A finding about a class the user's code subclasses, as DT-CORE-02 infers it: at most medium."""
+        confidence: Confidence = "medium" if f.confidence == "high" else f.confidence
+        return f.model_copy(update={"explanation": f"{why} {f.explanation}", "confidence": confidence})
+
+    def _subclass_member_findings(
+        self,
+        spec: PackageSpec,
+        signal: ErrorSignal,
+        resolved: sqlite3.Row | None,
+        exact: bool,
+        installed: str | None,
+    ) -> list[Finding]:
+        """An attribute missing from a class the package doesn't have, named like one of its classes (DT-CORE-02):
+        marshmallow 4 dropped `Field.fail` and `Schema.context`, and the error names the user's subclass,
+        `'MACAddressField' object has no attribute 'fail'`. Each class of the package whose name ends the error's
+        class name and whose `name` the installed release no longer has, by its defining class; ambiguity shows as
+        several findings at low confidence."""
+        assert self.store is not None
+        name, owner = spec.name, (signal.owner or "").rsplit(".", 1)[-1]
+        found: dict[str, Finding] = {}
+        for _, path in self.store.find_by_suffix([name], signal.name or "", limit=200):
+            cls = path.rpartition(".")[0]
+            leaf = cls.rpartition(".")[2]
+            if not leaf or leaf == owner or not owner.endswith(leaf) or not leaf[:1].isupper():
+                continue
+            for defining, _ in self._defining_paths(name, [path]):
+                f = self._symbol_finding(spec, defining, resolved, exact, installed, message=signal.message)
+                if f.issue == "symbol_removed":
+                    found.setdefault(f.symbol, f)
+        if not found or len(found) > 3:
+            return []
+        out = []
+        for f in found.values():
+            base = f.symbol.rpartition(".")[0]
+            why = (
+                f"`{owner}` isn't a class of {name}; it looks like a subclass of `{base}`, and that class lost "
+                f"`{signal.name}`."
+            )
+            g = self._inferred(f, why)
+            out.append(g.model_copy(update={"confidence": "low"}) if len(found) > 1 else g)
+        return out
+
+    def _override_findings(
+        self,
+        spec: PackageSpec,
+        signal: ErrorSignal,
+        param: str,
+        resolved: sqlite3.Row | None,
+        exact: bool,
+        installed: str | None,
+    ) -> list[Finding]:
+        """The package calling a user's override with an argument the override doesn't take (DT-CORE-02): click
+        8.2 calls `ParamType.get_metavar(param, ctx)`, and a subclass written for 8.1 raises `LogParam.get_metavar()
+        got an unexpected keyword argument 'ctx'`. Only when the class isn't the package's and the frame that raised
+        is the package's own code: the method the package gave that required parameter, by its shortest path."""
+        assert self.store is not None
+        name = spec.name
+        cls, _, method = (signal.owner or "").rpartition(".")
+        raiser = signal.frames[-1].module if signal.frames else None
+        if (
+            not cls
+            or not method
+            or raiser is None
+            or not any(raiser == n or raiser.startswith(n + ".") for n in spec.import_names)
+            or self.store.find_by_suffix([name], cls.rpartition(".")[2])
+        ):
+            return []
+        found = []
+        for _, path in self.store.find_by_suffix([name], method, limit=200):
+            if path.rpartition(".")[2] != method:
+                continue
+            f = self._param_finding(spec, path, param, "missing_argument", resolved, exact, installed)
+            if f is not None and f.issue == "param_now_required":
+                found.append((path, f))
+        if not found:
+            return []
+        # The base class's method, which the others override: `ParamType.get_metavar`, not `Choice.get_metavar`.
+        ordinal = resolved["ordinal"] if resolved else self.store.releases(name)[-1]["ordinal"]
+        homes = {}
+        for path, _ in found:
+            span = self.store.span_at(name, path.rpartition(".")[0], ordinal)
+            homes[path] = span["canonical"] if span is not None else None
+        bases = [b for path, _ in found if homes[path] for b in self.store.mro(name, homes[path], ordinal)]
+        path, f = min(found, key=lambda pf: (-bases.count(homes[pf[0]]), len(pf[0]), pf[0]))
+        why = (
+            f"`{cls}` isn't a class of {name}: it looks like a subclass overriding `{method}`, which {name}'s own code "
+            f"now calls with `{param}`, so the override has to accept it."
+        )
+        return [self._inferred(f, why)]
 
     def _positional_finding(
         self,

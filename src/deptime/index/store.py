@@ -885,6 +885,17 @@ class IndexStore:
             else {}
         )
 
+    def mro(self, name: str, cls: str, ordinal: int) -> list[str]:
+        """The canonical classes `cls` (canonical) inherits from at a release, for a package stored with own
+        members; empty otherwise."""
+        if not self.stores_own_members(name):
+            return []
+        row = self.conn.execute(
+            "SELECT mro FROM classes WHERE package = ? AND cls = ? AND first_ordinal <= ? AND last_ordinal >= ?",
+            (name, cls, ordinal, ordinal),
+        ).fetchone()
+        return json.loads(row["mro"]) if row and row["mro"] else []
+
     def version_at(self, name: str, ordinal: int) -> str | None:
         row = self.conn.execute(
             "SELECT version FROM releases WHERE package = ? AND ordinal = ?", (name, ordinal)

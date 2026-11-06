@@ -34,6 +34,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
   removed modules and names (DT-DATA-48). The Python version is also read from the file an `ImportError` names.
 - `too_many_positional` errors are explained: a parameter that became keyword-only is the new issue
   `param_kind_changed`, with a `fix` of the new kind `keyword` (DT-CORE-09).
+- A user's subclass of a library class is linked to it when the evidence allows: an attribute a class named like it
+  lost (`'MACAddressField' object has no attribute 'fail'` in marshmallow 4), or a keyword argument the library's own
+  code now passes to the user's override (click 8.2's `get_metavar(ctx)`). pytest's and IPython's frame lines are read
+  as frames (DT-CORE-02).
 - `check_symbols(code=...)` checks what a snippet uses from the package, read with `ast` (DT-CORE-07); `symbols` is
   now optional.
 - Answers about a package DepTime doesn't index point to `coverage` and to the package request form;

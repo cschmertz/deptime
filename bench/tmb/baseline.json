@@ -1,32 +1,32 @@
 {
-  "index_built_at": "2026-11-05T22:29:46+00:00",
+  "index_built_at": "2026-11-06T19:18:37+00:00",
   "summary": {
     "cases": 29,
-    "known_gap_share": 6.9,
+    "known_gap_share": 3.4,
     "overall": {
-      "root_cause": 93.1,
-      "root_cause_and_boundary": 93.1,
-      "boundary": 93.1,
-      "replacement": 77.3,
+      "root_cause": 96.6,
+      "root_cause_and_boundary": 96.6,
+      "boundary": 96.6,
+      "replacement": 81.8,
       "replacement_uncurated": 68.2
     },
     "by_tier": {
       "B": {
         "cases": 29,
-        "root_cause": 93.1,
-        "root_cause_and_boundary": 93.1,
-        "boundary": 93.1,
-        "replacement": 77.3,
+        "root_cause": 96.6,
+        "root_cause_and_boundary": 96.6,
+        "boundary": 96.6,
+        "replacement": 81.8,
         "replacement_uncurated": 68.2
       }
     },
     "by_origin": {
       "reported": {
         "cases": 29,
-        "root_cause": 93.1,
-        "root_cause_and_boundary": 93.1,
-        "boundary": 93.1,
-        "replacement": 77.3,
+        "root_cause": 96.6,
+        "root_cause_and_boundary": 96.6,
+        "boundary": 96.6,
+        "replacement": 81.8,
         "replacement_uncurated": 68.2
       }
     }
@@ -69,9 +69,9 @@
       "replacement_uncurated": null
     },
     "tmb-marshmallow-field-fail-queue-messaging": {
-      "root_cause": false,
-      "boundary": false,
-      "replacement": false,
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true,
       "replacement_uncurated": false
     },
     "tmb-marshmallow-field-init-default-marshmallow-dataclass": {

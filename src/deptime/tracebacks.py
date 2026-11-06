@@ -39,6 +39,12 @@ IPYTHON_FRAME_RES = (
     re.compile(r"^\s*File (?P<file>\S+?\.pyi?):\d+"),
     re.compile(r"^\s*(?P<file>(?:https?|file)://\S+?\.pyi?)#line=\d+\s*$"),
 )
+# Frames in outputs with no `File "..."` lines (DT-CORE-02): pytest's `path:line: in func` (and, after the `E` lines,
+# `path:line: ExcType` for the innermost frame), and IPython's `File path:line, in func`.
+PYTEST_FRAME_RE = re.compile(
+    r"^(?P<file>[^\s:>][^:]*?\.pyi?):(?P<line>\d+):(?: in (?P<func>\S.*?)| (?P<exc>[A-Za-z_][\w.]*))?\s*$"
+)
+IPYTHON_LOCATION_RE = re.compile(r"^\s*File (?P<file>\S+?\.pyi?):(?P<line>\d+)(?:, in (?P<func>.+?))?\s*$")
 PYTHON_PATH_RES = (
     re.compile(r"[\\/]python3\.(?P<minor>\d{1,2})t?[\\/]"),
     re.compile(r"[\\/]Python3(?P<minor>\d{1,2})(?:-32|-arm64)?[\\/]", re.IGNORECASE),
@@ -233,8 +239,37 @@ def _python_version_of(lines: list[str], signal: ErrorSignal) -> ErrorSignal:
     if signal.kind == "import_name" and (m := IMPORT_NAME_PATH_RE.search(signal.message)):
         files.append(m.group("file"))
     versions = {m.group("minor") for file in files for rx in PYTHON_PATH_RES if (m := rx.search(file))}
+    versions |= {
+        m.group("minor") for f in signal.frames for rx in PYTHON_PATH_RES if (m := rx.search(f.file))
+    }
     signal.python_version = f"3.{versions.pop()}" if len(versions) == 1 else None
     return signal
+
+
+def _location_frames(lines: list[str], start: int, exc_index: int) -> list[Frame]:
+    """A block's frames from pytest's and IPython's location lines, outermost first."""
+    frames = []
+    for i in range(start, exc_index):
+        m = IPYTHON_LOCATION_RE.match(lines[i]) or PYTEST_FRAME_RE.match(lines[i])
+        if m is None or m.groupdict().get("exc"):
+            continue
+        file = m.group("file")
+        # IPython prints the qualified name and the arguments: `Parameter.make_metavar(self, ctx)`.
+        func = (m.group("func") or "<module>").strip().split("(", 1)[0] or "<module>"
+        frames.append(
+            Frame(file=file, line=int(m.group("line")), function=func, module=_module_from_path(file))
+        )
+    for line in lines[exc_index + 1 : exc_index + 2 + MAX_MESSAGE_LINES]:
+        m = PYTEST_FRAME_RE.match(line)
+        if m is not None and m.group("exc"):  # the frame that raised, printed after the `E` lines
+            file = m.group("file")
+            frames.append(
+                Frame(
+                    file=file, line=int(m.group("line")), function="<unknown>", module=_module_from_path(file)
+                )
+            )
+            break
+    return frames
 
 
 def _signal_in_chain(lines: list[str], found: list[tuple[int, str, str]]) -> ErrorSignal:
@@ -284,6 +319,9 @@ def _signal_at(lines: list[str], exc_index: int, exc_type: str, exc_msg: str) ->
                 code=code,
             )
         )
+
+    if not frames:
+        frames = _location_frames(lines, start, exc_index)
 
     suggestion = None
     sm = SUGGESTION_RE.search(exc_msg)

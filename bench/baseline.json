@@ -2,11 +2,11 @@
   "index_built_at": "2026-11-06T19:18:37+00:00",
   "summary": {
     "cases": 210,
-    "known_gap_share": 2.4,
+    "known_gap_share": 1.0,
     "overall": {
-      "root_cause": 98.1,
-      "root_cause_and_boundary": 98.1,
-      "boundary": 98.1,
+      "root_cause": 99.0,
+      "root_cause_and_boundary": 99.0,
+      "boundary": 99.0,
       "replacement": 70.1,
       "replacement_uncurated": 59.8
     },
@@ -29,9 +29,9 @@
       },
       "B": {
         "cases": 103,
-        "root_cause": 96.1,
-        "root_cause_and_boundary": 96.1,
-        "boundary": 96.1,
+        "root_cause": 98.1,
+        "root_cause_and_boundary": 98.1,
+        "boundary": 98.1,
         "replacement": 84.2,
         "replacement_uncurated": 70.2
       }
@@ -47,9 +47,9 @@
       },
       "reported": {
         "cases": 202,
-        "root_cause": 98.5,
-        "root_cause_and_boundary": 98.5,
-        "boundary": 98.5,
+        "root_cause": 99.5,
+        "root_cause_and_boundary": 99.5,
+        "boundary": 99.5,
         "replacement": 68.5,
         "replacement_uncurated": 57.6
       }
@@ -135,8 +135,8 @@
       "replacement_uncurated": null
     },
     "click-paramtype-get-metavar-ctx-filesender": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": null,
       "replacement_uncurated": null
     },
@@ -561,8 +561,8 @@
       "replacement_uncurated": true
     },
     "marshmallow-schema-context-attr-taxcalc": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": null,
       "replacement_uncurated": null
     },

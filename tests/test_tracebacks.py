@@ -540,3 +540,47 @@ def test_the_python_version_also_comes_from_the_import_error_s_own_path():
         parse_traceback("ImportError: cannot import name 'x' from 'm' (unknown location)\n").python_version
         is None
     )
+
+
+PYTEST_TB = """\
+    def test_main():
+>       main()
+
+test_app.py:5: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+.venv/lib/python3.12/site-packages/click/core.py:3353: in _write_opts
+    rv += f" {self.make_metavar(ctx=ctx)}"
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+>       metavar = self.type.get_metavar(param=self, ctx=ctx)
+E       TypeError: LogParam.get_metavar() got an unexpected keyword argument 'ctx'
+
+.venv/lib/python3.12/site-packages/click/core.py:2425: TypeError
+=========================== short test summary info ============================
+"""
+
+IPYTHON_TB = """\
+File ~/project/.venv/lib/python3.12/site-packages/click/core.py:3353, in Option.get_help_record.<locals>._write_opts(opts)
+   3352 if not self.is_flag and not self.count:
+-> 3353     rv += f" {self.make_metavar(ctx=ctx)}"
+
+File ~/project/.venv/lib/python3.12/site-packages/click/core.py:2425, in Parameter.make_metavar(self, ctx)
+-> 2425 metavar = self.type.get_metavar(param=self, ctx=ctx)
+
+TypeError: LogParam.get_metavar() got an unexpected keyword argument 'ctx'
+"""
+
+
+def test_pytest_and_ipython_location_lines_are_frames():
+    # DT-CORE-02: which package's code raised decides whose override it calls, and these outputs have no `File "..."`.
+    for text, outer in ((PYTEST_TB, [(None, 5)]), (IPYTHON_TB, [])):
+        s = parse_traceback(text)
+        assert s.kind == "unexpected_kwarg" and s.owner == "LogParam.get_metavar"
+        assert [(f.module, f.line) for f in s.frames] == [
+            *outer,
+            ("click.core", 3353),
+            ("click.core", 2425),
+        ], text
+        assert s.python_version == "3.12"
+    assert parse_traceback(PYTEST_TB).frames[1].function == "_write_opts"
+    assert parse_traceback(IPYTHON_TB).frames[1].function == "Parameter.make_metavar"  # without the arguments

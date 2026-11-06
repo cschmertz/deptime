@@ -1099,7 +1099,10 @@ class IndexStore:
         its MRO. A bare name is matched there only within `packages`, at the label of the class defining it.
         """
         in_packages = f" AND p.package IN ({','.join('?' * len(packages))})" if packages is not None else ""
-        own = bool(self._own_packages())
+        # Only the packages stored with own members: SQLite otherwise read every member row for a package without
+        # any (22 ms for sqlalchemy's bare `get`).
+        own = sorted(self._own_packages() if packages is None else self._own_packages() & set(packages))
+        in_own = f" AND p.package IN ({','.join('?' * len(own))})"
         parent, _, leaf = suffix.rpartition(".")
         if not parent:
             sql = (
@@ -1111,9 +1114,9 @@ class IndexStore:
                 sql += (
                     " UNION SELECT m.package, c.label || '.' || m.name FROM members m JOIN classes c"
                     " ON c.package = m.package AND c.cls = m.cls"
-                    f" WHERE m.package IN ({','.join('?' * len(packages))}) AND m.name = ? AND m.kind != ?"
+                    f" WHERE m.package IN ({','.join('?' * len(own))}) AND m.name = ? AND m.kind != ?"
                 )
-                params += [*packages, suffix, HIDDEN]
+                params += [*own, suffix, HIDDEN]
             return sql, params
         sql = (
             "SELECT p.package AS package, p.path || '.' || ? AS path FROM spans p"
@@ -1129,7 +1132,7 @@ class IndexStore:
             # The class's own member, or a member of a class in its MRO, in a release that has all three.
             sql += (
                 " UNION SELECT p.package, p.path || '.' || ? FROM spans p"
-                f" WHERE p.tail = ?{in_packages} AND (p.path = ? OR substr(p.path, -?) = ?) AND p.kind = 'class'"
+                f" WHERE p.tail = ?{in_own} AND (p.path = ? OR substr(p.path, -?) = ?) AND p.kind = 'class'"
                 " AND EXISTS (SELECT 1 FROM members m WHERE m.package = p.package AND m.cls = p.canonical"
                 " AND m.name = ? AND m.kind != ? AND m.first_ordinal <= p.last_ordinal"
                 " AND m.last_ordinal >= p.first_ordinal"
@@ -1140,7 +1143,7 @@ class IndexStore:
                 " AND m.name = ? AND m.kind != ? AND max(p.first_ordinal, c.first_ordinal, m.first_ordinal)"
                 " <= min(p.last_ordinal, c.last_ordinal, m.last_ordinal))"
             )
-            params += [leaf, *tail_args, leaf, HIDDEN, leaf, HIDDEN]
+            params += [leaf, ptail, *own, parent, len(parent) + 1, "." + parent, leaf, HIDDEN, leaf, HIDDEN]
         return sql, params
 
     def packages_with_suffix(self, suffix: str) -> list[str]:

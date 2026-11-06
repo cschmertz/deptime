@@ -18,6 +18,7 @@ from deptime import stdlib
 from deptime.config import Coverage, PackageSpec
 from deptime.index.location import active_index
 from deptime.index.store import IndexStore
+from deptime.ingest.curated import CURATED_CONFIDENCE, hints_for
 from deptime.ingest.diff import is_required
 from deptime.ingest.replacements import clean_evidence, expand_alias, mine, moved_to_package, same_class
 from deptime.models import (
@@ -204,6 +205,57 @@ def _accepts(span: sqlite3.Row, kwarg: str) -> bool:
 def _takes(span: sqlite3.Row, param: str) -> bool:
     """Whether a release names `param`: in its signature, or as an argument it deprecates."""
     return param in _param_names(span["params"]) or param in _deprecated_params(span)
+
+
+def _stdlib_curated(path: str) -> list[Replacement]:
+    """What's New's replacements for a removed standard module or name (DT-DATA-48, curated.toml)."""
+    return [
+        Replacement(target=h.target, confidence=CURATED_CONFIDENCE, source="curated", evidence=h.evidence)
+        for h in hints_for(PYTHON)
+        if h.path == path
+    ]
+
+
+def _stdlib_module(path: str) -> bool:
+    entry = stdlib.lookup(path)
+    return entry is not None and entry.module == path
+
+
+def _stdlib_has(path: str, minor: int) -> bool | None:
+    """Whether Python 3.<minor> has the standard module `path`, or `module.name`; None when the tables can't tell:
+    a deeper path such as a class's member, or a path outside the standard library."""
+    if _stdlib_module(path):
+        return stdlib.lookup(path).has(minor)  # type: ignore[union-attr]
+    module, _, name = path.rpartition(".")
+    if not _stdlib_module(module):
+        return None
+    named = stdlib.lookup_name(module, name)
+    return stdlib.lookup(module).has(minor) and (named is None or named.has(minor))  # type: ignore[union-attr]
+
+
+def _stdlib_fix(old: str, is_module: bool, replacements: list[Replacement], minor: int) -> Fix | None:
+    """DT-CORE-29's fix for a standard-library finding: the same object at another path, else the one replacement
+    the tables show at Python 3.<minor>, a module for a module and a name for a name."""
+    found = []
+    for r in replacements:
+        if r.confidence < FIX_MIN_CONFIDENCE and r.source != "moved_heuristic":
+            continue
+        if _stdlib_module(r.target) != is_module or not _stdlib_has(r.target, minor):
+            continue
+        fix = Fix(
+            kind="path",
+            old=old,
+            new=r.target,
+            verified_at=f"3.{minor}",
+            same_object=r.source == "moved_heuristic",
+            confidence=r.confidence,
+            source=r.source,
+            evidence=r.evidence,
+        )
+        if fix.same_object:
+            return fix
+        found.append(fix)
+    return found[0] if len({f.new for f in found}) == 1 else None
 
 
 class DepTime:
@@ -879,6 +931,9 @@ class DepTime:
                 '"3.X"} to confirm.'
             )
             caller = raiser.split(".")[0] if raiser else None
+            replacements = _stdlib_curated(mod)
+            targets = _and([f"`{r.target}`" for r in replacements], "or") if replacements else ""
+            use = f" What's New in Python {gone} says to use {targets}." if targets else ""
             theirs = (
                 f" The import is in {caller}'s code: a {caller} release made for Python {gone} may not need it; "
                 f"DepTime does not check {caller}'s side."
@@ -894,10 +949,12 @@ class DepTime:
                     resolved_version=f"3.{minor}" if minor is not None else None,
                     last_version_with=last,
                     first_version_without=gone,
+                    replacements=replacements,
+                    fix=_stdlib_fix(mod, True, replacements, minor if minor is not None else entry.last + 1),
                     pin_to_restore=f"{PYTHON}<={last}",
                     confidence=confidence,
                     explanation=f"`{mod}` was removed from the standard library in Python {gone}; {last} is the last "
-                    f"version with it.{part}{you}{unsure}{theirs}",
+                    f"version with it.{part}{use}{you}{unsure}{theirs}",
                 )
             ], []
         first = f"3.{entry.first}"
@@ -973,32 +1030,23 @@ class DepTime:
                 if caller
                 else ""
             )
-            replacements, fix, moved = [], None, ""
+            replacements, moved = _stdlib_curated(path), ""
             if entry.moved:
                 evidence = (
                     f"typeshed's stubs give `{entry.moved}` the same object in Python {gone}, the first version "
                     f"without `{path}`."
                 )
-                replacements = [
+                replacements.insert(
+                    0,
                     Replacement(
                         target=entry.moved, confidence=0.75, source="moved_heuristic", evidence=evidence
-                    )
-                ]
-                module, _, name = entry.moved.rpartition(".")
-                home, still = stdlib.lookup(module), stdlib.lookup_name(module, name)
-                at = minor if minor is not None else last + 1
-                if home is not None and home.has(at) and (still is None or still.has(at)):
-                    fix = Fix(
-                        kind="path",
-                        old=path,
-                        new=entry.moved,
-                        verified_at=f"3.{at}",
-                        same_object=True,
-                        confidence=0.75,
-                        source="moved_heuristic",
-                        evidence=evidence,
-                    )
+                    ),
+                )
                 moved = f" The same object is `{entry.moved}`."
+            elif replacements:
+                use = _and([f"`{r.target}`" for r in replacements], "or")
+                moved = f" What's New in Python {gone} says to use {use}."
+            fix = _stdlib_fix(path, False, replacements, minor if minor is not None else last + 1)
             return [
                 Finding(
                     package=PYTHON,

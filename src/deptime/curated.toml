@@ -2247,3 +2247,105 @@ path = "chromadb.api.types.EmbeddingFunction.__call__(texts)"
 target = "input"
 quote = "__call__ now takes a single argument, input, to support data of any type D. The texts argument has been removed."
 url = "https://docs.trychroma.com/docs/overview/migration#migration-to-0-4-16-november-7-2023"
+
+
+# python (DT-DATA-48): the standard library's own removals, from What's New in Python. These apply when DepTime
+# answers, to findings with package "python" (DT-DATA-06, DT-DATA-47), and are checked against stdlib_versions.txt
+# and stdlib_names.txt instead of the index. A target may be another distribution (setuptools).
+[[hint]]
+package = "python"
+path = "configparser.SafeConfigParser"
+target = "configparser.ConfigParser"
+quote = "configparser no longer has a SafeConfigParser class. Use the shorter ConfigParser name instead."
+url = "https://docs.python.org/3/whatsnew/3.12.html"
+
+[[hint]]
+package = "python"
+path = "inspect.getargspec"
+target = "inspect.signature"
+quote = "The getargspec() function, deprecated since Python 3.0; use inspect.signature() or inspect.getfullargspec() instead."
+url = "https://docs.python.org/3/whatsnew/3.11.html"
+
+[[hint]]
+package = "python"
+path = "inspect.getargspec"
+target = "inspect.getfullargspec"
+quote = "The getargspec() function, deprecated since Python 3.0; use inspect.signature() or inspect.getfullargspec() instead."
+url = "https://docs.python.org/3/whatsnew/3.11.html"
+
+[[hint]]
+package = "python"
+path = "inspect.formatargspec"
+target = "inspect.signature"
+quote = "The formatargspec() function, deprecated since Python 3.5; use the inspect.signature() function or the inspect.Signature object directly."
+url = "https://docs.python.org/3/whatsnew/3.11.html"
+
+[[hint]]
+package = "python"
+path = "ssl.wrap_socket"
+target = "ssl.SSLContext.wrap_socket"
+quote = "Remove the ssl.wrap_socket() function, deprecated in Python 3.7: instead, create a ssl.SSLContext object and call its ssl.SSLContext.wrap_socket method."
+url = "https://docs.python.org/3/whatsnew/3.12.html"
+
+[[hint]]
+package = "python"
+path = "locale.format"
+target = "locale.format_string"
+quote = "Remove locale's locale.format() function, deprecated in Python 3.7: use locale.format_string() instead."
+url = "https://docs.python.org/3/whatsnew/3.12.html"
+
+[[hint]]
+package = "python"
+path = "pkgutil.find_loader"
+target = "importlib.util.find_spec"
+quote = "pkgutil.find_loader() and pkgutil.get_loader() now raise DeprecationWarning; use importlib.util.find_spec() instead."
+url = "https://docs.python.org/3/whatsnew/3.12.html"
+
+[[hint]]
+package = "python"
+path = "pkgutil.get_loader"
+target = "importlib.util.find_spec"
+quote = "pkgutil.find_loader() and pkgutil.get_loader() now raise DeprecationWarning; use importlib.util.find_spec() instead."
+url = "https://docs.python.org/3/whatsnew/3.12.html"
+
+[[hint]]
+package = "python"
+path = "asyncore"
+target = "asyncio"
+quote = "asynchat and asyncore … These two modules have been removed according to the schedule in PEP 594, having been deprecated in Python 3.6. Use asyncio instead."
+url = "https://docs.python.org/3/whatsnew/3.12.html"
+
+[[hint]]
+package = "python"
+path = "asynchat"
+target = "asyncio"
+quote = "asynchat and asyncore … These two modules have been removed according to the schedule in PEP 594, having been deprecated in Python 3.6. Use asyncio instead."
+url = "https://docs.python.org/3/whatsnew/3.12.html"
+
+[[hint]]
+package = "python"
+path = "imp"
+target = "importlib"
+quote = "The imp module has been removed. … To migrate, consult the following correspondence table: … importlib"
+url = "https://docs.python.org/3/whatsnew/3.12.html"
+
+[[hint]]
+package = "python"
+path = "distutils"
+target = "setuptools"
+quote = "For projects still using distutils and cannot be updated to something else, the setuptools project can be installed: it still provides distutils."
+url = "https://docs.python.org/3/whatsnew/3.12.html"
+
+[[hint]]
+package = "python"
+path = "mailcap"
+target = "mimetypes"
+quote = "mailcap: Use the mimetypes module instead."
+url = "https://docs.python.org/3/whatsnew/3.13.html"
+
+[[hint]]
+package = "python"
+path = "pipes"
+target = "subprocess"
+quote = "pipes: Use the subprocess module instead."
+url = "https://docs.python.org/3/whatsnew/3.13.html"

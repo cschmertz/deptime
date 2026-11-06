@@ -8,6 +8,7 @@ from html.parser import HTMLParser
 import httpx
 import pytest
 
+from deptime import stdlib
 from deptime.config import load_coverage
 from deptime.ingest.curated import curated_hints
 
@@ -18,10 +19,17 @@ def test_every_curated_hint_is_well_formed():
     assert hints, "curated.toml ships no hints"
     seen = set()
     for h in hints:
-        spec = coverage.get(h.package)
-        assert spec is not None, f"{h.package} is not covered"
         func, _, rest = h.path.partition("(")
-        assert any(func == n or func.startswith(n + ".") for n in spec.import_names), h.path
+        if h.package == "python":  # the standard library's own removals (DT-DATA-48)
+            module, _, name = func.rpartition(".")
+            entry, named = stdlib.lookup(func), stdlib.lookup_name(module, name)
+            assert (entry is not None and entry.module == func and entry.last is not None) or (
+                named is not None and named.ranges[-1][1] is not None
+            ), f"{func} isn't a removed standard module or name"
+        else:
+            spec = coverage.get(h.package)
+            assert spec is not None, f"{h.package} is not covered"
+            assert any(func == n or func.startswith(n + ".") for n in spec.import_names), h.path
         if rest:  # an argument: `path(param)`, and the target is the parameter to pass instead
             assert rest.endswith(")") and rest[:-1].isidentifier(), h.path
             assert h.target.isidentifier(), (h.path, h.target)

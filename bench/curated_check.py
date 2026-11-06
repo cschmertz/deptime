@@ -3,7 +3,8 @@
     uv run python bench/curated_check.py [index.sqlite]      # default: the index in DEPTIME_HOME
 
 `path` must be a name its package had in some indexed release, or for `path(param)`, an argument the function
-took. `target` must be an argument that function takes in some release, a path some covered package has (its own
+took; for package `python`, a standard module or name some Python version removed (stdlib_versions.txt,
+stdlib_names.txt). `target` must be an argument that function takes in some release, a path some covered package has (its own
 or another's, by import name), or a standard-library name. A target in a distribution DepTime doesn't cover (flask's "Import them directly from
 markupsafe instead") can't be checked here and is listed as such. Exits 1 if any hint fails.
 """
@@ -15,6 +16,7 @@ import tomllib
 from importlib import resources
 from pathlib import Path
 
+from deptime import stdlib
 from deptime.config import Settings, load_coverage
 from deptime.index.location import active_index
 from deptime.index.store import IndexStore
@@ -65,11 +67,26 @@ def in_stdlib(path: str) -> bool:
     return False
 
 
+def removed_from_stdlib(path: str) -> bool:
+    """A standard module or name some Python version dropped (DT-DATA-06, DT-DATA-47): what a `python` hint is for."""
+    entry = stdlib.lookup(path)
+    module, _, name = path.rpartition(".")
+    named = stdlib.lookup_name(module, name)
+    return (entry is not None and entry.module == path and entry.last is not None) or (
+        named is not None and named.ranges[-1][1] is not None
+    )
+
+
 bad, unchecked = [], []
 for h in hints:
     func, _, param = h["path"].partition("(")
     param = param.removesuffix(")")
-    if not has(h["package"], func) or (param and param not in took(h["package"], func)):
+    if (
+        h["package"] == "python"
+    ):  # the standard library's own removals (DT-DATA-48): its tables, not the index
+        if not removed_from_stdlib(func):
+            bad.append(f"no Python version removed {h['path']}")
+    elif not has(h["package"], func) or (param and param not in took(h["package"], func)):
         bad.append(f"{h['package']} never had {h['path']}")
     if param:
         if h["target"] not in took(h["package"], func):

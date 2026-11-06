@@ -56,8 +56,10 @@ def test_a_removed_module_on_a_later_python(dt):
     assert f.pin_to_restore == "python<=3.11"
     assert f.explanation == (
         "`distutils` was removed from the standard library in Python 3.12; 3.11 is the last version with it. "
-        "You run Python 3.12 (from the traceback paths)."
+        "What's New in Python 3.12 says to use `setuptools`. You run Python 3.12 (from the traceback paths)."
     )
+    # DT-DATA-48: What's New's replacement, quoted; another distribution, so no fix the tables can check.
+    assert [(r.target, r.source) for r in f.replacements] == [("setuptools", "curated")] and f.fix is None
     # Not a distribution DepTime lacks, and no "inferred from the latest indexed release".
     assert res.not_covered == [] and res.note is None
 
@@ -217,3 +219,24 @@ def test_a_standard_name_added_later_or_present(dt):
     assert (f.issue, f.last_version_with, f.confidence) == ("symbol_removed", "3.10", "medium")
     other = dt.explain_error(_import_tb("OrderedDict", "collections", 12))
     assert other.findings == [] and "`OrderedDict` isn't one of them" in other.note
+
+
+def test_what_s_new_gives_the_replacement_and_the_tables_check_the_fix(dt):
+    # DT-DATA-48: curated hints with package "python", applied at query time.
+    (f,) = dt.explain_error(_import_tb("SafeConfigParser", "configparser", 13)).findings
+    assert [(r.target, r.confidence, r.source) for r in f.replacements] == [
+        ("configparser.ConfigParser", 0.9, "curated")
+    ]
+    assert (f.fix.new, f.fix.same_object, f.fix.verified_at) == ("configparser.ConfigParser", False, "3.13")
+    assert "What's New in Python 3.12 says to use `configparser.ConfigParser`." in f.explanation
+    # Two targets: no fix. A class's member: the tables can't check it, so no fix either.
+    (f,) = dt.explain_error("AttributeError: module 'inspect' has no attribute 'getargspec'\n").findings
+    assert [r.target for r in f.replacements] == [
+        "inspect.signature",
+        "inspect.getfullargspec",
+    ] and f.fix is None
+    (f,) = dt.explain_error("AttributeError: module 'ssl' has no attribute 'wrap_socket'\n").findings
+    assert [r.target for r in f.replacements] == ["ssl.SSLContext.wrap_socket"] and f.fix is None
+    # A module for a module.
+    (f,) = dt.explain_error(_tb("asyncore")).findings
+    assert (f.issue, f.fix.new, f.fix.verified_at) == ("module_removed", "asyncio", "3.12")

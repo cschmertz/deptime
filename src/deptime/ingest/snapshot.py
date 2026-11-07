@@ -152,8 +152,9 @@ class ApiSnapshot:
     # Its namespace packages, folders without `__init__.py` an import root included (DT-CORE-32): other
     # distributions can install modules into them, as langgraph-checkpoint does into `langgraph`.
     namespaces: list[str] = field(default_factory=list)
-    # Modules made importable under another name by `sys.modules[...] = ...` (DT-DATA-52), alias -> module: fastmcp
-    # 3.2-3.4 kept `fastmcp.tools.tool` importable as `fastmcp.tools.base`.
+    # Paths importable as a module though the index records another object there, path -> module: those made by
+    # `sys.modules[...] = ...` (DT-DATA-52: fastmcp 3.2-3.4 kept `fastmcp.tools.tool` importable as
+    # `fastmcp.tools.base`), and a submodule whose name its package rebinds (DT-DATA-54: `instructor.patch`).
     module_aliases: dict[str, str] = field(default_factory=dict)
 
     def save(self, path: Path) -> None:
@@ -3279,6 +3280,29 @@ class _Walker:
                 return found
         return unread
 
+    def _rebound(
+        self, mod: griffe.Module, name: str, member: griffe.Object | griffe.Alias
+    ) -> griffe.Object | griffe.Alias | None:
+        """What a package binds a submodule's name to when it imports a same-named object from it (DT-DATA-54):
+        after `from .patch import patch`, `instructor.patch` is the function, though griffe lists the submodule.
+        `import instructor.patch` still finds the module, so its names stay under the path too. A star import
+        whose module exports the name rebinds it the same way. None for anything else."""
+        if member.is_alias or not member.is_module:
+            return None
+        target = mod.imports.get(name)
+        found: griffe.Object | griffe.Alias | str | None = None
+        if target is not None and target != member.path:
+            try:
+                found = mod.modules_collection[target]
+            except Exception:  # outside what griffe loaded
+                return None
+        elif target is None and self.runtime_all.of(mod).stars:
+            found = self._from_stars(mod, name)
+        if found is None or isinstance(found, str):
+            return None
+        resolved = _resolve(found)
+        return found if resolved is not None and not resolved.is_module else None
+
     def module(self, mod: griffe.Module, public_path: str, depth: int = 0, forwarded: bool = False) -> None:
         key = (mod.path, public_path)
         if key in self.visiting or depth > MAX_DEPTH or self._shapes(mod).raises:
@@ -3299,6 +3323,11 @@ class _Walker:
             if member.is_alias and member.wildcard:  # type: ignore[union-attr]  # a star import griffe couldn't expand
                 continue
             if name in exported or self._public(mod, name, member, reexporter):
+                if (rebound := self._rebound(mod, name, member)) is not None:
+                    self.member(
+                        rebound, f"{public_path}.{name}", depth, walk_from
+                    )  # recorded first, so it wins
+                    self.snap.module_aliases.setdefault(f"{public_path}.{name}", member.path)
                 self.member(member, f"{public_path}.{name}", depth, walk_from)
         for name in sorted(exported - mod.members.keys()):
             found = self._from_stars(mod, name)

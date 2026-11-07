@@ -610,6 +610,31 @@ def test_diff_versions_keeps_a_member_the_class_still_inherits_from_another_dist
     assert used.events == [] and used.truncated is False
 
 
+def test_a_module_still_importable_under_a_rebound_name_isnt_removed():
+    # DT-DATA-54: `pkgr.tool` is the function its package imports from the module `pkgr/tool.py`; while the file is
+    # there, `import pkgr.tool` works, so a ModuleNotFoundError has another cause.
+    spec = PackageSpec(name="pkgr", import_names=("pkgr",), tier="B")
+    mod = SymbolRecord("pkgr", "module", "pkgr")
+    func = SymbolRecord("pkgr.tool", "function", "pkgr.tool.tool", [])
+    snaps = [
+        ApiSnapshot(
+            "pkgr",
+            "1.0",
+            ["pkgr"],
+            {"pkgr": mod, "pkgr.tool": func},
+            module_aliases={"pkgr.tool": "pkgr.tool"},
+        ),
+        ApiSnapshot("pkgr", "2.0", ["pkgr"], {"pkgr": mod, "pkgr.tool": func}),
+    ]
+    store = IndexStore.memory()
+    store.rebuild_package(spec, snaps)
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+    tb = "ModuleNotFoundError: No module named 'pkgr.tool'"
+    assert dt.explain_error(tb, {"pkgr": "1.0"}).findings[0].issue == "present_in_installed_version"
+    f = dt.explain_error(tb, {"pkgr": "2.0"}).findings[0]
+    assert (f.issue, f.last_version_with, f.first_version_without) == ("module_removed", "1.0", "2.0")
+
+
 def test_diff_versions_reports_a_used_class_constructor_at_the_used_path():
     # 2026-11 holdout: `fastmcp.client.transports.StdioTransport(log_file=...)` on 2.12; the `log_file` event was at
     # the class's label, `fastmcp.client.StdioTransport.__init__`, so a caller matching its own path saw nothing.
@@ -661,7 +686,7 @@ def test_a_sys_modules_alias_extends_the_last_release_a_module_imports():
     tb = "ModuleNotFoundError: No module named 'pkga.tool'"
     f = dt.explain_error(tb, {"pkga": "3.0"}).findings[0]
     assert (f.issue, f.last_version_with, f.first_version_without) == ("module_removed", "2.0", "3.0")
-    assert "through a `sys.modules` alias" in f.explanation
+    assert "but the module stays importable" in f.explanation
     assert store.snapshot_at(spec, "2.0").module_aliases == {"pkga.tool": "pkga.base"}
 
 

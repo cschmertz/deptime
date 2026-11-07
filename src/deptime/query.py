@@ -2204,11 +2204,18 @@ class DepTime:
         indexed = [self._replacement(r) for r in self._hints(name, path)]
         now = has(ordinal)
         was_module = [s for s in spans if s["kind"] == "module" and s["last_ordinal"] < ordinal]
-        if now is not None and module and now["kind"] != "module" and was_module:
+        imports = self.store.module_alias_ordinals(name, path) if module else []
+        aliased = [o for o in imports if o < ordinal]
+        if (
+            now is not None
+            and module
+            and now["kind"] != "module"
+            and ordinal not in imports
+            and (was_module or aliased)
+        ):
             # `No module named 'fastmcp.tools.tool'` in fastmcp 4: the path is still a name, the `tool` function
             # its package exports, but no longer a module, so the import fails (DT-CORE-35). A `sys.modules` alias
             # kept it importable through 3.4 (DT-DATA-52).
-            aliased = [o for o in self.store.module_alias_ordinals(name, path) if o < ordinal]
             last_ord = max([s["last_ordinal"] for s in was_module] + aliased)
             last_with, first_without = self._version(name, last_ord), self._version(name, last_ord + 1)
             then = self.store.span_at(name, path, last_ord + 1) or now
@@ -2218,7 +2225,8 @@ class DepTime:
                 else f"a {then['kind']}"
             )
             via = (
-                f" (from {self._version(name, min(aliased))} through a `sys.modules` alias)"
+                f" (from {self._version(name, min(aliased))} the name is bound to another object, but the module"
+                " stays importable)"
                 if aliased and max(aliased) == last_ord
                 else ""
             )

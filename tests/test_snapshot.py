@@ -3362,3 +3362,25 @@ def test_a_class_getattr_and_a_helper_methods_warning_deprecate_public_names(tmp
     assert snap.symbols["dep53.top.AuthApiKey"].deprecated == (
         "Dep010: Importing AuthApiKey from dep53 is deprecated. Import AuthApiKey from dep53.auth"
     )
+
+
+def test_a_submodule_name_its_package_rebinds_is_the_object(tmp_path):
+    # DT-DATA-54: after `from .patch import patch`, `instructor.patch` is the function, though griffe lists the
+    # submodule; `import instructor.patch` still finds the module, so its names stay under the path too.
+    files = {
+        "rb/__init__.py": "from .patch import patch\nfrom .tool import *\nfrom .keep import other\n",
+        "rb/patch.py": "def patch(client, mode=None):\n    pass\n",
+        "rb/tool.py": "__all__ = ['tool']\n\ndef tool(fn):\n    pass\n",
+        "rb/keep.py": "def other():\n    pass\n\ndef keep():\n    pass\n",
+    }
+    snap = build_snapshot("rb", "1.0", ["rb"], _write(tmp_path, files), own_members=True)
+    patch = snap.symbols["rb.patch"]
+    assert (patch.kind, patch.canonical, [p["name"] for p in patch.params]) == (
+        "function",
+        "rb.patch.patch",
+        ["client", "mode"],
+    )
+    assert snap.symbols["rb.patch.patch"].kind == "function"
+    assert (snap.symbols["rb.tool"].kind, snap.symbols["rb.tool"].canonical) == ("function", "rb.tool.tool")
+    assert snap.symbols["rb.keep"].kind == "module"  # the package imports another name from it
+    assert snap.module_aliases == {"rb.patch": "rb.patch", "rb.tool": "rb.tool"}

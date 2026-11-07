@@ -22,6 +22,8 @@ CREATE TABLE IF NOT EXISTS releases (
   error_count INTEGER NOT NULL DEFAULT 0,  -- griffe load/resolution problems recorded in the snapshot
   requires    TEXT,                        -- JSON array of the artifact's Requires-Dist; NULL if unknown (DT-DATA-14)
   project_urls TEXT,                       -- JSON object of its Project-URL entries, label to URL (DT-CORE-29)
+  namespaces  TEXT,                        -- JSON array of its namespace packages (DT-CORE-32)
+  module_aliases TEXT,                     -- JSON object, sys.modules alias -> module (DT-DATA-52)
   PRIMARY KEY (package, version),
   UNIQUE (package, ordinal)
 );
@@ -67,6 +69,7 @@ CREATE TABLE IF NOT EXISTS classes (
   last_ordinal  INTEGER NOT NULL,
   mro           TEXT,                      -- JSON array of canonical paths; NULL for a class recorded only as a base
   label         TEXT NOT NULL,             -- its shortest public path, else cls: where its members' events are
+  external      TEXT,                      -- JSON array of its bases from outside the package (DT-CORE-32)
   PRIMARY KEY (package, cls, first_ordinal)
 ) WITHOUT ROWID;
 

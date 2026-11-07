@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 from functools import cache
 from importlib import resources
 from pathlib import Path
+from typing import Any
 
 from packaging.requirements import InvalidRequirement, Requirement
 from packaging.utils import canonicalize_name
@@ -253,7 +254,7 @@ def own_member_rows(
     for path, first, last, state in span_rows:
         if state[0] == "class" and state[1]:
             homes[state[1]].append((path, first, last))
-    for cls, first, last, (_mro, label) in class_rows:
+    for cls, first, last, (_mro, label, *_) in class_rows:
         if not any(p == label and f <= first and last <= end for p, f, end in homes[cls]):
             homes[cls].append((label, first, last))
     out = []
@@ -281,7 +282,7 @@ def member_lookup(
         if state[0] == "class" and state[1]:
             classes[path].append((first, last, state[1]))
     mros: dict[str, list[tuple[int, int, list[str]]]] = defaultdict(list)
-    for cls, first, last, (mro, label) in class_rows:
+    for cls, first, last, (mro, label, *_) in class_rows:
         mros[cls].append((first, last, json.loads(mro) if mro else []))
         classes[label].append((first, last, cls))
     members: dict[tuple[str, str], list[tuple[int, int, tuple]]] = defaultdict(list)
@@ -324,7 +325,7 @@ def member_heirs(
             owner_of[path].add(state[1])
             paths_of[state[1]].add(path)
     heirs_of: dict[str, set[str]] = defaultdict(set)  # canonical class -> classes with it in their MRO
-    for cls, _first, _last, (mro, label) in class_rows:
+    for cls, _first, _last, (mro, label, *_) in class_rows:
         owner_of[label].add(cls)
         for base in json.loads(mro) if mro else ():
             heirs_of[base].add(cls)
@@ -437,6 +438,11 @@ class IndexStore:
                 self.conn.execute("ALTER TABLE releases ADD COLUMN requires TEXT")
             if "project_urls" not in releases:
                 self.conn.execute("ALTER TABLE releases ADD COLUMN project_urls TEXT")
+            for column in ("namespaces", "module_aliases"):  # DT-CORE-32, DT-DATA-52
+                if column not in releases:
+                    self.conn.execute(f"ALTER TABLE releases ADD COLUMN {column} TEXT")
+            if "external" not in {r[1] for r in self.conn.execute("PRAGMA table_info(classes)")}:
+                self.conn.execute("ALTER TABLE classes ADD COLUMN external TEXT")
             key = [
                 r[1]
                 for r in sorted(self.conn.execute("PRAGMA table_info(members)"), key=lambda r: r[5])
@@ -513,6 +519,8 @@ class IndexStore:
                     len(snap.errors),
                     None if snap.requires is None else json.dumps(snap.requires),
                     None if snap.project_urls is None else json.dumps(snap.project_urls),
+                    json.dumps(snap.namespaces) if snap.namespaces else None,
+                    json.dumps(snap.module_aliases, sort_keys=True) if snap.module_aliases else None,
                 )
             )
             for path, rec in snap.symbols.items():
@@ -522,7 +530,8 @@ class IndexStore:
                 for cls, label in labels(snap).items():
                     crec = snap.classes[cls]
                     mro = None if crec.mro is None else json.dumps(crec.mro)
-                    _extend(open_classes, class_rows, cls, (mro, label), i)  # type: ignore[arg-type]
+                    external = json.dumps(crec.external) if crec.external else None
+                    _extend(open_classes, class_rows, cls, (mro, label, external), i)  # type: ignore[arg-type]
                     for member, mrec in crec.members.items():
                         _extend(open_members, member_rows, (cls, member), _state(mrec), i)  # type: ignore[arg-type]
                     for member, mrec in crec.internal.items():
@@ -619,7 +628,7 @@ class IndexStore:
         hints = hints_for(name) if curated is None else curated
         # With own members, a member's hints from the library's text are at its class's label (DT-DATA-16), and so
         # is a curated hint on a member a class inherits, which `name_rows` lists only under the defining class.
-        label_of = {cls: label for cls, _first, _last, (_mro, label) in class_rows}
+        label_of = {cls: label for cls, _first, _last, (_mro, label, *_) in class_rows}
         if lookup is not None:
             rows = {path for path, _f, _l, _s in name_rows}
             hints = [_at_label(hint, lookup, label_of, rows) for hint in hints]
@@ -664,7 +673,7 @@ class IndexStore:
             )
             self.conn.executemany(
                 "INSERT INTO releases(package, version, ordinal, released_at, source_file, error_count, requires,"
-                " project_urls) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                " project_urls, namespaces, module_aliases) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 release_rows,
             )
             self.conn.executemany(
@@ -680,7 +689,8 @@ class IndexStore:
                 [(name, path, first, last, *state) for path, first, last, state in internal_rows],
             )
             self.conn.executemany(
-                "INSERT INTO classes(package, cls, first_ordinal, last_ordinal, mro, label) VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT INTO classes(package, cls, first_ordinal, last_ordinal, mro, label, external)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?)",
                 [(name, cls, first, last, *state) for cls, first, last, state in class_rows],
             )
             self.conn.executemany(
@@ -814,10 +824,14 @@ class IndexStore:
         classes: dict[str, ClassRecord] = {}
         if self.stores_own_members(spec.name):
             for r in self.conn.execute(
-                "SELECT cls, mro FROM classes WHERE package = ? AND first_ordinal <= ? AND last_ordinal >= ?",
+                "SELECT * FROM classes WHERE package = ? AND first_ordinal <= ? AND last_ordinal >= ?",
                 (spec.name, rel["ordinal"], rel["ordinal"]),
             ):
-                classes[r["cls"]] = ClassRecord(r["cls"], None if r["mro"] is None else json.loads(r["mro"]))
+                classes[r["cls"]] = ClassRecord(
+                    r["cls"],
+                    None if r["mro"] is None else json.loads(r["mro"]),
+                    external=json.loads(r["external"]) if "external" in r.keys() and r["external"] else [],  # noqa: SIM118
+                )
             for r in self.conn.execute(
                 "SELECT * FROM members WHERE package = ? AND first_ordinal <= ? AND last_ordinal >= ?",
                 (spec.name, rel["ordinal"], rel["ordinal"]),
@@ -833,6 +847,8 @@ class IndexStore:
                 ):
                     member = f"{r['cls']}.{r['name']}"
                     classes[r["cls"]].internal[r["name"]] = SymbolRecord(member, r["kind"], r["canonical"])
+        namespaces = rel["namespaces"] if "namespaces" in rel.keys() else None  # noqa: SIM118
+        aliases = rel["module_aliases"] if "module_aliases" in rel.keys() else None  # noqa: SIM118
         return ApiSnapshot(
             spec.name,
             version,
@@ -844,6 +860,8 @@ class IndexStore:
             internal=internal,
             own_members=bool(classes),
             classes=classes,
+            namespaces=json.loads(namespaces) if namespaces else [],
+            module_aliases=json.loads(aliases) if aliases else {},
         )
 
     def declared_dependencies(self, name: str, ordinal: int | None = None) -> set[str]:
@@ -865,6 +883,48 @@ class IndexStore:
             f"SELECT DISTINCT r.value FROM releases, json_each(releases.requires) AS r WHERE {where}", args
         ).fetchall()
         return {canonicalize_name(m.group(0)) for (req,) in rows if (m := REQUIREMENT_NAME_RE.match(req))}
+
+    def external_bases(self, name: str, cls: str, ordinal: int) -> list[str]:
+        """The bases from outside the package of `cls` and of each class in its MRO at the release, in that order
+        (DT-CORE-32); empty in an index from before they were recorded."""
+        if "external" not in {r[1] for r in self.conn.execute("PRAGMA table_info(classes)")}:
+            return []
+        query = "SELECT mro, external FROM classes WHERE package = ? AND cls = ? AND first_ordinal <= ? AND last_ordinal >= ?"
+        row = self.conn.execute(query, (name, cls, ordinal, ordinal)).fetchone()
+        if row is None:
+            return []
+        out: list[str] = []
+        for owner in [cls, *(json.loads(row["mro"]) if row["mro"] else [])]:
+            found = (
+                row if owner == cls else self.conn.execute(query, (name, owner, ordinal, ordinal)).fetchone()
+            )
+            for base in json.loads(found["external"]) if found and found["external"] else []:
+                if base not in out:
+                    out.append(base)
+        return out
+
+    def namespaces(self, name: str, ordinal: int) -> set[str]:
+        """The release's namespace packages (DT-CORE-32); empty in an index from before they were recorded."""
+        return set(self._release_json(name, ordinal, "namespaces") or [])
+
+    def module_alias_ordinals(self, name: str, path: str) -> list[int]:
+        """The releases in which `sys.modules` made `path` importable as another module (DT-DATA-52)."""
+        if "module_aliases" not in {r[1] for r in self.conn.execute("PRAGMA table_info(releases)")}:
+            return []
+        rows = self.conn.execute(
+            "SELECT ordinal FROM releases WHERE package = ? AND module_aliases IS NOT NULL"
+            " AND EXISTS (SELECT 1 FROM json_each(module_aliases) WHERE key = ?) ORDER BY ordinal",
+            (name, path),
+        )
+        return [r[0] for r in rows]
+
+    def _release_json(self, name: str, ordinal: int, column: str) -> Any:
+        if column not in {r[1] for r in self.conn.execute("PRAGMA table_info(releases)")}:
+            return None
+        row = self.conn.execute(
+            f"SELECT {column} FROM releases WHERE package = ? AND ordinal = ?", (name, ordinal)
+        ).fetchone()
+        return json.loads(row[0]) if row and row[0] else None
 
     def requirement(self, name: str, ordinal: int, dist: str) -> Requirement | None:
         """The release `ordinal`'s own requirement on `dist` (DT-DATA-14), not one an extra adds; None when it has
@@ -961,10 +1021,15 @@ class IndexStore:
             if (hit := self._members.get(key)) is not None:
                 self._members.move_to_end(key)
                 return hit
-        owners = self.conn.execute(
-            "SELECT first_ordinal, last_ordinal, canonical FROM spans WHERE package = ? AND path = ? AND kind = 'class'",
+        rows = self.conn.execute(
+            "SELECT first_ordinal, last_ordinal, kind, canonical FROM spans WHERE package = ? AND path = ?",
             (name, parent),
         ).fetchall()
+        owners: list = [r for r in rows if r["kind"] == "class"]
+        if not rows:
+            # The parent is itself a class member: a nested class, or a class attribute bound to a class
+            # (`weaviate.classes.config.Configure.Generative`), recorded with its own members (DT-CORE-32).
+            owners = [r for r in self._resolved(name, parent)[0] if r["kind"] == "class"]
         found: dict[int, tuple[tuple, str]] = {}  # ordinal -> (state, defining class)
         if owners:
             mros: dict[str, list[tuple[int, int, list[str]]]] = {}

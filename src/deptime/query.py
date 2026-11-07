@@ -5,9 +5,11 @@ Deterministic and LLM-free (ADR 0006): every answer is derived from the index an
 
 from __future__ import annotations
 
+import importlib
 import json
 import re
 import sqlite3
+import sys
 import threading
 from collections import defaultdict
 from collections.abc import Mapping
@@ -126,6 +128,62 @@ def parse_installed(installed_versions: dict[str, str] | None, pip_freeze: str |
         if m:
             out.setdefault(canonicalize_name(m.group(1)), m.group(2))
     return out
+
+
+# Standard modules check_symbols may import to ask a base class for a name (DT-CORE-32): what libraries subclass.
+SAFE_STDLIB = frozenset(
+    {
+        "abc",
+        "argparse",
+        "asyncio",
+        "builtins",
+        "collections",
+        "contextlib",
+        "dataclasses",
+        "datetime",
+        "decimal",
+        "email",
+        "enum",
+        "fractions",
+        "functools",
+        "http",
+        "io",
+        "json",
+        "logging",
+        "numbers",
+        "os",
+        "pathlib",
+        "queue",
+        "re",
+        "socketserver",
+        "string",
+        "threading",
+        "types",
+        "typing",
+        "unittest",
+        "urllib",
+        "uuid",
+        "weakref",
+    }
+)
+
+
+def _stdlib_member(base: str, name: str) -> bool | None:
+    """Whether a standard-library (or builtin) class has `name`; None when `base` isn't one DepTime reads."""
+    module, _, attr = base.rpartition(".")
+    module = module or "builtins"
+    if module.split(".")[0] not in SAFE_STDLIB or module.split(".")[0] not in sys.stdlib_module_names | {
+        "builtins"
+    }:
+        return None
+    try:
+        obj = getattr(sys.modules.get(module) or importlib.import_module(module), attr)
+    except Exception:  # not there in this Python: say nothing
+        return None
+    if not isinstance(obj, type):
+        return None
+    # The class dictionaries, not `hasattr`: `Enum.value` is a descriptor that raises on the class itself.
+    return any(name in vars(k) for k in obj.__mro__) or hasattr(obj, name)
 
 
 def _event_key(row: Mapping) -> tuple:
@@ -517,11 +575,12 @@ class DepTime:
     def _unseen(
         self, name: str, spec: PackageSpec, q: SymbolQuery, full: str, row: sqlite3.Row, depth: int
     ) -> SymbolCheck | None:
-        """A path with no span at the release, under a prefix the index has as something other than a module or class
-        (DT-CORE-32): what such an object holds is made at runtime (`pytest.mark` is an instance whose attributes are
-        any mark's name), so `missing` would be a guess. An alias into another covered distribution (`fastapi.status`
-        is `starlette.status`) is checked there. None when the nearest prefix is a module or class, whose names the
-        index lists."""
+        """A path with no span at the release, read from its nearest indexed prefix (DT-CORE-32). Something other than
+        a module or class: what it holds is made at runtime (`pytest.mark` is an instance whose attributes are any
+        mark's name), so `unknown`, unless it is an alias into another covered distribution (`fastapi.status` is
+        `starlette.status`), checked there. A class: its bases from other distributions (`_inherited`). A module
+        imported under another path: its own names. A namespace package: `unknown`, since another distribution may
+        install the module. None (so `missing`) when the prefix's own names, which the index lists, settle it."""
         assert self.store is not None
         parts = full.split(".")
         for k in range(len(parts) - 1, 0, -1):
@@ -547,6 +606,10 @@ class DepTime:
                     if got.status != "missing"
                     else None
                 )
+            if span["kind"] == "class" and depth < 2:
+                return self._inherited(name, row, q, full, prefix, span["canonical"], rest, depth)
+            if span["kind"] == "module" and prefix in self.store.namespaces(name, row["ordinal"]):
+                return self._namespace(name, row, full, prefix)
             if span["kind"] in ("module", "class"):
                 return None
             target = self._outside(name, spec, span, row["ordinal"])
@@ -562,6 +625,71 @@ class DepTime:
             )
         return None
 
+    def _inherited(
+        self,
+        name: str,
+        row: sqlite3.Row,
+        q: SymbolQuery,
+        full: str,
+        prefix: str,
+        cls: str,
+        rest: str,
+        depth: int,
+    ) -> SymbolCheck | None:
+        """A name a class lacks, looked up in its bases from outside the package (DT-CORE-32): `fastapi.FastAPI.mount`
+        is starlette's `Starlette.mount`, checked in starlette at the newest release fastapi's requirement allows; a
+        standard-library base (`enum.Enum`, `Exception`) is asked directly. None (so `missing`) when the class has no
+        such base, or every base that DepTime can read lacks the name; `unknown` when a base it can't read might
+        have it."""
+        assert self.store is not None
+        bases = self.store.external_bases(name, cls, row["ordinal"])
+        unread: list[str] = []
+        for base in bases:
+            first, _, deeper = rest.partition(".")
+            stdlib_has = _stdlib_member(base, first)
+            if stdlib_has is not None:
+                if stdlib_has:
+                    hint = f"inherited from `{base}`, in the standard library"
+                    if deeper:
+                        return SymbolCheck(
+                            path=full,
+                            status="unknown",
+                            hint=f"{prefix}.{first} is {hint}; the index doesn't list what's under it",
+                        )
+                    return SymbolCheck(path=full, status="present", hint=hint)
+                continue
+            got = self._through(
+                name, row, q, full, prefix, f"{base}.{rest}", depth, lead=f"inherited from `{base}`"
+            )
+            if got.status == "present":
+                return got
+            if got.status == "unknown":
+                unread.append(base)
+        if unread:
+            return SymbolCheck(
+                path=full,
+                status="unknown",
+                hint=f"{prefix} inherits from {_and([f'`{b}`' for b in unread])}, from another distribution DepTime"
+                " can't check here, which may have it",
+            )
+        return None
+
+    def _namespace(self, name: str, row: sqlite3.Row, full: str, prefix: str) -> SymbolCheck:
+        """A path missing directly under a namespace package (DT-CORE-32): another distribution may install it, as
+        langgraph-checkpoint installs `langgraph.checkpoint` and `langgraph.store` into langgraph."""
+        assert self.store is not None
+        root = prefix.split(".")[0].replace("_", "-")
+        siblings = sorted(
+            d for d in self.store.declared_dependencies(name, row["ordinal"]) if d.startswith(root + "-")
+        )
+        sibling = f" ({name} {row['version']} requires {_and(siblings)})" if siblings else ""
+        return SymbolCheck(
+            path=full,
+            status="unknown",
+            hint=f"{prefix} is a namespace package, so other distributions can install modules into it{sibling};"
+            f" {name} {row['version']} itself doesn't have this one",
+        )
+
     def _outside(self, name: str, spec: PackageSpec, span: sqlite3.Row, ordinal: int) -> str | None:
         """Where an alias leads outside the package, following its aliases inside it: `fastapi.status` ->
         `starlette.status`. None for anything else."""
@@ -576,7 +704,15 @@ class DepTime:
         return None
 
     def _through(
-        self, name: str, row: sqlite3.Row, q: SymbolQuery, full: str, via: str, target: str, depth: int
+        self,
+        name: str,
+        row: sqlite3.Row,
+        q: SymbolQuery,
+        full: str,
+        via: str,
+        target: str,
+        depth: int,
+        lead: str | None = None,
     ) -> SymbolCheck:
         """`full` checked as `target` in the covered package that has it, at the newest indexed release that `name`'s
         release allows (its Requires-Dist, DT-DATA-14); `unknown` when no covered package has it or the release
@@ -609,12 +745,17 @@ class DepTime:
                 else f"{other.name}, with no indexed release that {name} {row['version']} allows ({req})"
             )
             return SymbolCheck(
-                path=full, status="unknown", hint=f"{via} comes from another distribution: `{target}`, {why}"
+                path=full,
+                status="unknown",
+                hint=f"{lead or f'{via} comes from another distribution'}: `{target}`, {why}",
             )
         pick = allowed[-1]["version"]
         got = self._check_symbols(other.name, other, pick, [q.model_copy(update={"path": target})], depth + 1)
         result = got.results[0]
-        hint = f"{via} comes from {other.name}: checked as `{target}` in {other.name} {pick}, the newest release {name} {row['version']} allows ({req})"
+        hint = (
+            f"{lead or f'{via} comes from {other.name}'}: checked as `{target}` in {other.name} {pick}, the newest"
+            f" release {name} {row['version']} allows ({req})"
+        )
         return result.model_copy(
             update={"path": full, "hint": hint + (f"; {result.hint}" if result.hint else "")}
         )
@@ -788,6 +929,9 @@ class DepTime:
                     key=lambda r: (SEVERITY.get(r["kind"], 99), r["path"], r["ordinal"], r["kind"]),
                 )
                 total += len(extra)
+            kept = [r for r in rows if not self._still_inherited(name, r, set(used))]
+            total -= len(rows) - len(kept)
+            rows = kept
         events, hidden = self._unsuppressed(
             name, [self._event(name, r, affects.get(_event_key(r))) for r in rows]
         )
@@ -806,6 +950,22 @@ class DepTime:
             note=" ".join(n for n in notes if n) or None,
             suppressed=hidden,
         )
+
+    def _still_inherited(self, name: str, row: Mapping, used: set[str]) -> bool:
+        """A used class member's `removed` event where the class still has the name through a base from another
+        distribution (DT-CORE-32): sqlmodel 0.0.12 dropped its own `Session.get`, and sqlalchemy's stays."""
+        assert self.store is not None
+        if row["kind"] != "removed" or row["path"] not in used:
+            return False
+        parent, _, leaf = row["path"].rpartition(".")
+        cls = self.store.span_at(name, parent, row["ordinal"])
+        if cls is None or cls["kind"] != "class":
+            return False
+        release = self.store.releases(name)[row["ordinal"]]
+        got = self._inherited(
+            name, release, SymbolQuery(path=row["path"]), row["path"], parent, cls["canonical"], leaf, 0
+        )
+        return got is not None and got.status == "present"
 
     def _parent_events(
         self, name: str, used: list[str], after: int, upto: int, include_added: bool, rows: list
@@ -2046,14 +2206,21 @@ class DepTime:
         was_module = [s for s in spans if s["kind"] == "module" and s["last_ordinal"] < ordinal]
         if now is not None and module and now["kind"] != "module" and was_module:
             # `No module named 'fastmcp.tools.tool'` in fastmcp 4: the path is still a name, the `tool` function
-            # its package exports, but no longer a module, so the import fails (DT-CORE-35).
-            last_ord = max(s["last_ordinal"] for s in was_module)
+            # its package exports, but no longer a module, so the import fails (DT-CORE-35). A `sys.modules` alias
+            # kept it importable through 3.4 (DT-DATA-52).
+            aliased = [o for o in self.store.module_alias_ordinals(name, path) if o < ordinal]
+            last_ord = max([s["last_ordinal"] for s in was_module] + aliased)
             last_with, first_without = self._version(name, last_ord), self._version(name, last_ord + 1)
             then = self.store.span_at(name, path, last_ord + 1) or now
             what = (
                 f"the {then['kind']} `{then['canonical']}`"
                 if then["canonical"] != path
                 else f"a {then['kind']}"
+            )
+            via = (
+                f" (from {self._version(name, min(aliased))} through a `sys.modules` alias)"
+                if aliased and max(aliased) == last_ord
+                else ""
             )
             return Finding(
                 **base,
@@ -2064,13 +2231,18 @@ class DepTime:
                 deprecation_message=dep_message,
                 replacements=_merge(self._error_hints(spec, path, [ordinal, last_ord + 1], message), indexed),
                 pin_to_restore=f"{name}<={last_with}",
-                # A package often keeps the old module importable for a while through a `sys.modules` alias, which
-                # the index doesn't read (DT-DATA-52): fastmcp 3.2-3.4 did, so imports of it work up to 3.4.x.
+                # A package can keep the old module importable in ways the index doesn't read (`importlib` tricks,
+                # a `sys.modules` alias made in a function), so the boundary isn't certain.
                 confidence="medium",
-                explanation=f"{path} is a module up to {name} {last_with}. From {first_without} the name is {what},"
-                " which can't be imported as a module: import what you need from the package instead. The package"
-                " may have kept the old module importable for a few more releases through an alias, which the index"
-                " doesn't see, so the last release that imports it can be later.",
+                explanation=f"{path} can be imported as a module up to {name} {last_with}{via}. From"
+                f" {first_without} the name is {what}, which can't be imported as a module: import what you need"
+                " from the package instead."
+                + (
+                    ""
+                    if via
+                    else " The package may have kept the old module importable for a few more releases in a way"
+                    " the index doesn't read, so the last release that imports it can be later."
+                ),
                 internal=_is_internal(now),
             )
         if now is not None:

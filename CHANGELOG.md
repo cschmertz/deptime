@@ -37,6 +37,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
   an object that isn't a module or class (`pytest.mark.parametrize`, `django.conf.settings.configure`). A path through
   an alias into another covered package (`fastapi.status.HTTP_200_OK`) is checked in that package, at the newest
   release the package's requirement allows, and a module imported under another path at its own.
+- `check_symbols` looks a name a class lacks up in its bases from other distributions (`fastapi.FastAPI.mount` is
+  starlette's, `sqlmodel.Session.add` sqlalchemy's), in the standard library's (`enum.Enum`), and reads `unknown` for
+  a module missing directly under a namespace package (langgraph-checkpoint installs `langgraph.checkpoint` into
+  langgraph). A class attribute bound to a class (`Configure.Generative`) and a nested class have their members.
+  These need an index built with `SNAPSHOT_FORMAT` 19, which records each class's bases from outside its package
+  (`classes.external`) and each release's namespace packages (`releases.namespaces`) (DT-CORE-32).
+- `releases.module_aliases`: modules a package makes importable under another name with `sys.modules[...] = ...`;
+  `explain_error` counts them for a module that became a name (fastmcp kept `fastmcp.tools.tool` through 3.4)
+  (DT-DATA-52).
 
 ### Changed
 - `explain_error` reads `No module named 'x.y'` as `module_removed` when the installed release has `x.y` as another
@@ -45,6 +54,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
   it stands for (DT-CORE-35).
 - `diff_versions(used_symbols=...)` reports a used class member's events at the path given, as `symbol_history` does,
   not at the class that defines it, and leaves out that class's changes that don't reach the member (DT-CORE-33).
+- Snapshots load a package's modules in sorted order, so a build on macOS and on Linux resolve re-exports alike
+  (DT-DATA-30).
+- `diff_versions(used_symbols=...)` leaves out a member's `removed` event when the class still has the name through
+  a base from another distribution (sqlmodel's `Session.get`) (DT-CORE-32).
 - The `used_symbols` filter reads each path's events by path: 20 transformers paths over 4.30..5.22 took 5 s, now
   19 ms.
 

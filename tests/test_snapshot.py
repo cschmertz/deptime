@@ -3246,3 +3246,74 @@ def test_a_lazy_package_exports_what_its_folder_lists(tmp_path):
         assert "tfm.models.gemma.modular_gemma.ModularOnly" in symbols
         # Only a package that hands `define_import_structure` its own folder.
         assert "tfm.plain.Thing" not in symbols
+
+
+# DT-CORE-32 and DT-DATA-52: what check_symbols needs to say `missing` only where the index can know.
+FORMAT19 = {
+    "fmt/__init__.py": (
+        "import sys\n"
+        "from typing import Generic, TypeVar\n"
+        "from starlette.applications import Starlette\n"
+        "from sqlalchemy import orm\n"
+        "from fmt import base as _base\n"
+        "from fmt.base import Inner\n"
+        "T = TypeVar('T')\n\n"
+        "class App(Starlette):\n    pass\n\n"
+        "class Session(orm.Session, Generic[T]):\n    pass\n\n"
+        "class Mine(Inner):\n    pass\n\n"
+        "class Configure:\n"
+        "    Generative = Inner\n"
+        "    Other = _base.Inner\n"
+        "    made = Inner()\n"
+        "    class Nested:\n"
+        "        def go(self):\n            pass\n\n"
+        "sys.modules[f'{__name__}.tool'] = sys.modules[f'{__name__}.base']\n"
+        "sys.modules[__name__ + '.old'] = _base\n"
+        "try:\n    sys.modules['fmt.legacy'] = _base\nexcept Exception:\n    pass\n"
+        "sys.modules['elsewhere'] = _base\n"
+        "__all__ = ['App', 'Session', 'Mine', 'Configure', 'Inner', 'base', 'ns', 'aliased']\n"
+    ),
+    "fmt/base.py": "from pydantic import BaseModel\n\nclass Inner(BaseModel):\n    def cohere(self):\n        pass\n",
+    "fmt/aliased.py": "from fmt.base import Inner\nmasked = Inner\n",
+    "fmt/ns/mod.py": "def f():\n    pass\n",
+}
+
+
+def test_format_19_records_external_bases_member_classes_namespaces_and_module_aliases(tmp_path):
+    snap = build_snapshot("fmt", "1.0", ["fmt"], _write(tmp_path, FORMAT19), own_members=True)
+    assert not snap.errors
+    classes = snap.classes
+    # Bases from other distributions, which the MRO can't list; `object` and the package's own bases aren't.
+    assert classes["fmt.App"].external == ["starlette.applications.Starlette"]
+    assert classes["fmt.Session"].external == ["sqlalchemy.orm.Session", "typing.Generic"]
+    assert classes["fmt.Mine"].external == [] and classes["fmt.Mine"].mro == ["fmt.base.Inner"]
+    assert classes["fmt.base.Inner"].external == ["pydantic.BaseModel"]
+    # A class attribute bound to a class by name is that class, and a nested class is recorded with its members;
+    # an instance (`Inner()`) stays an attribute.
+    members = classes["fmt.Configure"].members
+    assert (members["Generative"].kind, members["Generative"].canonical) == ("class", "fmt.base.Inner")
+    assert (members["Other"].kind, members["Other"].canonical) == ("class", "fmt.base.Inner")
+    assert members["made"].kind == "attribute"
+    assert set(classes["fmt.Configure.Nested"].members) == {"go"}
+    assert (snap.symbols["fmt.aliased.masked"].kind, snap.symbols["fmt.aliased.masked"].canonical) == (
+        "class",
+        "fmt.base.Inner",
+    )
+    # Folders without __init__.py; an import root without one counts too.
+    assert snap.namespaces == ["fmt.ns"]
+    # sys.modules aliases inside the package, by literal, __name__ f-string or sum, and in a try block.
+    assert snap.module_aliases == {"fmt.tool": "fmt.base", "fmt.old": "fmt.base", "fmt.legacy": "fmt.base"}
+    again = ApiSnapshot.load(_saved(snap, tmp_path))
+    assert again.classes["fmt.App"].external == ["starlette.applications.Starlette"]
+    assert (again.namespaces, again.module_aliases) == (snap.namespaces, snap.module_aliases)
+
+
+def test_a_namespace_import_root_is_recorded(tmp_path):
+    root = _write(tmp_path, {"nsroot/graph/__init__.py": "def g():\n    pass\n"})
+    assert build_snapshot("nsroot", "1.0", ["nsroot"], root).namespaces == ["nsroot"]
+
+
+def _saved(snap: ApiSnapshot, tmp_path: Path) -> Path:
+    path = tmp_path / "snap.json.gz"
+    snap.save(path)
+    return path

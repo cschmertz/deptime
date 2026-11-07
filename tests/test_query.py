@@ -6,7 +6,7 @@ from packaging.requirements import Requirement
 from deptime.config import Coverage, PackageSpec, VersionPolicy, load_coverage
 from deptime.index.store import IndexStore
 from deptime.ingest.curated import CuratedHint
-from deptime.ingest.snapshot import ApiSnapshot, SymbolRecord
+from deptime.ingest.snapshot import ApiSnapshot, ClassRecord, SymbolRecord
 from deptime.models import SymbolQuery
 from deptime.query import DepTime, parse_installed
 from tests.conftest import HTTPX, RELEASED_AT, SNAPSHOTS
@@ -512,6 +512,130 @@ def test_check_symbols_says_unknown_where_the_index_cant_see(monkeypatch):
     dt.coverage = Coverage(POLICY, (dt.coverage.packages[0],))
     nope = ask("app.status.OK")
     assert nope.status == "unknown" and "which DepTime doesn't index (lib)" in nope.hint
+
+
+def _format19_stores() -> DepTime:
+    """`web` 1.0 (own members; requires `base-dist>=1` and `web-extra`): `App` inherits from `base_dist.core.Base`
+    (covered), `Color` from `enum.Enum`, `Far` from `faraway.Thing` (not covered), `Plain` from nothing outside;
+    `Configure.Generative` is the class `web.Inner`; `web` is a namespace package. `base-dist` 1.0 has `Base.mount`."""
+
+    def rec(path: str, kind: str, canonical: str | None = None) -> SymbolRecord:
+        return SymbolRecord(path, kind, canonical or path, [] if kind == "function" else None)
+
+    web = PackageSpec(name="web", import_names=("web",), tier="B", own_members=True)
+    base = PackageSpec(name="base-dist", import_names=("base_dist",), tier="B", own_members=True)
+    classes = {
+        "web.App": ClassRecord("web.App", [], external=["base_dist.core.Base"]),
+        "web.Color": ClassRecord("web.Color", [], external=["enum.Enum"]),
+        "web.Far": ClassRecord("web.Far", [], external=["faraway.Thing"]),
+        "web.Plain": ClassRecord("web.Plain", []),
+        "web.Configure": ClassRecord(
+            "web.Configure", [], {"Generative": rec("web.Configure.Generative", "class", "web.Inner")}
+        ),
+        "web.Inner": ClassRecord("web.Inner", [], {"cohere": rec("web.Inner.cohere", "function")}),
+    }
+    symbols = {"web": rec("web", "module"), **{c: rec(c, "class") for c in classes}}
+    snap = ApiSnapshot(
+        "web",
+        "1.0",
+        ["web"],
+        symbols,
+        requires=["base-dist>=1", "web-extra"],
+        own_members=True,
+        classes=classes,
+        namespaces=["web"],
+    )
+    store = IndexStore.memory()
+    store.rebuild_package(web, [snap])
+    based = {
+        "base_dist.core.Base": ClassRecord(
+            "base_dist.core.Base", [], {"mount": rec("base_dist.core.Base.mount", "function")}
+        )
+    }
+    store.rebuild_package(
+        base,
+        [
+            ApiSnapshot(
+                "base-dist",
+                "1.0",
+                ["base_dist"],
+                {
+                    "base_dist": rec("base_dist", "module"),
+                    "base_dist.core": rec("base_dist.core", "module"),
+                    "base_dist.core.Base": rec("base_dist.core.Base", "class"),
+                },
+                own_members=True,
+                classes=based,
+            )
+        ],
+    )
+    return DepTime(store, Coverage(POLICY, (web, base)))
+
+
+def test_check_symbols_looks_in_bases_from_other_distributions_and_namespaces():
+    # DT-CORE-32 shapes 2-4: fastapi's `FastAPI.mount` is starlette's, langgraph is a namespace package that
+    # langgraph-checkpoint installs into, weaviate's `Configure.Generative` is a class.
+    dt = _format19_stores()
+    ask = lambda path: dt.check_symbols("web", "1.0", [SymbolQuery(path=path)]).results[0]  # noqa: E731
+    mount = ask("web.App.mount")
+    assert mount.status == "present" and mount.hint.startswith("inherited from `base_dist.core.Base`")
+    assert ask("web.App.nothing").status == "missing"  # the base is covered and lacks it
+    color = ask("web.Color.value")
+    assert (color.status, color.hint) == ("present", "inherited from `enum.Enum`, in the standard library")
+    assert ask("web.Color.nothing").status == "missing"
+    far = ask("web.Far.anything")
+    assert far.status == "unknown" and "`faraway.Thing`" in far.hint
+    assert ask("web.Plain.nothing").status == "missing"
+    assert ask("web.Configure.Generative.cohere").status == "present"
+    assert ask("web.Configure.Generative.nothing").status == "missing"
+    ns = ask("web.store.memory")
+    assert ns.status == "unknown" and "namespace package" in ns.hint and "web-extra" in ns.hint
+
+
+def test_diff_versions_keeps_a_member_the_class_still_inherits_from_another_distribution():
+    # DT-CORE-32: sqlmodel 0.0.12 dropped its own `Session.get`; sqlalchemy's `Session.get` stays, so the use works.
+    dt = _format19_stores()
+    web = dt.coverage.packages[0]
+    own = SymbolRecord("web.App.mount", "function", "web.App.mount", [])
+    first = dt.store.snapshot_at(web, "1.0")
+    first.classes["web.App"].members["mount"] = own
+    second = dt.store.snapshot_at(web, "1.0")
+    second.version = "2.0"
+    dt.store.rebuild_package(web, [first, second])
+    stored = dt.diff_versions("web", "1.0", "2.0")
+    assert ("web.App.mount", "removed") in {
+        (e.path, e.kind) for e in stored.events
+    }  # the class's own member went
+    used = dt.diff_versions("web", "1.0", "2.0", used_symbols=["web.App.mount"])
+    assert used.events == [] and used.truncated is False
+
+
+def test_a_sys_modules_alias_extends_the_last_release_a_module_imports():
+    # DT-DATA-52: fastmcp's `tools/tool.py` went in 3.2, but `sys.modules` kept `fastmcp.tools.tool` importable
+    # (as `fastmcp.tools.base`) through 3.4, and 4.0 left only the `tool` function.
+    spec = PackageSpec(name="pkga", import_names=("pkga",), tier="B")
+    mod = SymbolRecord("pkga", "module", "pkga")
+    sub = SymbolRecord("pkga.tool", "module", "pkga.tool")
+    func = SymbolRecord("pkga.tool", "function", "pkga.base.tool", [])
+    snaps = [
+        ApiSnapshot("pkga", "1.0", ["pkga"], {"pkga": mod, "pkga.tool": sub}),
+        ApiSnapshot(
+            "pkga",
+            "2.0",
+            ["pkga"],
+            {"pkga": mod, "pkga.tool": func},
+            module_aliases={"pkga.tool": "pkga.base"},
+        ),
+        ApiSnapshot("pkga", "3.0", ["pkga"], {"pkga": mod, "pkga.tool": func}),
+    ]
+    store = IndexStore.memory()
+    store.rebuild_package(spec, snaps)
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+    tb = "ModuleNotFoundError: No module named 'pkga.tool'"
+    f = dt.explain_error(tb, {"pkga": "3.0"}).findings[0]
+    assert (f.issue, f.last_version_with, f.first_version_without) == ("module_removed", "2.0", "3.0")
+    assert "through a `sys.modules` alias" in f.explanation
+    assert store.snapshot_at(spec, "2.0").module_aliases == {"pkga.tool": "pkga.base"}
 
 
 def test_explain_error_without_an_index_says_it_is_downloading(coverage):

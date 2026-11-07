@@ -11,6 +11,7 @@ import copy
 import gzip
 import json
 import keyword
+import os
 import re
 import string
 import sys
@@ -22,6 +23,7 @@ from pathlib import Path
 from typing import Any
 
 import griffe
+import griffe._internal.finder as griffe_finder
 
 from deptime.ingest.replacements import (
     DEPRECATION_WORDS_RE,
@@ -31,7 +33,7 @@ from deptime.ingest.replacements import (
     worded_deprecated,
 )
 
-SNAPSHOT_FORMAT = 18  # bump when extraction changes: cached snapshots in another format are rebuilt
+SNAPSHOT_FORMAT = 19  # bump when extraction changes: cached snapshots in another format are rebuilt
 MAX_DEPTH = 12  # guards pathological re-export cycles
 
 DEPRECATED_DECORATOR_RE = re.compile(r"^(?:[\w.]+\.)?deprecated\b(?:\(.*\))?$", re.S)
@@ -91,6 +93,9 @@ class ClassRecord:
     # a class that is neither public nor a public class's base, every member. Dunders other than `__init__` and
     # `__call__` aren't recorded.
     internal: dict[str, SymbolRecord] = field(default_factory=dict)
+    # Its direct bases from outside the package, canonical, in the order the class lists them (DT-CORE-32):
+    # `fastapi.FastAPI` inherits `mount` from `starlette.applications.Starlette`, which `mro` can't list.
+    external: list[str] = field(default_factory=list)
 
 
 def resolve_member(classes: dict[str, ClassRecord], cls: str, name: str) -> SymbolRecord | None:
@@ -144,6 +149,12 @@ class ApiSnapshot:
     # it inherits from. `expanded` gives the members under each public path.
     own_members: bool = False
     classes: dict[str, ClassRecord] = field(default_factory=dict)
+    # Its namespace packages, folders without `__init__.py` an import root included (DT-CORE-32): other
+    # distributions can install modules into them, as langgraph-checkpoint does into `langgraph`.
+    namespaces: list[str] = field(default_factory=list)
+    # Modules made importable under another name by `sys.modules[...] = ...` (DT-DATA-52), alias -> module: fastmcp
+    # 3.2-3.4 kept `fastmcp.tools.tool` importable as `fastmcp.tools.base`.
+    module_aliases: dict[str, str] = field(default_factory=dict)
 
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -156,6 +167,7 @@ class ApiSnapshot:
                 "mro": c.mro,
                 "members": [asdict(m) for m in c.members.values()],
                 "internal": [asdict(m) for m in c.internal.values()],
+                "external": c.external,
             }
             for c in self.classes.values()
         ]
@@ -174,6 +186,7 @@ class ApiSnapshot:
                 c["mro"],
                 {m["path"].rpartition(".")[2]: SymbolRecord(**m) for m in c["members"]},
                 {m["path"].rpartition(".")[2]: SymbolRecord(**m) for m in c.get("internal", [])},
+                list(c.get("external") or []),
             )
             for c in payload.pop("classes", [])
         }
@@ -3131,6 +3144,9 @@ class _Walker:
         self.finished: set[str] = set()
         self.unlisting: set[tuple[str, str]] = set()
         self.private_classes: dict[str, griffe.Class] = {}  # classes `internal` finds, by canonical path
+        # Classes a public class's member is (a nested class, or `Generative = _Generative`), recorded with their
+        # own members after the public walk (DT-CORE-32).
+        self.member_classes: dict[str, griffe.Class] = {}
 
     def _shapes(self, mod: griffe.Module) -> _Imports:
         if mod.path not in self.imports:
@@ -3412,6 +3428,8 @@ class _Walker:
             self.record(
                 SymbolRecord(public_path, "function", target.path, _params(target), *deprecations(target))
             )  # type: ignore[arg-type]
+        elif (bound := _bound_class(target)) is not None:
+            self.cls(bound, public_path)  # `masked_array = MaskedArray`: the class itself (DT-CORE-32)
         else:
             self.record(
                 SymbolRecord(public_path, target.kind.value, target.path, None, deprecation_message(target))
@@ -3520,14 +3538,28 @@ class _Walker:
     def _own_members(self, cls: griffe.Class, public: bool = True) -> ClassRecord:
         rec = self.snap.classes.get(cls.path)
         if rec is None:
-            rec = self.snap.classes[cls.path] = ClassRecord(cls.path)
+            rec = self.snap.classes[cls.path] = ClassRecord(cls.path, external=_external_bases(cls))
             for name, member in cls.members.items():
                 path = f"{cls.path}.{name}"
                 if public and _is_member_name(name):
                     rec.members[name] = _member_record(path, member) or SymbolRecord(path, HIDDEN)
+                    if rec.members[name].kind == "class" and (inner := _class_of(member)) is not None:
+                        self.member_classes.setdefault(inner.path, inner)
                 elif _is_member_name(name) or _is_private(name):
                     rec.internal[name] = _internal_member(path, member)
         return rec
+
+    def record_member_classes(self) -> None:
+        """Record each class a public class's member is, with its own members, as public classes are (DT-CORE-32):
+        `weaviate.classes.config.Configure.Generative.cohere` is `_Generative.cohere`."""
+        done: set[str] = set()
+        while pending := [c for path, c in self.member_classes.items() if path not in done]:
+            for cls in pending:
+                done.add(cls.path)
+                try:
+                    self._class_record(cls)
+                except Exception:  # the public API is recorded; one class's bases mustn't sink it
+                    continue
 
     def record_private_classes(self) -> None:
         """Record the classes `internal` found that no public path reaches (DT-DATA-46), after every public walk:
@@ -3561,11 +3593,143 @@ def _member_record(path: str, member: griffe.Object | griffe.Alias) -> SymbolRec
         return None
     if target.is_function:
         return SymbolRecord(path, "function", target.path, _params(target), *deprecations(target))  # type: ignore[arg-type]
+    if target.is_attribute and (bound := _bound_class(target)) is not None:
+        return SymbolRecord(path, "class", bound.path, None, deprecation_message(target))
     if target.is_attribute:
         return SymbolRecord(path, "attribute", target.path, None, deprecation_message(target))
     if target.is_class:
         return SymbolRecord(path, "class", target.path, None, deprecation_message(target))
     return None
+
+
+def _bound_class(attr: griffe.Object) -> griffe.Class | None:
+    """The package's class an attribute is bound to by name (`Generative = _Generative`, `masked_array =
+    MaskedArray`), which Python then finds under the attribute's name too (DT-CORE-32); None for any other value,
+    a call (`x = Cls()` is an instance) or a subscript among them."""
+    value = getattr(attr, "value", None)
+    if not isinstance(value, (griffe.ExprName, griffe.ExprAttribute)):
+        return None
+    try:
+        found = attr.modules_collection[value.canonical_path]
+    except Exception:  # outside the package, or not loaded
+        return None
+    found = _resolve(found) if isinstance(found, griffe.Alias) else found
+    return found if found is not None and found.is_class else None  # type: ignore[return-value]
+
+
+def _class_of(member: griffe.Object | griffe.Alias) -> griffe.Class | None:
+    """The class a class member is: a nested class, or a class it's bound to."""
+    target = _resolve(member)
+    if target is None:
+        return None
+    if target.is_class:
+        return target  # type: ignore[return-value]
+    return _bound_class(target) if target.is_attribute else None
+
+
+def _external_bases(cls: griffe.Class) -> list[str]:
+    """`cls`'s direct bases that this analysis didn't load, canonical (DT-CORE-32): another distribution's
+    (`starlette.applications.Starlette`), the standard library's (`enum.Enum`, `Exception`). `object` is left out."""
+    out: list[str] = []
+    for base in cls.bases:
+        path = base if isinstance(base, str) else getattr(base, "canonical_path", None)
+        if not path or path == "object" or path in out:
+            continue
+        try:
+            cls.modules_collection[path]
+        except Exception:  # not loaded: from outside the package
+            out.append(path)
+    return out
+
+
+def _is_sys_modules(node: ast.expr) -> bool:
+    return (
+        isinstance(node, ast.Attribute)
+        and node.attr == "modules"
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "sys"
+    )
+
+
+def _module_key(node: ast.expr, module: str) -> str | None:
+    """The module name a `sys.modules[...]` key spells: a literal, `__name__`, an f-string of those, or a sum."""
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if isinstance(node, ast.Name) and node.id == "__name__":
+        return module
+    if isinstance(node, ast.JoinedStr):
+        parts = [
+            _module_key(v.value if isinstance(v, ast.FormattedValue) else v, module)
+            if not isinstance(v, ast.FormattedValue) or (v.conversion == -1 and v.format_spec is None)
+            else None
+            for v in node.values
+        ]
+        return None if None in parts else "".join(parts)  # type: ignore[arg-type]
+    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
+        left, right = _module_key(node.left, module), _module_key(node.right, module)
+        return None if left is None or right is None else left + right
+    return None
+
+
+def module_aliases(mod: griffe.Module) -> dict[str, str]:
+    """`sys.modules[alias] = <module>` statements at a module's top level (in `if` and `try` blocks too), alias ->
+    module (DT-DATA-52): fastmcp 3.4's `sys.modules[f"{__name__}.tool"] = sys.modules[f"{__name__}.base"]`, or a
+    module the file imported (`sys.modules[__name__ + ".old"] = base`)."""
+    tree = _source_tree(mod)
+    if tree is None:
+        return {}
+    out: dict[str, str] = {}
+
+    def target(node: ast.expr) -> str | None:
+        if isinstance(node, ast.Subscript) and _is_sys_modules(node.value):
+            return _module_key(node.slice, mod.path)
+        if isinstance(node, ast.Name) and (member := mod.members.get(node.id)) is not None:
+            found = _resolve(member)
+            return found.path if found is not None and found.is_module else None
+        return None
+
+    def visit(stmts: list[ast.stmt]) -> None:
+        for st in stmts:
+            if isinstance(st, ast.If):
+                visit(st.body)
+                visit(st.orelse)
+            elif isinstance(st, ast.Try):
+                for block in (st.body, *(h.body for h in st.handlers), st.orelse, st.finalbody):
+                    visit(block)
+            elif (
+                isinstance(st, ast.Assign)
+                and len(st.targets) == 1
+                and isinstance(st.targets[0], ast.Subscript)
+                and _is_sys_modules(st.targets[0].value)
+                and (alias := _module_key(st.targets[0].slice, mod.path))
+                and (module := target(st.value))
+                and alias != module
+            ):
+                out[alias] = module
+
+    visit(tree.body)
+    return out
+
+
+def _modules_of(mod: griffe.Module):
+    yield mod
+    for sub in mod.modules.values():
+        if not sub.is_alias:
+            yield from _modules_of(sub)  # type: ignore[arg-type]
+
+
+def _sorted_py_modules(self: griffe_finder.ModuleFinder, path: Path):
+    """griffe's `ModuleFinder._filter_py_modules`, walking folders and files in sorted order (DT-DATA-30): unsorted,
+    modules loaded in the file system's order, APFS's on macOS and ext4's on CI, and a few numpy re-exports resolved
+    to different definitions."""
+    for root, dirs, files in os.walk(path, topdown=True, followlinks=True):
+        dirs[:] = sorted(d for d in dirs if d != "__pycache__")
+        for relfile in sorted(files):
+            if Path(relfile).suffix in self.extensions_set:
+                yield Path(root, relfile)
+
+
+griffe_finder.ModuleFinder._filter_py_modules = _sorted_py_modules  # type: ignore[method-assign]
 
 
 def _in_type_checking_else(node: ast.AST) -> bool:
@@ -3949,7 +4113,14 @@ def build_snapshot(
         namespace_skip=list(namespace_skip),
         own_members=own_members,
     )
-    add_namespace_inits(search_path, list(import_names), list(namespace_skip))
+    roots = [search_path.joinpath(*n.split(".")) for n in import_names]
+    bare = [
+        n
+        for n, d in zip(import_names, roots, strict=True)
+        if d.is_dir() and not (d / "__init__.py").exists() and not (d / "__init__.pyi").exists()
+    ]
+    made = add_namespace_inits(search_path, list(import_names), list(namespace_skip))
+    snap.namespaces = sorted({*bare, *made})
     walker = _Walker(snap, tuple(import_names))
     global _READINGS
     _READINGS = {}
@@ -3974,6 +4145,10 @@ def build_snapshot(
                 continue
             if isinstance(loaded, griffe.Module):
                 walker.module(loaded, import_name)
+                for module in _modules_of(loaded):
+                    for alias, target in module_aliases(module).items():
+                        if any(_within(alias, r) for r in import_names):
+                            snap.module_aliases.setdefault(alias, target)
             else:
                 walker.member(loaded, import_name, 0)
                 continue
@@ -3981,6 +4156,7 @@ def build_snapshot(
                 walker.internal(loaded)
             except Exception as exc:  # the public API is already recorded; don't lose it over these
                 snap.errors.append(f"internal names of {import_name}: {type(exc).__name__}: {exc}")
+        walker.record_member_classes()
         walker.record_private_classes()
     finally:
         _READINGS = None

@@ -1370,7 +1370,10 @@ class IndexStore:
         skip: set[str] = set()
         if paths and self.stores_own_members(name):
             asked = set(paths)
-            for path in dict.fromkeys(p for p in paths if self._resolved(name, p)[0]):
+            # A used class's constructor too: calling `transports.StdioTransport(log_file=...)` uses its `__init__`,
+            # whose events are otherwise at the class's label (`fastmcp.client.StdioTransport.__init__`).
+            wanted = [*paths, *(f"{p}.__init__" for p in paths if not p.endswith(".__init__"))]
+            for path in dict.fromkeys(p for p in wanted if self._resolved(name, p)[0]):
                 exact += [
                     r
                     for r in self.events(name, path)

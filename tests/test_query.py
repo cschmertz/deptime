@@ -610,6 +610,33 @@ def test_diff_versions_keeps_a_member_the_class_still_inherits_from_another_dist
     assert used.events == [] and used.truncated is False
 
 
+def test_diff_versions_reports_a_used_class_constructor_at_the_used_path():
+    # 2026-11 holdout: `fastmcp.client.transports.StdioTransport(log_file=...)` on 2.12; the `log_file` event was at
+    # the class's label, `fastmcp.client.StdioTransport.__init__`, so a caller matching its own path saw nothing.
+    spec = PackageSpec(name="tp", import_names=("tp",), tier="B", own_members=True)
+
+    def snap(version: str, params: list[dict]) -> ApiSnapshot:
+        init = SymbolRecord("tp.impl.Thing.__init__", "function", "tp.impl.Thing.__init__", params)
+        symbols = {
+            "tp": SymbolRecord("tp", "module", "tp"),
+            "tp.Thing": SymbolRecord("tp.Thing", "class", "tp.impl.Thing"),
+            "tp.impl": SymbolRecord("tp.impl", "module", "tp.impl"),
+            "tp.impl.Thing": SymbolRecord("tp.impl.Thing", "class", "tp.impl.Thing"),
+        }
+        classes = {"tp.impl.Thing": ClassRecord("tp.impl.Thing", [], {"__init__": init})}
+        return ApiSnapshot("tp", version, ["tp"], symbols, own_members=True, classes=classes)
+
+    store = IndexStore.memory()
+    store.rebuild_package(
+        spec, [snap("1.0", [_param("cmd")]), snap("2.0", [_param("cmd"), _param("log_file")])]
+    )
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+    res = dt.diff_versions("tp", "1.0", "2.0", used_symbols=["tp.impl.Thing"])
+    assert [(e.path, e.kind, e.detail["param"]) for e in res.events] == [
+        ("tp.impl.Thing.__init__", "param_added", "log_file")
+    ]
+
+
 def test_a_sys_modules_alias_extends_the_last_release_a_module_imports():
     # DT-DATA-52: fastmcp's `tools/tool.py` went in 3.2, but `sys.modules` kept `fastmcp.tools.tool` importable
     # (as `fastmcp.tools.base`) through 3.4, and 4.0 left only the `tool` function.

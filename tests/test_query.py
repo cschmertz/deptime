@@ -2395,3 +2395,12 @@ def test_a_method_named_without_its_class_says_which_classes_fit():
         "TypeError: Frame.sort() got an unexpected keyword argument 'descending'", {"p12": "1.0"}
     )
     assert one.note is None or "without its class" not in one.note
+    # The caller's line names the class, through an alias the traceback doesn't resolve: that class first.
+    for code, first in (
+        ("df = pd.Series(data).sort('a', descending=True)", "Series"),
+        ("pd.Frame.sort(df)", "Frame"),
+    ):
+        tb = f"  File \"app.py\", line 3, in <module>\n    {code}\nTypeError: sort() got an unexpected keyword argument 'descending'"
+        assert dt.explain_error(tb, {"p12": "1.0"}).findings[0].symbol == f"p12.{first}.sort(descending)", (
+            code
+        )

@@ -2086,9 +2086,14 @@ class DepTime:
     @staticmethod
     def _rank(pairs: list[tuple[str, str]], signal: ErrorSignal) -> list[str]:
         refs = signal.referenced_names
+        # The classes the code names, by their own name: `pl.DataFrame(data).sort(...)` names polars' `DataFrame`
+        # through an alias the traceback doesn't resolve (DT-CORE-31).
+        named = {r.rpartition(".")[2] for r in refs if r.rpartition(".")[2][:1].isupper()}
 
         def score(path: str) -> int:
-            return 0 if any(path == r or path.startswith(r + ".") for r in refs) else 1
+            if any(path == r or path.startswith(r + ".") for r in refs):
+                return 0
+            return 0 if path.rpartition(".")[0].rpartition(".")[2] in named else 1
 
         return sorted((p for _, p in pairs), key=lambda p: (score(p), len(p)))[:MAX_FINDINGS_PER_PACKAGE]
 

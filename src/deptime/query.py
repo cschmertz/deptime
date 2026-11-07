@@ -628,8 +628,12 @@ class DepTime:
                 )
             if span["kind"] == "class" and depth < 2:
                 return self._inherited(name, row, q, full, prefix, span["canonical"], rest, depth)
-            if span["kind"] == "module" and prefix in self.store.namespaces(name, row["ordinal"]):
-                return self._namespace(name, row, full, prefix)
+            if (
+                span["kind"] == "module"
+                and prefix in self.store.namespaces(name, row["ordinal"])
+                and (shared := self._namespace(name, row, full, prefix)) is not None
+            ):
+                return shared
             if span["kind"] in ("module", "class"):
                 return None
             target = self._outside(name, spec, span, row["ordinal"])
@@ -694,20 +698,23 @@ class DepTime:
             )
         return None
 
-    def _namespace(self, name: str, row: sqlite3.Row, full: str, prefix: str) -> SymbolCheck:
-        """A path missing directly under a namespace package (DT-CORE-32): another distribution may install it, as
-        langgraph-checkpoint installs `langgraph.checkpoint` and `langgraph.store` into langgraph."""
+    def _namespace(self, name: str, row: sqlite3.Row, full: str, prefix: str) -> SymbolCheck | None:
+        """A path missing directly under a namespace package (DT-CORE-32), when the release requires a distribution
+        named after the same root, which may install it: langgraph requires langgraph-checkpoint, which installs
+        `langgraph.checkpoint` and `langgraph.store`. None otherwise: mistralai 2.0's root is a namespace package
+        too, but nothing it requires installs into it, and `mistralai.Mistral` really went."""
         assert self.store is not None
         root = prefix.split(".")[0].replace("_", "-")
         siblings = sorted(
             d for d in self.store.declared_dependencies(name, row["ordinal"]) if d.startswith(root + "-")
         )
-        sibling = f" ({name} {row['version']} requires {_and(siblings)})" if siblings else ""
+        if not siblings:
+            return None
         return SymbolCheck(
             path=full,
             status="unknown",
-            hint=f"{prefix} is a namespace package, so other distributions can install modules into it{sibling};"
-            f" {name} {row['version']} itself doesn't have this one",
+            hint=f"{prefix} is a namespace package, and {name} {row['version']} requires {_and(siblings)}, which can"
+            f" install modules into it; {name} itself doesn't have this one",
         )
 
     def _outside(self, name: str, spec: PackageSpec, span: sqlite3.Row, ordinal: int) -> str | None:

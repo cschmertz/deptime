@@ -590,6 +590,9 @@ def test_check_symbols_looks_in_bases_from_other_distributions_and_namespaces():
     assert ask("web.Configure.Generative.nothing").status == "missing"
     ns = ask("web.store.memory")
     assert ns.status == "unknown" and "namespace package" in ns.hint and "web-extra" in ns.hint
+    # Without a required distribution named after the root, nothing is known to install into it: missing.
+    dt.store.declared_dependencies = lambda *a: {"base-dist"}
+    assert ask("web.store.memory").status == "missing"
 
 
 def test_diff_versions_keeps_a_member_the_class_still_inherits_from_another_distribution():

@@ -1,0 +1,46 @@
+name: holdout
+
+# DT-QA-07: the ground truth for a holdout set's upgrades. bench/holdout/probe.py installs each package version and
+# checks at run time whether each use resolves and each call shape binds. That imports the packages under test, which
+# invariant 1 forbids anywhere else, so it happens here only: an ephemeral runner, one throwaway venv per environment
+# (wheels only), and the checks run with no network, a separate user and an empty environment. It runs only on a push
+# to the spike/holdout branch. Collect the labels locally:
+#   gh run download <run id> -p 'holdout-*' -D <empty dir>
+#   uv run python bench/holdout/labels.py <set dir> <that dir>   (and bench/holdout/tbcheck.py, the same way)
+on:
+  push:
+    branches: [spike/holdout]
+    paths: ["bench/holdout/**", ".github/workflows/holdout.yml"]
+
+permissions: {}
+
+env:
+  SET: bench/holdout/2026-11
+
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    permissions:
+      contents: read # checkout only; the token is not persisted and never reaches the sandbox
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          enable-cache: false
+      - name: Probe the uses, shard ${{ matrix.shard }}
+        run: python3 -I bench/holdout/probe.py --envs "$SET/envs.json" --shard "${{ matrix.shard }}" --shards 12 --out "$RUNNER_TEMP/holdout-out/uses"
+      - name: Probe the tracebacks' boundaries, shard ${{ matrix.shard }}
+        run: python3 -I bench/holdout/probe.py --envs "$SET/envs-tracebacks.json" --shard "${{ matrix.shard }}" --shards 12 --out "$RUNNER_TEMP/holdout-out/tracebacks"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: holdout-${{ matrix.shard }}
+          path: ${{ runner.temp }}/holdout-out
+          if-no-files-found: error

@@ -1,0 +1,23 @@
+{
+ "about": "Labels changed by hand, each with the library source that shows it (bench/holdout/README.md: call breaks found by binding are checked against the source at `to`). A use overridden here is excluded.",
+ "overrides": [
+  {
+   "upgrade": "pin-hhhuang__cag-llama-index-core-up",
+   "key": "0029fd718f4dd513",
+   "use": "llama_index.core.Document(text=)",
+   "probe": "breaks (param_removed): the class's generated signature has no `text`",
+   "why": "Document.__init__(self, **data) still takes `text` and stores it in `text_resource`",
+   "evidence": "https://github.com/run-llama/llama_index/blob/v0.14.25/llama-index-core/llama_index/core/schema.py#L1104-L1142"
+  }
+ ],
+ "checked_and_kept": [
+  "google.genai.Client(enterprise=) at 1.28.0: a plain class, keyword-only parameters, no **kwargs",
+  "fastmcp.client.transports.StdioTransport(log_file=) at 2.12.5: a plain class, no **kwargs",
+  "agents.model_settings.ModelSettings(extra_args=) at 0.0.15: a dataclass",
+  "transformers.TrainingArguments(use_liger_kernel=) at 4.39.3: a dataclass",
+  "qdrant_client.models.VectorParams(multivector_config=) at 1.4.0: a pydantic model with extra=\"forbid\" (qdrant_client/http/models/models.py#L1557)",
+  "polars.read_csv(schema_overrides=) at 0.18.7: a function, no **kwargs",
+  "instructor.patch(create=, mode=) at 0.3.4: a function whose first parameter `client` has no default",
+  "streamlit.pyplot() at 1.67.0: a function whose `fig` has no default"
+ ]
+}

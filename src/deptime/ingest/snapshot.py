@@ -2171,6 +2171,34 @@ class _Shim:
             return None
         return self.tables[node.func.value.id]
 
+    def called(self, func: ast.expr, bound: dict[str, str]) -> tuple[ast.FunctionDef, int] | None:
+        """The helper a call runs, and how many of its parameters the call doesn't pass (a classmethod's `cls`): a
+        function, or a static or class method of a class (weaviate's `_Warnings.root_module_import(name, ...)`,
+        DT-DATA-53)."""
+        if isinstance(func, ast.Name):
+            found = self.helper(func.id, bound)
+            return (found, 0) if found is not None else None
+        if not (isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name)):
+            return None
+        path = bound.get(func.value.id, f"{self.module}.{func.value.id}")
+        module_path, _, cls_name = path.rpartition(".")
+        module = _module_at(self.mod, module_path) if self.mod is not None and module_path else None
+        tree = _source_tree(module) if module is not None else None
+        cls = next(
+            (st for st in tree.body if isinstance(st, ast.ClassDef) and st.name == cls_name) if tree else (),
+            None,
+        )
+        method = next(
+            (st for st in cls.body if isinstance(st, ast.FunctionDef) and st.name == func.attr)
+            if cls
+            else (),
+            None,
+        )
+        kinds = {d.id for d in method.decorator_list if isinstance(d, ast.Name)} if method else set()
+        if method is None or not kinds & {"staticmethod", "classmethod"}:
+            return None
+        return method, 1 if "classmethod" in kinds else 0
+
     def helper(self, local: str, bound: dict[str, str]) -> ast.FunctionDef | None:
         """The function a call to `local` runs, when it is defined in this module or imported from one griffe
         loaded (this package's own source)."""
@@ -2588,13 +2616,22 @@ def _shim_message(trail: list[ast.stmt], name: str, shim: _Shim) -> str | None:
         elif (
             isinstance(st, ast.Expr)
             and isinstance(st.value, ast.Call)
-            and isinstance(st.value.func, ast.Name)
-            and (helper := shim.helper(st.value.func.id, _bindings(trail, shim)))
-            and (text := _helper_warning(st.value, helper, dict(env))) is not None
+            and (found := shim.called(st.value.func, _bindings(trail, shim)))
+            and (text := _helper_warning(_looked_up(st.value, lookup, found[1]), found[0], dict(env)))
+            is not None
         ):
             return text
         shim = shim.scoped(st)
     return None
+
+
+def _looked_up(call: ast.Call, lookup: Callable[[ast.expr], str | None], skip: int) -> ast.Call:
+    """`call` with each argument a table lookup settles as that text (weaviate's `map_[name]` is "auth"), and
+    `skip` leading placeholders for the parameters it doesn't pass (a classmethod's `cls`)."""
+    args = [
+        a if isinstance(a, ast.Constant) or (v := lookup(a)) is None else ast.Constant(v) for a in call.args
+    ]
+    return ast.Call(func=call.func, args=[ast.Constant(None)] * skip + args, keywords=call.keywords)
 
 
 def _object_name(local: str, bound: dict[str, str], shim: _Shim) -> str | None:
@@ -2719,7 +2756,7 @@ def getattr_served(mod: griffe.Module) -> _GetattrShim:
         return _GetattrShim()
     found = _find_getattr(tree.body)
     if found is None:
-        return _GetattrShim()
+        return _class_getattr(tree.body, mod)
     func, scope = found
     args = func.args.posonlyargs + func.args.args
     if not args:
@@ -2770,6 +2807,24 @@ def getattr_served(mod: griffe.Module) -> _GetattrShim:
     own, copied = _module_names(tree.body)
     forwards = [_Forward(target, excluded, trail, shim) for target, excluded, trail in served.forwards]
     return _GetattrShim(names, forwards, own, copied, frozenset(deleted), private, sources)
+
+
+def _class_getattr(body: list[ast.stmt], mod: griffe.Module) -> _GetattrShim:
+    """A module-level `class __getattr__`, which matplotlib turns into the module's `__getattr__` with
+    `@_api.caching_module_getattr`: each public property it defines is a name the module serves, with the
+    deprecation its `deprecated(...)` decorator states (DT-DATA-53: `matplotlib.rcsetup.interactive_bk` from 3.9)."""
+    cls = next((st for st in body if isinstance(st, ast.ClassDef) and st.name == "__getattr__"), None)
+    names: dict[str, str | None] = {}
+    for item in cls.body if cls is not None else []:
+        if not isinstance(item, ast.FunctionDef) or _is_private(item.name):
+            continue
+        decorators = item.decorator_list
+        if not any(isinstance(d, ast.Name) and d.id == "property" for d in decorators):
+            continue
+        marks = [d for d in decorators if DEPRECATED_DECORATOR_RE.match(ast.unparse(d))]
+        call = next((d for d in marks if isinstance(d, ast.Call)), None)
+        names[item.name] = _decorator_reading(call, mod, item.name) if marks else None
+    return _GetattrShim(names)
 
 
 @dataclass(frozen=True)
@@ -3267,6 +3322,11 @@ class _Walker:
                     path = f"{public_path}.{name}"
                     if not self._served_object(mod, path, name, shim, message, depth):
                         self.record(SymbolRecord(path, "getattr", canonical, None, message))
+                        # Typed only in a stub (matplotlib's `rcsetup.pyi`), it is already recorded: the warning
+                        # the module serves it with is still its deprecation (DT-DATA-53).
+                        rec = self.snap.symbols[path]
+                        if message and rec.deprecated is None:
+                            self.snap.symbols[path] = replace(rec, deprecated=message)
 
     def _served_object(
         self, mod: griffe.Module, path: str, name: str, shim: _GetattrShim, message: str | None, depth: int

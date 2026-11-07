@@ -2325,12 +2325,13 @@ def test_a_getattr_that_defines_its_own_table_serves_its_keys(tmp_path):
         "getattr",
         "localt.typing.RollingGroupby is deprecated. Use localt.typing.RollingGroupBy instead.",
     )
-    # One `__all__` lists keeps the walker's record of it.
+    # One `__all__` lists keeps the walker's record of it, with the warning `__getattr__` serves it with, since the
+    # import is for type checkers only (DT-DATA-53).
     listed = snap.symbols["localt.typing.Listed"]
     assert (listed.kind, listed.canonical, listed.deprecated) == (
         "class",
         "localt.window.RollingGroupBy",
-        None,
+        "localt.typing.Listed is deprecated. Use localt.typing.RollingGroupBy instead.",
     )
     # A name griffe can't find leaves its `__name__` unknown.
     assert snap.symbols["localt.typing.Elsewhere"].deprecated == (
@@ -3317,3 +3318,47 @@ def _saved(snap: ApiSnapshot, tmp_path: Path) -> Path:
     path = tmp_path / "snap.json.gz"
     snap.save(path)
     return path
+
+
+def test_a_class_getattr_and_a_helper_methods_warning_deprecate_public_names(tmp_path):
+    # DT-DATA-53: matplotlib 3.9's `rcsetup.interactive_bk` is a deprecated property of `class __getattr__` (typed as
+    # an attribute in `rcsetup.pyi`); weaviate 4's top-level `AuthApiKey` warns through `_Warnings.root_module_import`.
+    files = {
+        "dep53/__init__.py": "",
+        "dep53/_api.py": "def caching_module_getattr(cls):\n    return cls\n\ndef deprecated(*a, **k):\n    return lambda f: f\n",
+        "dep53/rc.py": (
+            "from dep53 import _api\n\n"
+            "@_api.caching_module_getattr\n"
+            "class __getattr__:\n"
+            "    @_api.deprecated('3.9', alternative='``registry.list()``')\n"
+            "    @property\n"
+            "    def interactive_bk(self):\n        return []\n\n"
+            "    @property\n"
+            "    def plain(self):\n        return []\n"
+        ),
+        "dep53/rc.pyi": "interactive_bk: list[str]\n",
+        "dep53/warns.py": (
+            "import warnings\n\nclass _Warnings:\n"
+            "    @staticmethod\n"
+            "    def root_module_import(name: str, loc: str) -> None:\n"
+            "        warnings.warn(f'Dep010: Importing {name} from dep53 is deprecated. Import {name} from dep53.{loc}',"
+            " DeprecationWarning)\n"
+        ),
+        "dep53/auth.py": "class AuthApiKey:\n    pass\n",
+        "dep53/top.py": (
+            "import sys\nfrom dep53.warns import _Warnings\n\n"
+            "deprs = ['AuthApiKey']\nmap_ = {'AuthApiKey': 'auth'}\n\n"
+            "def __getattr__(name):\n"
+            "    if name in deprs:\n"
+            "        _Warnings.root_module_import(name, map_[name])\n"
+            "        return getattr(sys.modules[f'dep53.{map_[name]}'], name)\n"
+            "    raise AttributeError(name)\n"
+        ),
+    }
+    snap = build_snapshot("dep53", "1.0", ["dep53"], _write(tmp_path, files), own_members=True)
+    bk = snap.symbols["dep53.rc.interactive_bk"]
+    assert bk.deprecated == "interactive_bk was deprecated in 3.9. Use `registry.list()` instead."
+    assert snap.symbols["dep53.rc.plain"].deprecated is None
+    assert snap.symbols["dep53.top.AuthApiKey"].deprecated == (
+        "Dep010: Importing AuthApiKey from dep53 is deprecated. Import AuthApiKey from dep53.auth"
+    )

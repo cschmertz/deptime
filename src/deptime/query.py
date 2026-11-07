@@ -71,6 +71,14 @@ SEVERITY = {
     "param_now_optional": 9,
     "added": 10,
 }
+# What check_symbols calls a prefix it can't look inside (DT-CORE-32).
+OBJECT_KINDS = {
+    "attribute": "an attribute",
+    "function": "a function",
+    "alias": "an alias the index can't follow",
+    "getattr": "served by a module `__getattr__`",
+    "type alias": "a type alias",
+}
 # A parent's changes that take its members with it, for diff_versions' used paths (DT-CORE-33).
 PARENT_KINDS = ("removed", "moved", "kind_changed", "added")
 NO_INDEX_NOTE = (
@@ -506,6 +514,111 @@ class DepTime:
             result.note = " ".join(n for n in (read, result.note) if n)
         return result
 
+    def _unseen(
+        self, name: str, spec: PackageSpec, q: SymbolQuery, full: str, row: sqlite3.Row, depth: int
+    ) -> SymbolCheck | None:
+        """A path with no span at the release, under a prefix the index has as something other than a module or class
+        (DT-CORE-32): what such an object holds is made at runtime (`pytest.mark` is an instance whose attributes are
+        any mark's name), so `missing` would be a guess. An alias into another covered distribution (`fastapi.status`
+        is `starlette.status`) is checked there. None when the nearest prefix is a module or class, whose names the
+        index lists."""
+        assert self.store is not None
+        parts = full.split(".")
+        for k in range(len(parts) - 1, 0, -1):
+            prefix = ".".join(parts[:k])
+            span = self.store.span_at(name, prefix, row["ordinal"])
+            if span is None:
+                continue
+            rest = ".".join(parts[k:])
+            if span["kind"] == "module" and span["canonical"] != prefix and depth < 2:
+                # A module imported into another (`matplotlib.pyplot.cm` is `matplotlib.cm`): its names are the
+                # module's own, which the index lists at the module's path.
+                got = self._check_symbols(
+                    name,
+                    spec,
+                    row["version"],
+                    [q.model_copy(update={"path": f"{span['canonical']}.{rest}"})],
+                    depth + 1,
+                ).results[0]
+                return (
+                    got.model_copy(
+                        update={"path": full, "hint": got.hint or f"as {span['canonical']}.{rest}"}
+                    )
+                    if got.status != "missing"
+                    else None
+                )
+            if span["kind"] in ("module", "class"):
+                return None
+            target = self._outside(name, spec, span, row["ordinal"])
+            if target is not None and depth < 2:
+                return self._through(name, row, q, full, prefix, f"{target}.{rest}", depth)
+            what = OBJECT_KINDS.get(span["kind"], f"a {span['kind']}")
+            obj = f" (`{target or span['canonical']}`)" if (target or span["canonical"]) != prefix else ""
+            return SymbolCheck(
+                path=full,
+                status="unknown",
+                hint=f"{prefix} is {what}{obj}, not a module or class, so the index doesn't list its attributes"
+                " (often made at runtime)",
+            )
+        return None
+
+    def _outside(self, name: str, spec: PackageSpec, span: sqlite3.Row, ordinal: int) -> str | None:
+        """Where an alias leads outside the package, following its aliases inside it: `fastapi.status` ->
+        `starlette.status`. None for anything else."""
+        assert self.store is not None
+        seen: set[str] = set()
+        while span is not None and span["kind"] == "alias" and span["canonical"] not in seen:
+            target = span["canonical"]
+            if not any(target == r or target.startswith(r + ".") for r in spec.import_names):
+                return target
+            seen.add(target)
+            span = self.store.span_at(name, target, ordinal)
+        return None
+
+    def _through(
+        self, name: str, row: sqlite3.Row, q: SymbolQuery, full: str, via: str, target: str, depth: int
+    ) -> SymbolCheck:
+        """`full` checked as `target` in the covered package that has it, at the newest indexed release that `name`'s
+        release allows (its Requires-Dist, DT-DATA-14); `unknown` when no covered package has it or the release
+        doesn't require that one."""
+        assert self.store is not None
+        other = next(
+            (
+                s
+                for s in self.coverage.packages_for_module(target)
+                if s.name != name and self._indexed(s.name)
+            ),
+            None,
+        )
+        req = self.store.requirement(name, row["ordinal"], other.name) if other else None
+        allowed = (
+            [
+                r
+                for r in self.store.releases(other.name)
+                if req.specifier.contains(r["version"], prereleases=True)
+            ]
+            if other and req
+            else []
+        )
+        if other is None or not allowed:
+            why = (
+                f"which DepTime doesn't index ({target.split('.')[0]})"
+                if other is None
+                else f"{other.name}, which {name} {row['version']} doesn't require"
+                if req is None
+                else f"{other.name}, with no indexed release that {name} {row['version']} allows ({req})"
+            )
+            return SymbolCheck(
+                path=full, status="unknown", hint=f"{via} comes from another distribution: `{target}`, {why}"
+            )
+        pick = allowed[-1]["version"]
+        got = self._check_symbols(other.name, other, pick, [q.model_copy(update={"path": target})], depth + 1)
+        result = got.results[0]
+        hint = f"{via} comes from {other.name}: checked as `{target}` in {other.name} {pick}, the newest release {name} {row['version']} allows ({req})"
+        return result.model_copy(
+            update={"path": full, "hint": hint + (f"; {result.hint}" if result.hint else "")}
+        )
+
     def _code_queries(
         self, name: str, version: str, given: list[SymbolQuery], uses: snippet.Uses
     ) -> tuple[list[SymbolQuery], int]:
@@ -528,7 +641,7 @@ class DepTime:
         return [SymbolQuery(path=p, kwargs=k) for p, k in merged.items()], len(found)
 
     def _check_symbols(
-        self, name: str, spec: PackageSpec, version: str, symbols: list[SymbolQuery]
+        self, name: str, spec: PackageSpec, version: str, symbols: list[SymbolQuery], depth: int = 0
     ) -> CheckSymbolsResult:
         if not self._indexed(name):
             return CheckSymbolsResult(
@@ -568,6 +681,9 @@ class DepTime:
                         path=full, status="present", deprecated=inner["deprecated"], hint=hint, internal=True
                     )
                 )
+                continue
+            if span is None and (unseen := self._unseen(name, spec, q, full, row, depth)) is not None:
+                results.append(unseen)
                 continue
             if span is None:
                 spans = sorted(

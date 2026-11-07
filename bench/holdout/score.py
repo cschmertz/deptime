@@ -74,8 +74,8 @@ def ask_check_symbols(dt: DepTime, row: dict, items: list[dict]) -> list[dict]:
     res = dt.check_symbols(row["package"], row["to"], symbols=queries)
     out = []
     for i, r in zip(items, res.results, strict=True):
-        if r.status == "not_indexed":
-            out.append({"answered": False, "why": res.note or "not indexed"})
+        if r.status in ("not_indexed", "unknown"):  # `unknown`: the index can't tell (DT-CORE-32)
+            out.append({"answered": False, "why": r.hint or res.note or r.status})
             continue
         rejected = [k for k in i.get("kwargs", []) if k in r.rejected_kwargs] if i["kind"] == "call" else []
         out.append(

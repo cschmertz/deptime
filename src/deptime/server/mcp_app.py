@@ -119,7 +119,8 @@ def build_mcp(
         title="Check symbols and kwargs against an installed version",
         description=(
             "Batch-check that symbols, and the keyword arguments you plan to pass, exist in a specific version of a package. "
-            "Returns present/missing per symbol, rejected kwargs, deprecation notes, and hints. Use it to preflight code "
+            "Returns present/missing per symbol (unknown where the index can't tell, with the reason), rejected kwargs, "
+            "deprecation notes, and hints. Use it to preflight code "
             "against the version you have installed: pass the symbols, or the code itself. For one symbol across all "
             "releases use symbol_history, and after an exception use explain_error."
         ),

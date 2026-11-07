@@ -33,6 +33,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
 - `HistoryEvent.affects` (DT-CORE-33): `diff_versions(used_symbols=...)` also reports a used path's parent module or
   class removed, moved or retyped in the range (or added there), listing the used paths it takes with it, so mcp 2.0
   removing `mcp.server.fastmcp` reaches code that uses `mcp.server.fastmcp.FastMCP.tool`.
+- `check_symbols` status `unknown` (DT-CORE-32): where the index can't tell, with the reason in `hint`: a path through
+  an object that isn't a module or class (`pytest.mark.parametrize`, `django.conf.settings.configure`). A path through
+  an alias into another covered package (`fastapi.status.HTTP_200_OK`) is checked in that package, at the newest
+  release the package's requirement allows, and a module imported under another path at its own.
 
 ### Changed
 - `explain_error` reads `No module named 'x.y'` as `module_removed` when the installed release has `x.y` as another

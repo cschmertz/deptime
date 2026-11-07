@@ -14,6 +14,7 @@ from functools import cache
 from importlib import resources
 from pathlib import Path
 
+from packaging.requirements import InvalidRequirement, Requirement
 from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
 
@@ -864,6 +865,23 @@ class IndexStore:
             f"SELECT DISTINCT r.value FROM releases, json_each(releases.requires) AS r WHERE {where}", args
         ).fetchall()
         return {canonicalize_name(m.group(0)) for (req,) in rows if (m := REQUIREMENT_NAME_RE.match(req))}
+
+    def requirement(self, name: str, ordinal: int, dist: str) -> Requirement | None:
+        """The release `ordinal`'s own requirement on `dist` (DT-DATA-14), not one an extra adds; None when it has
+        none, or its requirements weren't recorded."""
+        if "requires" not in {r[1] for r in self.conn.execute("PRAGMA table_info(releases)")}:
+            return None
+        row = self.conn.execute(
+            "SELECT requires FROM releases WHERE package = ? AND ordinal = ?", (name, ordinal)
+        ).fetchone()
+        for text in json.loads(row["requires"]) if row and row["requires"] else []:
+            try:
+                req = Requirement(text)
+            except InvalidRequirement:
+                continue
+            if canonicalize_name(req.name) == dist and not (req.marker and "extra" in str(req.marker)):
+                return req
+        return None
 
     def project_urls(self, name: str, ordinal: int) -> dict[str, str]:
         """The `Project-URL` entries recorded for the release `ordinal` (DT-CORE-29), else for the nearest release

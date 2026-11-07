@@ -452,6 +452,68 @@ def test_diff_versions_reports_a_used_paths_removed_parent():
     ]
 
 
+def _runtime_stores() -> DepTime:
+    """`app` 1.0 (requires `lib>=1,<2`): `app.mark` an instance, `app.status` the module `lib.status` from another
+    covered distribution, `app.plt.style` the module `app.style` imported under another path, `app.Kit` a class;
+    `lib` 1.0 and 2.0, where 2.0 drops `lib.status.OK`."""
+
+    def rec(path: str, kind: str, canonical: str | None = None) -> SymbolRecord:
+        return SymbolRecord(path, kind, canonical or path, [] if kind == "function" else None)
+
+    app = PackageSpec(name="app", import_names=("app",), tier="B", own_members=False)
+    lib = PackageSpec(name="lib", import_names=("lib",), tier="B", own_members=False)
+    store = IndexStore.memory()
+    symbols = {
+        "app": rec("app", "module"),
+        "app.mark": rec("app.mark", "attribute", "app._marks.MARK_GEN"),
+        "app.status": rec("app.status", "alias", "lib.status"),
+        "app.style": rec("app.style", "module"),
+        "app.style.context": rec("app.style.context", "function"),
+        "app.plt": rec("app.plt", "module"),
+        "app.plt.style": rec("app.plt.style", "module", "app.style"),
+        "app.Kit": rec("app.Kit", "class"),
+        "app.Kit.go": rec("app.Kit.go", "function"),
+    }
+    store.rebuild_package(app, [ApiSnapshot("app", "1.0", ["app"], symbols, requires=["lib<2,>=1"])])
+    status = {"lib": rec("lib", "module"), "lib.status": rec("lib.status", "module")}
+    store.rebuild_package(
+        lib,
+        [
+            ApiSnapshot(
+                "lib", "1.0", ["lib"], {**status, "lib.status.OK": rec("lib.status.OK", "attribute")}
+            ),
+            ApiSnapshot("lib", "2.0", ["lib"], status),
+        ],
+    )
+    return DepTime(store, Coverage(POLICY, (app, lib)))
+
+
+def test_check_symbols_says_unknown_where_the_index_cant_see(monkeypatch):
+    # DT-CORE-32: all 138 of check_symbols' false alarms on the 2026-11 holdout were `missing`, 77 of them paths through
+    # an object the index can't look inside (`pytest.mark.parametrize`, `django.conf.settings.configure`).
+    dt = _runtime_stores()
+    ask = lambda path: dt.check_symbols("app", "1.0", [SymbolQuery(path=path)]).results[0]  # noqa: E731
+    got = ask("app.mark.parametrize")
+    assert got.status == "unknown" and got.hint.startswith("app.mark is an attribute (`app._marks.MARK_GEN`)")
+    assert ask("app.mark.parametrize.with_args").status == "unknown"
+    # A module or class lists its names: still `missing`.
+    assert ask("app.nothing").status == "missing" and ask("app.Kit.gone").status == "missing"
+    # An alias into another covered distribution: checked there, at the newest release this one allows (lib 1.0).
+    ok = ask("app.status.OK")
+    assert ok.status == "present" and "`lib.status.OK` in lib 1.0" in ok.hint
+    assert ask("app.status.NOPE").status == "missing"
+    # A module imported under another path: its own names.
+    style = ask("app.plt.style.context")
+    assert (style.path, style.status) == ("app.plt.style.context", "present")
+    assert ask("app.plt.style.nothing").status == "missing"
+    # Not required by this release, or not covered: unknown, and says which.
+    monkeypatch.setattr(dt.store, "requirement", lambda *a: None)
+    assert "doesn't require" in ask("app.status.OK").hint
+    dt.coverage = Coverage(POLICY, (dt.coverage.packages[0],))
+    nope = ask("app.status.OK")
+    assert nope.status == "unknown" and "which DepTime doesn't index (lib)" in nope.hint
+
+
 def test_explain_error_without_an_index_says_it_is_downloading(coverage):
     # Q-07: with no index yet, httpx must not be reported as "not covered".
     res = DepTime(None, coverage).explain_error(HTTPX_TB, {"httpx": "0.28.1"})

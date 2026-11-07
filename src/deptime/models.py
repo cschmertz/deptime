@@ -155,7 +155,11 @@ class SymbolQuery(BaseModel):
 
 class SymbolCheck(BaseModel):
     path: str
-    status: Literal["present", "missing", "not_indexed"]
+    status: Literal["present", "missing", "not_indexed", "unknown"] = Field(
+        description="unknown: the index can't tell, and `hint` says why: the path goes through an object whose"
+        " attributes are made at runtime (`pytest.mark`, `django.conf.settings`), or into a distribution DepTime"
+        " doesn't index."
+    )
     rejected_kwargs: list[str] = Field(default_factory=list)
     deprecated: UntrustedText = None
     hint: str | None = None

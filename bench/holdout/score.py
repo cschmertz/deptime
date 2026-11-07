@@ -69,7 +69,10 @@ def _v(s: str) -> Version:
 # ---------------------------------------------------------------------------------------------- asking DepTime
 def ask_check_symbols(dt: DepTime, row: dict, items: list[dict]) -> list[dict]:
     queries = [
-        SymbolQuery(path=i["path"], kwargs=i.get("kwargs", []) if i["kind"] == "call" else []) for i in items
+        SymbolQuery(path=i["path"], kwargs=i.get("kwargs", []), positional=i.get("npos"))
+        if i["kind"] == "call"
+        else SymbolQuery(path=i["path"])
+        for i in items
     ]
     res = dt.check_symbols(row["package"], row["to"], symbols=queries)
     out = []
@@ -81,10 +84,11 @@ def ask_check_symbols(dt: DepTime, row: dict, items: list[dict]) -> list[dict]:
         out.append(
             {
                 "answered": True,
-                "flagged": r.status == "missing" or bool(rejected),
+                "flagged": r.status == "missing" or bool(rejected) or bool(r.missing_args),
                 "deprecated": bool(r.deprecated),
                 "said": f"{r.status}"
                 + (f" rejected={rejected}" if rejected else "")
+                + (f" missing_args={r.missing_args}" if r.missing_args else "")
                 + (f" ({r.hint})" if r.hint else ""),
             }
         )

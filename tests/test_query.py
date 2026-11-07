@@ -635,6 +635,49 @@ def test_a_module_still_importable_under_a_rebound_name_isnt_removed():
     assert (f.issue, f.last_version_with, f.first_version_without) == ("module_removed", "1.0", "2.0")
 
 
+def test_check_symbols_lists_required_arguments_a_call_doesnt_pass():
+    # DT-CORE-34: streamlit 1.67's `pyplot()` requires `fig`, instructor 0.3's `patch(create=, mode=)` requires
+    # `client`; with only keywords to go on, neither read as a problem.
+    spec = PackageSpec(name="req", import_names=("req",), tier="B", own_members=False)
+
+    def p(name: str, kind: str = "positional or keyword", default: str | None = None) -> dict:
+        return {"name": name, "kind": kind, "default": default}
+
+    sym = {
+        "req": SymbolRecord("req", "module", "req"),
+        "req.plot": SymbolRecord("req.plot", "function", "req.plot", [p("fig"), p("clear", default="True")]),
+        "req.only": SymbolRecord(
+            "req.only", "function", "req.only", [p("x", "positional-only"), p("k", "keyword-only")]
+        ),
+        "req.many": SymbolRecord(
+            "req.many", "function", "req.many", [p("a"), p("rest", "variadic positional")]
+        ),
+        "req.Kit": SymbolRecord("req.Kit", "class", "req.Kit"),
+        "req.Kit.__init__": SymbolRecord(
+            "req.Kit.__init__", "function", "req.Kit.__init__", [p("self"), p("client")]
+        ),
+    }
+    store = IndexStore.memory()
+    store.rebuild_package(spec, [ApiSnapshot("req", "1.0", ["req"], sym)])
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+
+    def missing(path: str, positional: int | None, kwargs: list[str] = ()) -> list[str]:
+        q = SymbolQuery(path=path, kwargs=list(kwargs), positional=positional)
+        return dt.check_symbols("req", "1.0", [q]).results[0].missing_args
+
+    assert missing("req.plot", 0) == ["fig"]
+    assert missing("req.plot", 1) == [] and missing("req.plot", 0, ["fig"]) == []
+    assert missing("req.plot", None) == []  # no count, no verdict
+    assert missing("req.only", 0, ["x"]) == ["x", "k"]  # positional-only can't be passed by name
+    assert missing("req.only", 1, ["k"]) == []
+    assert missing("req.many", 3) == []
+    assert missing("req.Kit", 0) == ["client"] and missing("req.Kit", 1) == []  # `self` comes bound
+    # From code: the most positional arguments any call passes, and nothing once one spreads *args or **kwargs.
+    code = "import req\nreq.plot()\nreq.Kit(c)\nreq.only(*xs)\n"
+    got = {r.path: r.missing_args for r in dt.check_symbols("req", "1.0", code=code).results}
+    assert got == {"req": [], "req.plot": ["fig"], "req.Kit": [], "req.only": []}
+
+
 def test_diff_versions_reports_a_used_class_constructor_at_the_used_path():
     # 2026-11 holdout: `fastmcp.client.transports.StdioTransport(log_file=...)` on 2.12; the `log_file` event was at
     # the class's label, `fastmcp.client.StdioTransport.__init__`, so a caller matching its own path saw nothing.

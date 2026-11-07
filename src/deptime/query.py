@@ -272,6 +272,26 @@ def _merge(live: list[Replacement], indexed: list[Replacement]) -> list[Replacem
     return sorted([*live, *(r for r in indexed if r.target not in named)], key=lambda r: -r.confidence)
 
 
+def _missing_args(raw: str | None, q: SymbolQuery) -> list[str]:
+    """Required parameters a call with `q.positional` arguments by position and `q.kwargs` by name doesn't pass
+    (DT-CORE-34): streamlit 1.67's `pyplot()` without `fig`. A method's `self` or `cls` comes bound; `*args` takes
+    every extra positional argument. Empty without a positional count or a signature."""
+    if q.positional is None or raw is None:
+        return []
+    params = json.loads(raw)
+    if params and params[0]["name"] in ("self", "cls") and params[0]["kind"] != "keyword-only":
+        params = params[1:]
+    left, missing = q.positional, []
+    for p in params:
+        by_position = p["kind"] in ("positional-only", "positional or keyword") and left > 0
+        if by_position:
+            left -= 1
+            continue
+        if is_required(p) and (p["kind"] == "positional-only" or p["name"] not in q.kwargs):
+            missing.append(p["name"])
+    return missing
+
+
 def _accepts_kwarg(raw: str | None, kwarg: str) -> bool:
     for p in json.loads(raw) if raw else []:
         if p["kind"] == "variadic keyword":
@@ -766,9 +786,13 @@ class DepTime:
         """`given` plus the snippet's paths, with the keyword arguments passed to each; an attribute read off an object
         a call built counts only where the index shows that call builds a class at `version`."""
         merged: dict[str, list[str]] = {}
+        positional: dict[str, int | None] = {q.path: q.positional for q in given if q.positional is not None}
         for q in given:
             merged.setdefault(q.path, []).extend(q.kwargs)
         found = dict(uses.paths)
+        for key, count in uses.positional.items():
+            if isinstance(key, str) and key not in positional:
+                positional[key] = count
         row = self.store.resolve_version(name, version)[0] if self.store and self._indexed(name) else None
         for (built_by, attr), kwargs in uses.members.items():
             span = (
@@ -776,10 +800,14 @@ class DepTime:
             )
             if span is not None and span["kind"] == "class":
                 found.setdefault(f"{built_by}.{attr}", []).extend(kwargs)
+                if (built_by, attr) in uses.positional:
+                    positional.setdefault(f"{built_by}.{attr}", uses.positional[(built_by, attr)])
         for path, kwargs in found.items():
             known = merged.setdefault(path, [])
             known.extend(k for k in kwargs if k not in known)
-        return [SymbolQuery(path=p, kwargs=k) for p, k in merged.items()], len(found)
+        return [SymbolQuery(path=p, kwargs=k, positional=positional.get(p)) for p, k in merged.items()], len(
+            found
+        )
 
     def _check_symbols(
         self, name: str, spec: PackageSpec, version: str, symbols: list[SymbolQuery], depth: int = 0
@@ -853,7 +881,13 @@ class DepTime:
             ]
             deprecated = span["deprecated"] or next((by_param[k] for k in q.kwargs if k in by_param), None)
             results.append(
-                SymbolCheck(path=full, status="present", rejected_kwargs=rejected, deprecated=deprecated)
+                SymbolCheck(
+                    path=full,
+                    status="present",
+                    rejected_kwargs=rejected,
+                    missing_args=_missing_args(params_raw, q),
+                    deprecated=deprecated,
+                )
             )
         return CheckSymbolsResult(
             package=name,

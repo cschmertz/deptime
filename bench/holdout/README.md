@@ -107,8 +107,9 @@ uv run python bench/holdout/tbcheck.py bench/holdout/<set> <artifacts>
 
 Each labelled use is asked two ways, as an agent would ask it:
 
-- `check_symbols(package, version=to, symbols=[{path, kwargs}])`: **flagged** when the status is `missing` or a keyword
-  the call passes is in `rejected_kwargs`. `not_indexed` is an abstention, and so is `unknown` (DT-CORE-32; sets
+- `check_symbols(package, version=to, symbols=[{path, kwargs, positional}])`: **flagged** when the status is `missing`,
+  a keyword the call passes is in `rejected_kwargs`, or a required argument is in `missing_args` (from the call's
+  positional count, DT-CORE-34; sets scored before it, 2026-11, didn't have it). `not_indexed` is an abstention, and so is `unknown` (DT-CORE-32; sets
   scored before it, 2026-11, didn't have it).
 - `diff_versions(package, from, to, used_symbols=[path], include_added=True)` (`down`: from `to` up to `from`):
   **flagged** when the events say `to` lacks what the use needs: the path's last membership event before `to` is

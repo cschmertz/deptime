@@ -19,6 +19,9 @@ class Uses:
     paths: dict[str, list[str]] = field(default_factory=dict)  # dotted path -> keyword arguments passed to it
     # (path the object was built by calling, attribute read off the object) -> keyword arguments, if a call
     members: dict[tuple[str, str], list[str]] = field(default_factory=dict)
+    # How many arguments the calls to a path (or member) pass by position, the most any call does (DT-CORE-34); None
+    # once a call spreads `*args` or `**kwargs`, which may cover any parameter. Only paths that are called.
+    positional: dict[str | tuple[str, str], int | None] = field(default_factory=dict)
 
     def add(self, path: str, kwargs: list[str] | None = None) -> None:
         known = self.paths.setdefault(path, [])
@@ -27,6 +30,14 @@ class Uses:
     def add_member(self, built_by: str, name: str, kwargs: list[str] | None = None) -> None:
         known = self.members.setdefault((built_by, name), [])
         known.extend(k for k in kwargs or () if k not in known)
+
+    def called(self, key: str | tuple[str, str], call: ast.Call) -> None:
+        spread = any(isinstance(a, ast.Starred) for a in call.args) or any(
+            k.arg is None for k in call.keywords
+        )
+        if key in self.positional and self.positional[key] is None:
+            return
+        self.positional[key] = None if spread else max(self.positional.get(key) or 0, len(call.args))
 
 
 def _within(path: str, roots: tuple[str, ...]) -> bool:
@@ -111,8 +122,10 @@ class _Reader(ast.NodeVisitor):
         path = self._path(node.func)
         if path is not None:
             self.uses.add(path, self._kwargs(node))
+            self.uses.called(path, node)
         elif isinstance(node.func, ast.Attribute) and (built := self._built_by(node.func.value)):
             self.uses.add_member(built, node.func.attr, self._kwargs(node))
+            self.uses.called((built, node.func.attr), node)
         self.generic_visit(node)
 
     def visit_Attribute(self, node: ast.Attribute) -> None:

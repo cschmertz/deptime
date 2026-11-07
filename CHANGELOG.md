@@ -46,6 +46,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
 - `releases.module_aliases`: modules a package makes importable under another name with `sys.modules[...] = ...`;
   `explain_error` counts them for a module that became a name (fastmcp kept `fastmcp.tools.tool` through 3.4)
   (DT-DATA-52).
+- `SymbolQuery.positional` and `SymbolCheck.missing_args` (DT-CORE-34): with the call's positional count,
+  `check_symbols` lists the required parameters it passes neither by position nor by keyword; `code=` counts them
+  from the snippet's calls.
 
 ### Changed
 - `explain_error` reads `No module named 'x.y'` as `module_removed` when the installed release has `x.y` as another

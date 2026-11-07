@@ -151,6 +151,12 @@ class SymbolHistory(BaseModel):
 class SymbolQuery(BaseModel):
     path: str = Field(description="Public dotted path, e.g. 'httpx.Client' or 'httpx.Client.__init__'.")
     kwargs: list[str] = Field(default_factory=list, description="Keyword argument names you intend to pass.")
+    positional: int | None = Field(
+        default=None,
+        ge=0,
+        description="How many arguments the call passes by position, if you know (DT-CORE-34): then a required"
+        " parameter it passes neither way is listed in `missing_args`.",
+    )
 
 
 class SymbolCheck(BaseModel):
@@ -161,6 +167,11 @@ class SymbolCheck(BaseModel):
         " doesn't index."
     )
     rejected_kwargs: list[str] = Field(default_factory=list)
+    missing_args: list[str] = Field(
+        default_factory=list,
+        description="Required parameters the call doesn't pass, from `positional` and `kwargs` (DT-CORE-34); empty"
+        " when `positional` isn't given.",
+    )
     deprecated: UntrustedText = None
     hint: str | None = None
     internal: bool = Field(

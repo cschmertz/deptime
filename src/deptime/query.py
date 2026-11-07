@@ -1132,7 +1132,10 @@ class DepTime:
                 # A concrete change in the called package explains the error; "never existed" in the caller is noise.
                 findings = [f for f in findings if f.issue != "never_existed"] + callee
         rank = {"high": 0, "medium": 1, "low": 2}
-        findings.sort(key=lambda f: (rank[f.confidence], f.issue == "present_in_installed_version"))
+        misnamed = self._misnamed(findings, signal)
+        findings.sort(
+            key=lambda f: (id(f) in misnamed, rank[f.confidence], f.issue == "present_in_installed_version")
+        )
         findings = [self._act_on(f, installed) for f in findings]
         findings = [
             f.model_copy(update={"confidence_factors": self._factors(f, installed)}) for f in findings
@@ -1860,6 +1863,40 @@ class DepTime:
             )
             return [f for f in found if f is not None]
         return []
+
+    def _misnamed(self, findings: list[Finding], signal: ErrorSignal) -> set[int]:
+        """The findings whose function Python wouldn't have named as the message does, when another one's it would:
+        an argument error names the class that defines the function (its `__qualname__`), so `Client.__init__() got
+        an unexpected keyword argument` comes from httpx's `Client`, not anthropic's, an alias of the class
+        `Anthropic` whose `__init__` is `Anthropic.__init__`. They rank after the others, not out: a wrapper may
+        rename a function. By `id`."""
+        assert self.store is not None
+        owner = signal.owner or ""
+        if signal.kind not in {"unexpected_kwarg", "missing_argument"} or "." not in owner:
+            return set()
+        method = owner.rpartition(".")[2]
+
+        def fits(f: Finding) -> bool | None:
+            if f.package == PYTHON:
+                return None
+            path = f.symbol.partition("(")[0]
+            # The release the finding is about: anthropic 0.2's `Client` was a class of its own.
+            version = f.resolved_version or f.last_version_with or f.first_version_with
+            row = self.store.resolve_version(f.package, version)[0] if version else None
+            span = self.store.span_at(f.package, path, row["ordinal"]) if row is not None else None
+            spans = [span] if span is not None else self.store.spans(f.package, path)
+            names = {
+                s["canonical"] if path.rpartition(".")[2] == method else f"{s['canonical']}.{method}"
+                for s in spans
+                if s["canonical"]
+            }
+            owners = [owner, *signal.forwarded_owners]  # a class whose __init__ passed it on (DT-CORE-27)
+            return any(n == o or n.endswith("." + o) for n in names for o in owners) if names else None
+
+        verdicts = {id(f): fits(f) for f in findings}
+        if True not in verdicts.values():
+            return set()
+        return {key for key, fit in verdicts.items() if fit is False}
 
     @staticmethod
     def _owner_unknown_note(owner: str, findings: list[Finding]) -> list[str]:

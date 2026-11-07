@@ -681,6 +681,41 @@ def test_check_symbols_lists_required_arguments_a_call_doesnt_pass():
     assert got == {"req": [], "req.plot": ["fig"], "req.Kit": [], "req.only": []}
 
 
+def test_an_argument_error_ranks_the_class_python_would_name_first():
+    # S3 on the format-20 index: anthropic's `Client` became the class `Anthropic` it is bound to, so its `__init__`
+    # lost `proxies` too; but `Client.__init__() got an unexpected keyword argument` names the defining class, so
+    # it's httpx's (anthropic's would say `Anthropic.__init__()`).
+    def package(name: str, cls: str) -> tuple[PackageSpec, list[ApiSnapshot]]:
+        spec = PackageSpec(name=name, import_names=(name,), tier="B")
+        snaps = []
+        for version, params in (("1.0", [_param("proxies")]), ("2.0", [])):
+            init = f"{name}._impl.{cls}.__init__"
+            snaps.append(
+                ApiSnapshot(
+                    name,
+                    version,
+                    [name],
+                    {
+                        name: SymbolRecord(name, "module", name),
+                        f"{name}.Client": SymbolRecord(f"{name}.Client", "class", f"{name}._impl.{cls}"),
+                        f"{name}.Client.__init__": SymbolRecord(
+                            f"{name}.Client.__init__", "function", init, params
+                        ),
+                    },
+                )
+            )
+        return spec, snaps
+
+    store, specs = IndexStore.memory(), []
+    for name, cls in (("aaa", "Big"), ("zzz", "Client")):
+        spec, snaps = package(name, cls)
+        store.rebuild_package(spec, snaps)
+        specs.append(spec)
+    dt = DepTime(store, Coverage(POLICY, tuple(specs)))
+    res = dt.explain_error("TypeError: Client.__init__() got an unexpected keyword argument 'proxies'")
+    assert [f.package for f in res.findings[:2]] == ["zzz", "aaa"]
+
+
 def test_diff_versions_reports_a_used_class_constructor_at_the_used_path():
     # 2026-11 holdout: `fastmcp.client.transports.StdioTransport(log_file=...)` on 2.12; the `log_file` event was at
     # the class's label, `fastmcp.client.StdioTransport.__init__`, so a caller matching its own path saw nothing.

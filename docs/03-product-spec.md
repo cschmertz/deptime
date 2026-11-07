@@ -110,7 +110,7 @@ All tools are read-only and idempotent, and return structured output (pydantic m
 
 - Events in `(from, to]`, most severe first.
 - `from_version` can be a date (`YYYY-MM-DD`), which covers "everything since my training cutoff."
-- `used_symbols` filters the results to your own usage.
+- `used_symbols` filters the results to your own usage: changes on those paths and below, a class member's at the path given (not at the class that defines it), and a parent module or class removed, moved or retyped in the range (or added there, for code written against `to`), with the used paths it takes in `affects` (DT-CORE-33).
 
 ### `coverage() → CoverageResult` (never rate-limited)
 

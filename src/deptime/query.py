@@ -9,6 +9,8 @@ import json
 import re
 import sqlite3
 import threading
+from collections import defaultdict
+from collections.abc import Mapping
 from functools import lru_cache
 from pathlib import Path
 
@@ -69,6 +71,8 @@ SEVERITY = {
     "param_now_optional": 9,
     "added": 10,
 }
+# A parent's changes that take its members with it, for diff_versions' used paths (DT-CORE-33).
+PARENT_KINDS = ("removed", "moved", "kind_changed", "added")
 NO_INDEX_NOTE = (
     "DepTime has no index yet. The first run downloads it in the background; retry in a minute, "
     "or run `deptime index pull`."
@@ -114,6 +118,10 @@ def parse_installed(installed_versions: dict[str, str] | None, pip_freeze: str |
         if m:
             out.setdefault(canonicalize_name(m.group(1)), m.group(2))
     return out
+
+
+def _event_key(row: Mapping) -> tuple:
+    return (row["path"], row["ordinal"], row["kind"], row["detail"])
 
 
 def _and(items: list[str], word: str = "and") -> str:
@@ -325,13 +333,14 @@ class DepTime:
     def _version(self, name: str, ordinal: int | None) -> str | None:
         return None if ordinal is None or self.store is None else self.store.version_at(name, ordinal)
 
-    def _event(self, name: str, row: sqlite3.Row) -> HistoryEvent:
+    def _event(self, name: str, row: sqlite3.Row, affects: list[str] | None = None) -> HistoryEvent:
         return HistoryEvent(
             path=row["path"],
             version=self._version(name, row["ordinal"]) or "?",
             prev_version=self._version(name, row["prev_ordinal"]),
             kind=row["kind"],
             detail=json.loads(row["detail"]),
+            affects=affects or [],
         )
 
     # Hints mined from text that reads like instructions are dropped with the text (DT-CORE-08).
@@ -642,6 +651,7 @@ class DepTime:
             )
         limit = max(1, min(limit, MAX_DIFF_EVENTS))
         filtering = any(x.package == name for x in self.suppressions)
+        used = list(dict.fromkeys(self._qualify(spec, u) for u in used_symbols or []))
         rows, total = self.store.events_between(
             name,
             lo["ordinal"],
@@ -649,9 +659,22 @@ class DepTime:
             MAX_DIFF_EVENTS if filtering else limit,  # room for what the suppressions leave out
             severity=SEVERITY,
             include_added=include_added,
-            paths=[self._qualify(spec, u) for u in used_symbols or []],
+            paths=used,
         )
-        events, hidden = self._unsuppressed(name, [self._event(name, r) for r in rows])
+        affects: dict[tuple, list[str]] = {}
+        if used:
+            extra, affects = self._parent_events(
+                name, used, lo["ordinal"], hi["ordinal"], include_added, rows
+            )
+            if extra:
+                rows = sorted(
+                    [*rows, *extra],
+                    key=lambda r: (SEVERITY.get(r["kind"], 99), r["path"], r["ordinal"], r["kind"]),
+                )
+                total += len(extra)
+        events, hidden = self._unsuppressed(
+            name, [self._event(name, r, affects.get(_event_key(r))) for r in rows]
+        )
         notes = [
             None
             if lo["version"] == from_version or DATE_RE.match(from_version)
@@ -667,6 +690,47 @@ class DepTime:
             note=" ".join(n for n in notes if n) or None,
             suppressed=hidden,
         )
+
+    def _parent_events(
+        self, name: str, used: list[str], after: int, upto: int, include_added: bool, rows: list
+    ) -> tuple[list[Mapping], dict[tuple, list[str]]]:
+        """A used path's parent module or class that was removed, moved or retyped in (after, upto], or added there,
+        which takes the path with it (DT-CORE-33): `used_symbols` keeps events on a path and below, so mcp 2.0
+        removing `mcp.server.fastmcp` said nothing about `mcp.server.fastmcp.FastMCP.tool`.
+
+        Returns the parents' events not already in `rows`, and for each event (new or in `rows`) the used paths it
+        takes. Per used path and change, only the outermost parent (the module, not also each class in it), and
+        none where the index still has the path itself across the change (a name re-exported elsewhere)."""
+        assert self.store is not None
+        have = {_event_key(r): r for r in rows}
+        extra: dict[tuple, Mapping] = {}
+        affects: dict[tuple, list[str]] = defaultdict(list)
+        cache: dict[str, list[Mapping]] = {}
+        for path in used:
+            taken: set[tuple[int, str]] = set()
+            parts = path.split(".")
+            for k in range(1, len(parts)):
+                parent = ".".join(parts[:k])
+                if parent not in cache:
+                    cache[parent] = [
+                        r
+                        for r in self.store.events(name, parent)
+                        if after < r["ordinal"] <= upto
+                        and r["kind"] in PARENT_KINDS
+                        and (include_added or r["kind"] != "added")
+                    ]
+                for r in cache[parent]:
+                    if (r["ordinal"], r["kind"]) in taken:
+                        continue
+                    at = r["prev_ordinal"] if r["kind"] == "added" else r["ordinal"]
+                    if at is not None and self.store.span_at(name, path, at) is not None:
+                        continue
+                    taken.add((r["ordinal"], r["kind"]))
+                    key = _event_key(r)
+                    if key not in have:
+                        extra.setdefault(key, r)
+                    affects[key].append(path)
+        return list(extra.values()), dict(affects)
 
     def _unsuppressed(self, name: str, events: list[HistoryEvent]) -> tuple[list[HistoryEvent], int]:
         kept = [e for e in events if not any(x.matches(name, e.path, e.kind) for x in self.suppressions)]

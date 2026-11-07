@@ -65,7 +65,7 @@ Each check's right answers were written down before DepTime first ran on it ([be
 | Right package, name and breaking release for a traceback from a GitHub issue, on the [holdout of 2026-11-07](https://github.com/cschmertz/deptime/blob/main/bench/holdout/2026-11/results-2026-11-07.md) | 35, after every fix so far | 88.6% | 88.6% |
 | Code that still works after an upgrade, flagged as broken by `check_symbols` (lower is better) | 3,600 uses from 292 upgrades of real projects, labelled by running them | 3.8% | 3.8% |
 | The same, by `diff_versions(used_symbols=...)` | 2,399 it answers | 0.3% | 0.3% |
-| Code that breaks, flagged by `check_symbols` / `diff_versions` | 130 uses | 97.7% / 76.9% | 97.7% / 76.9% |
+| Code that breaks, flagged by `check_symbols` / `diff_versions` | 130 uses | 97.7% / 76.9% | 97.7% / 94.6% |
 | Right package, name and breaking release for a traceback from a GitHub issue | 32 collected 2026-11-05 | 68.8% | 96.9% |
 | The same, on a holdout fixed in advance from [TimeMachine-bench](https://github.com/tohoku-nlp/timemachine-bench) | 29 | 72.4% | 96.6% |
 | Error kind and package read from the traceback: scripts, pytest, chained exceptions, `ExceptionGroup`, IPython, Python 3.10–3.14 | 736, holdout fixed in advance | 93.8% | 93.8% |

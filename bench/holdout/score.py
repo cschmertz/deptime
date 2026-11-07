@@ -92,13 +92,14 @@ def ask_check_symbols(dt: DepTime, row: dict, items: list[dict]) -> list[dict]:
 
 
 def _state_at_to(events: list, path: str, up: bool, present: str, absent: str, param: str | None = None):
-    """Whether `to` lacks the path (or the parameter), from the membership events on it: None when no event says."""
+    """Whether `to` lacks the path (or the parameter), from the membership events on it: None when no event says.
+    A parent's event that lists the path in `affects` (DT-CORE-33) counts as one on the path."""
     evs = [
         e
         for e in events
         if e.kind in (present, absent)
         and (param is None or (e.detail or {}).get("param") == param)
-        and (e.path == path)
+        and (e.path == path or (param is None and path in (getattr(e, "affects", None) or ())))
     ]
     if not evs:
         return None

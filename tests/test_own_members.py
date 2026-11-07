@@ -252,11 +252,25 @@ def test_a_rename_under_a_new_defining_base_gets_its_hint(tmp_path):
 CLASSIC_GR = PackageSpec(name="gr", import_names=("gr",), tier="A", own_members=False)
 
 
-def test_diffing_versions_finds_a_used_members_events_at_its_defining_class(stores):
-    own = stores["own"]
+def test_diffing_versions_finds_a_used_members_events_at_its_own_path(stores):
+    # DT-CORE-33: a used member's events were its defining class's, at that class's label (`inh._hidden._Bridge.get`),
+    # so a caller matching events to the paths it uses found none; the classic store has them at the member's path.
+    own, classic = stores["own"], stores["classic"]
     severity = {"removed": 0, "param_removed": 1, "deprecated": 2, "added": 9}
+    for paths in (
+        ["inh.Sub.get"],
+        ["inh.Sub.get", "inh.Sub.mix", "inh.Sub.run"],
+        ["inh.Sub.mix", "inh.Base.old"],
+    ):
+        for after, upto in ((0, 2), (0, 1), (1, 2)):
+            got = own.events_between("inh", after, upto, 50, severity=severity, paths=paths)
+            want = classic.events_between("inh", after, upto, 50, severity=severity, paths=paths)
+            assert sorted((r["path"], r["ordinal"], r["kind"], r["detail"]) for r in got[0]) == sorted(
+                (r["path"], r["ordinal"], r["kind"], r["detail"]) for r in want[0]
+            ), (paths, after, upto)
+            assert got[1] == want[1] == len(got[0]), (paths, after, upto)
     rows, _ = own.events_between("inh", 0, 2, 50, severity=severity, paths=["inh.Sub.get"])
-    assert [(r["path"], r["kind"]) for r in rows] == [("inh._hidden._Bridge.get", "deprecated")]
+    assert [(r["path"], r["kind"]) for r in rows] == [("inh.Sub.get", "deprecated")]
     rows, _ = own.events_between("inh", 0, 2, 50, severity=severity, paths=["inh.Sub"], include_added=False)
     assert {"inh.Base.old", "inh._hidden._Bridge.get"} <= {r["path"] for r in rows}  # members of its bases
 
@@ -338,9 +352,7 @@ def test_the_tools_answer_the_same(stores):
     for version in RELEASES:
         assert own.check_symbols("inh", version, queries) == classic.check_symbols("inh", version, queries)
     diff = own.diff_versions("inh", "1.0", "3.0", used_symbols=["inh.Sub.get"])
-    assert [(e.path, e.kind, e.version) for e in diff.events] == [
-        ("inh._hidden._Bridge.get", "deprecated", "2.0")
-    ]
+    assert [(e.path, e.kind, e.version) for e in diff.events] == [("inh.Sub.get", "deprecated", "2.0")]
 
 
 def test_a_suffix_search_reads_members_by_class(stores):

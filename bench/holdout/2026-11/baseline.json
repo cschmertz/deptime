@@ -905,7 +905,7 @@
 },
 "pin-benman1__generative_ai_with_langchain-langchain-core-down|e00d03cb5f84a2be": {
 "check_symbols": true,
-"diff_versions": false,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-benman1__generative_ai_with_langchain-langchain-core-down|e9fb156e05aa486a": {
@@ -1445,7 +1445,7 @@
 },
 "pin-benman1__generative_ai_with_langchain-langchain-up|74a1d13ba95d814a": {
 "check_symbols": true,
-"diff_versions": false,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-benman1__generative_ai_with_langchain-langchain-up|798b4198e645a5d2": {
@@ -1520,7 +1520,7 @@
 },
 "pin-benman1__generative_ai_with_langchain-langchain-up|d5432e507d5e413f": {
 "check_symbols": true,
-"diff_versions": false,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-benman1__generative_ai_with_langchain-langchain-up|f71f7b0cdd322b6c": {
@@ -5460,7 +5460,7 @@
 },
 "pin-mit-han-lab__streaming-vlm-transformers-down|d6375c9c4b9ce4ea": {
 "check_symbols": true,
-"diff_versions": false,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-mit-han-lab__streaming-vlm-transformers-down|d959da9e80db943b": {
@@ -6285,7 +6285,7 @@
 },
 "pin-opencsgs__csghub-server-mcp-down|13a0ae28b810115e": {
 "check_symbols": true,
-"diff_versions": false,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-opencsgs__csghub-server-mcp-down|373c8a1a7c65e589": {
@@ -6295,7 +6295,7 @@
 },
 "pin-opencsgs__csghub-server-mcp-down|62ddae6859fa3279": {
 "check_symbols": true,
-"diff_versions": false,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-opencsgs__csghub-server-mcp-down|9094213a6000a888": {
@@ -6310,37 +6310,37 @@
 },
 "pin-opencsgs__csghub-server-mcp-down|927348a648c9e8d0": {
 "check_symbols": true,
-"diff_versions": false,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-opencsgs__csghub-server-mcp-down|a9c8f8b5acb20c2d": {
 "check_symbols": true,
-"diff_versions": false,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-opencsgs__csghub-server-mcp-down|c80ba6ed6e1a4efe": {
 "check_symbols": true,
-"diff_versions": false,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-opencsgs__csghub-server-mcp-down|ceec1ff784eeae3c": {
 "check_symbols": true,
-"diff_versions": false,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-opencsgs__csghub-server-mcp-down|e6082428379dc615": {
 "check_symbols": true,
-"diff_versions": false,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-opencsgs__csghub-server-mcp-down|fec8ffbaad2077f9": {
 "check_symbols": true,
-"diff_versions": false,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-opencsgs__csghub-server-mcp-up|13a0ae28b810115e": {
 "check_symbols": true,
-"diff_versions": false,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-opencsgs__csghub-server-mcp-up|373c8a1a7c65e589": {
@@ -6350,7 +6350,7 @@
 },
 "pin-opencsgs__csghub-server-mcp-up|62ddae6859fa3279": {
 "check_symbols": true,
-"diff_versions": false,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-opencsgs__csghub-server-mcp-up|9094213a6000a888": {
@@ -6365,32 +6365,32 @@
 },
 "pin-opencsgs__csghub-server-mcp-up|927348a648c9e8d0": {
 "check_symbols": true,
-"diff_versions": false,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-opencsgs__csghub-server-mcp-up|a9c8f8b5acb20c2d": {
 "check_symbols": true,
-"diff_versions": false,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-opencsgs__csghub-server-mcp-up|c80ba6ed6e1a4efe": {
 "check_symbols": true,
-"diff_versions": false,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-opencsgs__csghub-server-mcp-up|ceec1ff784eeae3c": {
 "check_symbols": true,
-"diff_versions": false,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-opencsgs__csghub-server-mcp-up|e6082428379dc615": {
 "check_symbols": true,
-"diff_versions": false,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-opencsgs__csghub-server-mcp-up|fec8ffbaad2077f9": {
 "check_symbols": true,
-"diff_versions": false,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-oracle__mcp-fastmcp-down|01999e4645b070cd": {
@@ -6425,7 +6425,7 @@
 },
 "pin-oracle__mcp-fastmcp-down|1f9527bf4b8d9ebf": {
 "check_symbols": true,
-"diff_versions": false,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-oracle__mcp-fastmcp-down|25813375d00d78ee": {
@@ -6445,7 +6445,7 @@
 },
 "pin-oracle__mcp-fastmcp-down|42dfb6ec2dbbec37": {
 "check_symbols": true,
-"diff_versions": false,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-oracle__mcp-fastmcp-down|4cdf37497b7ddbce": {
@@ -7855,7 +7855,7 @@
 },
 "pin-sambanova__ai-starter-kit-langchain-community-up|a38511a764dcf15d": {
 "check_symbols": true,
-"diff_versions": false,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-sambanova__ai-starter-kit-langchain-community-up|ac1b91282e991e0c": {

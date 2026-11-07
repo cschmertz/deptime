@@ -170,7 +170,8 @@ def build_mcp(
             Field(
                 max_length=500,
                 description="Public dotted paths your code uses (up to 500); only changes on these paths or their "
-                "members are returned.",
+                "members are returned, and a parent module or class removed (or not yet added) in the range, whose "
+                "`affects` lists the paths it takes with it.",
             ),
         ] = None,
         include_added: Annotated[

@@ -30,6 +30,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
   on `main`, run on a GitHub-hosted runner (it needs the GitHub CLI, `gh`, but no login). `DEPTIME_VERIFY_INDEX=1`
   applies the check to every download, the automatic refresh included, and `deptime index status` shows the run and
   commit that built the installed file.
+- `HistoryEvent.affects` (DT-CORE-33): `diff_versions(used_symbols=...)` also reports a used path's parent module or
+  class removed, moved or retyped in the range (or added there), listing the used paths it takes with it, so mcp 2.0
+  removing `mcp.server.fastmcp` reaches code that uses `mcp.server.fastmcp.FastMCP.tool`.
+
+### Changed
+- `diff_versions(used_symbols=...)` reports a used class member's events at the path given, as `symbol_history` does,
+  not at the class that defines it, and leaves out that class's changes that don't reach the member (DT-CORE-33).
+- The `used_symbols` filter reads each path's events by path: 20 transformers paths over 4.30..5.22 took 5 s, now
+  19 ms.
 
 ## [0.1.8] - 2026-11-07
 

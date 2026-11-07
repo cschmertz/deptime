@@ -1277,19 +1277,44 @@ class IndexStore:
 
         Filtering, ordering and counting all happen in SQL, so a large release (thousands of `added` events)
         can never push breaking changes past the limit unseen. `paths` keeps events on those paths or below.
+
+        A class member of a package stored with own members (DT-DATA-16) gets its own events at its own path, as
+        `events` works them out, in place of its defining classes' events at their labels (DT-CORE-33): the path the
+        caller uses, and only the changes that reach it (an override isn't changed by its base's change).
         """
-        where = "package = ? AND ordinal > ? AND ordinal <= ?"
-        args: list[object] = [name, after_ordinal, upto_ordinal]
-        if not include_added:
-            where += " AND kind != 'added'"
+        exact: list[Mapping] = []
+        # Stored rows that `exact` stands for: the members' own, and their defining classes' labels.
+        skip: set[str] = set()
         if paths and self.stores_own_members(name):
+            asked = set(paths)
+            for path in dict.fromkeys(p for p in paths if self._resolved(name, p)[0]):
+                exact += [
+                    r
+                    for r in self.events(name, path)
+                    if after_ordinal < r["ordinal"] <= upto_ordinal
+                    and (include_added or r["kind"] != "added")
+                ]
+                skip.add(path)
+                skip.update(label for label in self._labels(name, path) if label not in asked)
             paths = self._event_paths(name, paths, after_ordinal, upto_ordinal)
         if paths:
-            where += (
-                " AND EXISTS (SELECT 1 FROM json_each(?) AS u"
-                " WHERE events.path = u.value OR substr(events.path, 1, length(u.value) + 1) = u.value || '.')"
+            # Each path's events and those below it, read by path: testing every event of the range against every
+            # path read all 335k events of transformers 4.30..5.22 per call, 5 s for 20 paths. `+ordinal` keeps
+            # SQLite on the path index.
+            where = (
+                "rowid IN (SELECT e.rowid FROM json_each(?) AS u CROSS JOIN events AS e"
+                " WHERE e.package = ? AND e.path >= u.value AND e.path < u.value || '/'"
+                " AND (e.path = u.value OR substr(e.path, 1, length(u.value) + 1) = u.value || '.')"
+                " AND +e.ordinal > ? AND +e.ordinal <= ?)"
             )
-            args.append(json.dumps(paths))
+            args: list[object] = [json.dumps(paths), name, after_ordinal, upto_ordinal]
+        else:
+            where, args = "package = ? AND ordinal > ? AND ordinal <= ?", [name, after_ordinal, upto_ordinal]
+        if not include_added:
+            where += " AND kind != 'added'"
+        if skip:
+            where += " AND path NOT IN (SELECT value FROM json_each(?))"
+            args.append(json.dumps(sorted(skip)))
         total = self.conn.execute(f"SELECT COUNT(*) FROM events WHERE {where}", args).fetchone()[0]
         rank = "CASE kind " + " ".join("WHEN ? THEN ?" for _ in severity) + " ELSE 99 END"
         rank_args = [x for item in severity.items() for x in item]
@@ -1297,7 +1322,13 @@ class IndexStore:
             f"SELECT * FROM events WHERE {where} ORDER BY {rank}, path, ordinal, kind LIMIT ?",
             [*args, *rank_args, limit],
         ).fetchall()
-        return rows, total
+        if not exact:
+            return rows, total
+        merged = sorted(
+            [*rows, *exact],
+            key=lambda r: (severity.get(r["kind"], 99), r["path"], r["ordinal"], r["kind"]),
+        )
+        return merged[:limit], total + len(exact)  # type: ignore[return-value]
 
     def replacements(self, name: str, path: str) -> list[sqlite3.Row]:
         rows = self.conn.execute(

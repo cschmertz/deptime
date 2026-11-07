@@ -353,6 +353,70 @@ def test_diff_versions_never_hides_breaking_changes_behind_added_events():
     assert len(everything.events) == 500 and everything.truncated is True
 
 
+def _parents_store() -> DepTime:
+    """1.0 -> 2.0: the module `par.old` goes (its class `Old` re-exported as `par.Old` stays), `par.new` arrives, and
+    `par.sub` turns from a module into a class that keeps the name `x`."""
+    spec = PackageSpec(name="par", import_names=("par",), tier="B", own_members=False)
+    rec = lambda path, kind: SymbolRecord(path, kind, path, [] if kind == "function" else None)  # noqa: E731
+    both = {
+        "par": rec("par", "module"),
+        "par.Old": SymbolRecord("par.Old", "class", "par.old.Old"),
+        "par.Old.go": SymbolRecord("par.Old.go", "function", "par.old.Old.go", []),
+        "par.sub.x": rec("par.sub.x", "function"),
+    }
+    old = {
+        **both,
+        "par.old": rec("par.old", "module"),
+        "par.old.Old": rec("par.old.Old", "class"),
+        "par.old.Old.go": rec("par.old.Old.go", "function"),
+        "par.old.helper": rec("par.old.helper", "function"),
+        "par.sub": rec("par.sub", "module"),
+    }
+    new = {
+        **both,
+        "par.new": rec("par.new", "module"),
+        "par.new.Fresh": rec("par.new.Fresh", "class"),
+        "par.new.Fresh.go": rec("par.new.Fresh.go", "function"),
+        "par.sub": rec("par.sub", "class"),
+    }
+    store = IndexStore.memory()
+    store.rebuild_package(
+        spec, [ApiSnapshot("par", "1.0", ["par"], old), ApiSnapshot("par", "2.0", ["par"], new)]
+    )
+    return DepTime(store, Coverage(POLICY, (spec,)))
+
+
+def test_diff_versions_reports_a_used_paths_removed_parent():
+    # DT-CORE-33: used_symbols kept events on a path and below, never above, so a member whose module or class went
+    # (mcp 2.0's `mcp.server.fastmcp.FastMCP.tool`, langchain-community's `Qdrant.from_documents`) had no event.
+    dt = _parents_store()
+    used = ["par.old.Old.go", "par.old.helper", "par.Old.go", "par.sub.x", "par.new.Fresh.go"]
+    res = dt.diff_versions("par", "1.0", "2.0", used_symbols=used)
+    by_path = {(e.path, e.kind): e for e in res.events}
+    # The outermost parent that went, once, with every used path it takes; not also the class inside it.
+    assert by_path["par.old", "removed"].affects == ["par.old.Old.go", "par.old.helper"]
+    assert ("par.old.Old", "removed") not in by_path
+    # A path that stays across its parent's change (a re-export; a module turned class that keeps the name) isn't taken.
+    assert all("par.Old.go" not in e.affects and "par.sub.x" not in e.affects for e in res.events)
+    assert ("par.sub", "kind_changed") not in by_path
+    # Events on the used paths themselves have no `affects`; `added` stays out unless asked for.
+    assert by_path["par.old.helper", "removed"].affects == []
+    assert not [e for e in res.events if e.kind == "added"]
+    assert res.truncated is False and len(res.events) == len({(e.path, e.kind) for e in res.events})
+    # Read back from 2.0 to 1.0 (code written for 2.0 on 1.0): the parent added in the range says 1.0 lacks the path.
+    added = dt.diff_versions("par", "1.0", "2.0", used_symbols=used, include_added=True)
+    assert [(e.path, e.affects) for e in added.events if e.affects and e.kind == "added"] == [
+        ("par.new", ["par.new.Fresh.go"])
+    ]
+    one = dt.diff_versions("par", "1.0", "2.0", used_symbols=used, limit=1)
+    assert len(one.events) == 1 and one.truncated is True
+    # Asked for the parent too: its event is the same one, not a second copy.
+    both = dt.diff_versions("par", "1.0", "2.0", used_symbols=["par.old", "par.old.helper"])
+    assert [(e.path, e.affects) for e in both.events if e.path == "par.old"] == [
+        ("par.old", ["par.old.helper"])
+    ]
+
+
 def test_explain_error_without_an_index_says_it_is_downloading(coverage):
     # Q-07: with no index yet, httpx must not be reported as "not covered".
     res = DepTime(None, coverage).explain_error(HTTPX_TB, {"httpx": "0.28.1"})

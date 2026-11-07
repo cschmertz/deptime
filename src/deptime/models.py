@@ -111,6 +111,12 @@ class HistoryEvent(BaseModel):
         " | param_deprecated | param_now_required (a default was removed) | param_now_optional (a default was added)"
     )
     detail: Annotated[dict[str, Any], AfterValidator(untrusted_detail)] = Field(default_factory=dict)
+    affects: list[str] = Field(
+        default_factory=list,
+        description="diff_versions with used_symbols: the used paths below this one that this change takes with it."
+        " A removed, moved or retyped module or class takes its members (they read missing from `version` on); an"
+        " `added` one means they didn't exist before `version`.",
+    )
 
 
 class SymbolHistory(BaseModel):

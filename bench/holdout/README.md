@@ -113,7 +113,9 @@ Each labelled use is asked two ways, as an agent would ask it:
   **flagged** when the events say `to` lacks what the use needs: the path's last membership event before `to` is
   `removed` (for `down`, its first one after `to` is `added`); for a call, the same for each keyword it passes on the
   path or its `__init__` (`param_removed`/`param_added`), and, upgrading, a parameter that became required and isn't
-  passed by keyword. An unresolvable range (a `from` older than the index) is an abstention.
+  passed by keyword. An event on a parent that lists the path in `affects` (a removed module or class, DT-CORE-33)
+  counts as one on the path; sets scored before it (2026-11) didn't have the field. An unresolvable range (a `from`
+  older than the index) is an abstention.
 
 Then, for each tool: **precision** (flagged uses that break), **recall** (breaking uses flagged) and **false-positive
 rate** (working uses flagged), each with a 95% Wilson interval, overall and by change type (recall), tier, package,

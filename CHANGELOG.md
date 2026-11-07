@@ -23,6 +23,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
 
 ## [Unreleased]
 
+## [0.1.8] - 2026-11-07
+
 ### Added
 - Findings carry `signature_before` and `signature_after`, `links` (both releases on PyPI and the project's changelog
   from its `Project-URL` metadata) and a `fix` the index proves: the same object at another path, or the one
@@ -114,7 +116,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
 - The prebuilt index of 52 packages, downloaded on first run and refreshed daily; `deptime index pull|status|pack`;
   offline mode (`DEPTIME_OFFLINE=1`).
 
-[Unreleased]: https://github.com/cschmertz/deptime/compare/v0.1.7...HEAD
+[Unreleased]: https://github.com/cschmertz/deptime/compare/v0.1.8...HEAD
+[0.1.8]: https://github.com/cschmertz/deptime/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/cschmertz/deptime/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/cschmertz/deptime/compare/v0.1.5...v0.1.6
 [0.1.5]: https://github.com/cschmertz/deptime/compare/v0.1.4...v0.1.5

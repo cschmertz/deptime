@@ -62,7 +62,7 @@ Each check's right answers were written down before DepTime first ran on it ([be
 
 | Check | Cases | First run | Now |
 |---|---|---|---|
-| Right package, name and breaking release for a traceback from a GitHub issue, on the [holdout of 2026-11-07](https://github.com/cschmertz/deptime/blob/main/bench/holdout/2026-11/results-2026-11-07.md) | 35, after every fix so far | 88.6% | 88.6% |
+| Right package, name and breaking release for a traceback from a GitHub issue, on the [holdout of 2026-11-07](https://github.com/cschmertz/deptime/blob/main/bench/holdout/2026-11/results-2026-11-07.md) | 35, after every fix so far | 88.6% | 91.4% |
 | Code that still works after an upgrade, flagged as broken by `check_symbols` (lower is better) | 3,600 uses from 292 upgrades of real projects, labelled by running them | 3.8% | 3.8% |
 | The same, by `diff_versions(used_symbols=...)` | 2,399 it answers | 0.3% | 0.3% |
 | Code that breaks, flagged by `check_symbols` / `diff_versions` | 130 uses | 97.7% / 76.9% | 97.7% / 94.6% |

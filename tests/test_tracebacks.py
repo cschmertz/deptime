@@ -417,6 +417,33 @@ def test_lazy_loader_attribute_message():
     )
 
 
+def test_a_library_exception_that_says_a_name_was_removed_reads_as_a_missing_attribute():
+    # DT-CORE-35: polars 2.0's `__getattr__` raises its own AttributeRemovedError (an AttributeError subclass) for the
+    # names it removed; the traceback often ends in the caller's frame, so the exception's own module names the package.
+    user = '  File ".../polars_io/fixed_width.py", line 116, in source_generator\n    reader = pl.read_csv_batched(\n'
+    s = parse_traceback(
+        user
+        + "polars.exceptions.AttributeRemovedError: `read_csv_batched` was removed in version 2.0; use `scan_csv` "
+        "instead, in conjunction with `LazyFrame.collect(engine='streaming')`."
+    )
+    assert (s.kind, s.exception_type, s.module, s.name) == (
+        "module_attribute",
+        "AttributeRemovedError",
+        "polars",
+        "read_csv_batched",
+    )
+    # A bare class name: the raising frame, when it is a library's, names the package.
+    lib = '  File "/venv/lib/python3.12/site-packages/polars/__init__.py", line 9, in __getattr__\n    raise x\n'
+    s = parse_traceback(user + lib + "AttributeRemovedError: `DataFrame.foo` has been removed; use bar")
+    assert (s.kind, s.owner, s.name) == ("class_attribute", "DataFrame", "foo")
+    # Neither a package-qualified class nor a library frame: no evidence of whose name it is.
+    s = parse_traceback(user + "AttributeRemovedError: `read_csv_batched` was removed in version 2.0")
+    assert s.kind == "unknown"
+    # A builtin exception isn't read this way, nor a message that isn't about a name being removed.
+    assert parse_traceback(user + lib + "ValueError: `x` was removed").kind == "unknown"
+    assert parse_traceback(user + "polars.exceptions.ColumnNotFoundError: `x` not found").kind == "unknown"
+
+
 def test_python39_constructor_message_takes_the_class_from_the_call():
     # DT-CORE-26: before 3.10 a constructor's TypeError names no class.
     s = parse_traceback(

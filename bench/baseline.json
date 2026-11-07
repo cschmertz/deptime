@@ -2,13 +2,13 @@
   "index_built_at": "2026-11-07T13:33:38+00:00",
   "summary": {
     "cases": 245,
-    "known_gap_share": 2.4,
+    "known_gap_share": 2.0,
     "overall": {
-      "root_cause": 98.0,
-      "root_cause_and_boundary": 97.6,
-      "boundary": 97.5,
-      "replacement": 68.2,
-      "replacement_uncurated": 59.1
+      "root_cause": 99.2,
+      "root_cause_and_boundary": 98.0,
+      "boundary": 97.9,
+      "replacement": 69.1,
+      "replacement_uncurated": 60.0
     },
     "by_tier": {
       "-": {
@@ -21,7 +21,7 @@
       },
       "A": {
         "cases": 118,
-        "root_cause": 98.3,
+        "root_cause": 100.0,
         "root_cause_and_boundary": 97.5,
         "boundary": 97.4,
         "replacement": 46.7,
@@ -29,11 +29,11 @@
       },
       "B": {
         "cases": 116,
-        "root_cause": 97.4,
-        "root_cause_and_boundary": 97.4,
-        "boundary": 97.4,
-        "replacement": 82.8,
-        "replacement_uncurated": 70.3
+        "root_cause": 98.3,
+        "root_cause_and_boundary": 98.3,
+        "boundary": 98.3,
+        "replacement": 84.4,
+        "replacement_uncurated": 71.9
       }
     },
     "by_origin": {
@@ -47,11 +47,11 @@
       },
       "reported": {
         "cases": 237,
-        "root_cause": 98.3,
-        "root_cause_and_boundary": 97.9,
-        "boundary": 97.9,
-        "replacement": 66.7,
-        "replacement_uncurated": 57.1
+        "root_cause": 99.6,
+        "root_cause_and_boundary": 98.3,
+        "boundary": 98.3,
+        "replacement": 67.6,
+        "replacement_uncurated": 58.1
       }
     }
   },
@@ -279,13 +279,13 @@
       "replacement_uncurated": null
     },
     "hold-fastmcp-tools-tool-starrocks": {
-      "root_cause": false,
+      "root_cause": true,
       "boundary": false,
       "replacement": null,
       "replacement_uncurated": null
     },
     "hold-fastmcp-tools-tool-patent-client": {
-      "root_cause": false,
+      "root_cause": true,
       "boundary": false,
       "replacement": null,
       "replacement_uncurated": null
@@ -951,10 +951,10 @@
       "replacement_uncurated": null
     },
     "hold-polars-read-csv-batched-polars-io": {
-      "root_cause": false,
-      "boundary": false,
-      "replacement": false,
-      "replacement_uncurated": false
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true,
+      "replacement_uncurated": true
     },
     "pydantic-ai-slim-anthropicmodel-api-key-removed": {
       "root_cause": true,

@@ -213,6 +213,41 @@ def test_a_submodule_imported_as_a_name_is_a_removed_module():
         assert (f.symbol, f.issue, f.last_version_with) == ("pkgm.sub", "module_removed", "1.0")
 
 
+def test_a_module_that_became_a_name_is_a_removed_module():
+    # DT-CORE-35: fastmcp 3.2 turned the module `fastmcp.tools.tool` into the `tool` function its package exports, so
+    # `No module named 'fastmcp.tools.tool'` in 4.0 read "exists in the installed version".
+    spec = PackageSpec(name="pkgn", import_names=("pkgn",), tier="B")
+    mod = SymbolRecord("pkgn", "module", "pkgn")
+    sub = SymbolRecord("pkgn.tool", "module", "pkgn.tool")
+    func = SymbolRecord("pkgn.tool", "function", "pkgn.base.tool", [])
+    store = IndexStore.memory()
+    store.rebuild_package(
+        spec,
+        [
+            ApiSnapshot("pkgn", "1.0", ["pkgn"], {"pkgn": mod, "pkgn.tool": sub}),
+            ApiSnapshot("pkgn", "2.0", ["pkgn"], {"pkgn": mod, "pkgn.tool": func}),
+            ApiSnapshot("pkgn", "3.0", ["pkgn"], {"pkgn": mod, "pkgn.tool": func}),
+        ],
+    )
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+    tb = "  File \"app.py\", line 1, in <module>\n    from pkgn.tool import Thing\nModuleNotFoundError: No module named 'pkgn.tool'"
+    f = dt.explain_error(tb, {"pkgn": "3.0"}).findings[0]
+    assert (f.symbol, f.issue, f.last_version_with, f.first_version_without, f.pin_to_restore) == (
+        "pkgn.tool",
+        "module_removed",
+        "1.0",
+        "2.0",
+        "pkgn<=1.0",
+    )
+    assert f.confidence == "medium"  # a `sys.modules` alias may keep it importable for longer (DT-DATA-52)
+    assert "the function `pkgn.base.tool`" in f.explanation
+    # Still a module at the installed release: nothing changed.
+    assert dt.explain_error(tb, {"pkgn": "1.0"}).findings[0].issue == "present_in_installed_version"
+    # The name read as an attribute is there: not an import of a module.
+    f = dt.explain_error("AttributeError: module 'pkgn' has no attribute 'tool'", {"pkgn": "3.0"}).findings[0]
+    assert f.issue == "present_in_installed_version"
+
+
 def test_no_parameter_verdict_without_a_signature():
     # DT-CORE-20: an unresolved alias has no signature (pytest.skip before `_pytest` was loaded), so a
     # kwarg error against it says nothing about whether the parameter existed.

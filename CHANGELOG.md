@@ -35,6 +35,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
   removing `mcp.server.fastmcp` reaches code that uses `mcp.server.fastmcp.FastMCP.tool`.
 
 ### Changed
+- `explain_error` reads `No module named 'x.y'` as `module_removed` when the installed release has `x.y` as another
+  kind of name and it was a module before (fastmcp 3.2 turned `fastmcp.tools.tool` into a function), and reads a
+  library's own exception that says a name was removed (polars 2's `AttributeRemovedError`) as the `AttributeError`
+  it stands for (DT-CORE-35).
 - `diff_versions(used_symbols=...)` reports a used class member's events at the path given, as `symbol_history` does,
   not at the class that defines it, and leaves out that class's changes that don't reach the member (DT-CORE-33).
 - The `used_symbols` filter reads each path's events by path: 20 transformers paths over 4.30..5.22 took 5 s, now

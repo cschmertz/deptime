@@ -6,6 +6,7 @@ call. Supported message shapes are pinned by tests/test_tracebacks.py; extend th
 
 from __future__ import annotations
 
+import builtins
 import re
 from dataclasses import dataclass, field
 
@@ -85,8 +86,14 @@ PYDANTIC_REMOVED_KWARG_RE = re.compile(r"`(?P<kwarg>\w+)` is removed[.,] use ")
 OPENAI_V1_RE = re.compile(r"You tried to access openai\.(?P<name>\w+), but this is no longer supported")
 # huggingface_hub's lazy loader, worded like scientific-python's lazy_loader: "No huggingface_hub attribute x".
 LAZY_ATTR_RE = re.compile(r"^No (?P<module>[A-Za-z_][\w.]*) attribute (?P<name>\w+)$")
+# A library's own exception for a name it removed (DT-CORE-35): polars 2.0's AttributeRemovedError, "`read_csv_batched`
+# was removed in version 2.0; use `scan_csv` instead". A dotted name is a class member.
+LIBRARY_REMOVED_RE = re.compile(r"^`(?P<name>[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)?)` (?:was|has been) removed\b")
 HOOK_ARG_RE = re.compile(
     r"for hook '(?P<hook>\w+)'.*?Argument\(s\) \{'(?P<arg>\w+)'.*? are declared in the hookimpl", re.S
+)
+BUILTIN_EXCEPTIONS = frozenset(
+    n for n, v in vars(builtins).items() if isinstance(v, type) and issubclass(v, BaseException)
 )
 # The exception type a message implies, for errors logged or quoted without their exception line.
 INFERRED_TYPE = {
@@ -341,6 +348,8 @@ def _signal_at(lines: list[str], exc_index: int, exc_type: str, exc_msg: str) ->
     continuation = lines[exc_index + 1 : exc_index + 1 + MAX_MESSAGE_LINES]
     _classify_library(signal, "\n".join([message_core, *continuation]))
     if signal.kind == "unknown":
+        _classify_library_removal(signal, exc_type, message_core)
+    if signal.kind == "unknown":
         _classify(signal, message_core)
     if signal.kind == "unexpected_kwarg" and signal.owner is None:
         _owner_from_call_site(signal, lines)
@@ -421,6 +430,24 @@ def _classify_library(signal: ErrorSignal, text: str) -> None:
     elif exc == "PluginValidationError" and (m := HOOK_ARG_RE.search(text)):
         # A plugin's hook implementation takes an argument the hookspec no longer provides.
         signal.kind, signal.owner, signal.kwarg = "unexpected_kwarg", m.group("hook"), m.group("arg")
+
+
+def _classify_library_removal(signal: ErrorSignal, exc_type: str, msg: str) -> None:
+    """A library's own exception class saying it removed a name (DT-CORE-35), read as the AttributeError it stands
+    for. Only with evidence of whose name it is: the exception's own module (`polars.exceptions.AttributeRemovedError`)
+    or a library's frame raising it; never for a builtin exception."""
+    m = LIBRARY_REMOVED_RE.match(msg)
+    if not m or signal.exception_type in BUILTIN_EXCEPTIONS:
+        return
+    raiser = signal.frames[-1].module if signal.frames else None
+    package = exc_type.split(".")[0] if "." in exc_type else (raiser or "").split(".")[0]
+    if not package:
+        return
+    owner, _, name = m.group("name").rpartition(".")
+    if owner:
+        signal.kind, signal.owner, signal.name = "class_attribute", owner, name
+    else:
+        signal.kind, signal.module, signal.name = "module_attribute", package, name
 
 
 def _classify(signal: ErrorSignal, msg: str) -> None:

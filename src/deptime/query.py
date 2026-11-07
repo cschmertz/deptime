@@ -1926,7 +1926,38 @@ class DepTime:
         if dep_version is None:
             dep_version, dep_message = self._internal_deprecation(name, spans)
         indexed = [self._replacement(r) for r in self._hints(name, path)]
-        if (now := has(ordinal)) is not None:
+        now = has(ordinal)
+        was_module = [s for s in spans if s["kind"] == "module" and s["last_ordinal"] < ordinal]
+        if now is not None and module and now["kind"] != "module" and was_module:
+            # `No module named 'fastmcp.tools.tool'` in fastmcp 4: the path is still a name, the `tool` function
+            # its package exports, but no longer a module, so the import fails (DT-CORE-35).
+            last_ord = max(s["last_ordinal"] for s in was_module)
+            last_with, first_without = self._version(name, last_ord), self._version(name, last_ord + 1)
+            then = self.store.span_at(name, path, last_ord + 1) or now
+            what = (
+                f"the {then['kind']} `{then['canonical']}`"
+                if then["canonical"] != path
+                else f"a {then['kind']}"
+            )
+            return Finding(
+                **base,
+                issue="module_removed",
+                last_version_with=last_with,
+                first_version_without=first_without,
+                deprecated_in=dep_version,
+                deprecation_message=dep_message,
+                replacements=_merge(self._error_hints(spec, path, [ordinal, last_ord + 1], message), indexed),
+                pin_to_restore=f"{name}<={last_with}",
+                # A package often keeps the old module importable for a while through a `sys.modules` alias, which
+                # the index doesn't read (DT-DATA-52): fastmcp 3.2-3.4 did, so imports of it work up to 3.4.x.
+                confidence="medium",
+                explanation=f"{path} is a module up to {name} {last_with}. From {first_without} the name is {what},"
+                " which can't be imported as a module: import what you need from the package instead. The package"
+                " may have kept the old module importable for a few more releases through an alias, which the index"
+                " doesn't see, so the last release that imports it can be later.",
+                internal=_is_internal(now),
+            )
+        if now is not None:
             internal = _is_internal(now)
             not_public = self._not_public(name, path, spans, now) if internal else ""
             window = self._window(name, resolved, exact, installed, lambda o: has(o) is None)

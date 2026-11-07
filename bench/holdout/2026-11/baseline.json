@@ -26,7 +26,7 @@
 "hold-openai-responses-stale-kernel": true,
 "hold-pandas-dataframe-applymap-rhea": true,
 "hold-pandas-read-csv-delim-whitespace-drep": true,
-"hold-polars-read-csv-batched-polars-io": false,
+"hold-polars-read-csv-batched-polars-io": true,
 "hold-pydantic-ai-agent-instrument-mlflow": false,
 "hold-pydantic-secret-llama-cloud-services": true,
 "hold-sqlalchemy-fallback-async-pool-mlflow": true,

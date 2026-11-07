@@ -1424,9 +1424,32 @@ class IndexStore:
 
     def packages_with_suffix(self, suffix: str) -> list[str]:
         """Indexed packages with a public path equal to or ending with `.suffix` in any indexed version."""
+        if "." not in suffix:
+            return self._packages_with_name(suffix)
         sql, params = self._suffix_query(suffix, None)
         rows = self.conn.execute(f"SELECT DISTINCT package FROM ({sql}) ORDER BY package", params).fetchall()
         return [r["package"] for r in rows]
+
+    def _packages_with_name(self, name: str) -> list[str]:
+        """`packages_with_suffix` for a bare name, one indexed lookup per package: as one query, a common name read
+        every row it has (61,023 spans and more members for `__init__`, 77 ms) to learn which packages have one."""
+        own = self._own_packages()
+        out = []
+        for (package,) in self.conn.execute("SELECT name FROM packages ORDER BY name").fetchall():
+            hit = self.conn.execute(
+                "SELECT 1 FROM spans WHERE tail = ? AND package = ? AND (path = ? OR substr(path, -?) = ?) LIMIT 1",
+                (name, package, name, len(name) + 1, "." + name),
+            ).fetchone()
+            if hit is None and package in own:
+                hit = self.conn.execute(
+                    "SELECT 1 FROM members m JOIN classes c ON c.package = m.package AND c.cls = m.cls"
+                    " AND c.first_ordinal <= m.last_ordinal AND c.last_ordinal >= m.first_ordinal"
+                    " WHERE m.package = ? AND m.name = ? AND m.kind != ? LIMIT 1",
+                    (package, name, HIDDEN),
+                ).fetchone()
+            if hit is not None:
+                out.append(package)
+        return out
 
     def find_by_suffix(self, packages: list[str], suffix: str, limit: int = 20) -> list[tuple[str, str]]:
         """(package, path) pairs whose public path equals or ends with `.suffix`, across all indexed versions."""

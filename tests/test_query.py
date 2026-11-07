@@ -837,11 +837,18 @@ def test_lookups_by_path_and_suffix_use_their_indexes(store):
         store.events("httpx", "httpx.Client.__init__")
         plans = rec.plans()
         assert "events_by_path" in plans[0] and all(p.startswith("SEARCH") for p in plans), plans
+        # A bare name across every package: one lookup per package, each by its index.
+        store.packages_with_suffix("Client")
+        plans = rec.plans()[1:]  # after the list of packages
+        assert plans and all("SCAN spans" not in p and "SCAN m" not in p for p in plans), plans
+        assert all(
+            "spans_by_tail (tail=? AND package=?)" in p or "PRIMARY KEY (package=? AND name=?)" in p
+            for p in plans
+        ), plans
         for packages, suffix in [
             (["httpx"], "Client"),
             (["httpx"], "Client.__init__"),
             (None, "Client.__init__"),
-            (None, "Client"),
         ]:
             if packages is None:
                 store.packages_with_suffix(suffix)

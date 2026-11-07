@@ -45,6 +45,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
   `docs/coverage.md` lists what's indexed (DT-OSS-11).
 
 ### Changed
+- Searching every package for a bare method name (`__init__() got an unexpected keyword argument`) takes one indexed
+  lookup per package: 74 ms → under 1 ms for `__init__`.
 - transformers' lazy packages export what their folders list (`define_import_structure`), not their stale
   `TYPE_CHECKING` imports: 4.57's SmolLM3, Apertus and 13 more models read present (DT-DATA-05). Needs the
   `SNAPSHOT_FORMAT` 18 index.

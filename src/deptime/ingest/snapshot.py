@@ -3675,6 +3675,14 @@ def module_aliases(mod: griffe.Module) -> dict[str, str]:
     """`sys.modules[alias] = <module>` statements at a module's top level (in `if` and `try` blocks too), alias ->
     module (DT-DATA-52): fastmcp 3.4's `sys.modules[f"{__name__}.tool"] = sys.modules[f"{__name__}.base"]`, or a
     module the file imported (`sys.modules[__name__ + ".old"] = base`)."""
+    filepath = mod.filepath
+    try:  # read, not parsed, first: only a few files of a package mention sys.modules (transformers has 2,500)
+        if not isinstance(filepath, Path) or "sys.modules" not in filepath.read_text(
+            encoding="utf-8", errors="replace"
+        ):
+            return {}
+    except OSError:
+        return {}
     tree = _source_tree(mod)
     if tree is None:
         return {}

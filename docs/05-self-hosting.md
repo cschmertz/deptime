@@ -23,7 +23,7 @@ The server is a stateless Python container, so any container host works. The rep
 | **A VPS** | Full control; you own TLS, updates and uptime. |
 | **Cloudflare Workers** | Not a fit: the server is Python. |
 
-- **Your own index mirror:** set `DEPTIME_INDEX_URL` to a base URL that serves `manifest.json`, `index.sqlite.xz` and `index.sqlite.gz`, the three files `deptime index pack --out DIR` writes. Upload the manifest last.
+- **Your own index mirror:** set `DEPTIME_INDEX_URL` to a base URL that serves `manifest.json`, `index.sqlite.xz` and `index.sqlite.gz`, the three files `deptime index pack --out DIR` writes. Upload the manifest last. `--verify` and `DEPTIME_VERIFY_INDEX` only work with an index served from a GitHub repository's releases, since they check the attestation that repository's `build-index.yml` signed; copy `index.sigstore.json` too, and anyone can check the mirrored files by hand ([SECURITY.md](../SECURITY.md#verifying-the-index)).
 - **Behind a proxy:** set `DEPTIME_TRUST_PROXY_HEADERS=true`, and `DEPTIME_CLIENT_IP_HEADER` where the platform sets one, so rate limits key on the real client address.
 - **Limits:** keep the anonymous limits on. Trusted callers can use keys (`DEPTIME_DEV_API_KEYS`).
 - **Privacy:** a public instance receives users' tracebacks, so publish a privacy notice before opening it ([08](08-privacy-and-security.md)).

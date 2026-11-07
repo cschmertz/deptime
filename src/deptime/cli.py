@@ -162,14 +162,30 @@ def cmd_index(args: argparse.Namespace, settings: Settings) -> int:
                 f"{settings.index_path} was built locally; pass --force to replace it with the published index"
             )
             return 1
+        verify = args.verify or settings.verify_index
         with dist.http_client() as client:
             manifest = dist.fetch_manifest(settings.index_url, client)
             installed = local and dist.active_index(settings.index_path).exists()
-            if installed and local.get("manifest", {}).get("sha256") == manifest.sha256 and not args.force:
-                _err(f"deptime: index already up to date (built {manifest.built_at})")
+            current = installed and local.get("manifest", {}).get("sha256") == manifest.sha256
+            # A current index installed without verifying is downloaded again, so the file itself is checked.
+            if current and not args.force and (not verify or local.get("provenance")):
+                checked = ", build provenance verified" if local.get("provenance") else ""
+                _err(f"deptime: index already up to date (built {manifest.built_at}{checked})")
                 return 0
-            dist.download(settings.index_url, settings.index_path, client, manifest=manifest)
+            try:
+                dist.download(
+                    settings.index_url, settings.index_path, client, manifest=manifest, verify=verify
+                )
+            except dist.ProvenanceError as exc:
+                _err(f"deptime: {exc}. Nothing was installed; the current index is unchanged.")
+                return 1
         _err(f"deptime: installed index with {manifest.packages} packages, built {manifest.built_at}")
+        provenance = (dist.read_local_meta(settings.index_path) or {}).get("provenance")
+        if provenance:
+            _err(
+                f"deptime: build provenance verified: {provenance['repository']} {provenance['workflow']},"
+                f" commit {(provenance.get('commit') or '?')[:12]}, run {provenance.get('run') or '?'}"
+            )
         return 0
 
     if args.action == "pack":
@@ -201,8 +217,11 @@ def cmd_index(args: argparse.Namespace, settings: Settings) -> int:
             size_bytes=index_file.stat().st_size,
         )
         store.close()
+    status["verify_index"] = settings.verify_index
     if local:
         status.update(downloaded_at=local.get("downloaded_at"), checked_at=local.get("checked_at"))
+        # Set only when this file's build provenance was verified at download (DT-OSS-09).
+        status["provenance"] = local.get("provenance")
     print(json.dumps(status, indent=2))
     return 0
 
@@ -279,6 +298,11 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("index", help="manage the index: pull | status | pack")
     p.add_argument("action", choices=["pull", "status", "pack"])
     p.add_argument("--force", action="store_true", help="pull: replace a locally built or current index")
+    p.add_argument(
+        "--verify",
+        action="store_true",
+        help="pull: install the index only if its signed build provenance verifies (needs the GitHub CLI, gh)",
+    )
     p.add_argument("--out", default="dist", help="pack: output directory")
     p.set_defaults(func=cmd_index)
 

@@ -23,6 +23,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
 
 ## [Unreleased]
 
+### Added
+- Signed build provenance for the index (DT-OSS-09): each published index has a GitHub artifact attestation from
+  `build-index.yml`, with its Sigstore bundle published beside it as `index.sigstore.json`.
+  `deptime index pull --verify` installs the index only when the attestation names this repository's build workflow
+  on `main`, run on a GitHub-hosted runner (it needs the GitHub CLI, `gh`, but no login). `DEPTIME_VERIFY_INDEX=1`
+  applies the check to every download, the automatic refresh included, and `deptime index status` shows the run and
+  commit that built the installed file.
+
 ## [0.1.8] - 2026-11-07
 
 ### Added

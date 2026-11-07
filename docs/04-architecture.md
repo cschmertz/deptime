@@ -81,9 +81,10 @@ The full schema is in `src/deptime/index/schema.sql`.
 
 | Asset (rolling release `index`) | Contents |
 |---|---|
-| `manifest.json` | `schema_version`, `built_at`, `sha256` and `size` of the `.gz`, `xz_sha256` and `xz_size` of the `.xz`, package/release counts, `deptime_version`. Uploaded after the other two. |
+| `manifest.json` | `schema_version`, `built_at`, `sha256` and `size` of the `.gz`, `xz_sha256` and `xz_size` of the `.xz`, package/release counts, `deptime_version`. Uploaded after the others. |
 | `index.sqlite.xz` | The VACUUMed SQLite index (xz, preset 6). What deptime downloads when the manifest lists it. |
 | `index.sqlite.gz` | The same file (gzip, deterministic header), about 60% larger. Kept for deptime 0.1.3 and earlier, which read only the manifest keys they know, and for a Python built without `lzma`. |
+| `index.sigstore.json` | The Sigstore bundle of the build provenance attestation `actions/attest` signs for the other three files (DT-OSS-09). `deptime index pull --verify` passes it to `gh attestation verify`, so verifying needs no GitHub login. |
 
 The client logic lives in `distribution.ensure_index`:
 
@@ -92,6 +93,7 @@ The client logic lives in `distribution.ensure_index`:
 - **Downloaded index:** fresh within `DEPTIME_INDEX_MAX_AGE_HOURS` (24) means no network at all. Otherwise fetch the manifest, and download only if the sha256 changed.
 - **Every download:** stream the `.xz` (or the `.gz`) with a size cap → verify that file's sha256 → decompress to a temp file → validate it opens with a `schema_version` this client reads → `os.replace` it to a name of its own, `index-<sha256[:16]>.sqlite` → write the meta file, whose `file` key names it → delete the older files nothing has open.
 - **Why a new name each time** (DT-OSS-08): Windows refuses to replace or delete a file another process has open, and every running `deptime mcp` holds the index open. Each process opens the file the meta file names when it starts; a server that refreshes switches to the new file and closes the old one a minute later, and a server still running on an old file keeps answering from it until it restarts. Without a `file` key (a locally built index, or one downloaded before DT-OSS-08) the index is `index.sqlite` itself. `ci.yml` runs the whole suite on Windows.
+- **With `--verify` or `DEPTIME_VERIFY_INDEX=1`:** after the sha256 check, `gh attestation verify` checks the downloaded file against `index.sigstore.json`, and the certificate must name this repository's `build-index.yml` on `refs/heads/main` on a GitHub-hosted runner, compared exactly. The meta file then records the run and commit (`provenance`), which `deptime index status` shows. The repository comes from the index URL (`https://github.com/<owner>/<repo>/releases/download/<tag>`), so a fork's index verifies against the fork.
 - **Any failure** keeps the current index.
 - **`deptime mcp` and `deptime serve`** run this in a background thread and hot-swap the store, so first-run start-up is never blocked. Until the index lands, tools return a note saying it's downloading. If the first download fails, the thread retries after 30 s, 1, 2, 5 and 10 minutes, then every 30 minutes, and the note names the error and the next attempt; with `DEPTIME_OFFLINE` set, it says so (DT-OSS-10).
 

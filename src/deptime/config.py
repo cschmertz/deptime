@@ -58,6 +58,8 @@ class Settings:
     # With trust_proxy_headers: proxies *append* to X-Forwarded-For, so the client is this many hops from the right.
     trusted_proxy_hops: int = 1
     client_ip_header: str = ""  # e.g. "Fly-Client-IP": a header your platform's proxy sets (wins over XFF)
+    # Install a downloaded index only when its signed build provenance verifies, refreshes included (DT-OSS-09).
+    verify_index: bool = False
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -79,6 +81,7 @@ class Settings:
             dev_api_keys=_env("DEPTIME_DEV_API_KEYS", ""),
             trusted_proxy_hops=max(1, _env_int("DEPTIME_TRUSTED_PROXY_HOPS", 1)),
             client_ip_header=_env("DEPTIME_CLIENT_IP_HEADER", ""),
+            verify_index=_env_bool("DEPTIME_VERIFY_INDEX", False),
         )
 
 

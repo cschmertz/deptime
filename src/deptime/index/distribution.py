@@ -16,6 +16,12 @@ Safety rules:
 - the new file gets a name of its own (`index-<sha>.sqlite`), and the metadata file names it, so no file a
   server holds open is ever replaced (Windows forbids it; DT-OSS-08, see `location.py`);
 - an index built locally with `deptime ingest` carries no download metadata and is never replaced automatically.
+
+Build provenance (DT-OSS-09): the publish job signs a SLSA provenance attestation for the three files with
+`actions/attest` and uploads its Sigstore bundle as `index.sigstore.json`. With `deptime index pull --verify` (or
+`DEPTIME_VERIFY_INDEX=1`, which covers the background refresh too), a download is installed only when
+`gh attestation verify` accepts the file and the signing certificate names this repository's build-index workflow
+on main, run on a GitHub-hosted runner.
 """
 
 from __future__ import annotations
@@ -25,8 +31,10 @@ import hashlib
 import itertools
 import json
 import os
+import re
 import shutil
 import sqlite3
+import subprocess
 import sys
 import tempfile
 import threading
@@ -67,9 +75,23 @@ MANIFEST_ASSET = "manifest.json"
 MAX_DOWNLOAD_BYTES = 2 * 1024**3
 XZ_PRESET = 6  # 9 saves ~1% for a 64 MB decompression dictionary
 
+# What `--verify` accepts (DT-OSS-09): an attestation signed in a GitHub Actions run of this workflow on main.
+ATTESTATION_ASSET = "index.sigstore.json"
+BUILD_WORKFLOW = ".github/workflows/build-index.yml"
+BUILD_REF = "refs/heads/main"
+OIDC_ISSUER = "https://token.actions.githubusercontent.com"
+SLSA_PROVENANCE = "https://slsa.dev/provenance/v1"
+MAX_ATTESTATION_BYTES = 4 * 1024**2
+GH_TIMEOUT_SECONDS = 180
+_RELEASE_URL = re.compile(r"https://github\.com/([A-Za-z0-9-]+)/([A-Za-z0-9._-]+)/releases/download/[^/]+/?")
+
 
 class IndexIncompatible(RuntimeError):
     """The published index was built for a different deptime schema."""
+
+
+class ProvenanceError(RuntimeError):
+    """The downloaded index's build provenance was not verified (DT-OSS-09)."""
 
 
 @dataclass(frozen=True)
@@ -235,10 +257,150 @@ def _asset(manifest: Manifest) -> tuple[str, str, int, Callable[[Path], IO[bytes
     return INDEX_ASSET, manifest.sha256, manifest.size, gzip.open
 
 
+# ---------------------------------------------------------------- build provenance (DT-OSS-09)
+def release_repo(base_url: str) -> str | None:
+    """`owner/repo` when the index is served from a GitHub repository's releases, else None."""
+    match = _RELEASE_URL.fullmatch(base_url)
+    return f"{match[1]}/{match[2]}" if match else None
+
+
+def _find_gh() -> str | None:
+    return shutil.which("gh")
+
+
+def _run_gh(args: list[str]) -> subprocess.CompletedProcess[str]:
+    env = {**os.environ, "GH_NO_UPDATE_NOTIFIER": "1", "GH_PROMPT_DISABLED": "1"}
+    return subprocess.run(
+        args,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        env=env,
+        timeout=GH_TIMEOUT_SECONDS,
+        check=False,
+    )
+
+
+def _fetch_attestation(base_url: str, client: httpx.Client, dest: Path) -> bool:
+    """Download the Sigstore bundle the publish job uploads beside the index; False when there is none."""
+    with client.stream("GET", f"{base_url}/{ATTESTATION_ASSET}") as resp:
+        if resp.status_code == 404:
+            return False
+        resp.raise_for_status()
+        size = 0
+        with dest.open("wb") as out:
+            for chunk in resp.iter_bytes():
+                size += len(chunk)
+                if size > MAX_ATTESTATION_BYTES:
+                    raise ProvenanceError("the attestation bundle exceeded the size cap")
+                out.write(chunk)
+    return True
+
+
+def _gh_error(stderr: str) -> str:
+    lines = [line.strip() for line in stderr.splitlines() if line.strip()]
+    return " ".join(lines[-3:])[:300] or "no message"
+
+
+def _accepted(results: object, repo: str, sha256: str) -> dict | None:
+    """The first verified attestation whose certificate names `repo`'s build workflow on main, if any.
+
+    Compared exactly here, rather than trusting gh's `--signer-workflow` matching: gh before 2.97 and 2.102
+    matched it loosely (unescaped regex, prefix only, case-insensitive ref). Only the certificate and the
+    timestamps are outside the workflow's control; the statement's subjects come from the signed payload.
+    """
+    for entry in results if isinstance(results, list) else []:
+        result = entry.get("verificationResult") if isinstance(entry, dict) else None
+        if not isinstance(result, dict):
+            continue
+        cert = (result.get("signature") or {}).get("certificate") or {}
+        statement = result.get("statement") or {}
+        source = cert.get("sourceRepositoryURI") or ""
+        subjects = statement.get("subject") or []
+        if (
+            cert.get("issuer") == OIDC_ISSUER
+            # owner and repository names are case-insensitive on GitHub; the workflow path and the ref aren't
+            and source.lower() == f"https://github.com/{repo}".lower()
+            and cert.get("subjectAlternativeName") == f"{source}/{BUILD_WORKFLOW}@{BUILD_REF}"
+            and cert.get("sourceRepositoryRef") == BUILD_REF
+            and cert.get("runnerEnvironment") == "github-hosted"
+            and statement.get("predicateType") == SLSA_PROVENANCE
+            and any(isinstance(s, dict) and (s.get("digest") or {}).get("sha256") == sha256 for s in subjects)
+        ):
+            stamps = result.get("verifiedTimestamps") or [{}]
+            stamp = stamps[0] if isinstance(stamps[0], dict) else {}
+            return {
+                "verified_at": _now().isoformat(),
+                "repository": source.removeprefix("https://github.com/"),
+                "workflow": f"{BUILD_WORKFLOW}@{BUILD_REF}",
+                "commit": cert.get("sourceRepositoryDigest"),
+                "run": cert.get("runInvocationURI"),
+                "signed_at": stamp.get("timestamp"),
+            }
+    return None
+
+
+def verify_provenance(packed: Path, sha256: str, base_url: str, client: httpx.Client) -> dict:
+    """Check that `packed` (sha256 `sha256`) was built by the build-index workflow of the repository serving it.
+
+    `gh attestation verify` checks the Sigstore signature, certificate chain and transparency-log entry, and that
+    the file's digest is one of the attestation's subjects; `_accepted` then checks who signed it. Raises
+    ProvenanceError unless both pass. Returns what the metadata file records about the build.
+    """
+    repo = release_repo(base_url)
+    if repo is None:
+        raise ProvenanceError(
+            "verifying needs an index served from a GitHub repository's releases"
+            f" (https://github.com/<owner>/<repo>/releases/download/<tag>), not {base_url}"
+        )
+    gh = _find_gh()
+    if gh is None:
+        raise ProvenanceError(
+            "verifying the index needs the GitHub CLI (`gh`, https://cli.github.com) on PATH"
+        )
+    args = [gh, "attestation", "verify", str(packed), "--repo", repo]
+    args += ["--signer-workflow", f"{repo}/{BUILD_WORKFLOW}", "--format", "json"]
+    bundle = _temp_file(packed.parent, f"{packed.name}.", ".sigstore.json")
+    try:
+        # With the bundle gh needs no GitHub login; without one it asks GitHub's API, which needs `gh auth login`.
+        if _fetch_attestation(base_url, client, bundle):
+            args += ["--bundle", str(bundle)]
+        try:
+            proc = _run_gh(args)
+        except subprocess.TimeoutExpired as exc:
+            raise ProvenanceError(
+                f"`gh attestation verify` didn't finish within {GH_TIMEOUT_SECONDS} s"
+            ) from exc
+        if proc.returncode != 0:
+            raise ProvenanceError(f"`gh attestation verify` rejected the index: {_gh_error(proc.stderr)}")
+        try:
+            results = json.loads(proc.stdout)
+        except json.JSONDecodeError as exc:
+            raise ProvenanceError("`gh attestation verify` printed no verification result") from exc
+        accepted = _accepted(results, repo, sha256)
+        if accepted is None:
+            raise ProvenanceError(
+                f"no attestation for this file was signed by {repo}'s {BUILD_WORKFLOW} on"
+                f" {BUILD_REF.removeprefix('refs/heads/')} on a GitHub-hosted runner"
+            )
+        return accepted
+    finally:
+        bundle.unlink(missing_ok=True)
+
+
 def download(
-    base_url: str, dest: Path, client: httpx.Client, *, manifest: Manifest | None = None
+    base_url: str,
+    dest: Path,
+    client: httpx.Client,
+    *,
+    manifest: Manifest | None = None,
+    verify: bool = False,
 ) -> Manifest:
-    """Download, verify, validate and atomically install the published index at `dest`."""
+    """Download, verify, validate and atomically install the published index at `dest`.
+
+    `verify` also requires the file's build provenance to verify (DT-OSS-09) before anything is installed.
+    """
     manifest = manifest or fetch_manifest(base_url, client)
     if manifest.schema_version not in READABLE_SCHEMA_VERSIONS:
         raise IndexIncompatible(
@@ -265,23 +427,24 @@ def download(
                 out.write(chunk)
         if digest.hexdigest() != expected_sha256:
             raise ValueError("index checksum mismatch; refusing to install it")
+        provenance = verify_provenance(packed_tmp, expected_sha256, base_url, client) if verify else None
         with opener(packed_tmp) as packed, db_tmp.open("wb") as out:
             shutil.copyfileobj(packed, out, 1 << 20)
         _validate(db_tmp)
         if not target.exists():  # else another process installed this build already
             os.replace(db_tmp, target)
         now = _now().isoformat()
-        _write_local_meta(
-            dest,
-            {
-                "manifest": asdict(manifest),
-                "asset": asset,
-                "source_url": base_url,
-                "downloaded_at": now,
-                "checked_at": now,
-                "file": target.name,  # the file to open (DT-OSS-08); clients before it ignore this key
-            },
-        )
+        meta = {
+            "manifest": asdict(manifest),
+            "asset": asset,
+            "source_url": base_url,
+            "downloaded_at": now,
+            "checked_at": now,
+            "file": target.name,  # the file to open (DT-OSS-08); clients before it ignore this key
+        }
+        if provenance:
+            meta["provenance"] = provenance  # only when this file's attestation was verified
+        _write_local_meta(dest, meta)
         remove_stale(dest)  # what an open server still holds is retried later
         return manifest
     finally:
@@ -317,10 +480,13 @@ def ensure_index(
         if exists and local and local.get("manifest", {}).get("sha256") == manifest.sha256:
             _write_local_meta(dest, {**local, "checked_at": now.isoformat()})
             return EnsureResult(current, False, "index is up to date")
-        download(settings.index_url, dest, client, manifest=manifest)
+        download(settings.index_url, dest, client, manifest=manifest, verify=settings.verify_index)
         verb = "updated" if exists else "downloaded"
+        verified = ", build provenance verified" if settings.verify_index else ""
         return EnsureResult(
-            active_index(dest), True, f"index {verb}: {manifest.packages} packages, built {manifest.built_at}"
+            active_index(dest),
+            True,
+            f"index {verb}: {manifest.packages} packages, built {manifest.built_at}{verified}",
         )
     except Exception as exc:  # network, HTTP, checksum, schema: keep whatever works
         reason = f"{type(exc).__name__}: {exc}"

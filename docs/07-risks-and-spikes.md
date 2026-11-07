@@ -95,5 +95,5 @@
 | R4 | Prompt injection through mined text | L | M | Allowlisted popular packages; length caps; DT-CORE-08 sanitising; fields labelled untrusted |
 | R5 | PyPI rate limits or outages during nightly builds | L | M | Snapshot cache; rebuild-from-cache fallback (tested); a publish guard against shrunken indexes |
 | R6 | Wrong answers erode trust | M | H | Evidence + confidence on every claim; benchmark in CI; a wrong-answer issue template that feeds the benchmark |
-| R7 | Index supply chain: a tampered release asset | L | H | sha256 manifest over HTTPS from GitHub; schema validation; DT-OSS-09 adds signed build provenance (GitHub artifact attestations) |
+| R7 | Index supply chain: a tampered release asset | L | H | sha256 manifest over HTTPS from GitHub; schema validation; signed build provenance (GitHub artifact attestations), checked by `deptime index pull --verify` or `DEPTIME_VERIFY_INDEX=1` (DT-OSS-09) |
 | R8 | Index staleness | M | M | Nightly builds; `coverage` and `index status` show the build date |

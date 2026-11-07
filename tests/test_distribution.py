@@ -4,10 +4,12 @@ import gzip
 import hashlib
 import json
 import lzma
+import subprocess
 import threading
 import time
 from dataclasses import replace
 from datetime import timedelta
+from pathlib import Path
 
 import httpx
 import pytest
@@ -459,3 +461,286 @@ def test_ingest_into_a_downloaded_index_starts_from_its_file(tmp_path, settings,
     assert seen == [["httpx"]]  # the downloaded rows, not an empty new file
     assert dist.read_local_meta(cfg.index_path) is None and cfg.index_path.exists()
     assert not list(cfg.index_path.parent.glob("index-*.sqlite"))
+
+
+# ---------------------------------------------------------------- build provenance (DT-OSS-09)
+GH_REPO = "acme/deptime"
+GH_URL = f"https://github.com/{GH_REPO}/releases/download/index"
+WORKFLOW_SAN = f"https://github.com/{GH_REPO}/{dist.BUILD_WORKFLOW}@{dist.BUILD_REF}"
+
+
+def _gh_result(sha256, statement=None, **cert):
+    """The part of `gh attestation verify --format json` output that DepTime reads."""
+    certificate = {
+        "issuer": dist.OIDC_ISSUER,
+        "subjectAlternativeName": WORKFLOW_SAN,
+        "sourceRepositoryURI": f"https://github.com/{GH_REPO}",
+        "sourceRepositoryRef": dist.BUILD_REF,
+        "sourceRepositoryDigest": "0123456789abcdef0123456789abcdef01234567",
+        "runnerEnvironment": "github-hosted",
+        "runInvocationURI": f"https://github.com/{GH_REPO}/actions/runs/42/attempts/1",
+        **cert,
+    }
+    subject = [{"name": "index.sqlite.xz", "digest": {"sha256": sha256}}]
+    result = {
+        "signature": {"certificate": certificate},
+        "statement": {"predicateType": dist.SLSA_PROVENANCE, "subject": subject, **(statement or {})},
+        "verifiedTimestamps": [{"type": "Tlog", "timestamp": "2026-11-07T09:00:00-05:00"}],
+    }
+    return [{"attestation": {}, "verificationResult": result}]
+
+
+class FakeGh:
+    """Stands in for `gh attestation verify`: records each call, then answers like gh would."""
+
+    def __init__(self):
+        self.calls, self.bundles = [], []
+        self.returncode, self.stderr = 0, ""
+        self.result = _gh_result  # sha256 of the file passed -> verified attestations
+
+    def run(self, args):
+        self.calls.append(args)
+        bundle = args[args.index("--bundle") + 1] if "--bundle" in args else None
+        self.bundles.append(Path(bundle).read_text() if bundle else None)
+        if self.returncode:
+            return subprocess.CompletedProcess(args, self.returncode, "", self.stderr)
+        sha = hashlib.sha256(Path(args[3]).read_bytes()).hexdigest()
+        return subprocess.CompletedProcess(args, 0, json.dumps(self.result(sha)), "")
+
+
+@pytest.fixture
+def fake_gh(monkeypatch):
+    gh = FakeGh()
+    monkeypatch.setattr(dist, "_find_gh", lambda: "gh")
+    monkeypatch.setattr(dist, "_run_gh", gh.run)
+    return gh
+
+
+def _installed(settings, tmp_path, out):
+    cfg = _local(settings, tmp_path)
+    with _client(out) as client:
+        dist.ensure_index(cfg, client=client)
+    return cfg
+
+
+@pytest.mark.parametrize(
+    "url, repo",
+    [
+        ("https://github.com/cschmertz/deptime/releases/download/index", "cschmertz/deptime"),
+        (f"{GH_URL}/", GH_REPO),
+        ("https://idx.test", None),
+        ("http://github.com/acme/deptime/releases/download/index", None),
+        ("https://github.com/acme/deptime/releases/latest", None),
+        ("https://github.com.evil.test/acme/deptime/releases/download/index", None),
+    ],
+)
+def test_the_repository_to_verify_against_comes_from_the_index_url(url, repo):
+    assert dist.release_repo(url) == repo
+
+
+def test_the_default_index_url_verifies_against_this_repository():
+    from deptime.config import DEFAULT_INDEX_URL
+
+    assert dist.release_repo(DEFAULT_INDEX_URL) == "cschmertz/deptime"
+
+
+def test_a_verified_download_is_installed_and_records_its_build(tmp_path, settings, fake_gh):
+    out, manifest = _published(tmp_path)
+    (out / dist.ATTESTATION_ASSET).write_text('{"mediaType": "bundle"}\n')
+    cfg = replace(_local(settings, tmp_path), index_url=GH_URL, verify_index=True)
+    with _client(out) as client:
+        result = dist.ensure_index(cfg, client=client)
+    assert result.changed and result.message.endswith("build provenance verified")
+    (args,) = fake_gh.calls
+    assert args[:3] == ["gh", "attestation", "verify"] and args[3].endswith(".xz")
+    assert args[args.index("--repo") + 1] == GH_REPO
+    assert args[args.index("--signer-workflow") + 1] == f"{GH_REPO}/{dist.BUILD_WORKFLOW}"
+    assert fake_gh.bundles == ['{"mediaType": "bundle"}\n']  # the published bundle, so gh needs no login
+    meta = dist.read_local_meta(cfg.index_path)
+    assert meta["manifest"]["sha256"] == manifest.sha256
+    assert meta["provenance"]["repository"] == GH_REPO
+    assert meta["provenance"]["run"] == f"https://github.com/{GH_REPO}/actions/runs/42/attempts/1"
+    assert meta["provenance"]["commit"].startswith("0123456789ab")
+    assert not list(cfg.index_path.parent.glob("*.download*"))
+
+
+def test_without_a_published_bundle_gh_looks_the_attestation_up_itself(tmp_path, settings, fake_gh):
+    out, _ = _published(tmp_path)
+    cfg = _local(settings, tmp_path)
+    with _client(out) as client:
+        dist.download(GH_URL, cfg.index_path, client, verify=True)
+    (args,) = fake_gh.calls
+    assert "--bundle" not in args and fake_gh.bundles == [None]
+    assert dist.read_local_meta(cfg.index_path)["provenance"]["repository"] == GH_REPO
+
+
+def test_an_unverified_download_records_no_provenance_and_never_runs_gh(tmp_path, settings, fake_gh):
+    out, _ = _published(tmp_path)
+    cfg = _installed(settings, tmp_path, out)
+    assert "provenance" not in dist.read_local_meta(cfg.index_path) and fake_gh.calls == []
+
+
+@pytest.mark.parametrize(
+    "cert, statement",
+    [
+        (
+            {
+                "subjectAlternativeName": f"https://github.com/{GH_REPO}/.github/workflows/release.yml@refs/heads/main"
+            },
+            None,
+        ),
+        ({"subjectAlternativeName": WORKFLOW_SAN.replace("build-index.yml", "build-index.yml.evil")}, None),
+        (
+            {
+                "subjectAlternativeName": WORKFLOW_SAN.replace("main", "dev"),
+                "sourceRepositoryRef": "refs/heads/dev",
+            },
+            None,
+        ),
+        (
+            {
+                "subjectAlternativeName": WORKFLOW_SAN.replace("main", "Main"),
+                "sourceRepositoryRef": "refs/heads/Main",
+            },
+            None,
+        ),
+        ({"sourceRepositoryRef": "refs/heads/dev"}, None),
+        ({"runnerEnvironment": "self-hosted"}, None),
+        ({"issuer": "https://accounts.example.test"}, None),
+        (
+            {
+                "sourceRepositoryURI": "https://github.com/evil/deptime",
+                "subjectAlternativeName": WORKFLOW_SAN.replace(GH_REPO, "evil/deptime"),
+            },
+            None,
+        ),
+        ({}, {"predicateType": "https://example.test/custom/v1"}),
+        ({}, {"subject": [{"name": "index.sqlite.xz", "digest": {"sha256": "0" * 64}}]}),
+    ],
+    ids=[
+        "other-workflow",
+        "workflow-prefix",
+        "other-branch",
+        "branch-case",
+        "ref-mismatch",
+        "self-hosted",
+        "other-issuer",
+        "other-repo",
+        "other-predicate",
+        "other-file",
+    ],
+)
+def test_an_attestation_from_another_signer_keeps_the_current_index(
+    tmp_path, settings, fake_gh, cert, statement
+):
+    out, _ = _published(tmp_path)
+    cfg = _installed(settings, tmp_path, out)
+    before = dist.read_local_meta(cfg.index_path)
+    fake_gh.result = lambda sha: _gh_result(sha, statement, **cert)
+    with _client(out) as client, pytest.raises(dist.ProvenanceError, match="no attestation for this file"):
+        dist.download(GH_URL, cfg.index_path, client, verify=True)
+    assert dist.read_local_meta(cfg.index_path) == before
+    assert not list(cfg.index_path.parent.glob("*.download*"))
+
+
+def test_an_owner_named_in_another_case_still_verifies(tmp_path, settings, fake_gh):
+    out, _ = _published(tmp_path)
+    cfg = _local(settings, tmp_path)
+    url = GH_URL.replace("acme", "ACME")
+    with _client(out) as client:
+        dist.download(url, cfg.index_path, client, verify=True)
+    assert dist.read_local_meta(cfg.index_path)["provenance"]["repository"] == GH_REPO
+
+
+def test_when_gh_rejects_the_file_its_reason_is_given_and_nothing_is_installed(tmp_path, settings, fake_gh):
+    out, _ = _published(tmp_path)
+    cfg = _local(settings, tmp_path)
+    fake_gh.returncode, fake_gh.stderr = (
+        1,
+        'Loaded digest sha256:abc\nError: verifying with issuer "sigstore.dev"\n',
+    )
+    with (
+        _client(out) as client,
+        pytest.raises(dist.ProvenanceError, match=r"rejected the index: .*sigstore\.dev"),
+    ):
+        dist.download(GH_URL, cfg.index_path, client, verify=True)
+    assert dist.read_local_meta(cfg.index_path) is None
+    assert not list(cfg.index_path.parent.glob("index-*.sqlite"))
+    assert not list(cfg.index_path.parent.glob("*.download*"))
+
+
+def test_verifying_without_gh_says_how_to_get_it(tmp_path, settings, monkeypatch):
+    out, _ = _published(tmp_path)
+    cfg = _local(settings, tmp_path)
+    monkeypatch.setattr(dist, "_find_gh", lambda: None)
+    with _client(out) as client, pytest.raises(dist.ProvenanceError, match="GitHub CLI"):
+        dist.download(GH_URL, cfg.index_path, client, verify=True)
+    assert dist.read_local_meta(cfg.index_path) is None
+
+
+def test_verifying_needs_an_index_served_from_github_releases(tmp_path, settings, fake_gh):
+    out, _ = _published(tmp_path)
+    cfg = _local(settings, tmp_path)
+    with _client(out) as client, pytest.raises(dist.ProvenanceError, match="GitHub repository's releases"):
+        dist.download(cfg.index_url, cfg.index_path, client, verify=True)
+    assert fake_gh.calls == []
+
+
+def test_a_refresh_that_must_verify_keeps_the_current_index_when_it_fails(tmp_path, settings, fake_gh):
+    out, _ = _published(tmp_path)
+    cfg = _installed(settings, tmp_path, out)
+    before = dist.active_index(cfg.index_path).read_bytes()
+    meta = dist.read_local_meta(cfg.index_path)
+    dist.meta_path(cfg.index_path).write_text(
+        json.dumps(
+            {
+                **meta,
+                "manifest": {**meta["manifest"], "sha256": "old"},
+                "checked_at": "2000-01-01T00:00:00+00:00",
+            }
+        )
+    )
+    fake_gh.returncode, fake_gh.stderr = 1, "Error: no attestations found\n"
+    cfg = replace(cfg, index_url=GH_URL, verify_index=True)
+    with _client(out) as client:
+        result = dist.ensure_index(cfg, client=client)
+    assert (
+        not result.changed
+        and "ProvenanceError" in result.message
+        and "keeping the current one" in result.message
+    )
+    assert dist.active_index(cfg.index_path).read_bytes() == before
+
+
+def test_index_pull_verify_checks_a_current_index_that_was_installed_without_it(
+    tmp_path, settings, fake_gh, monkeypatch, capsys
+):
+    from deptime import cli
+
+    out, _ = _published(tmp_path)
+    cfg = _installed(settings, tmp_path, out)
+    monkeypatch.setenv("DEPTIME_HOME", str(cfg.index_path.parent))
+    monkeypatch.setenv("DEPTIME_INDEX_URL", GH_URL)
+    for name in ("DEPTIME_INDEX_PATH", "DEPTIME_VERIFY_INDEX"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(dist, "http_client", lambda: _client(out))
+
+    assert cli.main(["index", "pull"]) == 0  # current, and not asked to verify
+    assert fake_gh.calls == []
+    assert cli.main(["index", "pull", "--verify"]) == 0  # current but never verified: downloaded and checked
+    assert len(fake_gh.calls) == 1
+    assert "build provenance verified: acme/deptime .github/workflows/build-index.yml@refs/heads/main" in (
+        capsys.readouterr().err
+    )
+    assert cli.main(["index", "pull", "--verify"]) == 0  # verified already
+    assert len(fake_gh.calls) == 1 and "up to date" in capsys.readouterr().err
+
+    assert cli.main(["index", "status"]) == 0
+    status = json.loads(capsys.readouterr().out)
+    assert status["provenance"]["repository"] == GH_REPO and status["verify_index"] is False
+
+    meta = dist.read_local_meta(cfg.index_path)
+    fake_gh.returncode, fake_gh.stderr = 1, "Error: no attestations found\n"
+    assert cli.main(["index", "pull", "--verify", "--force"]) == 1
+    assert "Nothing was installed; the current index is unchanged." in capsys.readouterr().err
+    assert dist.read_local_meta(cfg.index_path) == meta

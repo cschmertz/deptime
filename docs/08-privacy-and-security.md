@@ -49,7 +49,8 @@ Deprecation messages come from third-party source. A malicious or compromised pa
 - The download is checked against the manifest's sha256. Both come over HTTPS from GitHub Releases, and the index must open with a `schema_version` the client reads before it's atomically installed.
 - A failed or corrupt download never replaces the current index (tested).
 - A locally built index is never replaced automatically.
-- **Gap:** the manifest and the asset come from the same source. A compromised repo or token could publish a malicious index. DT-OSS-09 adds signed build provenance (GitHub artifact attestations) that clients can verify.
+- **Build provenance (DT-OSS-09):** the manifest and the files come from the same source, so the checksum alone can't catch a release asset replaced with a token. Each published file therefore has a signed SLSA provenance attestation from `build-index.yml` (Sigstore, recorded in the public transparency log). `deptime index pull --verify`, or `DEPTIME_VERIFY_INDEX=1` for every download, installs an index only when it names this repository's build workflow on `main`, on a GitHub-hosted runner ([SECURITY.md](../SECURITY.md#verifying-the-index)).
+- **Gap:** verifying is opt-in, since it needs the GitHub CLI. It doesn't cover a malicious commit on `main`, which would be built and signed like any other.
 - **Impact if it happened:** the index is plain data read by parameterised SQL; it isn't executed. The worst case is misleading answers or injected text in deprecation messages, which the item above mitigates.
 
 ## Request-time attack surface (hosted mode)

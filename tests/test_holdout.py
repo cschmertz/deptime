@@ -159,3 +159,27 @@ def test_probe_resolves_like_python_imports(tmp_path: Path) -> None:
     assert got["alias"]["resolved"] is True and got["alias"]["objkind"] == "class"
     assert got["dual"]["binds"] is False and "client" in got["dual"]["bind_error"]
     assert got["gone"]["resolved"] is False
+
+
+def test_regressions_on_shared_uses() -> None:
+    base = {
+        "uses": {
+            "u|a": {"label": "breaks", "check_symbols": True, "diff_versions": True},
+            "u|b": {"label": "works", "check_symbols": False, "diff_versions": None},
+        },
+        "tracebacks": {"t1": True},
+    }
+    same = {"uses": dict(base["uses"]), "tracebacks": {"t1": True, "t2": False}}  # a new case never fails it
+    assert score.regressions(same, base) == []
+    worse = {
+        "uses": {
+            "u|a": {"label": "breaks", "check_symbols": False, "diff_versions": True},
+            "u|b": {"label": "works", "check_symbols": True, "diff_versions": None},
+        },
+        "tracebacks": {"t1": False},
+    }
+    failed = score.regressions(worse, base)
+    assert any(f.startswith("check_symbols recall") for f in failed)
+    assert any(f.startswith("check_symbols false-positive rate") for f in failed)
+    assert any(f.startswith("explain_error") for f in failed)
+    assert not any(f.startswith("diff_versions") for f in failed)

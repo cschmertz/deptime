@@ -1,6 +1,8 @@
 """Score a holdout set (DT-QA-07) against the index in DEPTIME_HOME, by the rules fixed in bench/holdout/README.md.
 
     uv run python bench/holdout/score.py <set dir> [--json <out.json>]
+    uv run python bench/holdout/score.py <set dir> --baseline <set dir>/baseline.json         regression check (CI)
+    uv run python bench/holdout/score.py <set dir> --write-baseline <set dir>/baseline.json   record the current run
 
 Uses: each labelled use (works / breaks) is asked through `check_symbols` at `to` and through `diff_versions` between
 `from` and `to`, and counted as flagged when the answer says it breaks. Tracebacks (<set dir>/tracebacks.jsonl, the
@@ -25,6 +27,9 @@ from deptime.models import SymbolQuery
 from deptime.query import MAX_DIFF_EVENTS, DepTime
 
 Z = 1.96
+MAX_RECALL_DROP = 2.0  # points, per tool, on the uses the baseline shares with this run
+MAX_FPR_RISE = 1.0
+MAX_TRACEBACK_DROP = 2.0
 TOOLS = ("check_symbols", "diff_versions")
 CHANGE_TYPES = (
     "removed",
@@ -199,6 +204,8 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("set", type=Path)
     ap.add_argument("--json", type=Path)
+    ap.add_argument("--baseline", type=Path, help="fail on a regression against this")
+    ap.add_argument("--write-baseline", type=Path, help="write this run as the new baseline")
     a = ap.parse_args(argv)
     settings = Settings.from_env()
     store = open_index(settings.index_path)
@@ -329,6 +336,7 @@ def main(argv: list[str] | None = None) -> int:
     ]
 
     tb = root / "tracebacks.jsonl"
+    results = []
     if tb.exists():
         cases = load_cases([tb])
         results = run(dt, cases)
@@ -371,7 +379,56 @@ def main(argv: list[str] | None = None) -> int:
     print("\n".join(out))
     if a.json:
         a.json.write_text(json.dumps({"summary": summary, "uses": scored}, indent=1) + "\n", encoding="utf-8")
+    doc = baseline_doc(scored, results, store.built_at())
+    if a.write_baseline:
+        a.write_baseline.write_text(json.dumps(doc, indent=0, sort_keys=True) + "\n", encoding="utf-8")
+    if a.baseline and (failed := regressions(doc, json.loads(a.baseline.read_text(encoding="utf-8")))):
+        print("\nregression:\n  " + "\n  ".join(failed), file=sys.stderr)
+        return 1
     return 0
+
+
+def baseline_doc(scored: list[dict], results: list, built_at: str | None) -> dict:
+    """Each use's label and what each tool said (flagged, or None when it abstained), and each traceback's pass."""
+    return {
+        "index_built_at": built_at,
+        "uses": {
+            f"{r['upgrade']}|{r['key']}": {
+                "label": r["label"],
+                **{t: (r[t]["flagged"] if r[t]["answered"] else None) for t in TOOLS},
+            }
+            for r in scored
+        },
+        "tracebacks": {r.id: r.passed for r in results},
+    }
+
+
+def regressions(now: dict, base: dict) -> list[str]:
+    """Recall that fell by more than MAX_RECALL_DROP points, or a false-positive rate that rose by more than MAX_FPR_RISE,
+    for either tool on the uses both runs share; and root cause + boundary on the shared tracebacks."""
+    failed = []
+    shared = [k for k in base["uses"] if k in now["uses"]]
+    for tool in TOOLS:
+        for label, name, worse in (
+            ("breaks", "recall", lambda b, n: n < b - MAX_RECALL_DROP),
+            ("works", "false-positive rate", lambda b, n: n > b + MAX_FPR_RISE),
+        ):
+            keys = [k for k in shared if base["uses"][k]["label"] == label]
+            if not keys:
+                continue
+            before = 100 * sum(bool(base["uses"][k][tool]) for k in keys) / len(keys)
+            after = 100 * sum(bool(now["uses"][k][tool]) for k in keys) / len(keys)
+            if worse(before, after):
+                failed.append(f"{tool} {name}: {before:.1f} -> {after:.1f} on {len(keys)} shared uses")
+    cases = [c for c in base["tracebacks"] if c in now["tracebacks"]]
+    if cases:
+        before = 100 * sum(base["tracebacks"][c] for c in cases) / len(cases)
+        after = 100 * sum(now["tracebacks"][c] for c in cases) / len(cases)
+        if after < before - MAX_TRACEBACK_DROP:
+            failed.append(
+                f"explain_error root cause + boundary: {before:.1f} -> {after:.1f} on {len(cases)} tracebacks"
+            )
+    return failed
 
 
 def change_type(exp: dict) -> str:

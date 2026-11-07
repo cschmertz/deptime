@@ -73,3 +73,13 @@ The seed file (`cases/seed.jsonl`) contains well-documented, real-world breaks. 
 ## Holdout (DT-QA-04)
 
 `tmb/` holds 29 cases from TimeMachine-bench, an outside benchmark, collected after the fixes designed from `cases/` and scored once under a rule fixed in advance. Its first run, 72.4% root cause + boundary, is the number to quote; see `tmb/README.md` and `tmb/results-2026-10-31.md`. `bench.yml` checks it against `tmb/baseline.json`.
+
+## Per-release holdout (DT-QA-07)
+
+`holdout/` holds a new set before each minor release, committed before DepTime runs on it and scored once: tracebacks
+like these, and code from real projects that keeps working (or breaks) after an upgrade, labelled by importing each
+release in a sandbox, asked through `check_symbols` and `diff_versions` for precision, recall and false-positive rate.
+The first set, `holdout/2026-11/`, scored 88.6% root cause + boundary on 35 new tracebacks, and a false-positive rate of
+3.8% (`check_symbols`) and 0.3% (`diff_versions`) on 3,600 working uses; see `holdout/README.md` and
+`holdout/2026-11/results-2026-11-07.md`. Its tracebacks are in `cases/` now; `bench.yml` checks its uses against
+`holdout/2026-11/baseline.json`.

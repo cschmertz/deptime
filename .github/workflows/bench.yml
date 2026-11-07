@@ -3,12 +3,14 @@ name: bench
 # Traceback benchmark (DT-QA-02): replays bench/cases through explain_error against the published index, and fails
 # when a metric drops by more than 2 points on the cases bench/baseline.json shares with this run. It runs on code
 # changes and after every index build, so a regression in either the code or the data is caught.
-# The TimeMachine-bench holdout (bench/tmb, DT-QA-04) is checked the same way against bench/tmb/baseline.json.
+# The TimeMachine-bench holdout (bench/tmb, DT-QA-04) is checked the same way against bench/tmb/baseline.json, and the
+# per-release holdout (bench/holdout, DT-QA-07) against its set's baseline.json: check_symbols and diff_versions on code
+# that works and code that breaks (recall may drop 2 points, the false-positive rate rise 1), and its tracebacks.
 # bench/curated_check.py fails if a curated hint (DT-DATA-08) names something the index doesn't have.
 # tests/test_golden.py (DT-QA-03) checks the newest releases: each package's is indexed within 24 h of upload, and
 # each Tier A package's has the names its documentation uses (tests/golden/tier_a.toml).
 # Record an intended change with: python -m deptime.bench bench/cases --write-baseline bench/baseline.json
-# (and bench/tmb/cases with bench/tmb/baseline.json)
+# (and bench/tmb/cases with bench/tmb/baseline.json; bench/holdout/score.py <set> --write-baseline <set>/baseline.json)
 on:
   push:
     branches: [main]
@@ -46,6 +48,11 @@ jobs:
         run: |
           set -o pipefail
           uv run --no-dev python -m deptime.bench bench/tmb/cases --baseline bench/tmb/baseline.json 2>&1 | tee report-tmb.txt
+      - name: Run the per-release holdout (DT-QA-07)
+        if: success() || failure()
+        run: |
+          set -o pipefail
+          uv run --no-dev python bench/holdout/score.py bench/holdout/2026-11 --baseline bench/holdout/2026-11/baseline.json 2>&1 | tee report-holdout.md
       - name: Check the curated hints against the index (ADR 0006)
         if: success() || failure()
         run: |
@@ -59,7 +66,7 @@ jobs:
       - name: Add the reports to the job summary
         if: always()
         run: |
-          for f in report.txt report-tmb.txt report-curated.txt report-golden.txt; do
+          for f in report.txt report-tmb.txt report-holdout.md report-curated.txt report-golden.txt; do
             if [ -f "$f" ]; then
               { echo "### $f"; echo '```'; cat "$f"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
             fi

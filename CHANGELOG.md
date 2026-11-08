@@ -39,6 +39,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
 - A base class imported through the package's own re-export of another distribution's class is that distribution's
   (DT-DATA-55): langchain-community's `PyPDFLoader.load` reads present, inherited from langchain-core's
   `BaseLoader`. Needs the next index build.
+- `check_symbols` on a dunder name the index doesn't record (DT-CORE-38): one every module or class has
+  (`mcp.__name__`, `Model.__dict__`) reads `present`; another (`polars.__version__`, pydantic's generated
+  `__pydantic_serializer__`) reads `unknown` with the reason, unless another release binds it by name.
 - matplotlib's `mpl_toolkits` (`mplot3d`, `axes_grid1`, `axisartist`), installed by the same wheel, is indexed with it
   (DT-DATA-57): `'Axes3D' object has no attribute 'w_xaxis'` reads removed in 3.8. Needs the next index build.
 

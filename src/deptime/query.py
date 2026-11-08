@@ -81,6 +81,57 @@ OBJECT_KINDS = {
     "getattr": "served by a module `__getattr__`",
     "type alias": "a type alias",
 }
+# Attributes every object, module and class has, which the index doesn't record (DT-CORE-38). Fixed lists, not
+# `dir()`, so answers don't depend on the Python running DepTime.
+_OBJECT_DUNDERS = frozenset(
+    {
+        "__class__",
+        "__delattr__",
+        "__dir__",
+        "__doc__",
+        "__eq__",
+        "__format__",
+        "__ge__",
+        "__getattribute__",
+        "__gt__",
+        "__hash__",
+        "__init__",
+        "__init_subclass__",
+        "__le__",
+        "__lt__",
+        "__ne__",
+        "__new__",
+        "__reduce__",
+        "__reduce_ex__",
+        "__repr__",
+        "__setattr__",
+        "__sizeof__",
+        "__str__",
+        "__subclasshook__",
+    }
+)
+# `__path__` a package's, `__file__` a module loaded from a file.
+MODULE_DUNDERS = _OBJECT_DUNDERS | {
+    "__name__",
+    "__spec__",
+    "__loader__",
+    "__package__",
+    "__dict__",
+    "__file__",
+    "__path__",
+    "__builtins__",
+    "__cached__",
+}
+CLASS_DUNDERS = _OBJECT_DUNDERS | {
+    "__name__",
+    "__qualname__",
+    "__module__",
+    "__dict__",
+    "__mro__",
+    "__bases__",
+    "__base__",
+    "__subclasses__",
+}
 # A parent's changes that take its members with it, for diff_versions' used paths (DT-CORE-33).
 PARENT_KINDS = ("removed", "moved", "kind_changed", "added")
 NO_INDEX_NOTE = (
@@ -227,6 +278,10 @@ def _is_internal(span: sqlite3.Row) -> bool:
 
 def _is_private(name: str) -> bool:
     return name.startswith("_") and not (name.startswith("__") and name.endswith("__"))
+
+
+def _is_dunder(name: str) -> bool:
+    return len(name) > 4 and name.startswith("__") and name.endswith("__")
 
 
 def _internal_reason(path: str, span: sqlite3.Row) -> str:
@@ -609,6 +664,10 @@ class DepTime:
             if span is None:
                 continue
             rest = ".".join(parts[k:])
+            if span["kind"] in ("module", "class") and (
+                dunder := self._dunder(name, full, prefix, span["kind"], rest)
+            ):
+                return dunder
             if span["kind"] == "module" and span["canonical"] != prefix and depth < 2:
                 # A module imported into another (`matplotlib.pyplot.cm` is `matplotlib.cm`): its names are the
                 # module's own, which the index lists at the module's path.
@@ -655,6 +714,31 @@ class DepTime:
                 " (often made at runtime)",
             )
         return None
+
+    def _dunder(self, name: str, full: str, prefix: str, kind: str, rest: str) -> SymbolCheck | None:
+        """A dunder name under a module or class that the index doesn't record (DT-CORE-38): one every module or class
+        has (`mcp.__name__`) is present; another (`polars.__version__` where it isn't bound by name, pydantic's
+        generated `__pydantic_serializer__`), or a path through one, is `unknown`. None for any other name, and for a
+        dunder the index has at that path in another release, which really went (werkzeug 3.1's `__version__`)."""
+        assert self.store is not None
+        first, _, deeper = rest.partition(".")
+        if not _is_dunder(first):
+            return None
+        standard = first in (MODULE_DUNDERS if kind == "module" else CLASS_DUNDERS)
+        if not standard and self.store.spans(name, f"{prefix}.{first}"):
+            return None
+        if standard and not deeper:
+            return SymbolCheck(path=full, status="present", hint=f"every {kind} has `{first}`")
+        if standard:
+            why = f"`{prefix}.{first}` is an attribute every {kind} has, and the index doesn't list its attributes"
+        elif kind == "module":
+            why = f"no indexed release of {prefix} binds `{first}` by name; it may be set at import time"
+        else:
+            why = (
+                f"the index doesn't record `{first}` on {prefix}: a dunder name is often set when the class is made "
+                "(by a metaclass or `__init_subclass__`)"
+            )
+        return SymbolCheck(path=full, status="unknown", hint=why)
 
     def _inherited(
         self,

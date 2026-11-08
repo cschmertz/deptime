@@ -514,6 +514,56 @@ def test_check_symbols_says_unknown_where_the_index_cant_see(monkeypatch):
     assert nope.status == "unknown" and "which DepTime doesn't index (lib)" in nope.hint
 
 
+def test_check_symbols_reads_dunder_names_the_index_doesnt_record():
+    # DT-CORE-38, from the 2026-11b holdout: `mcp.__name__`, `polars.__version__` (never bound by name) and
+    # openai-agents' generated `ModelResponse.__pydantic_serializer__` read `missing`.
+    spec = PackageSpec(name="dun", import_names=("dun",), tier="B", own_members=False)
+
+    def snap(version: str, versioned: bool) -> ApiSnapshot:
+        symbols = {
+            "dun": SymbolRecord("dun", "module", "dun"),
+            "dun.Model": SymbolRecord("dun.Model", "class", "dun.Model"),
+            "dun.Model.go": SymbolRecord("dun.Model.go", "function", "dun.Model.go", []),
+            "dun.old": SymbolRecord("dun.old", "module", "dun.old"),
+        }
+        if versioned:
+            symbols["dun.old.__version__"] = SymbolRecord(
+                "dun.old.__version__", "attribute", "dun.old.__version__"
+            )
+        return ApiSnapshot("dun", version, ["dun"], symbols)
+
+    store = IndexStore.memory()
+    store.rebuild_package(spec, [snap("1.0", True), snap("2.0", False)])
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+    ask = lambda path: dt.check_symbols("dun", "2.0", [SymbolQuery(path=path)]).results[0]  # noqa: E731
+    # Every module and class has these.
+    for path in (
+        "dun.__name__",
+        "dun.__file__",
+        "dun.Model.__name__",
+        "dun.Model.__dict__",
+        "dun.Model.__repr__",
+    ):
+        assert (ask(path).status, ask(path).hint) == (
+            "present",
+            f"every {'class' if 'Model' in path else 'module'} has `{path.rpartition('.')[2]}`",
+        ), path
+    # Others the index never saw, or a path through any dunder: unknown, with the reason.
+    version = ask("dun.__version__")
+    assert version.status == "unknown" and "no indexed release of dun binds `__version__`" in version.hint
+    generated = ask("dun.Model.__pydantic_serializer__.to_json")
+    assert (
+        generated.status == "unknown"
+        and "doesn't record `__pydantic_serializer__` on dun.Model" in generated.hint
+    )
+    assert ask("dun.__spec__.origin").status == "unknown"
+    # A dunder another release binds by name really went: werkzeug 3.1's `__version__`.
+    gone = ask("dun.old.__version__")
+    assert gone.status == "missing" and gone.hint.startswith("seen in 1.0..1.0")
+    # Not a dunder: as before.
+    assert ask("dun.Model.gone").status == "missing" and ask("dun._private").status == "missing"
+
+
 def _format19_stores() -> DepTime:
     """`web` 1.0 (own members; requires `base-dist>=1` and `web-extra`): `App` inherits from `base_dist.core.Base`
     (covered), `Color` from `enum.Enum`, `Far` from `faraway.Thing` (not covered), `Plain` from nothing outside;

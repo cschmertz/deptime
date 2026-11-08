@@ -3544,3 +3544,54 @@ def test_a_base_imported_through_the_packages_own_reexport_is_external(tmp_path)
     assert snap.classes["reex.pdf.Loader"].external == ["other_dist.loaders.BaseLoader", "abc.ABC"]
     # Followed to a name the package itself serves at runtime: not another distribution's base.
     assert snap.classes["reex.pdf.Lazy"].external == []
+
+
+def test_a_kwargs_mapping_handed_to_a_helper_takes_the_helpers_deprecations(tmp_path):
+    # DT-DATA-52: pydantic-ai 1.95-1.107's `Agent.__init__(**_deprecated_kwargs)` hands the mapping to
+    # `_utils.consume_deprecated_instrument(_deprecated_kwargs, 'Agent')`, which pops `instrument` and warns after an
+    # early return, so `Agent(instrument=)` read as gone in 1.95, not 2.0.
+    files = {
+        "helpy/__init__.py": "from helpy.agent import Agent\n",
+        "helpy/_utils.py": textwrap.dedent(
+            """
+            import warnings
+
+            def consume_deprecated_instrument(deprecated_kwargs, owner, *, stacklevel=3):
+                if 'instrument' not in deprecated_kwargs:
+                    return None
+                legacy = deprecated_kwargs.pop('instrument')
+                warnings.warn(f'`{owner}(instrument=...)` is deprecated, use `capabilities=[...]` instead.',
+                              DeprecationWarning, stacklevel=stacklevel)
+                return legacy
+
+            def consume_two(deprecated_kwargs, owner):
+                a = deprecated_kwargs.pop('alpha', None)
+                b = deprecated_kwargs.pop('beta', None)
+                if a or b:
+                    warnings.warn(f'`{owner}` options are deprecated.', DeprecationWarning)
+
+            def validate_empty_kwargs(kwargs):
+                if kwargs:
+                    raise TypeError(f'unexpected {list(kwargs)}')
+            """
+        ),
+        "helpy/agent.py": textwrap.dedent(
+            """
+            from helpy import _utils
+
+            class Agent:
+                def __init__(self, model, *, name=None, **_deprecated_kwargs):
+                    self._instrument = _utils.consume_deprecated_instrument(_deprecated_kwargs, 'Agent')
+                    _utils.consume_two(_deprecated_kwargs, 'Agent')
+                    _utils.validate_empty_kwargs(_deprecated_kwargs)
+            """
+        ),
+    }
+    snap = build_snapshot("helpy", "1.0", ["helpy"], _write(tmp_path, files))
+    init = snap.symbols["helpy.Agent.__init__"]
+    # The helper's warning names one argument it takes out: that argument's. One that takes out two and doesn't name
+    # either gives nothing that can be placed.
+    assert init.deprecated is None
+    assert init.deprecated_params == {
+        "instrument": "`Agent(instrument=...)` is deprecated, use `capabilities=[...]` instead."
+    }

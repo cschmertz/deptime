@@ -50,6 +50,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
 - matplotlib's `mpl_toolkits` (`mplot3d`, `axes_grid1`, `axisartist`), installed by the same wheel, is indexed with it
   (DT-DATA-57): `'Axes3D' object has no attribute 'w_xaxis'` reads removed in 3.8. Needs the next index build.
 
+- A keyword a function takes in **kwargs and hands to a helper that warns about it reads as accepted and
+  deprecated (DT-DATA-52): pydantic-ai 1.95-1.107's `Agent(instrument=)` is accepted up to 1.107, not 1.94. Needs
+  the next index build.
+
 ### Added
 - Replacement hints for names renamed in case or underscores under the same parent (`McpError` → `MCPError`).
 

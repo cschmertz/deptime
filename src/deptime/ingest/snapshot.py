@@ -33,7 +33,7 @@ from deptime.ingest.replacements import (
     worded_deprecated,
 )
 
-SNAPSHOT_FORMAT = 21  # bump when extraction changes: cached snapshots in another format are rebuilt
+SNAPSHOT_FORMAT = 22  # bump when extraction changes: cached snapshots in another format are rebuilt
 MAX_DEPTH = 12  # guards pathological re-export cycles
 
 DEPRECATED_DECORATOR_RE = re.compile(r"^(?:[\w.]+\.)?deprecated\b(?:\(.*\))?$", re.S)
@@ -328,17 +328,24 @@ class _Reading:
     conditions: dict[str, frozenset[str]] = field(default_factory=dict)
 
 
-def _reading(obj: griffe.Object, depth: int, values: dict[str, str] | None) -> _Reading:
+def _reading(
+    obj: griffe.Object, depth: int, values: dict[str, str] | None, mapping: str | None = None
+) -> _Reading:
+    """`_deprecations`, read once per build for each object, depth, literals and `mapping`."""
     if _READINGS is None:
-        return _deprecations(obj, depth, values)
-    key = (id(obj), depth, tuple(sorted(values.items())) if values else ())
+        return _deprecations(obj, depth, values, mapping)
+    key = (id(obj), depth, tuple(sorted(values.items())) if values else (), mapping)
     hit = _READINGS.get(key)
     if hit is None:
-        hit = _READINGS[key] = (obj, _deprecations(obj, depth, values))
+        hit = _READINGS[key] = (obj, _deprecations(obj, depth, values, mapping))
     return hit[1]
 
 
-def _deprecations(obj: griffe.Object, depth: int, values: dict[str, str] | None) -> _Reading:
+def _deprecations(
+    obj: griffe.Object, depth: int, values: dict[str, str] | None, mapping: str | None = None
+) -> _Reading:
+    """What `obj` deprecates: see `deprecations`. `mapping`: a parameter that holds a caller's **kwargs, read as
+    the function's own **kwargs (DT-DATA-52)."""
     flagged = getattr(obj, "deprecated", None)
     if flagged:
         return _Reading((flagged if isinstance(flagged, str) else "deprecated"), None)
@@ -366,7 +373,7 @@ def _deprecations(obj: griffe.Object, depth: int, values: dict[str, str] | None)
     own_params: dict[str, str] = {}
     conditions: dict[str, frozenset[str]] = {}
     if isinstance(obj, griffe.Function) and not _MACHINERY_RE.match(obj.name):
-        own, own_params, conditions = _function_warnings(obj, obj, values)
+        own, own_params, conditions = _function_warnings(obj, obj, values, mapping)
         whole = whole or own or _dispatcher_deprecation(obj)
         for name, message in own_params.items():
             params.setdefault(name, message)
@@ -888,7 +895,10 @@ def _function_node(
 
 
 def _function_warnings(
-    func: griffe.Function, reader: griffe.Function, values: dict[str, str] | None = None
+    func: griffe.Function,
+    reader: griffe.Function,
+    values: dict[str, str] | None = None,
+    mapping: str | None = None,
 ) -> tuple[str | None, dict[str, str], dict[str, frozenset[str]]]:
     """The warnings in `func`'s body, read as `reader`'s: its own name and class decide what they deprecate. Also,
     for each argument they deprecate, the other arguments its warning's condition tests (`_Reading.conditions`)."""
@@ -905,7 +915,7 @@ def _function_warnings(
         node, text = found
         if node is None:
             return None, {}, {}
-        body = _BodyWarnings(node, text, reader, values)
+        body = _BodyWarnings(node, text, reader, values, mapping)
         try:
             whole, params = body.read()
             return whole, params or {}, body.conditions
@@ -993,7 +1003,8 @@ def _passed_on(func: griffe.Function, depth: int) -> dict[str, str]:
         forwards = not rebound and any(
             k.arg is None and isinstance(k.value, ast.Name) and k.value.id == kwargs for k in call.keywords
         )
-        if not forwards and not any(isinstance(a, ast.Name) and a.id in own for a in args):
+        hands = not rebound and any(isinstance(a, ast.Name) and a.id == kwargs for a in args)
+        if not forwards and not hands and not any(isinstance(a, ast.Name) and a.id in own for a in args):
             continue
         reached = _called(call, func)
         if reached is None:
@@ -1007,10 +1018,30 @@ def _passed_on(func: griffe.Function, depth: int) -> dict[str, str]:
         bound += [(kw.arg, kw.value) for kw in call.keywords if kw.arg]
         passed = [name for name, arg in bound if isinstance(arg, ast.Name) and arg.id == name and name in own]
         values = {name: text for name, arg in bound if (text := _str(arg)) is not None}
+        explicit = {name for name, _ in bound}
+        # The **kwargs mapping handed over as an argument, which the function called takes names out of
+        # (DT-DATA-52): pydantic-ai 1.95's `consume_deprecated_instrument(_deprecated_kwargs, 'Agent')` pops
+        # `instrument` and warns.
+        mapped = next(
+            (name for name, arg in bound if hands and isinstance(arg, ast.Name) and arg.id == kwargs), None
+        )
+        if mapped is not None:
+            held = _reading(callee, depth - 1, values, mapped)
+            found = dict(held.params or {})
+            # A helper that takes one name out and warns after an early return (`if 'instrument' not in
+            # deprecated_kwargs: return None`) reads as deprecated as a whole: the warning is that name's.
+            taken = _taken_from(callee, mapped)
+            if held.whole and held.whole != UNRECOVERABLE and len(taken) == 1:
+                found.setdefault(next(iter(taken)), held.whole)
+            # Only names it takes out of the mapping: pandas' `SeriesApply(kwargs=kwargs)` deprecates its own
+            # `convert_dtype` parameter, which no caller's **kwargs reaches.
+            for name in sorted((set(found) & taken) - own - explicit - looked_up):
+                message = found[name]
+                if _about_argument(message, name) and held.conditions.get(name, frozenset()) <= {name}:
+                    params.setdefault(name, message)
         if not passed and not forwards:
             continue
         theirs = _reading(callee, depth - 1, values)
-        explicit = {name for name, _ in bound}
         through = sorted(
             set(theirs.params or {}) - own - explicit - looked_up if forwards else set()
         )  # the arguments that reach the function called through **kwargs
@@ -1023,6 +1054,17 @@ def _passed_on(func: griffe.Function, depth: int) -> dict[str, str]:
             ):
                 params.setdefault(name, message)
     return params
+
+
+def _taken_from(func: griffe.Function, mapping: str) -> frozenset[str]:
+    """The names `func` looks up in its parameter `mapping` (see `_kwargs_use`)."""
+    try:
+        found = _function_node(func, func.source)
+    except (OSError, ValueError, AttributeError):
+        return frozenset()
+    if found is None or found[0] is None:
+        return frozenset()
+    return _kwargs_use(found[0], mapping)[0]
 
 
 def _kwargs_use(node: ast.AST, kwargs: str) -> tuple[frozenset[str], bool]:
@@ -1509,6 +1551,7 @@ class _BodyWarnings:
         text: str,
         func: griffe.Function,
         values: dict[str, str] | None = None,
+        mapping: str | None = None,  # a parameter holding a caller's **kwargs (DT-DATA-52)
     ):
         self.node, self.text, self.func = node, text, func
         self.values = values or {}  # literals a caller passes for some parameters (DT-DATA-39)
@@ -1518,8 +1561,8 @@ class _BodyWarnings:
         loop_vars = {n for loop in loops for n in _bound_names(loop.target)}
         # A loop variable that reuses a parameter's name (`for key, val in kwargs.items()`) isn't the parameter.
         named = {a.arg for a in args.posonlyargs + args.args + args.kwonlyargs} - {"self", "cls"}
-        self.named = named - loop_vars
-        self.kwargs = args.kwarg.arg if args.kwarg else None
+        self.named = named - loop_vars - {mapping}
+        self.kwargs = mapping or (args.kwarg.arg if args.kwarg else None)
         self.varargs = args.vararg.arg if args.vararg else None
         parent = func.parent
         # `_experimental_rerun`, which streamlit serves as `experimental_rerun`, warns about `experimental_rerun`.

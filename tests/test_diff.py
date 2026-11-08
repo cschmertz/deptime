@@ -66,6 +66,16 @@ def test_moved_never_pairs_class_members_by_leaf():
     assert _moves(old, new) == set()
 
 
+def test_a_class_that_becomes_a_type_alias_is_a_kind_change():
+    # openai 1.99.2 made `ChatCompletionMessageToolCall` a union alias (constructing it broke; 1.99.9 undid it), and
+    # pydantic 2.0 made `DirectoryPath` an `Annotated` alias: a change between class and attribute stays an event.
+    old = _snap("1", ("p", "module"), ("p.ToolCall", "class"))
+    new = _snap("2", ("p", "module"), ("p.ToolCall", "attribute"))
+    assert [(e.path, e.kind, e.detail) for e in diff_snapshots(old, new)] == [
+        ("p.ToolCall", "kind_changed", {"from": "class", "to": "attribute"})
+    ]
+
+
 def test_moved_module_level_symbol_to_new_module():
     old = _snap("1", ("p", "module"), ("p.old", "module"), ("p.old.Thing", "class"))
     new = _snap("2", ("p", "module"), ("p.new", "module"), ("p.new.Thing", "class"))

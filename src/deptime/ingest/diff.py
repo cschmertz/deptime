@@ -130,9 +130,7 @@ def initial_events(snapshot: ApiSnapshot) -> list[ChangeEvent]:
 def _changed(path: str, a: SymbolRecord, b: SymbolRecord) -> list[ChangeEvent]:
     """What changed on a path both releases have."""
     events: list[ChangeEvent] = []
-    # A value that is a class in one release and isn't one the index can resolve in the next (transformers 4.54's
-    # `config_class`, set at runtime from an annotation) reads the same either way: not a change worth an event.
-    if a.kind != b.kind and {a.kind, b.kind} != {"attribute", "class"}:
+    if a.kind != b.kind:
         events.append(ChangeEvent(path, "kind_changed", {"from": a.kind, "to": b.kind}))
     if a.params is not None and b.params is not None:
         pa, pb = _params(a), _params(b)

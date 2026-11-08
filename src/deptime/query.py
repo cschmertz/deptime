@@ -219,10 +219,18 @@ SAFE_STDLIB = frozenset(
 )
 
 
+# What a base from `typing` or `typing_extensions` is at runtime when it isn't a class: a TypedDict is a dict.
+_RUNTIME_BASES = {"TypedDict": ("builtins", "dict")}
+
+
 def _stdlib_member(base: str, name: str) -> bool | None:
-    """Whether a standard-library (or builtin) class has `name`; None when `base` isn't one DepTime reads."""
+    """Whether a standard-library (or builtin) class has `name`; None when `base` isn't one DepTime reads.
+    `typing_extensions` re-exports `typing`'s classes (7,373 classes of the format-20 index have one as a base,
+    most openai's and mistralai's TypedDicts), so its names are read as `typing`'s."""
     module, _, attr = base.rpartition(".")
     module = module or "builtins"
+    if module in ("typing", "typing_extensions"):
+        module, attr = _RUNTIME_BASES.get(attr, ("typing", attr))
     if module.split(".")[0] not in SAFE_STDLIB or module.split(".")[0] not in sys.stdlib_module_names | {
         "builtins"
     }:
@@ -764,7 +772,12 @@ class DepTime:
             stdlib_has = _stdlib_member(base, first)
             if stdlib_has is not None:
                 if stdlib_has:
-                    hint = f"inherited from `{base}`, in the standard library"
+                    where = (
+                        "as `typing` has it"
+                        if base.startswith("typing_extensions.")
+                        else "in the standard library"
+                    )
+                    hint = f"inherited from `{base}`, {where}"
                     if deeper:
                         return SymbolCheck(
                             path=full,

@@ -1,4 +1,5 @@
 import shutil
+import sys
 from datetime import date
 
 from packaging.requirements import Requirement
@@ -8,7 +9,7 @@ from deptime.index.store import IndexStore
 from deptime.ingest.curated import CuratedHint
 from deptime.ingest.snapshot import ApiSnapshot, ClassRecord, SymbolRecord
 from deptime.models import SymbolQuery
-from deptime.query import DepTime, parse_installed
+from deptime.query import DepTime, _stdlib_member, parse_installed
 from tests.conftest import HTTPX, RELEASED_AT, SNAPSHOTS
 from tests.test_tracebacks import HTTPX_TB
 
@@ -562,6 +563,20 @@ def test_check_symbols_reads_dunder_names_the_index_doesnt_record():
     assert gone.status == "missing" and gone.hint.startswith("seen in 1.0..1.0")
     # Not a dunder: as before.
     assert ask("dun.Model.gone").status == "missing" and ask("dun._private").status == "missing"
+
+
+def test_a_typing_extensions_base_is_read_as_typing():
+    # 7,373 classes of the format-20 index (openai's and mistralai's TypedDicts, sqlalchemy's Protocols once
+    # DT-DATA-55 follows `sqlalchemy.util.typing`) have a `typing_extensions` base, which read as a distribution
+    # DepTime can't check, so a name such a class lacks was `unknown`, not `missing`.
+    assert _stdlib_member("typing_extensions.Protocol", "nope") is False
+    assert _stdlib_member("typing_extensions.Generic", "__class_getitem__") is True
+    # A TypedDict is a dict at runtime (`typing.TypedDict` is a function, not a class).
+    assert _stdlib_member("typing_extensions.TypedDict", "keys") is True
+    assert _stdlib_member("typing.TypedDict", "nope") is False
+    # A NamedTuple class has `_asdict`, which `tuple` doesn't: not read.
+    assert _stdlib_member("typing.NamedTuple", "_asdict") is None
+    assert _stdlib_member("typing_extensions.Buffer", "x") is None  # `typing` has no `Buffer`
 
 
 def _format19_stores() -> DepTime:

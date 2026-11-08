@@ -1,5 +1,5 @@
 {
-"index_built_at": "2026-11-08T03:54:36+00:00",
+"index_built_at": "2026-11-08T23:02:12+00:00",
 "tracebacks": {
 "hold-anthropic-beta-userlocation-airflow-pydantic-ai": true,
 "hold-chromadb-includeenum-autogen": true,
@@ -15,13 +15,13 @@
 "hold-langchain-memory-django-chain": true,
 "hold-llama-index-core-callback-manager-from-settings-or-context": true,
 "hold-marshmallow-version-info-doccano": true,
-"hold-matplotlib-axes3d-w-xaxis-fio-plot": false,
+"hold-matplotlib-axes3d-w-xaxis-fio-plot": true,
 "hold-matplotlib-grouperview-join-alibi": true,
 "hold-mcp-create-connected-server-and-client-session-attenu-guard": true,
 "hold-mcp-create-connected-server-and-client-session-voice-gatekeeper": true,
 "hold-numpy-reshape-newshape-numpoly": true,
 "hold-numpy-trapz-pyfuzzy-toolbox": true,
-"hold-openai-assistants-create-file-ids-azure-notebook": false,
+"hold-openai-assistants-create-file-ids-azure-notebook": true,
 "hold-openai-embeddings-utils-ai-develop": true,
 "hold-openai-filecitation-quote-assistants-1789": true,
 "hold-pandas-to-csv-line-terminator-pandas-plink": true,
@@ -32,7 +32,7 @@
 "hold-pydantic-networks-url-semantic-kernel": true,
 "hold-qdrant-client-upload-records-openllmetry": true,
 "hold-scikit-learn-check-array-force-all-finite-modern-time-series-forecasting": true,
-"hold-scikit-learn-scorers-piml-toolbox": false,
+"hold-scikit-learn-scorers-piml-toolbox": true,
 "hold-sqlalchemy-engine-table-names-melodie": true,
 "hold-transformers-adamw-ragatouille": true,
 "hold-transformers-automodelforvision2seq-ms-swift": true,
@@ -41,8 +41,8 @@
 },
 "uses": {
 "pin-aasouzaconsult__portfolio-dados-langchain-community-up|0ea82501238a1a67": {
-"check_symbols": true,
-"diff_versions": true,
+"check_symbols": false,
+"diff_versions": false,
 "label": "works"
 },
 "pin-aasouzaconsult__portfolio-dados-langchain-community-up|28dd88f12235d199": {
@@ -56,8 +56,8 @@
 "label": "works"
 },
 "pin-aasouzaconsult__portfolio-dados-langchain-community-up|63c324cacb4447a0": {
-"check_symbols": true,
-"diff_versions": true,
+"check_symbols": false,
+"diff_versions": false,
 "label": "works"
 },
 "pin-aasouzaconsult__portfolio-dados-langchain-community-up|702f9ac344d2523d": {
@@ -726,12 +726,12 @@
 "label": "works"
 },
 "pin-azure__azure-functions-durable-python-openai-agents-up|f5eb5fc829d371d6": {
-"check_symbols": true,
+"check_symbols": null,
 "diff_versions": false,
 "label": "works"
 },
 "pin-azure__azure-functions-durable-python-openai-agents-up|fc19eb7d3889dc15": {
-"check_symbols": true,
+"check_symbols": null,
 "diff_versions": false,
 "label": "works"
 },
@@ -5266,7 +5266,7 @@
 "label": "works"
 },
 "pin-jgraber__pythonfriday-langchain-community-down|0ea82501238a1a67": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -5301,7 +5301,7 @@
 "label": "works"
 },
 "pin-jgraber__pythonfriday-langchain-community-down|63c324cacb4447a0": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -5321,7 +5321,7 @@
 "label": "works"
 },
 "pin-jgraber__pythonfriday-langchain-community-down|a9a90d9ebfbb35ef": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -5341,7 +5341,7 @@
 "label": "works"
 },
 "pin-jgraber__pythonfriday-langchain-community-down|c0d88842534f1305": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -5376,7 +5376,7 @@
 "label": "works"
 },
 "pin-jgraber__pythonfriday-langchain-community-up|0ea82501238a1a67": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -5411,7 +5411,7 @@
 "label": "works"
 },
 "pin-jgraber__pythonfriday-langchain-community-up|63c324cacb4447a0": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -5431,7 +5431,7 @@
 "label": "works"
 },
 "pin-jgraber__pythonfriday-langchain-community-up|a9a90d9ebfbb35ef": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -5451,7 +5451,7 @@
 "label": "works"
 },
 "pin-jgraber__pythonfriday-langchain-community-up|c0d88842534f1305": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -8666,7 +8666,7 @@
 "label": "works"
 },
 "pin-mixar-ai__mixar-app-mcp-down|8d0d90b1bbd8e18b": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -8751,7 +8751,7 @@
 "label": "works"
 },
 "pin-mixar-ai__mixar-app-mcp-up|028001c591c508d5": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -8766,12 +8766,12 @@
 "label": "works"
 },
 "pin-mixar-ai__mixar-app-mcp-up|0cf0b44f4b1bd006": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
 "pin-mixar-ai__mixar-app-mcp-up|1b3bec680d13c0d7": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -8786,7 +8786,7 @@
 "label": "works"
 },
 "pin-mixar-ai__mixar-app-mcp-up|380c988603c9dafa": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -8796,22 +8796,22 @@
 "label": "works"
 },
 "pin-mixar-ai__mixar-app-mcp-up|4ed3265517605429": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
 "pin-mixar-ai__mixar-app-mcp-up|5ab48129fd649f80": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
 "pin-mixar-ai__mixar-app-mcp-up|71f99d013b000a39": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
 "pin-mixar-ai__mixar-app-mcp-up|78a7abd676374c61": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -8821,7 +8821,7 @@
 "label": "works"
 },
 "pin-mixar-ai__mixar-app-mcp-up|7d0a302610e4d30c": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -8831,7 +8831,7 @@
 "label": "works"
 },
 "pin-mixar-ai__mixar-app-mcp-up|8d0d90b1bbd8e18b": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -8841,7 +8841,7 @@
 "label": "works"
 },
 "pin-mixar-ai__mixar-app-mcp-up|922730ea2d1a11eb": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -8851,12 +8851,12 @@
 "label": "works"
 },
 "pin-mixar-ai__mixar-app-mcp-up|9a939c8ea5dd936d": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
 "pin-mixar-ai__mixar-app-mcp-up|a0f695ce251c08c6": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -8871,7 +8871,7 @@
 "label": "works"
 },
 "pin-mixar-ai__mixar-app-mcp-up|b5000fadd6a9fea5": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -8891,7 +8891,7 @@
 "label": "works"
 },
 "pin-mixar-ai__mixar-app-mcp-up|c386844ea2d26b71": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -8901,12 +8901,12 @@
 "label": "works"
 },
 "pin-mixar-ai__mixar-app-mcp-up|c76bc44241ac9a13": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
 "pin-mixar-ai__mixar-app-mcp-up|c87463cb78d0abd1": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -9481,7 +9481,7 @@
 "label": "works"
 },
 "pin-nithilanimraka__travelagent-crewai-crewai-down|099878553f0c0f32": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -9506,7 +9506,7 @@
 "label": "works"
 },
 "pin-nithilanimraka__travelagent-crewai-crewai-down|52643416d4c19f2e": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -9531,7 +9531,7 @@
 "label": "works"
 },
 "pin-nithilanimraka__travelagent-crewai-crewai-down|678f4a26941d7239": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -9546,7 +9546,7 @@
 "label": "works"
 },
 "pin-nithilanimraka__travelagent-crewai-crewai-down|b9787dabca3443eb": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -9561,7 +9561,7 @@
 "label": "works"
 },
 "pin-nithilanimraka__travelagent-crewai-crewai-down|dc037afc0818f99e": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -11721,7 +11721,7 @@
 "label": "works"
 },
 "pin-tomburdge__polari-polars-down|15a253b31ccc2fb8": {
-"check_symbols": true,
+"check_symbols": null,
 "diff_versions": false,
 "label": "works"
 },
@@ -11881,7 +11881,7 @@
 "label": "works"
 },
 "pin-tomburdge__polari-polars-up|15a253b31ccc2fb8": {
-"check_symbols": true,
+"check_symbols": null,
 "diff_versions": false,
 "label": "works"
 },

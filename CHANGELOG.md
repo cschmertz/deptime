@@ -32,13 +32,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
   its own version is now read from that wheel, so `mcp.types.Tool` and the rest are present in 2.x, and 1.x → 2.x
   reports what really changed (`Tool.inputSchema` → `input_schema`) rather than every type removed. A name under a
   module that star-imports a distribution DepTime doesn't read (google-generativeai's `protos`) reads `unknown`,
-  not `missing`. Needs the next index build.
+  not `missing`. Needs a `SNAPSHOT_FORMAT` 22 index.
 - A method's first parameter is the instance or class whatever its name (DT-CORE-39): pydantic models'
   `__init__(__pydantic_self__, **data)` no longer reads as requiring `__pydantic_self__` (`check_symbols`
-  `missing_args`), and a `staticmethod` whose first parameter is named `cls` keeps it. Needs the next index build.
+  `missing_args`), and a `staticmethod` whose first parameter is named `cls` keeps it. Needs a `SNAPSHOT_FORMAT` 22
+  index.
 - A base class imported through the package's own re-export of another distribution's class is that distribution's
   (DT-DATA-55): langchain-community's `PyPDFLoader.load` reads present, inherited from langchain-core's
-  `BaseLoader`. Needs the next index build.
+  `BaseLoader`. Needs a `SNAPSHOT_FORMAT` 22 index.
 - `explain_error` on `cannot import name X` with no module, as Cython-compiled code raises it (no quotes, frames
   without source lines) or as a trimmed paste gives it (DT-CORE-37): the name is looked up among the modules of
   the installed packages (scikit-learn 1.3's `SCORERS` is `sklearn.metrics.SCORERS`, removed after 1.2.2).
@@ -48,11 +49,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
   (`mcp.__name__`, `Model.__dict__`) reads `present`; another (`polars.__version__`, pydantic's generated
   `__pydantic_serializer__`) reads `unknown` with the reason, unless another release binds it by name.
 - matplotlib's `mpl_toolkits` (`mplot3d`, `axes_grid1`, `axisartist`), installed by the same wheel, is indexed with it
-  (DT-DATA-57): `'Axes3D' object has no attribute 'w_xaxis'` reads removed in 3.8. Needs the next index build.
-
+  (DT-DATA-57): `'Axes3D' object has no attribute 'w_xaxis'` reads removed in 3.8. Needs a `SNAPSHOT_FORMAT` 22
+  index.
 - A keyword a function takes in **kwargs and hands to a helper that warns about it reads as accepted and
   deprecated (DT-DATA-52): pydantic-ai 1.95-1.107's `Agent(instrument=)` is accepted up to 1.107, not 1.94. Needs
-  the next index build.
+  a `SNAPSHOT_FORMAT` 22 index.
 
 ### Added
 - Replacement hints for names renamed in case or underscores under the same parent (`McpError` → `MCPError`).

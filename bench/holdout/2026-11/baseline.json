@@ -1,5 +1,5 @@
 {
-"index_built_at": "2026-11-08T03:54:36+00:00",
+"index_built_at": "2026-11-08T23:02:12+00:00",
 "tracebacks": {
 "hold-anthropic-beta-prompt-caching-gptcmd": true,
 "hold-django-checkconstraint-check-drf-toolkit": true,
@@ -27,7 +27,7 @@
 "hold-pandas-dataframe-applymap-rhea": true,
 "hold-pandas-read-csv-delim-whitespace-drep": true,
 "hold-polars-read-csv-batched-polars-io": true,
-"hold-pydantic-ai-agent-instrument-mlflow": false,
+"hold-pydantic-ai-agent-instrument-mlflow": true,
 "hold-pydantic-secret-llama-cloud-services": true,
 "hold-sqlalchemy-fallback-async-pool-mlflow": true,
 "hold-starlette-on-event-piirakka": true,
@@ -1859,7 +1859,7 @@
 "label": "works"
 },
 "pin-crabbuild__crab-polars-down|15a253b31ccc2fb8": {
-"check_symbols": true,
+"check_symbols": null,
 "diff_versions": false,
 "label": "works"
 },
@@ -1894,7 +1894,7 @@
 "label": "works"
 },
 "pin-crabbuild__crab-polars-up|15a253b31ccc2fb8": {
-"check_symbols": true,
+"check_symbols": null,
 "diff_versions": false,
 "label": "works"
 },
@@ -7694,7 +7694,7 @@
 "label": "works"
 },
 "pin-sambanova__ai-starter-kit-langchain-community-down|a1915e790e447bfe": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -7784,7 +7784,7 @@
 "label": "works"
 },
 "pin-sambanova__ai-starter-kit-langchain-community-up|0ea82501238a1a67": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -7814,7 +7814,7 @@
 "label": "works"
 },
 "pin-sambanova__ai-starter-kit-langchain-community-up|63c324cacb4447a0": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },

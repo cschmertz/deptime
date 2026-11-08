@@ -2185,15 +2185,11 @@ class _Shim:
         module_path, _, cls_name = path.rpartition(".")
         module = _module_at(self.mod, module_path) if self.mod is not None and module_path else None
         tree = _source_tree(module) if module is not None else None
-        cls = next(
-            (st for st in tree.body if isinstance(st, ast.ClassDef) and st.name == cls_name) if tree else (),
-            None,
-        )
+        body = tree.body if tree is not None else []
+        cls = next((st for st in body if isinstance(st, ast.ClassDef) and st.name == cls_name), None)
+        members = cls.body if cls is not None else []  # `_util.warn_deprecated`: a module, no class
         method = next(
-            (st for st in cls.body if isinstance(st, ast.FunctionDef) and st.name == func.attr)
-            if cls
-            else (),
-            None,
+            (st for st in members if isinstance(st, ast.FunctionDef) and st.name == func.attr), None
         )
         kinds = {d.id for d in method.decorator_list if isinstance(d, ast.Name)} if method else set()
         if method is None or not kinds & {"staticmethod", "classmethod"}:

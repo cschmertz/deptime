@@ -3364,6 +3364,26 @@ def test_a_class_getattr_and_a_helper_methods_warning_deprecate_public_names(tmp
     )
 
 
+def test_a_getattr_calling_a_function_through_a_module_alias_still_snapshots(tmp_path):
+    # sqlalchemy 2.0.24's `__getattr__` calls `_util.warn_deprecated(...)`, `_util` a module: no class there, so
+    # DT-DATA-53's method lookup has nothing to search (it raised `TypeError`, and the release had no snapshot).
+    files = {
+        "sa/__init__.py": (
+            "from . import util as _util\nfrom .pool import SingletonThreadPool\n\n"
+            "def __getattr__(name):\n"
+            "    if name == 'SingleonThreadPool':\n"
+            "        _util.warn_deprecated('SingleonThreadPool was a typo.', '2.0.24')\n"
+            "        return SingletonThreadPool\n"
+            "    raise AttributeError(name)\n"
+        ),
+        "sa/util.py": "def warn_deprecated(msg, version):\n    pass\n",
+        "sa/pool.py": "class SingletonThreadPool:\n    pass\n",
+    }
+    snap = build_snapshot("sa", "1.0", ["sa"], _write(tmp_path, files), own_members=True)
+    served = snap.symbols["sa.SingleonThreadPool"]
+    assert (served.kind, served.canonical) == ("getattr", "sa.__getattr__")
+
+
 def test_a_submodule_name_its_package_rebinds_is_the_object(tmp_path):
     # DT-DATA-54: after `from .patch import patch`, `instructor.patch` is the function, though griffe lists the
     # submodule; `import instructor.patch` still finds the module, so its names stay under the path too.

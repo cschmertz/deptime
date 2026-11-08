@@ -23,6 +23,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-11-08
+
 ### Fixed
 - `explain_error` on an argument error that names a function without its class (`create() got an unexpected keyword
   argument 'file_ids'`) looks first at the functions of that name whose signature had the argument and that exist in
@@ -208,7 +210,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
 - The prebuilt index of 52 packages, downloaded on first run and refreshed daily; `deptime index pull|status|pack`;
   offline mode (`DEPTIME_OFFLINE=1`).
 
-[Unreleased]: https://github.com/cschmertz/deptime/compare/v0.1.9...HEAD
+[Unreleased]: https://github.com/cschmertz/deptime/compare/v0.1.10...HEAD
+[0.1.10]: https://github.com/cschmertz/deptime/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/cschmertz/deptime/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/cschmertz/deptime/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/cschmertz/deptime/compare/v0.1.6...v0.1.7

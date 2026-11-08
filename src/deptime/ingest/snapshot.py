@@ -262,9 +262,21 @@ def _s(value: Any) -> str | None:
     return None if value is None else str(value)
 
 
+_BOUND_KINDS = (griffe.ParameterKind.positional_only, griffe.ParameterKind.positional_or_keyword)
+
+
 def _params(func: griffe.Function) -> list[dict[str, Any]]:
+    """The parameters a caller passes. A function defined in a class gets the instance or class as its first
+    parameter, whatever its name (DT-CORE-39: pydantic's `__init__(__pydantic_self__, **data)`, click's `__self`),
+    unless it's a `staticmethod`; a first `*args` takes it with the rest."""
     params = list(func.parameters)
-    if params and func.parent is not None and func.parent.is_class and params[0].name in {"self", "cls"}:
+    if (
+        params
+        and func.parent is not None
+        and func.parent.is_class
+        and "staticmethod" not in func.labels
+        and params[0].kind in _BOUND_KINDS
+    ):
         params = params[1:]
     return [
         {
@@ -3729,13 +3741,29 @@ def _external_bases(cls: griffe.Class) -> list[str]:
     """`cls`'s direct bases that this analysis didn't load, canonical (DT-CORE-32): another distribution's
     (`starlette.applications.Starlette`), the standard library's (`enum.Enum`, `Exception`). `object` is left out."""
     out: list[str] = []
+    collection = cls.modules_collection
     for base in cls.bases:
         path = base if isinstance(base, str) else getattr(base, "canonical_path", None)
-        if not path or path == "object" or path in out:
-            continue
-        try:
-            cls.modules_collection[path]
-        except Exception:  # not loaded: from outside the package
+        # A base imported through the package's own re-export of another distribution's class is an alias in the
+        # package (DT-DATA-55): langchain-community's `BasePDFLoader(BaseLoader)` takes `BaseLoader` from its own
+        # `document_loaders.base`, which imports it from langchain-core. Follow it to the path it names.
+        followed = False
+        for _ in range(MAX_DEPTH):
+            if not path or path == "object":
+                path = None
+                break
+            try:
+                obj = collection[path]
+            except Exception:  # not loaded: from outside the package
+                break
+            if not isinstance(obj, griffe.Alias):
+                path = None
+                break
+            path, followed = obj.target_path, True
+        else:
+            path = None
+        # Followed to a name a loaded package doesn't have (a lazy `__getattr__` name): not another distribution's.
+        if path and not (followed and path.split(".", 1)[0] in collection.members) and path not in out:
             out.append(path)
     return out
 
@@ -4142,6 +4170,8 @@ class _OverloadsOnly(griffe.Extension):
             messages = [deprecation_message(o) for o in overloads]
             if all(messages):
                 func.deprecated = messages[0]
+            # What binds the first parameter (DT-CORE-39): a stub's `@staticmethod` overloads make a staticmethod.
+            func.labels |= {"staticmethod", "classmethod"}.intersection(*(o.labels for o in overloads))
             func.overloads = overloads
             obj.set_member(name, func)
             del obj.overloads[name]

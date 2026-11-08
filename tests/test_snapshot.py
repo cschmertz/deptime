@@ -3463,3 +3463,84 @@ def test_a_star_import_of_a_sibling_distribution_is_read_from_it(tmp_path):
     }
     again = ApiSnapshot.load(_saved(alone, tmp_path))
     assert again.star_sources == alone.star_sources and again.sibling_files == []
+
+
+def test_a_methods_first_parameter_is_bound_whatever_its_name(tmp_path):
+    # DT-CORE-39: crewai 0.41's `Agent(...)` read `missing_args=['__pydantic_self__']`: pydantic's v1-style
+    # `__init__(__pydantic_self__, **data)` kept its first parameter, since only `self` and `cls` were dropped.
+    files = {
+        "bound/__init__.py": textwrap.dedent(
+            """
+            from bound._stub import Arr
+
+            class Model:
+                def __init__(__pydantic_self__, **data): ...
+                def method(this, x): ...
+                @staticmethod
+                def static(a, b): ...
+                @classmethod
+                def make(klass, y): ...
+                def star(*args, **kwargs): ...
+
+            def function(self, z): ...
+            """
+        ),
+        "bound/_stub.py": "",
+        "bound/_stub.pyi": textwrap.dedent(
+            """
+            from typing import overload
+
+            class Arr:
+                @overload
+                @staticmethod
+                def build(n: int) -> Arr: ...
+                @overload
+                @staticmethod
+                def build(n: str) -> Arr: ...
+                @overload
+                def take(me, i: int) -> int: ...
+                @overload
+                def take(me, i: slice) -> Arr: ...
+            """
+        ),
+    }
+    for own in (False, True):
+        snap = build_snapshot("bound", "1.0", ["bound"], _write(tmp_path / str(own), files), own_members=own)
+        symbols = snap.expanded()
+        for path, params in (
+            ("bound.Model.__init__", ["data"]),
+            ("bound.Model.method", ["x"]),
+            ("bound.Model.static", ["a", "b"]),
+            ("bound.Model.make", ["y"]),
+            ("bound.Model.star", ["args", "kwargs"]),
+            ("bound.function", ["self", "z"]),  # not a method: a parameter like any other
+            ("bound.Arr.build", ["n"]),
+            ("bound.Arr.take", ["i"]),
+        ):
+            assert [p["name"] for p in symbols[path].params] == params, (own, path)
+
+
+def test_a_base_imported_through_the_packages_own_reexport_is_external(tmp_path):
+    # DT-DATA-55: langchain-community's `BasePDFLoader(BaseLoader)` imports `BaseLoader` from its own
+    # `document_loaders.base`, which imports it from langchain-core; the base was an alias inside the package, so
+    # neither the MRO nor `external` had it, and `PyPDFLoader.load` read missing.
+    files = {
+        "reex/__init__.py": "from reex.pdf import Loader, Lazy\n",
+        "reex/base.py": "from other_dist.loaders import BaseLoader\nfrom reex.lazy import Thing\n",
+        "reex/lazy.py": "def __getattr__(name):\n    raise AttributeError(name)\n",
+        "reex/pdf.py": textwrap.dedent(
+            """
+            import abc
+            from reex.base import BaseLoader, Thing
+
+            class Loader(BaseLoader, abc.ABC):
+                def parse(self): ...
+
+            class Lazy(Thing): ...
+            """
+        ),
+    }
+    snap = build_snapshot("reex", "1.0", ["reex"], _write(tmp_path, files), own_members=True)
+    assert snap.classes["reex.pdf.Loader"].external == ["other_dist.loaders.BaseLoader", "abc.ABC"]
+    # Followed to a name the package itself serves at runtime: not another distribution's base.
+    assert snap.classes["reex.pdf.Lazy"].external == []

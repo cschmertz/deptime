@@ -33,6 +33,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
   reports what really changed (`Tool.inputSchema` → `input_schema`) rather than every type removed. A name under a
   module that star-imports a distribution DepTime doesn't read (google-generativeai's `protos`) reads `unknown`,
   not `missing`. Needs the next index build.
+- A method's first parameter is the instance or class whatever its name (DT-CORE-39): pydantic models'
+  `__init__(__pydantic_self__, **data)` no longer reads as requiring `__pydantic_self__` (`check_symbols`
+  `missing_args`), and a `staticmethod` whose first parameter is named `cls` keeps it. Needs the next index build.
+- A base class imported through the package's own re-export of another distribution's class is that distribution's
+  (DT-DATA-55): langchain-community's `PyPDFLoader.load` reads present, inherited from langchain-core's
+  `BaseLoader`. Needs the next index build.
 
 ### Added
 - Replacement hints for names renamed in case or underscores under the same parent (`McpError` → `MCPError`).

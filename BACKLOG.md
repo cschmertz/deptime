@@ -20,7 +20,7 @@
 
 ## Current state: public alpha, v0.1.10 (since 2026-11-08)
 
-- 0.1.9 (tag on `4403749`) is on PyPI, the MCP Registry (latest) and GitHub (Latest), published by `release.yml`; a fresh `uvx --from deptime==0.1.9` install pulls the `SNAPSHOT_FORMAT` 20 index with `index pull --verify` and reads `fastapi.FastAPI.mount` as present, inherited from starlette's `Starlette` at the newest release fastapi's requirement allows. What changed since 0.1.8 is in `CHANGELOG.md`.
+- 0.1.10 (tag on `a2b314d`) is on PyPI, the MCP Registry (latest) and GitHub (Latest), published by `release.yml`; a fresh `uvx --from deptime==0.1.10` install pulls the `SNAPSHOT_FORMAT` 22 index with `index pull --verify` and reads mcp 2.3.0's `mcp.types.Tool` as present, `mcp.types.Tool.inputSchema` as missing with `input_schema` to try, and crewai 0.41's `Agent(...)` as needing no `__pydantic_self__`. What changed since 0.1.9 is in `CHANGELOG.md`.
 
 - The repo is public. `uvx deptime mcp` installs from PyPI, and pushing a `v*` tag publishes through trusted publishing (`release.yml`).
 - Every index published since 2026-11-07 has a signed build provenance attestation; `deptime index pull --verify` (0.1.9 and later) and `gh attestation verify` check it (DT-OSS-09, SECURITY.md).

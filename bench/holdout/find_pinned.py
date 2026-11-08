@@ -2,6 +2,7 @@
 runs DepTime or any project's code; sources are downloaded as tarballs and only parsed.
 
     uv run python bench/holdout/find_pinned.py <packages, comma-separated> <sources dir> <pinned.json> [--per 2]
+        [--cutoff YYYY-MM-DD] [--exclude <earlier set dir>,...]
 
 For each package, in GitHub code search's order for `<package>== filename:requirements.txt`, a repository qualifies
 when it isn't a fork and isn't the package itself, its requirements file pins a final release at or after the
@@ -9,7 +10,8 @@ package's first indexed release and older than its newest release on PyPI, and i
 uses the package at least MIN_USES times (bench/holdout/uses.py). The first `--per` qualifying repositories are kept,
 each asked about two moves: an upgrade from the pin to the newest release (`from` = pin), and the same code on the
 newest release at least a year older than the pin, when that is indexed (`from` = pin, `to` = older: the
-"not yet added" direction).
+"not yet added" direction). A repository an earlier set already asked about (`--exclude`) doesn't qualify, so each set
+is new code.
 """
 
 from __future__ import annotations
@@ -47,8 +49,9 @@ FIRST = {  # first indexed release per package (`deptime coverage`, 2026-11-07)
     "pydantic-settings": "1.99", "pymongo": "4.4.0", "pytest": "7.2.0", "qdrant-client": "0.11.0", "redis": "4.3.0",
     "scikit-learn": "1.2.0", "selenium": "4.8.0", "sqlalchemy": "1.4.0", "sqlmodel": "0.0.1", "starlette": "0.24.0",
     "streamlit": "1.17.0", "transformers": "4.26.0", "typer": "0.8.0", "urllib3": "1.26.0", "weaviate-client": "3.11.0",
+    "werkzeug": "2.2.0",
 }  # fmt: skip
-CUTOFF = "2026-11-07"
+CUTOFF = "2026-11-07"  # the set's cutoff (--cutoff): newest releases as of this day
 
 
 def gh(*args: str) -> str:
@@ -106,7 +109,17 @@ def newest(package: str) -> str:
     return max((Version(v), v) for v, t in pypi_releases(package).items() if t < end)[1]
 
 
-def candidates(package: str, sources: Path, per: int, log: list) -> list[dict]:
+def earlier_repos(sets: list[Path]) -> set[str]:
+    """Repositories an earlier set asked about, as owner/name in lower case."""
+    found = set()
+    for d in sets:
+        for line in (d / "upgrades.jsonl").read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                found.add(json.loads(line)["repo"].removeprefix("https://github.com/").lower())
+    return found
+
+
+def candidates(package: str, sources: Path, per: int, log: list, skip: set[str] = frozenset()) -> list[dict]:
     spec = COV[package]
     roots = tuple(spec.import_names)
     hits = json.loads(
@@ -134,6 +147,8 @@ def candidates(package: str, sources: Path, per: int, log: list) -> list[dict]:
         why = None
         if h["repository"].get("isFork"):
             why = "fork"
+        elif repo.lower() in skip:
+            why = "in an earlier set"
         if why is None:
             info = json.loads(gh("api", f"repos/{repo}"))
             branch = info["default_branch"]
@@ -189,7 +204,11 @@ def main() -> None:
     ap.add_argument("sources", type=Path)
     ap.add_argument("out", type=Path)
     ap.add_argument("--per", type=int, default=2)
+    ap.add_argument("--cutoff", default=CUTOFF)
+    ap.add_argument("--exclude", default="", help="earlier set dirs, comma-separated")
     a = ap.parse_args()
+    globals()["CUTOFF"] = a.cutoff
+    skip = earlier_repos([Path(x) for x in a.exclude.split(",") if x])
     doc = json.loads(a.out.read_text()) if a.out.exists() else {"repos": [], "log": []}
     done = {r["package"] for r in doc["repos"]} | {x["package"] for x in doc["log"]}
     for package in [canonicalize_name(p) for p in a.packages.split(",")]:
@@ -197,7 +216,7 @@ def main() -> None:
             continue
         log: list = []
         try:
-            doc["repos"].extend(candidates(package, a.sources, a.per, log))
+            doc["repos"].extend(candidates(package, a.sources, a.per, log, skip))
         except RuntimeError as e:
             log.append({"package": package, "error": str(e)})
         doc["log"].extend(log)

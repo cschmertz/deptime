@@ -1,0 +1,28 @@
+{
+ "about": "Labels changed by hand, each with the library source that shows it (bench/holdout/README.md: call breaks found by binding are checked against the source at `to`). A use overridden here is excluded.",
+ "overrides": [
+  {
+   "upgrade": "pin-kid0317__crewai_mas_demo-crewai-down",
+   "key": "2a344060f23f41e3",
+   "use": "crewai.Agent(mcps=)",
+   "probe": "breaks (param_not_yet_added): the model's generated signature has no `mcps`",
+   "why": "at 0.100.0 Agent is a pydantic model with the default extra=\"ignore\" (no model_config in Agent or BaseAgent, and the before-validator only reads `config`), so an unknown keyword is accepted and dropped, not an error",
+   "evidence": "https://github.com/crewAIInc/crewAI/blob/0.100.0/src/crewai/agents/agent_builder/base_agent.py#L29 and https://github.com/crewAIInc/crewAI/blob/0.100.0/src/crewai/utilities/config.py"
+  },
+  {
+   "upgrade": "pin-amshaker__mobile-o-huggingface-hub-up",
+   "key": "acc42ed33a022956",
+   "use": "huggingface_hub.snapshot_download(local_dir_use_symlinks=)",
+   "probe": "breaks (param_removed): the function's signature has no `local_dir_use_symlinks`",
+   "why": "@validate_hf_hub_args calls smoothly_deprecate_legacy_arguments, which drops `local_dir_use_symlinks` with a warning, so the call still works",
+   "evidence": "https://github.com/huggingface/huggingface_hub/blob/v2.4.0/src/huggingface_hub/utils/_validators.py#L79-L89 and #L152-L175"
+  }
+ ],
+ "checked_and_kept": [
+  "anthropic.Anthropic(middleware=) at 0.68.0: a plain class, Anthropic.__init__ has no `middleware` and no **kwargs (src/anthropic/_client.py#L62)",
+  "httpx.Client(proxies=) at 0.28.1 (two uses): a plain class, `proxies` removed in 0.28.0, no **kwargs",
+  "gradio.Audio(show_download_button=) at 6.31.0: a plain class whose __init__ takes `buttons` instead, no **kwargs (gradio/components/audio.py#L120)",
+  "gradio.Blocks.launch(show_api=) at 6.31.0: a method without `show_api` (replaced by `footer_links`) and no **kwargs (gradio/blocks.py#L3065)",
+  "redis.StrictRedis(charset=) at 8.1.0: StrictRedis = Redis, a plain class whose __init__ has no `charset` and no **kwargs (redis/client.py)"
+ ]
+}

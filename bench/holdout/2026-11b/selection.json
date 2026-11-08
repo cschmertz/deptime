@@ -1,0 +1,7119 @@
+{
+ "date": "2026-11-08",
+ "cutoff": "2026-11-08",
+ "pinned": {
+  "search": "gh search code '<package>==' --filename requirements.txt --limit 100 (GitHub's order on 2026-11-08)",
+  "packages": "every covered package (53)",
+  "per_package": 2,
+  "min_uses": 3,
+  "excluded": "repositories in an earlier set: 2026-11"
+ },
+ "repos": [
+  {
+   "repo": "https://github.com/meituan-longcat/LongCat-Image",
+   "commit": "f0e4c43c5ef74b011ff71570fbfc2bdffbc9ab06",
+   "pinned_in": "train_requirements.txt",
+   "package": "openai",
+   "id": "pin-meituan-longcat__longcat-image-openai-up",
+   "from": "2.8.1",
+   "to": "3.46.0"
+  },
+  {
+   "repo": "https://github.com/meituan-longcat/LongCat-Image",
+   "commit": "f0e4c43c5ef74b011ff71570fbfc2bdffbc9ab06",
+   "pinned_in": "train_requirements.txt",
+   "package": "openai",
+   "id": "pin-meituan-longcat__longcat-image-openai-down",
+   "from": "2.8.1",
+   "to": "1.54.4"
+  },
+  {
+   "repo": "https://github.com/didilili/ai-agents-from-zero",
+   "commit": "fe3981812b959f4b0d17b04accff140ba39ed261",
+   "pinned_in": "\u6848\u4f8b\u4e0e\u6e90\u7801-4-\u5fae\u8c03/examples/deployment/installed-requirements.txt",
+   "package": "openai",
+   "id": "pin-didilili__ai-agents-from-zero-openai-up",
+   "from": "1.90.0",
+   "to": "3.46.0"
+  },
+  {
+   "repo": "https://github.com/didilili/ai-agents-from-zero",
+   "commit": "fe3981812b959f4b0d17b04accff140ba39ed261",
+   "pinned_in": "\u6848\u4f8b\u4e0e\u6e90\u7801-4-\u5fae\u8c03/examples/deployment/installed-requirements.txt",
+   "package": "openai",
+   "id": "pin-didilili__ai-agents-from-zero-openai-down",
+   "from": "1.90.0",
+   "to": "1.35.2"
+  },
+  {
+   "repo": "https://github.com/zjunlp/DataMind",
+   "commit": "a814927159470ad1624602d233f57b7c0be5882e",
+   "pinned_in": "datamind/train/rl/verl/run_code_requirements.txt",
+   "package": "anthropic",
+   "id": "pin-zjunlp__datamind-anthropic-up",
+   "from": "0.51.0",
+   "to": "2.6.0"
+  },
+  {
+   "repo": "https://github.com/zjunlp/DataMind",
+   "commit": "a814927159470ad1624602d233f57b7c0be5882e",
+   "pinned_in": "datamind/train/rl/verl/run_code_requirements.txt",
+   "package": "anthropic",
+   "id": "pin-zjunlp__datamind-anthropic-down",
+   "from": "0.51.0",
+   "to": "0.25.7"
+  },
+  {
+   "repo": "https://github.com/NineAbyss/OR-License",
+   "commit": "139d1728d0c9a0a2802b88eb14690ababfbdf9ff",
+   "pinned_in": "tools/opus_fallback_requirements.txt",
+   "package": "anthropic",
+   "id": "pin-nineabyss__or-license-anthropic-up",
+   "from": "1.8.0",
+   "to": "2.6.0"
+  },
+  {
+   "repo": "https://github.com/NineAbyss/OR-License",
+   "commit": "139d1728d0c9a0a2802b88eb14690ababfbdf9ff",
+   "pinned_in": "tools/opus_fallback_requirements.txt",
+   "package": "anthropic",
+   "id": "pin-nineabyss__or-license-anthropic-down",
+   "from": "1.8.0",
+   "to": "0.68.0"
+  },
+  {
+   "repo": "https://github.com/cirolini/genai-code-review",
+   "commit": "0b32576a38eca3a0dde5655830fb6307efaa85c5",
+   "pinned_in": "requirements.txt",
+   "package": "google-genai",
+   "id": "pin-cirolini__genai-code-review-google-genai-up",
+   "from": "2.24.0",
+   "to": "3.0.0"
+  },
+  {
+   "repo": "https://github.com/cirolini/genai-code-review",
+   "commit": "0b32576a38eca3a0dde5655830fb6307efaa85c5",
+   "pinned_in": "requirements.txt",
+   "package": "google-genai",
+   "id": "pin-cirolini__genai-code-review-google-genai-down",
+   "from": "2.24.0",
+   "to": "1.37.0"
+  },
+  {
+   "repo": "https://github.com/gskinnerTeam/flutter-hatcha-app",
+   "commit": "02b8d5b6f9942a0070c2902b61ea5a27a58267fc",
+   "pinned_in": "agents/hatcha_agent/app_utils/.requirements.txt",
+   "package": "google-genai",
+   "id": "pin-gskinnerteam__flutter-hatcha-app-google-genai-up",
+   "from": "1.56.0",
+   "to": "3.0.0"
+  },
+  {
+   "repo": "https://github.com/Sim2Reason/Sim2Reason",
+   "commit": "b198e8f2aff9a902e22fe754786e86d363ebf14d",
+   "pinned_in": "evals/OlympiadBench/inference/api_requirements.txt",
+   "package": "google-generativeai",
+   "id": "pin-sim2reason__sim2reason-google-generativeai-up",
+   "from": "0.3.2",
+   "to": "0.8.6"
+  },
+  {
+   "repo": "https://github.com/ByteDance-Seed/FlexPrefill",
+   "commit": "a24b27bf117fd6ad4ba34b0db82c598e7786fd59",
+   "pinned_in": "extra_requirements.txt",
+   "package": "google-generativeai",
+   "id": "pin-bytedance-seed__flexprefill-google-generativeai-up",
+   "from": "0.7.2",
+   "to": "0.8.6"
+  },
+  {
+   "repo": "https://github.com/ByteDance-Seed/FlexPrefill",
+   "commit": "a24b27bf117fd6ad4ba34b0db82c598e7786fd59",
+   "pinned_in": "extra_requirements.txt",
+   "package": "google-generativeai",
+   "id": "pin-bytedance-seed__flexprefill-google-generativeai-down",
+   "from": "0.7.2",
+   "to": "0.1.0"
+  },
+  {
+   "repo": "https://github.com/format81/TI-Mindmap-GPT",
+   "commit": "fe882443f92b45c4d03696e2a0368b0f12b9d02f",
+   "pinned_in": "requirements.txt",
+   "package": "mistralai",
+   "id": "pin-format81__ti-mindmap-gpt-mistralai-up",
+   "from": "0.1.8",
+   "to": "3.7.0"
+  },
+  {
+   "repo": "https://github.com/gcastano/Streamlit-Demo-Apps",
+   "commit": "31f203d86a8c5e8ae76f3e64ba7fc2d4910e39d3",
+   "pinned_in": "requirements.txt",
+   "package": "mistralai",
+   "id": "pin-gcastano__streamlit-demo-apps-mistralai-up",
+   "from": "1.5.0",
+   "to": "3.7.0"
+  },
+  {
+   "repo": "https://github.com/gcastano/Streamlit-Demo-Apps",
+   "commit": "31f203d86a8c5e8ae76f3e64ba7fc2d4910e39d3",
+   "pinned_in": "requirements.txt",
+   "package": "mistralai",
+   "id": "pin-gcastano__streamlit-demo-apps-mistralai-down",
+   "from": "1.5.0",
+   "to": "0.0.11"
+  },
+  {
+   "repo": "https://github.com/OSU-NLP-Group/HippoRAG",
+   "commit": "d5c8329422e0a0b834a15874545cb6a74b4f9b26",
+   "pinned_in": "requirements.txt",
+   "package": "litellm",
+   "id": "pin-osu-nlp-group__hipporag-litellm-up",
+   "from": "1.73.1",
+   "to": "1.108.3"
+  },
+  {
+   "repo": "https://github.com/OSU-NLP-Group/HippoRAG",
+   "commit": "d5c8329422e0a0b834a15874545cb6a74b4f9b26",
+   "pinned_in": "requirements.txt",
+   "package": "litellm",
+   "id": "pin-osu-nlp-group__hipporag-litellm-down",
+   "from": "1.73.1",
+   "to": "1.14.4"
+  },
+  {
+   "repo": "https://github.com/Continual-Intelligence/SEAL",
+   "commit": "6d9c9f9ee392c6cc618e771f399d436d190f6ca4",
+   "pinned_in": "requirements.txt",
+   "package": "litellm",
+   "id": "pin-continual-intelligence__seal-litellm-up",
+   "from": "1.72.4",
+   "to": "1.108.3"
+  },
+  {
+   "repo": "https://github.com/Continual-Intelligence/SEAL",
+   "commit": "6d9c9f9ee392c6cc618e771f399d436d190f6ca4",
+   "pinned_in": "requirements.txt",
+   "package": "litellm",
+   "id": "pin-continual-intelligence__seal-litellm-down",
+   "from": "1.72.4",
+   "to": "1.14.4"
+  },
+  {
+   "repo": "https://github.com/ForzaETH/LLMxRobot",
+   "commit": "4d896e72cf7b26908195fbb172142b7111a53358",
+   "pinned_in": "arm_requirements.txt",
+   "package": "langchain",
+   "id": "pin-forzaeth__llmxrobot-langchain-up",
+   "from": "0.3.12",
+   "to": "1.4.9"
+  },
+  {
+   "repo": "https://github.com/ForzaETH/LLMxRobot",
+   "commit": "4d896e72cf7b26908195fbb172142b7111a53358",
+   "pinned_in": "arm_requirements.txt",
+   "package": "langchain",
+   "id": "pin-forzaeth__llmxrobot-langchain-down",
+   "from": "0.3.12",
+   "to": "0.0.350"
+  },
+  {
+   "repo": "https://github.com/AILab-CVC/GPT4Tools",
+   "commit": "643faa8e5036310a9ec60ae1840818b6b5d4e4af",
+   "pinned_in": "requirements.txt",
+   "package": "langchain",
+   "id": "pin-ailab-cvc__gpt4tools-langchain-up",
+   "from": "0.0.101",
+   "to": "1.4.9"
+  },
+  {
+   "repo": "https://github.com/ocolakoglu/PetoiBittleChatGPT",
+   "commit": "c655015fe2f703f0b421e2a7c774524291fc7c48",
+   "pinned_in": "Requirements.txt",
+   "package": "langchain-core",
+   "id": "pin-ocolakoglu__petoibittlechatgpt-langchain-core-up",
+   "from": "0.2.22",
+   "to": "1.7.6"
+  },
+  {
+   "repo": "https://github.com/jgraber/PythonFriday",
+   "commit": "e09a1b42482eceb33152c2374765109d9d97e0a2",
+   "pinned_in": "AI/lang_chain/csv_requirements.txt",
+   "package": "langchain-core",
+   "id": "pin-jgraber__pythonfriday-langchain-core-up",
+   "from": "0.3.79",
+   "to": "1.7.6"
+  },
+  {
+   "repo": "https://github.com/jgraber/PythonFriday",
+   "commit": "e09a1b42482eceb33152c2374765109d9d97e0a2",
+   "pinned_in": "AI/lang_chain/csv_requirements.txt",
+   "package": "langchain-core",
+   "id": "pin-jgraber__pythonfriday-langchain-core-down",
+   "from": "0.3.79",
+   "to": "0.3.10"
+  },
+  {
+   "repo": "https://github.com/aasouzaconsult/portfolio-dados",
+   "commit": "43ab30ddd30b920d787a7559427542f0179181fb",
+   "pinned_in": "IA Generativa/RAG + Langchain/Requirements.txt",
+   "package": "langchain-community",
+   "id": "pin-aasouzaconsult__portfolio-dados-langchain-community-up",
+   "from": "0.0.13",
+   "to": "0.4.2"
+  },
+  {
+   "repo": "https://github.com/jgraber/PythonFriday",
+   "commit": "e09a1b42482eceb33152c2374765109d9d97e0a2",
+   "pinned_in": "AI/lang_chain/csv_requirements.txt",
+   "package": "langchain-community",
+   "id": "pin-jgraber__pythonfriday-langchain-community-up",
+   "from": "0.3.31",
+   "to": "0.4.2"
+  },
+  {
+   "repo": "https://github.com/jgraber/PythonFriday",
+   "commit": "e09a1b42482eceb33152c2374765109d9d97e0a2",
+   "pinned_in": "AI/lang_chain/csv_requirements.txt",
+   "package": "langchain-community",
+   "id": "pin-jgraber__pythonfriday-langchain-community-down",
+   "from": "0.3.31",
+   "to": "0.3.1"
+  },
+  {
+   "repo": "https://github.com/ForzaETH/LLMxRobot",
+   "commit": "4d896e72cf7b26908195fbb172142b7111a53358",
+   "pinned_in": "arm_requirements.txt",
+   "package": "langchain-openai",
+   "id": "pin-forzaeth__llmxrobot-langchain-openai-up",
+   "from": "0.2.12",
+   "to": "1.7.4"
+  },
+  {
+   "repo": "https://github.com/jgraber/PythonFriday",
+   "commit": "e09a1b42482eceb33152c2374765109d9d97e0a2",
+   "pinned_in": "AI/lang_chain/csv_requirements.txt",
+   "package": "langchain-openai",
+   "id": "pin-jgraber__pythonfriday-langchain-openai-up",
+   "from": "0.3.35",
+   "to": "1.7.4"
+  },
+  {
+   "repo": "https://github.com/jgraber/PythonFriday",
+   "commit": "e09a1b42482eceb33152c2374765109d9d97e0a2",
+   "pinned_in": "AI/lang_chain/csv_requirements.txt",
+   "package": "langchain-openai",
+   "id": "pin-jgraber__pythonfriday-langchain-openai-down",
+   "from": "0.3.35",
+   "to": "0.2.2"
+  },
+  {
+   "repo": "https://github.com/louisgthier/decompai",
+   "commit": "0c2398c09e318be1bb6f6a52d13e572fac7c519b",
+   "pinned_in": "requirements.txt",
+   "package": "langgraph",
+   "id": "pin-louisgthier__decompai-langgraph-up",
+   "from": "0.3.29",
+   "to": "1.2.20"
+  },
+  {
+   "repo": "https://github.com/louisgthier/decompai",
+   "commit": "0c2398c09e318be1bb6f6a52d13e572fac7c519b",
+   "pinned_in": "requirements.txt",
+   "package": "langgraph",
+   "id": "pin-louisgthier__decompai-langgraph-down",
+   "from": "0.3.29",
+   "to": "0.0.36"
+  },
+  {
+   "repo": "https://github.com/USC-FORTIS/AD-AGENT",
+   "commit": "f14a9c065ca84e21dd78abf95db7d96b9460c2ba",
+   "pinned_in": "requirements.txt",
+   "package": "langgraph",
+   "id": "pin-usc-fortis__ad-agent-langgraph-up",
+   "from": "1.1.6",
+   "to": "1.2.20"
+  },
+  {
+   "repo": "https://github.com/USC-FORTIS/AD-AGENT",
+   "commit": "f14a9c065ca84e21dd78abf95db7d96b9460c2ba",
+   "pinned_in": "requirements.txt",
+   "package": "langgraph",
+   "id": "pin-usc-fortis__ad-agent-langgraph-down",
+   "from": "1.1.6",
+   "to": "0.3.24"
+  },
+  {
+   "repo": "https://github.com/nrl-ai/llama-assistant",
+   "commit": "d06708e16f76c5d43c688769980360735d0dbba2",
+   "pinned_in": "requirements.txt",
+   "package": "llama-index-core",
+   "id": "pin-nrl-ai__llama-assistant-llama-index-core-up",
+   "from": "0.14.9",
+   "to": "0.14.25"
+  },
+  {
+   "repo": "https://github.com/nrl-ai/llama-assistant",
+   "commit": "d06708e16f76c5d43c688769980360735d0dbba2",
+   "pinned_in": "requirements.txt",
+   "package": "llama-index-core",
+   "id": "pin-nrl-ai__llama-assistant-llama-index-core-down",
+   "from": "0.14.9",
+   "to": "0.12.2"
+  },
+  {
+   "repo": "https://github.com/BUAADreamer/EasyRAG",
+   "commit": "a87b6852c3844d9d2df08d24221b0bef262ccc57",
+   "pinned_in": "requirements.txt",
+   "package": "llama-index-core",
+   "id": "pin-buaadreamer__easyrag-llama-index-core-up",
+   "from": "0.10.29",
+   "to": "0.14.25"
+  },
+  {
+   "repo": "https://github.com/OpenSPG/KAG",
+   "commit": "fdab15b3929d2ee40dfcdd388f90233096a6afc9",
+   "pinned_in": "requirements.txt",
+   "package": "mcp",
+   "id": "pin-openspg__kag-mcp-up",
+   "from": "1.6.0",
+   "to": "2.3.0"
+  },
+  {
+   "repo": "https://github.com/Mixar-AI/mixar-app",
+   "commit": "208195ff0ca1ee378dd20b102222a873cd5d0571",
+   "pinned_in": "scripts/python_requirements.txt",
+   "package": "mcp",
+   "id": "pin-mixar-ai__mixar-app-mcp-up",
+   "from": "2.2.0",
+   "to": "2.3.0"
+  },
+  {
+   "repo": "https://github.com/Mixar-AI/mixar-app",
+   "commit": "208195ff0ca1ee378dd20b102222a873cd5d0571",
+   "pinned_in": "scripts/python_requirements.txt",
+   "package": "mcp",
+   "id": "pin-mixar-ai__mixar-app-mcp-down",
+   "from": "2.2.0",
+   "to": "1.13.1"
+  },
+  {
+   "repo": "https://github.com/answerlink/MCP-Workspace-Server",
+   "commit": "b6431aeab9a3a57f598a11510aa8b6ab0270b824",
+   "pinned_in": "requirements.txt",
+   "package": "fastmcp",
+   "id": "pin-answerlink__mcp-workspace-server-fastmcp-up",
+   "from": "2.13.1",
+   "to": "4.1.6"
+  },
+  {
+   "repo": "https://github.com/SylvianAI/sv-excel-agent",
+   "commit": "2554f739cc683fab38fb85604cf399da6dd8d4ce",
+   "pinned_in": "requirements.txt",
+   "package": "fastmcp",
+   "id": "pin-sylvianai__sv-excel-agent-fastmcp-up",
+   "from": "2.12.4",
+   "to": "4.1.6"
+  },
+  {
+   "repo": "https://github.com/google-marketing-solutions/Tightlock",
+   "commit": "69925d7b47970bd6174a0677570954c5e7965ff2",
+   "pinned_in": "airflow_requirements.txt",
+   "package": "pydantic",
+   "id": "pin-google-marketing-solutions__tightlock-pydantic-up",
+   "from": "1.10.16",
+   "to": "2.14.3"
+  },
+  {
+   "repo": "https://github.com/google-marketing-solutions/Tightlock",
+   "commit": "69925d7b47970bd6174a0677570954c5e7965ff2",
+   "pinned_in": "airflow_requirements.txt",
+   "package": "pydantic",
+   "id": "pin-google-marketing-solutions__tightlock-pydantic-down",
+   "from": "1.10.16",
+   "to": "1.10.9"
+  },
+  {
+   "repo": "https://github.com/Tencent/VITA",
+   "commit": "fd952c9827e03f649f88c24ef246982f29f8c417",
+   "pinned_in": "vita_e_requirements.txt",
+   "package": "pydantic",
+   "id": "pin-tencent__vita-pydantic-up",
+   "from": "2.8.2",
+   "to": "2.14.3"
+  },
+  {
+   "repo": "https://github.com/Tencent/VITA",
+   "commit": "fd952c9827e03f649f88c24ef246982f29f8c417",
+   "pinned_in": "vita_e_requirements.txt",
+   "package": "pydantic",
+   "id": "pin-tencent__vita-pydantic-down",
+   "from": "2.8.2",
+   "to": "2.0.1"
+  },
+  {
+   "repo": "https://github.com/neocharlesprojects/tradeagents",
+   "commit": "38003b2a382b6660ef865668f0e5a4835057dd00",
+   "pinned_in": "requirements.txt",
+   "package": "pydantic-settings",
+   "id": "pin-neocharlesprojects__tradeagents-pydantic-settings-up",
+   "from": "2.5.2",
+   "to": "2.16.2"
+  },
+  {
+   "repo": "https://github.com/neocharlesprojects/tradeagents",
+   "commit": "38003b2a382b6660ef865668f0e5a4835057dd00",
+   "pinned_in": "requirements.txt",
+   "package": "pydantic-settings",
+   "id": "pin-neocharlesprojects__tradeagents-pydantic-settings-down",
+   "from": "2.5.2",
+   "to": "2.0.3"
+  },
+  {
+   "repo": "https://github.com/sizifart/SeedCoinBot",
+   "commit": "212f985cc1090f5a7ffb777723b860ee87705ea3",
+   "pinned_in": "requirements.txt",
+   "package": "pydantic-settings",
+   "id": "pin-sizifart__seedcoinbot-pydantic-settings-up",
+   "from": "2.2.1",
+   "to": "2.16.2"
+  },
+  {
+   "repo": "https://github.com/coleam00/ottomator-agents",
+   "commit": "2be20d5737fc49aa0f665a012f3ffde283d26d54",
+   "pinned_in": "ai-agent-fundamentals/requirements.txt",
+   "package": "pydantic-ai-slim",
+   "id": "pin-coleam00__ottomator-agents-pydantic-ai-slim-up",
+   "from": "1.7.0",
+   "to": "2.66.0"
+  },
+  {
+   "repo": "https://github.com/FSoft-AI4Code/CodeWiki",
+   "commit": "a1b9f4acac4d3e1925c9d49e258b618741410540",
+   "pinned_in": "requirements.txt",
+   "package": "pydantic-ai-slim",
+   "id": "pin-fsoft-ai4code__codewiki-pydantic-ai-slim-up",
+   "from": "1.0.6",
+   "to": "2.66.0"
+  },
+  {
+   "repo": "https://github.com/GAIR-NLP/ASI-Arch",
+   "commit": "3113c51b04a1d4a7520a3b0238c6a08d3194d58f",
+   "pinned_in": "requirements.txt",
+   "package": "openai-agents",
+   "id": "pin-gair-nlp__asi-arch-openai-agents-up",
+   "from": "0.0.17",
+   "to": "0.24.0"
+  },
+  {
+   "repo": "https://github.com/Azure/azure-functions-durable-python",
+   "commit": "badf8016eb8186958ebd07908576deb1bb33e945",
+   "pinned_in": "requirements.txt",
+   "package": "openai-agents",
+   "id": "pin-azure__azure-functions-durable-python-openai-agents-up",
+   "from": "0.2.4",
+   "to": "0.24.0"
+  },
+  {
+   "repo": "https://github.com/kid0317/crewai_mas_demo",
+   "commit": "d5cfc79d3f61687c777b2e1328d1a265762f72fc",
+   "pinned_in": "requirements.txt",
+   "package": "crewai",
+   "id": "pin-kid0317__crewai_mas_demo-crewai-up",
+   "from": "1.9.3",
+   "to": "1.15.37"
+  },
+  {
+   "repo": "https://github.com/kid0317/crewai_mas_demo",
+   "commit": "d5cfc79d3f61687c777b2e1328d1a265762f72fc",
+   "pinned_in": "requirements.txt",
+   "package": "crewai",
+   "id": "pin-kid0317__crewai_mas_demo-crewai-down",
+   "from": "1.9.3",
+   "to": "0.100.0"
+  },
+  {
+   "repo": "https://github.com/nithilanimraka/TravelAgent-crewAI",
+   "commit": "b87ffc7c9a748515f46c979c421a1bf8015d3669",
+   "pinned_in": "requirements.txt",
+   "package": "crewai",
+   "id": "pin-nithilanimraka__travelagent-crewai-crewai-up",
+   "from": "0.150.0",
+   "to": "1.15.37"
+  },
+  {
+   "repo": "https://github.com/nithilanimraka/TravelAgent-crewAI",
+   "commit": "b87ffc7c9a748515f46c979c421a1bf8015d3669",
+   "pinned_in": "requirements.txt",
+   "package": "crewai",
+   "id": "pin-nithilanimraka__travelagent-crewai-crewai-down",
+   "from": "0.150.0",
+   "to": "0.41.1"
+  },
+  {
+   "repo": "https://github.com/TheStageAI/TheWhisper",
+   "commit": "17127b85b70d47f327cfb0187ddbf16ae59394ae",
+   "pinned_in": "asr_postprocess/requirements.txt",
+   "package": "dspy",
+   "id": "pin-thestageai__thewhisper-dspy-up",
+   "from": "3.1.3",
+   "to": "3.4.1"
+  },
+  {
+   "repo": "https://github.com/TheStageAI/TheWhisper",
+   "commit": "17127b85b70d47f327cfb0187ddbf16ae59394ae",
+   "pinned_in": "asr_postprocess/requirements.txt",
+   "package": "dspy",
+   "id": "pin-thestageai__thewhisper-dspy-down",
+   "from": "3.1.3",
+   "to": "2.6.2"
+  },
+  {
+   "repo": "https://github.com/FireBird-Technologies/Auto-Analyst",
+   "commit": "0aefaeb0b0da3b63e6d25dfb0234ae5be0b3dc45",
+   "pinned_in": "auto-analyst-backend/requirements.txt",
+   "package": "dspy",
+   "id": "pin-firebird-technologies__auto-analyst-dspy-up",
+   "from": "3.2.1",
+   "to": "3.4.1"
+  },
+  {
+   "repo": "https://github.com/FireBird-Technologies/Auto-Analyst",
+   "commit": "0aefaeb0b0da3b63e6d25dfb0234ae5be0b3dc45",
+   "pinned_in": "auto-analyst-backend/requirements.txt",
+   "package": "dspy",
+   "id": "pin-firebird-technologies__auto-analyst-dspy-down",
+   "from": "3.2.1",
+   "to": "2.6.23"
+  },
+  {
+   "repo": "https://github.com/jbexta/AgentPilot",
+   "commit": "333eb6ce4f193852f4d9fe5412e8636929b6bb4e",
+   "pinned_in": "requirements.txt",
+   "package": "instructor",
+   "id": "pin-jbexta__agentpilot-instructor-up",
+   "from": "1.7.2",
+   "to": "1.17.0"
+  },
+  {
+   "repo": "https://github.com/jbexta/AgentPilot",
+   "commit": "333eb6ce4f193852f4d9fe5412e8636929b6bb4e",
+   "pinned_in": "requirements.txt",
+   "package": "instructor",
+   "id": "pin-jbexta__agentpilot-instructor-down",
+   "from": "1.7.2",
+   "to": "0.4.5"
+  },
+  {
+   "repo": "https://github.com/Papr-ai/memory-opensource",
+   "commit": "a0a816eb00f73b0819ef3fd7115bb6835cd18c39",
+   "pinned_in": "requirements.txt",
+   "package": "instructor",
+   "id": "pin-papr-ai__memory-opensource-instructor-up",
+   "from": "1.7.0",
+   "to": "1.17.0"
+  },
+  {
+   "repo": "https://github.com/Papr-ai/memory-opensource",
+   "commit": "a0a816eb00f73b0819ef3fd7115bb6835cd18c39",
+   "pinned_in": "requirements.txt",
+   "package": "instructor",
+   "id": "pin-papr-ai__memory-opensource-instructor-down",
+   "from": "1.7.0",
+   "to": "0.4.0"
+  },
+  {
+   "repo": "https://github.com/alexiglad/EBT",
+   "commit": "19420cbeae655bbf11930219a675ade6897019e8",
+   "pinned_in": "loose_requirements.txt",
+   "package": "transformers",
+   "id": "pin-alexiglad__ebt-transformers-up",
+   "from": "4.44.2",
+   "to": "5.22.2"
+  },
+  {
+   "repo": "https://github.com/alexiglad/EBT",
+   "commit": "19420cbeae655bbf11930219a675ade6897019e8",
+   "pinned_in": "loose_requirements.txt",
+   "package": "transformers",
+   "id": "pin-alexiglad__ebt-transformers-down",
+   "from": "4.44.2",
+   "to": "4.32.0"
+  },
+  {
+   "repo": "https://github.com/meituan-longcat/LongCat-Image",
+   "commit": "f0e4c43c5ef74b011ff71570fbfc2bdffbc9ab06",
+   "pinned_in": "train_requirements.txt",
+   "package": "transformers",
+   "id": "pin-meituan-longcat__longcat-image-transformers-up",
+   "from": "4.57.1",
+   "to": "5.22.2"
+  },
+  {
+   "repo": "https://github.com/meituan-longcat/LongCat-Image",
+   "commit": "f0e4c43c5ef74b011ff71570fbfc2bdffbc9ab06",
+   "pinned_in": "train_requirements.txt",
+   "package": "transformers",
+   "id": "pin-meituan-longcat__longcat-image-transformers-down",
+   "from": "4.57.1",
+   "to": "4.45.2"
+  },
+  {
+   "repo": "https://github.com/ai-forever/Kandinsky-3",
+   "commit": "a4c9e92e4d9b2a57081b7e33a2e82373c99ddbfc",
+   "pinned_in": "exact_requirements.txt",
+   "package": "huggingface-hub",
+   "id": "pin-ai-forever__kandinsky-3-huggingface-hub-up",
+   "from": "0.16.4",
+   "to": "2.4.0"
+  },
+  {
+   "repo": "https://github.com/Amshaker/Mobile-O",
+   "commit": "91c255080a0130846fe5b5cd54ff5af3c05ab2b9",
+   "pinned_in": "eval/geneval_requirements.txt",
+   "package": "huggingface-hub",
+   "id": "pin-amshaker__mobile-o-huggingface-hub-up",
+   "from": "0.33.0",
+   "to": "2.4.0"
+  },
+  {
+   "repo": "https://github.com/Amshaker/Mobile-O",
+   "commit": "91c255080a0130846fe5b5cd54ff5af3c05ab2b9",
+   "pinned_in": "eval/geneval_requirements.txt",
+   "package": "huggingface-hub",
+   "id": "pin-amshaker__mobile-o-huggingface-hub-down",
+   "from": "0.33.0",
+   "to": "0.23.3"
+  },
+  {
+   "repo": "https://github.com/GoodAI/charlie-mnemonic",
+   "commit": "f84021af69cc506b712f5a2272d0c2a7c91a7c77",
+   "pinned_in": "requirements.txt",
+   "package": "chromadb",
+   "id": "pin-goodai__charlie-mnemonic-chromadb-up",
+   "from": "0.4.13",
+   "to": "1.5.9"
+  },
+  {
+   "repo": "https://github.com/genaiconference/RAG_Workshop_DHS2024",
+   "commit": "5355872f79e1f06328ad997f54f1e449a9c7fd0c",
+   "pinned_in": "rag_requirements.txt",
+   "package": "chromadb",
+   "id": "pin-genaiconference__rag_workshop_dhs2024-chromadb-up",
+   "from": "0.4.15",
+   "to": "1.5.9"
+  },
+  {
+   "repo": "https://github.com/Mohit1053/Cement-Concall-RAG",
+   "commit": "e22896488cb070d0825fae685269db76f4004dd6",
+   "pinned_in": "rag_requirements.txt",
+   "package": "qdrant-client",
+   "id": "pin-mohit1053__cement-concall-rag-qdrant-client-up",
+   "from": "1.7.0",
+   "to": "1.20.0"
+  },
+  {
+   "repo": "https://github.com/Mohit1053/Cement-Concall-RAG",
+   "commit": "e22896488cb070d0825fae685269db76f4004dd6",
+   "pinned_in": "rag_requirements.txt",
+   "package": "qdrant-client",
+   "id": "pin-mohit1053__cement-concall-rag-qdrant-client-down",
+   "from": "1.7.0",
+   "to": "0.11.5"
+  },
+  {
+   "repo": "https://github.com/khaledzakarya/Knowva-AI-Features-",
+   "commit": "97bfd25985a04d083f2104aa8f6d7a600bae6966",
+   "pinned_in": "src/Requirements.txt",
+   "package": "qdrant-client",
+   "id": "pin-khaledzakarya__knowva-ai-features--qdrant-client-up",
+   "from": "1.15.1",
+   "to": "1.20.0"
+  },
+  {
+   "repo": "https://github.com/khaledzakarya/Knowva-AI-Features-",
+   "commit": "97bfd25985a04d083f2104aa8f6d7a600bae6966",
+   "pinned_in": "src/Requirements.txt",
+   "package": "qdrant-client",
+   "id": "pin-khaledzakarya__knowva-ai-features--qdrant-client-down",
+   "from": "1.15.1",
+   "to": "1.10.1"
+  },
+  {
+   "repo": "https://github.com/EdIzaguirre/Rosebud",
+   "commit": "1b8dde53b542306f5ca2577dc7562a96bff58478",
+   "pinned_in": "requirements.txt",
+   "package": "pinecone",
+   "id": "pin-edizaguirre__rosebud-pinecone-up",
+   "from": "4.0.0",
+   "to": "10.3.0"
+  },
+  {
+   "repo": "https://github.com/pinecone-io/contextual-webinar-rag",
+   "commit": "a6f7a7bd2b1ba862c6b806033087eb2b9402d3c2",
+   "pinned_in": "requirements.txt",
+   "package": "pinecone",
+   "id": "pin-pinecone-io__contextual-webinar-rag-pinecone-up",
+   "from": "5.3.1",
+   "to": "10.3.0"
+  },
+  {
+   "repo": "https://github.com/Haohao-end/openagent",
+   "commit": "cf85a1713c4ceb14fe621e325e81598cba2658ee",
+   "pinned_in": "api/requirements.txt",
+   "package": "weaviate-client",
+   "id": "pin-haohao-end__openagent-weaviate-client-up",
+   "from": "4.15.1",
+   "to": "4.24.1"
+  },
+  {
+   "repo": "https://github.com/Haohao-end/openagent",
+   "commit": "cf85a1713c4ceb14fe621e325e81598cba2658ee",
+   "pinned_in": "api/requirements.txt",
+   "package": "weaviate-client",
+   "id": "pin-haohao-end__openagent-weaviate-client-down",
+   "from": "4.15.1",
+   "to": "4.6.4"
+  },
+  {
+   "repo": "https://github.com/LinkedInLearning/vector-databases-in-practice-deep-dive-4513162",
+   "commit": "0b8c52ebb05926598c7ffed38192529632a14d62",
+   "pinned_in": "requirements.txt",
+   "package": "weaviate-client",
+   "id": "pin-linkedinlearning__vector-databases-in-practice-deep-dive-4513162-weaviate-client-up",
+   "from": "4.4.4",
+   "to": "4.24.1"
+  },
+  {
+   "repo": "https://github.com/LinkedInLearning/vector-databases-in-practice-deep-dive-4513162",
+   "commit": "0b8c52ebb05926598c7ffed38192529632a14d62",
+   "pinned_in": "requirements.txt",
+   "package": "weaviate-client",
+   "id": "pin-linkedinlearning__vector-databases-in-practice-deep-dive-4513162-weaviate-client-down",
+   "from": "4.4.4",
+   "to": "3.11.0"
+  },
+  {
+   "repo": "https://github.com/malingshu2015/llm-protection-system",
+   "commit": "c117894fa04238cb2e2d18683d06f8ba216afcef",
+   "pinned_in": "requirements/current_requirements.txt",
+   "package": "ollama",
+   "id": "pin-malingshu2015__llm-protection-system-ollama-up",
+   "from": "0.4.8",
+   "to": "0.6.3"
+  },
+  {
+   "repo": "https://github.com/malingshu2015/llm-protection-system",
+   "commit": "c117894fa04238cb2e2d18683d06f8ba216afcef",
+   "pinned_in": "requirements/current_requirements.txt",
+   "package": "ollama",
+   "id": "pin-malingshu2015__llm-protection-system-ollama-down",
+   "from": "0.4.8",
+   "to": "0.1.8"
+  },
+  {
+   "repo": "https://github.com/itswadesh/meeting-summary",
+   "commit": "3ea18570cd4785e4ebaa5e140d16d72e02b679f6",
+   "pinned_in": "Requirements.txt",
+   "package": "ollama",
+   "id": "pin-itswadesh__meeting-summary-ollama-up",
+   "from": "0.5.1",
+   "to": "0.6.3"
+  },
+  {
+   "repo": "https://github.com/itswadesh/meeting-summary",
+   "commit": "3ea18570cd4785e4ebaa5e140d16d72e02b679f6",
+   "pinned_in": "Requirements.txt",
+   "package": "ollama",
+   "id": "pin-itswadesh__meeting-summary-ollama-down",
+   "from": "0.5.1",
+   "to": "0.2.0"
+  },
+  {
+   "repo": "https://github.com/Wordcab/wordcab-transcribe",
+   "commit": "162830f18924835295f3db6c16634db98ae3e1be",
+   "pinned_in": "pre_requirements.txt",
+   "package": "fastapi",
+   "id": "pin-wordcab__wordcab-transcribe-fastapi-up",
+   "from": "0.110.0",
+   "to": "0.162.2"
+  },
+  {
+   "repo": "https://github.com/Wordcab/wordcab-transcribe",
+   "commit": "162830f18924835295f3db6c16634db98ae3e1be",
+   "pinned_in": "pre_requirements.txt",
+   "package": "fastapi",
+   "id": "pin-wordcab__wordcab-transcribe-fastapi-down",
+   "from": "0.110.0",
+   "to": "0.92.0"
+  },
+  {
+   "repo": "https://github.com/zhaochen0110/OpenThinkIMG",
+   "commit": "45d295f0f4b15502fb9573d9a8da6fb2f28be06d",
+   "pinned_in": "train_requirements.txt",
+   "package": "fastapi",
+   "id": "pin-zhaochen0110__openthinkimg-fastapi-up",
+   "from": "0.115.8",
+   "to": "0.162.2"
+  },
+  {
+   "repo": "https://github.com/zhaochen0110/OpenThinkIMG",
+   "commit": "45d295f0f4b15502fb9573d9a8da6fb2f28be06d",
+   "pinned_in": "train_requirements.txt",
+   "package": "fastapi",
+   "id": "pin-zhaochen0110__openthinkimg-fastapi-down",
+   "from": "0.115.8",
+   "to": "0.109.0"
+  },
+  {
+   "repo": "https://github.com/david-xinyuwei/david-share",
+   "commit": "d57469f31f7287d85404c5dafbf311ef3f4ff23b",
+   "pinned_in": "Deep-Learning/Qwen-Reranker/pip-requirements.txt",
+   "package": "starlette",
+   "id": "pin-david-xinyuwei__david-share-starlette-up",
+   "from": "0.48.0",
+   "to": "1.10.0"
+  },
+  {
+   "repo": "https://github.com/david-xinyuwei/david-share",
+   "commit": "d57469f31f7287d85404c5dafbf311ef3f4ff23b",
+   "pinned_in": "Deep-Learning/Qwen-Reranker/pip-requirements.txt",
+   "package": "starlette",
+   "id": "pin-david-xinyuwei__david-share-starlette-down",
+   "from": "0.48.0",
+   "to": "0.38.5"
+  },
+  {
+   "repo": "https://github.com/EpicWink/proxpi",
+   "commit": "7b8c8570da54b666a3ec795f2f1cc98f4f34991a",
+   "pinned_in": "app.requirements.txt",
+   "package": "starlette",
+   "id": "pin-epicwink__proxpi-starlette-up",
+   "from": "1.8.0",
+   "to": "1.10.0"
+  },
+  {
+   "repo": "https://github.com/EpicWink/proxpi",
+   "commit": "7b8c8570da54b666a3ec795f2f1cc98f4f34991a",
+   "pinned_in": "app.requirements.txt",
+   "package": "starlette",
+   "id": "pin-epicwink__proxpi-starlette-down",
+   "from": "1.8.0",
+   "to": "0.48.0"
+  },
+  {
+   "repo": "https://github.com/YashvirGaming/TikTikCheckerCLI",
+   "commit": "46990495fdd6582d14004b3c5d3d69b81aaed8c6",
+   "pinned_in": "Requirements.txt",
+   "package": "httpx",
+   "id": "pin-yashvirgaming__tiktikcheckercli-httpx-up",
+   "from": "0.26.0",
+   "to": "0.28.1"
+  },
+  {
+   "repo": "https://github.com/YashvirGaming/TikTikCheckerCLI",
+   "commit": "46990495fdd6582d14004b3c5d3d69b81aaed8c6",
+   "pinned_in": "Requirements.txt",
+   "package": "httpx",
+   "id": "pin-yashvirgaming__tiktikcheckercli-httpx-down",
+   "from": "0.26.0",
+   "to": "0.23.1"
+  },
+  {
+   "repo": "https://github.com/trashchenkov/telegram-posts-clustering",
+   "commit": "23660732a326523d3189839c393a254872434817",
+   "pinned_in": "backend/venv_requirements.txt",
+   "package": "httpx",
+   "id": "pin-trashchenkov__telegram-posts-clustering-httpx-up",
+   "from": "0.25.2",
+   "to": "0.28.1"
+  },
+  {
+   "repo": "https://github.com/trashchenkov/telegram-posts-clustering",
+   "commit": "23660732a326523d3189839c393a254872434817",
+   "pinned_in": "backend/venv_requirements.txt",
+   "package": "httpx",
+   "id": "pin-trashchenkov__telegram-posts-clustering-httpx-down",
+   "from": "0.25.2",
+   "to": "0.23.1"
+  },
+  {
+   "repo": "https://github.com/linkedin/iris-relay",
+   "commit": "609ee35eedf71c021fb0ac211d21f5ddc14a9367",
+   "pinned_in": "dev_requirements.txt",
+   "package": "sqlalchemy",
+   "id": "pin-linkedin__iris-relay-sqlalchemy-up",
+   "from": "1.4.36",
+   "to": "2.1.8"
+  },
+  {
+   "repo": "https://github.com/linkedin/iris-relay",
+   "commit": "609ee35eedf71c021fb0ac211d21f5ddc14a9367",
+   "pinned_in": "dev_requirements.txt",
+   "package": "sqlalchemy",
+   "id": "pin-linkedin__iris-relay-sqlalchemy-down",
+   "from": "1.4.36",
+   "to": "1.4.11"
+  },
+  {
+   "repo": "https://github.com/barrycarey/RedditRepostSleuth",
+   "commit": "39da3dca234d859dcd8c6bcf0855d3423b25a7a4",
+   "pinned_in": "worker-requirements.txt",
+   "package": "sqlalchemy",
+   "id": "pin-barrycarey__redditrepostsleuth-sqlalchemy-up",
+   "from": "2.0.20",
+   "to": "2.1.8"
+  },
+  {
+   "repo": "https://github.com/barrycarey/RedditRepostSleuth",
+   "commit": "39da3dca234d859dcd8c6bcf0855d3423b25a7a4",
+   "pinned_in": "worker-requirements.txt",
+   "package": "sqlalchemy",
+   "id": "pin-barrycarey__redditrepostsleuth-sqlalchemy-down",
+   "from": "2.0.20",
+   "to": "1.4.40"
+  },
+  {
+   "repo": "https://github.com/KodyKendall/LlamaBot",
+   "commit": "884cd2a491a26e6a01488e7757908429c20dddf1",
+   "pinned_in": "requirements.txt",
+   "package": "sqlmodel",
+   "id": "pin-kodykendall__llamabot-sqlmodel-up",
+   "from": "0.0.27",
+   "to": "0.0.48"
+  },
+  {
+   "repo": "https://github.com/KodyKendall/LlamaBot",
+   "commit": "884cd2a491a26e6a01488e7757908429c20dddf1",
+   "pinned_in": "requirements.txt",
+   "package": "sqlmodel",
+   "id": "pin-kodykendall__llamabot-sqlmodel-down",
+   "from": "0.0.27",
+   "to": "0.0.22"
+  },
+  {
+   "repo": "https://github.com/FLAIR-THU/VFLAIR",
+   "commit": "964415766fff97a1ebeed2c3addd4fbaac29f8ef",
+   "pinned_in": "requirements.txt",
+   "package": "sqlmodel",
+   "id": "pin-flair-thu__vflair-sqlmodel-up",
+   "from": "0.0.14",
+   "to": "0.0.48"
+  },
+  {
+   "repo": "https://github.com/FLAIR-THU/VFLAIR",
+   "commit": "964415766fff97a1ebeed2c3addd4fbaac29f8ef",
+   "pinned_in": "requirements.txt",
+   "package": "sqlmodel",
+   "id": "pin-flair-thu__vflair-sqlmodel-down",
+   "from": "0.0.14",
+   "to": "0.0.8"
+  },
+  {
+   "repo": "https://github.com/flyteorg/flytesnacks",
+   "commit": "c9b2c44dc5d0ce42e482be1ffb16c8b19e72c23c",
+   "pinned_in": "docs-requirements.txt",
+   "package": "pandas",
+   "id": "pin-flyteorg__flytesnacks-pandas-up",
+   "from": "2.2.3",
+   "to": "3.1.1"
+  },
+  {
+   "repo": "https://github.com/flyteorg/flytesnacks",
+   "commit": "c9b2c44dc5d0ce42e482be1ffb16c8b19e72c23c",
+   "pinned_in": "docs-requirements.txt",
+   "package": "pandas",
+   "id": "pin-flyteorg__flytesnacks-pandas-down",
+   "from": "2.2.3",
+   "to": "2.1.1"
+  },
+  {
+   "repo": "https://github.com/Zhao-Med/SmartAST",
+   "commit": "031cfcc002eea099124236aac93d2f976a4c94cd",
+   "pinned_in": "requirements.txt.txt",
+   "package": "pandas",
+   "id": "pin-zhao-med__smartast-pandas-up",
+   "from": "2.2.3",
+   "to": "3.1.1"
+  },
+  {
+   "repo": "https://github.com/Zhao-Med/SmartAST",
+   "commit": "031cfcc002eea099124236aac93d2f976a4c94cd",
+   "pinned_in": "requirements.txt.txt",
+   "package": "pandas",
+   "id": "pin-zhao-med__smartast-pandas-down",
+   "from": "2.2.3",
+   "to": "2.1.1"
+  },
+  {
+   "repo": "https://github.com/JIA-Lab-research/Jenga",
+   "commit": "69051503a9e599363890c2d9da7e2441e2ca617a",
+   "pinned_in": "hy_requirements.txt",
+   "package": "numpy",
+   "id": "pin-jia-lab-research__jenga-numpy-up",
+   "from": "1.24.4",
+   "to": "2.5.4"
+  },
+  {
+   "repo": "https://github.com/Dinones/Nintendo-Switch-Pokemon-Shiny-Hunter",
+   "commit": "46b4be8559958d4e544bf834744ec67ae88c321b",
+   "pinned_in": "Requirements.txt",
+   "package": "numpy",
+   "id": "pin-dinones__nintendo-switch-pokemon-shiny-hunter-numpy-up",
+   "from": "1.24.4",
+   "to": "2.5.4"
+  },
+  {
+   "repo": "https://github.com/TomBurdge/polari",
+   "commit": "6f2ba8745eecd0b89b801fea8640a66fe629f930",
+   "pinned_in": "examples/example_requirements.txt",
+   "package": "polars",
+   "id": "pin-tomburdge__polari-polars-up",
+   "from": "0.20.30",
+   "to": "2.1.0"
+  },
+  {
+   "repo": "https://github.com/TomBurdge/polari",
+   "commit": "6f2ba8745eecd0b89b801fea8640a66fe629f930",
+   "pinned_in": "examples/example_requirements.txt",
+   "package": "polars",
+   "id": "pin-tomburdge__polari-polars-down",
+   "from": "0.20.30",
+   "to": "0.17.15"
+  },
+  {
+   "repo": "https://github.com/JessicaAquino/bank-churn-prediction",
+   "commit": "5be53baddabafe360552dc1232fa8c0e3655e675",
+   "pinned_in": "vm_requirements.txt",
+   "package": "polars",
+   "id": "pin-jessicaaquino__bank-churn-prediction-polars-up",
+   "from": "1.33.1",
+   "to": "2.1.0"
+  },
+  {
+   "repo": "https://github.com/JessicaAquino/bank-churn-prediction",
+   "commit": "5be53baddabafe360552dc1232fa8c0e3655e675",
+   "pinned_in": "vm_requirements.txt",
+   "package": "polars",
+   "id": "pin-jessicaaquino__bank-churn-prediction-polars-down",
+   "from": "1.33.1",
+   "to": "1.6.0"
+  },
+  {
+   "repo": "https://github.com/rdcolema/tensorflow-image-classification",
+   "commit": "916bcf8245417c96e9b229e169cf05c7b05af948",
+   "pinned_in": "tf1_requirements.txt",
+   "package": "scikit-learn",
+   "id": "pin-rdcolema__tensorflow-image-classification-scikit-learn-up",
+   "from": "1.5.0",
+   "to": "1.9.1"
+  },
+  {
+   "repo": "https://github.com/rdcolema/tensorflow-image-classification",
+   "commit": "916bcf8245417c96e9b229e169cf05c7b05af948",
+   "pinned_in": "tf1_requirements.txt",
+   "package": "scikit-learn",
+   "id": "pin-rdcolema__tensorflow-image-classification-scikit-learn-down",
+   "from": "1.5.0",
+   "to": "1.2.2"
+  },
+  {
+   "repo": "https://github.com/flyteorg/flytesnacks",
+   "commit": "c9b2c44dc5d0ce42e482be1ffb16c8b19e72c23c",
+   "pinned_in": "docs-requirements.txt",
+   "package": "scikit-learn",
+   "id": "pin-flyteorg__flytesnacks-scikit-learn-up",
+   "from": "1.5.2",
+   "to": "1.9.1"
+  },
+  {
+   "repo": "https://github.com/flyteorg/flytesnacks",
+   "commit": "c9b2c44dc5d0ce42e482be1ffb16c8b19e72c23c",
+   "pinned_in": "docs-requirements.txt",
+   "package": "scikit-learn",
+   "id": "pin-flyteorg__flytesnacks-scikit-learn-down",
+   "from": "1.5.2",
+   "to": "1.3.0"
+  },
+  {
+   "repo": "https://github.com/OmniaGit/odooplm",
+   "commit": "b9db89248c206fd61bd38191d7a5289c58ce8a54",
+   "pinned_in": "aaa_requirements.txt",
+   "package": "matplotlib",
+   "id": "pin-omniagit__odooplm-matplotlib-up",
+   "from": "3.8.4",
+   "to": "3.11.2"
+  },
+  {
+   "repo": "https://github.com/OmniaGit/odooplm",
+   "commit": "b9db89248c206fd61bd38191d7a5289c58ce8a54",
+   "pinned_in": "aaa_requirements.txt",
+   "package": "matplotlib",
+   "id": "pin-omniagit__odooplm-matplotlib-down",
+   "from": "3.8.4",
+   "to": "3.7.1"
+  },
+  {
+   "repo": "https://github.com/labbdogg/python",
+   "commit": "5d8269b763be1db2ff1a4a1c43bd4fd86a73b75a",
+   "pinned_in": "REQUIREMENTS.txt",
+   "package": "matplotlib",
+   "id": "pin-labbdogg__python-matplotlib-up",
+   "from": "3.7.1",
+   "to": "3.11.2"
+  },
+  {
+   "repo": "https://github.com/JohnTong12/Public_ML_Spam_mail",
+   "commit": "d455e21cd4b3da71dd5c51ed3ca100916f692ef6",
+   "pinned_in": "requirements.txt.txt",
+   "package": "streamlit",
+   "id": "pin-johntong12__public_ml_spam_mail-streamlit-up",
+   "from": "1.35.0",
+   "to": "1.67.0"
+  },
+  {
+   "repo": "https://github.com/JohnTong12/Public_ML_Spam_mail",
+   "commit": "d455e21cd4b3da71dd5c51ed3ca100916f692ef6",
+   "pinned_in": "requirements.txt.txt",
+   "package": "streamlit",
+   "id": "pin-johntong12__public_ml_spam_mail-streamlit-down",
+   "from": "1.35.0",
+   "to": "1.22.0"
+  },
+  {
+   "repo": "https://github.com/malamishra/LinierRegression",
+   "commit": "bf8fe11880e1884138de306c1d90175df3757732",
+   "pinned_in": "requirements.txt.txt",
+   "package": "streamlit",
+   "id": "pin-malamishra__linierregression-streamlit-up",
+   "from": "1.36.0",
+   "to": "1.67.0"
+  },
+  {
+   "repo": "https://github.com/malamishra/LinierRegression",
+   "commit": "bf8fe11880e1884138de306c1d90175df3757732",
+   "pinned_in": "requirements.txt.txt",
+   "package": "streamlit",
+   "id": "pin-malamishra__linierregression-streamlit-down",
+   "from": "1.36.0",
+   "to": "1.23.1"
+  },
+  {
+   "repo": "https://github.com/VITA-MLLM/VITA",
+   "commit": "35d064a6542a5d812136fcd66fa93d9beb27b03c",
+   "pinned_in": "web_demo/web_demo_requirements.txt",
+   "package": "gradio",
+   "id": "pin-vita-mllm__vita-gradio-up",
+   "from": "4.42.0",
+   "to": "6.31.0"
+  },
+  {
+   "repo": "https://github.com/VITA-MLLM/VITA",
+   "commit": "35d064a6542a5d812136fcd66fa93d9beb27b03c",
+   "pinned_in": "web_demo/web_demo_requirements.txt",
+   "package": "gradio",
+   "id": "pin-vita-mllm__vita-gradio-down",
+   "from": "4.42.0",
+   "to": "3.40.1"
+  },
+  {
+   "repo": "https://github.com/Tencent-Hunyuan/HunyuanDiT",
+   "commit": "bf37693476a86e281006173ddd364debbb3c3624",
+   "pinned_in": "kohya_ss-hydit/hunyuan_requirements.txt",
+   "package": "gradio",
+   "id": "pin-tencent-hunyuan__hunyuandit-gradio-up",
+   "from": "4.37.1",
+   "to": "6.31.0"
+  },
+  {
+   "repo": "https://github.com/Tencent-Hunyuan/HunyuanDiT",
+   "commit": "bf37693476a86e281006173ddd364debbb3c3624",
+   "pinned_in": "kohya_ss-hydit/hunyuan_requirements.txt",
+   "package": "gradio",
+   "id": "pin-tencent-hunyuan__hunyuandit-gradio-down",
+   "from": "4.37.1",
+   "to": "3.35.2"
+  },
+  {
+   "repo": "https://github.com/norn/bustime",
+   "commit": "78a1a80e71d6c02eb437d34fe39da905dc49dbd2",
+   "pinned_in": "requirements.txt.upgrade",
+   "package": "django",
+   "id": "pin-norn__bustime-django-up",
+   "from": "5.1.1",
+   "to": "6.1.3"
+  },
+  {
+   "repo": "https://github.com/norn/bustime",
+   "commit": "78a1a80e71d6c02eb437d34fe39da905dc49dbd2",
+   "pinned_in": "requirements.txt.upgrade",
+   "package": "django",
+   "id": "pin-norn__bustime-django-down",
+   "from": "5.1.1",
+   "to": "4.2.5"
+  },
+  {
+   "repo": "https://github.com/kartoza/prj.app",
+   "commit": "d964ffe78fbf2b703ccc3d06fc27319beee01f96",
+   "pinned_in": "deployment/docker/REQUIREMENTS.txt",
+   "package": "django",
+   "id": "pin-kartoza__prj.app-django-up",
+   "from": "3.2.13",
+   "to": "6.1.3"
+  },
+  {
+   "repo": "https://github.com/kartoza/prj.app",
+   "commit": "d964ffe78fbf2b703ccc3d06fc27319beee01f96",
+   "pinned_in": "deployment/docker/REQUIREMENTS.txt",
+   "package": "django",
+   "id": "pin-kartoza__prj.app-django-down",
+   "from": "3.2.13",
+   "to": "3.2"
+  },
+  {
+   "repo": "https://github.com/nityansuman/warren",
+   "commit": "23d47fff7fff075ed9b05b43ea5d5f71d461f2fa",
+   "pinned_in": "REQUIREMENTS.txt",
+   "package": "flask",
+   "id": "pin-nityansuman__warren-flask-up",
+   "from": "2.3.2",
+   "to": "3.1.3"
+  },
+  {
+   "repo": "https://github.com/bricewalker/Hey-Jetson",
+   "commit": "e5abe32e3b060552a2faf58f857a693b46fcff94",
+   "pinned_in": "server_requirements.txt",
+   "package": "flask",
+   "id": "pin-bricewalker__hey-jetson-flask-up",
+   "from": "2.3.2",
+   "to": "3.1.3"
+  },
+  {
+   "repo": "https://github.com/WebControlCNC/WebControl",
+   "commit": "fe1f113eb1225c0ef882681116140a1ad8973391",
+   "pinned_in": "holeyrequirements.txt",
+   "package": "werkzeug",
+   "id": "pin-webcontrolcnc__webcontrol-werkzeug-up",
+   "from": "2.2.2",
+   "to": "3.1.9"
+  },
+  {
+   "repo": "https://github.com/bricewalker/Hey-Jetson",
+   "commit": "e5abe32e3b060552a2faf58f857a693b46fcff94",
+   "pinned_in": "jetson_requirements.txt",
+   "package": "werkzeug",
+   "id": "pin-bricewalker__hey-jetson-werkzeug-up",
+   "from": "3.0.1",
+   "to": "3.1.9"
+  },
+  {
+   "repo": "https://github.com/bricewalker/Hey-Jetson",
+   "commit": "e5abe32e3b060552a2faf58f857a693b46fcff94",
+   "pinned_in": "jetson_requirements.txt",
+   "package": "werkzeug",
+   "id": "pin-bricewalker__hey-jetson-werkzeug-down",
+   "from": "3.0.1",
+   "to": "2.2.2"
+  },
+  {
+   "repo": "https://github.com/Pratham-Mishra04/interact-ml",
+   "commit": "ef7ab5fee83a8573c9e9ce5c505ed88a79566308",
+   "pinned_in": "celery.requirements.txt",
+   "package": "celery",
+   "id": "pin-pratham-mishra04__interact-ml-celery-up",
+   "from": "5.3.6",
+   "to": "5.7.0"
+  },
+  {
+   "repo": "https://github.com/OpenHumans/open-humans",
+   "commit": "51c6bdb666d6d8ee0cbe227c606584d3f1556969",
+   "pinned_in": "requirements.txt.bck",
+   "package": "celery",
+   "id": "pin-openhumans__open-humans-celery-up",
+   "from": "5.4.0",
+   "to": "5.7.0"
+  },
+  {
+   "repo": "https://github.com/martinrusev/django-redis-sessions",
+   "commit": "9789e9faf85224f0d12540c12a2c9313a4096c02",
+   "pinned_in": "dev_requirements.txt",
+   "package": "redis",
+   "id": "pin-martinrusev__django-redis-sessions-redis-up",
+   "from": "4.5.4",
+   "to": "8.1.0"
+  },
+  {
+   "repo": "https://github.com/norn/bustime",
+   "commit": "78a1a80e71d6c02eb437d34fe39da905dc49dbd2",
+   "pinned_in": "requirements.txt.upgrade",
+   "package": "redis",
+   "id": "pin-norn__bustime-redis-up",
+   "from": "5.0.8",
+   "to": "8.1.0"
+  },
+  {
+   "repo": "https://github.com/norn/bustime",
+   "commit": "78a1a80e71d6c02eb437d34fe39da905dc49dbd2",
+   "pinned_in": "requirements.txt.upgrade",
+   "package": "redis",
+   "id": "pin-norn__bustime-redis-down",
+   "from": "5.0.8",
+   "to": "4.6.0"
+  },
+  {
+   "repo": "https://github.com/AIS-SNU/GraNNDis_Artifact",
+   "commit": "c6dfba39e3a1ffac9413a0fdb423d066e1adda4c",
+   "pinned_in": "pip-requirements.txt",
+   "package": "pymongo",
+   "id": "pin-ais-snu__granndis_artifact-pymongo-up",
+   "from": "4.8.0",
+   "to": "4.19.0"
+  },
+  {
+   "repo": "https://github.com/AIS-SNU/GraNNDis_Artifact",
+   "commit": "c6dfba39e3a1ffac9413a0fdb423d066e1adda4c",
+   "pinned_in": "pip-requirements.txt",
+   "package": "pymongo",
+   "id": "pin-ais-snu__granndis_artifact-pymongo-down",
+   "from": "4.8.0",
+   "to": "4.4.0"
+  },
+  {
+   "repo": "https://github.com/gasvaktin/gasvaktin",
+   "commit": "0c9d798d51d2f5f58ae4a4cb3feeac34007772d2",
+   "pinned_in": "pip_requirements.txt",
+   "package": "selenium",
+   "id": "pin-gasvaktin__gasvaktin-selenium-up",
+   "from": "4.43.0",
+   "to": "4.52.0"
+  },
+  {
+   "repo": "https://github.com/gasvaktin/gasvaktin",
+   "commit": "0c9d798d51d2f5f58ae4a4cb3feeac34007772d2",
+   "pinned_in": "pip_requirements.txt",
+   "package": "selenium",
+   "id": "pin-gasvaktin__gasvaktin-selenium-down",
+   "from": "4.43.0",
+   "to": "4.31.0"
+  },
+  {
+   "repo": "https://github.com/ferru97/PyPaperBot",
+   "commit": "a65bf7071478d79ee312d7d21154aad4c806e198",
+   "pinned_in": "requirements.txt",
+   "package": "selenium",
+   "id": "pin-ferru97__pypaperbot-selenium-up",
+   "from": "4.25.0",
+   "to": "4.52.0"
+  },
+  {
+   "repo": "https://github.com/ferru97/PyPaperBot",
+   "commit": "a65bf7071478d79ee312d7d21154aad4c806e198",
+   "pinned_in": "requirements.txt",
+   "package": "selenium",
+   "id": "pin-ferru97__pypaperbot-selenium-down",
+   "from": "4.25.0",
+   "to": "4.12.0"
+  },
+  {
+   "repo": "https://github.com/horacio9a/cam4-anonymous",
+   "commit": "e5503aae6765ab5a7e07b4a73e34c1693fab4a13",
+   "pinned_in": "Requirements.txt",
+   "package": "urllib3",
+   "id": "pin-horacio9a__cam4-anonymous-urllib3-up",
+   "from": "1.26.4",
+   "to": "2.8.0"
+  },
+  {
+   "repo": "https://github.com/mc-lan/Text4Seg",
+   "commit": "d6540b6b41d3595cfc0a3cf1b0016b617f7dadc0",
+   "pinned_in": "ms-swift/my_requirements.txt",
+   "package": "aiohttp",
+   "id": "pin-mc-lan__text4seg-aiohttp-up",
+   "from": "3.11.11",
+   "to": "3.14.5"
+  },
+  {
+   "repo": "https://github.com/mc-lan/Text4Seg",
+   "commit": "d6540b6b41d3595cfc0a3cf1b0016b617f7dadc0",
+   "pinned_in": "ms-swift/my_requirements.txt",
+   "package": "aiohttp",
+   "id": "pin-mc-lan__text4seg-aiohttp-down",
+   "from": "3.11.11",
+   "to": "3.9.1"
+  },
+  {
+   "repo": "https://github.com/Hyperclaw79/StocksALot",
+   "commit": "6c5342570493277d1d3b17efd026904c353f783f",
+   "pinned_in": "dev_requirements.txt",
+   "package": "aiohttp",
+   "id": "pin-hyperclaw79__stocksalot-aiohttp-up",
+   "from": "3.8.5",
+   "to": "3.14.5"
+  },
+  {
+   "repo": "https://github.com/Hyperclaw79/StocksALot",
+   "commit": "6c5342570493277d1d3b17efd026904c353f783f",
+   "pinned_in": "dev_requirements.txt",
+   "package": "aiohttp",
+   "id": "pin-hyperclaw79__stocksalot-aiohttp-down",
+   "from": "3.8.5",
+   "to": "3.8.1"
+  },
+  {
+   "repo": "https://github.com/iver56/audiomentations",
+   "commit": "f5e45049dfa8b33e8ee79a900b2b796a9dcae45f",
+   "pinned_in": "dev_requirements.txt",
+   "package": "pytest",
+   "id": "pin-iver56__audiomentations-pytest-up",
+   "from": "7.4.4",
+   "to": "9.2.0"
+  },
+  {
+   "repo": "https://github.com/iver56/audiomentations",
+   "commit": "f5e45049dfa8b33e8ee79a900b2b796a9dcae45f",
+   "pinned_in": "dev_requirements.txt",
+   "package": "pytest",
+   "id": "pin-iver56__audiomentations-pytest-down",
+   "from": "7.4.4",
+   "to": "7.2.0"
+  },
+  {
+   "repo": "https://github.com/LexPredict/lexpredict-lexnlp",
+   "commit": "330b4e113c9bced0cc06f2c864c5015bb5ed2199",
+   "pinned_in": "python-requirements.txt",
+   "package": "pytest",
+   "id": "pin-lexpredict__lexpredict-lexnlp-pytest-up",
+   "from": "7.2.0",
+   "to": "9.2.0"
+  },
+  {
+   "repo": "https://github.com/nebius/nebius-physical-ai",
+   "commit": "72845438ddee0d907001da518c70b1a7d704e82f",
+   "pinned_in": "npa/docker/workbench/isaac-arena/npa-cli-requirements.txt",
+   "package": "typer",
+   "id": "pin-nebius__nebius-physical-ai-typer-up",
+   "from": "0.27.2",
+   "to": "0.28.0"
+  },
+  {
+   "repo": "https://github.com/nebius/nebius-physical-ai",
+   "commit": "72845438ddee0d907001da518c70b1a7d704e82f",
+   "pinned_in": "npa/docker/workbench/isaac-arena/npa-cli-requirements.txt",
+   "package": "typer",
+   "id": "pin-nebius__nebius-physical-ai-typer-down",
+   "from": "0.27.2",
+   "to": "0.16.1"
+  },
+  {
+   "repo": "https://github.com/guardana/guardana",
+   "commit": "946c5f02be59a87bfc7b0b9ed8745f3e0853d123",
+   "pinned_in": "deploy/docker/cli-requirements.txt",
+   "package": "typer",
+   "id": "pin-guardana__guardana-typer-up",
+   "from": "0.27.3",
+   "to": "0.28.0"
+  },
+  {
+   "repo": "https://github.com/guardana/guardana",
+   "commit": "946c5f02be59a87bfc7b0b9ed8745f3e0853d123",
+   "pinned_in": "deploy/docker/cli-requirements.txt",
+   "package": "typer",
+   "id": "pin-guardana__guardana-typer-down",
+   "from": "0.27.3",
+   "to": "0.19.2"
+  },
+  {
+   "repo": "https://github.com/flyteorg/flytesnacks",
+   "commit": "c9b2c44dc5d0ce42e482be1ffb16c8b19e72c23c",
+   "pinned_in": "docs-requirements.txt",
+   "package": "click",
+   "id": "pin-flyteorg__flytesnacks-click-up",
+   "from": "8.1.7",
+   "to": "8.5.1"
+  },
+  {
+   "repo": "https://github.com/flyteorg/flytesnacks",
+   "commit": "c9b2c44dc5d0ce42e482be1ffb16c8b19e72c23c",
+   "pinned_in": "docs-requirements.txt",
+   "package": "click",
+   "id": "pin-flyteorg__flytesnacks-click-down",
+   "from": "8.1.7",
+   "to": "8.1.3"
+  },
+  {
+   "repo": "https://github.com/quanted/esat",
+   "commit": "82d25373bf90473b2d4bee10a48aad66bf443a13",
+   "pinned_in": "doc-requirements.txt",
+   "package": "click",
+   "id": "pin-quanted__esat-click-up",
+   "from": "8.1.8",
+   "to": "8.5.1"
+  },
+  {
+   "repo": "https://github.com/quanted/esat",
+   "commit": "82d25373bf90473b2d4bee10a48aad66bf443a13",
+   "pinned_in": "doc-requirements.txt",
+   "package": "click",
+   "id": "pin-quanted__esat-click-down",
+   "from": "8.1.8",
+   "to": "8.1.7"
+  },
+  {
+   "repo": "https://github.com/edurange/edurange3",
+   "commit": "b226885117d06a3c5fc209680c981d485274ed7e",
+   "pinned_in": "requirements/prod_requirements.txt",
+   "package": "marshmallow",
+   "id": "pin-edurange__edurange3-marshmallow-up",
+   "from": "4.3.0",
+   "to": "4.4.0"
+  },
+  {
+   "repo": "https://github.com/edurange/edurange3",
+   "commit": "b226885117d06a3c5fc209680c981d485274ed7e",
+   "pinned_in": "requirements/prod_requirements.txt",
+   "package": "marshmallow",
+   "id": "pin-edurange__edurange3-marshmallow-down",
+   "from": "4.3.0",
+   "to": "3.26.1"
+  },
+  {
+   "repo": "https://github.com/joemrnice/flaskblog",
+   "commit": "c4b108b4ef017ad62a66bd4fd183a139e527b083",
+   "pinned_in": "v1requirements.txt",
+   "package": "marshmallow",
+   "id": "pin-joemrnice__flaskblog-marshmallow-up",
+   "from": "3.23.2",
+   "to": "4.4.0"
+  },
+  {
+   "repo": "https://github.com/joemrnice/flaskblog",
+   "commit": "c4b108b4ef017ad62a66bd4fd183a139e527b083",
+   "pinned_in": "v1requirements.txt",
+   "package": "marshmallow",
+   "id": "pin-joemrnice__flaskblog-marshmallow-down",
+   "from": "3.23.2",
+   "to": "3.20.1"
+  }
+ ],
+ "candidates": [
+  {
+   "package": "openai",
+   "repo": "Drakkar-Software/OctoBot",
+   "path": "packages/services/full_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "openai",
+   "repo": "mit-han-lab/streaming-vlm",
+   "path": "ovo_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "openai",
+   "repo": "yuezhiai/jonex",
+   "path": "Reference/OpenKB/openkb-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "openai",
+   "repo": "meituan-longcat/LongCat-Image",
+   "path": "train_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "openai",
+   "repo": "Xwin-LM/Xwin-LM",
+   "path": "Xwin-Coder/DS1000/ds1000_requirements.txt",
+   "skipped": "pin '0.23.0' not in [0.26.0, 3.46.0)"
+  },
+  {
+   "package": "openai",
+   "repo": "didilili/ai-agents-from-zero",
+   "path": "\u6848\u4f8b\u4e0e\u6e90\u7801-4-\u5fae\u8c03/examples/deployment/installed-requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "anthropic",
+   "repo": "benman1/generative_ai_with_langchain",
+   "path": "requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "anthropic",
+   "repo": "zstar1003/ragflow-plus",
+   "path": "requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "anthropic",
+   "repo": "sc2musa/Large-Language-Models-play-StarCraftII",
+   "path": "pip_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "anthropic",
+   "repo": "aws-samples/aiml-genai-multimodal-agent",
+   "path": "demo-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "anthropic",
+   "repo": "zjunlp/DataMind",
+   "path": "datamind/train/rl/verl/run_code_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "anthropic",
+   "repo": "cirolini/genai-code-review",
+   "path": "requirements.txt",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "anthropic",
+   "repo": "NineAbyss/OR-License",
+   "path": "tools/opus_fallback_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "google-genai",
+   "repo": "benman1/generative_ai_with_langchain",
+   "path": "requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "google-genai",
+   "repo": "cirolini/genai-code-review",
+   "path": "requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "google-genai",
+   "repo": "prakharsr/audiobook-creator",
+   "path": "requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "google-genai",
+   "repo": "extractumio/ag3ntum",
+   "path": "config/user_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "google-genai",
+   "repo": "AxWise-GmbH/axwise-flow",
+   "path": "backend/workflow_v2_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "google-genai",
+   "repo": "cmjatai/cmj",
+   "path": "requirements/ia-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "google-genai",
+   "repo": "Manish9250/TDS_project2",
+   "path": "other_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "google-genai",
+   "repo": "gskinnerTeam/flutter-hatcha-app",
+   "path": "agents/hatcha_agent/app_utils/.requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "google-generativeai",
+   "repo": "OpenBMB/OlympiadBench",
+   "path": "inference/api_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "google-generativeai",
+   "repo": "Jay-1409/GTA5Chat",
+   "path": "requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "google-generativeai",
+   "repo": "sc2musa/Large-Language-Models-play-StarCraftII",
+   "path": "pip_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "google-generativeai",
+   "repo": "eqimp/hogwild_llm",
+   "path": "evals/olympiadbench/inference/api_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "google-generativeai",
+   "repo": "zhaochen0110/OpenThinkIMG",
+   "path": "tool_server_requirements.txt",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "google-generativeai",
+   "repo": "Sim2Reason/Sim2Reason",
+   "path": "evals/OlympiadBench/inference/api_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "google-generativeai",
+   "repo": "ByteDance-Seed/FlexPrefill",
+   "path": "extra_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "mistralai",
+   "repo": "benman1/generative_ai_with_langchain",
+   "path": "requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "mistralai",
+   "repo": "zstar1003/ragflow-plus",
+   "path": "requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "mistralai",
+   "repo": "kreneskyp/ix",
+   "path": "requirements.txt",
+   "skipped": "pin None not in [0.0.7, 3.7.0)"
+  },
+  {
+   "package": "mistralai",
+   "repo": "jofizcd/Soul-of-Waifu",
+   "path": "requirements.txt",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "mistralai",
+   "repo": "prakharsr/audiobook-creator",
+   "path": "requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "mistralai",
+   "repo": "TheAgenticAI/TheAgenticBrowser",
+   "path": "requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "mistralai",
+   "repo": "cruiseresearchgroup/SOCIA",
+   "path": "requirements.txt",
+   "skipped": "pin None not in [0.0.7, 3.7.0)"
+  },
+  {
+   "package": "mistralai",
+   "repo": "OPPO-PersonalAI/TaskCraft",
+   "path": "requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "mistralai",
+   "repo": "dwani-ai/llm-recipes",
+   "path": "python/fine-tuning/onnx-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "mistralai",
+   "repo": "format81/TI-Mindmap-GPT",
+   "path": "requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "mistralai",
+   "repo": "allenai/asta-theorizer",
+   "path": "requirements.txt",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "mistralai",
+   "repo": "denodo/denodo-ai-sdk",
+   "path": "requirements.txt",
+   "skipped": "pin None not in [0.0.7, 3.7.0)"
+  },
+  {
+   "package": "mistralai",
+   "repo": "gcastano/Streamlit-Demo-Apps",
+   "path": "requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "litellm",
+   "repo": "OpenCSGs/csghub-server",
+   "path": "docker/spaces/space/base_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "litellm",
+   "repo": "raga-ai-hub/RagaAI-Catalyst",
+   "path": "requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "litellm",
+   "repo": "yuezhiai/jonex",
+   "path": "Reference/OpenKB/openkb-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "litellm",
+   "repo": "OSU-NLP-Group/HippoRAG",
+   "path": "requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "litellm",
+   "repo": "sambanova/ai-starter-kit",
+   "path": "base-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "litellm",
+   "repo": "Continual-Intelligence/SEAL",
+   "path": "requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "langchain",
+   "repo": "Azure/azure-search-vector-samples",
+   "path": "demo-python/code/community-integration/ragas/ragas-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "langchain",
+   "repo": "sambanova/ai-starter-kit",
+   "path": "base-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "langchain",
+   "repo": "benman1/generative_ai_with_langchain",
+   "path": "requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "langchain",
+   "repo": "ForzaETH/LLMxRobot",
+   "path": "arm_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "langchain",
+   "repo": "MuhammadAhmedAbbasi/Audio-Transcription-For-Psychiatrists",
+   "path": "docker-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "langchain",
+   "repo": "H-Freax/ThinkGrasp",
+   "path": "vlp_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "langchain",
+   "repo": "AILab-CVC/GPT4Tools",
+   "path": "requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "langchain-core",
+   "repo": "benman1/generative_ai_with_langchain",
+   "path": "requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "langchain-core",
+   "repo": "Farzad-R/LLM-Zero-to-Hundred",
+   "path": "RAGMaster-LlamaIndex-vs-Langchain/langchain_env_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "langchain-core",
+   "repo": "ocolakoglu/PetoiBittleChatGPT",
+   "path": "Requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "langchain-core",
+   "repo": "jgraber/PythonFriday",
+   "path": "AI/lang_chain/csv_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "langchain-community",
+   "repo": "Azure/azure-search-vector-samples",
+   "path": "demo-python/code/community-integration/ragas/ragas-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "langchain-community",
+   "repo": "sambanova/ai-starter-kit",
+   "path": "base-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "langchain-community",
+   "repo": "benman1/generative_ai_with_langchain",
+   "path": "requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "langchain-community",
+   "repo": "GhostPack/RAGnarok",
+   "path": "ragnarok/requirements.txt.orig",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "langchain-community",
+   "repo": "Farzad-R/LLM-Zero-to-Hundred",
+   "path": "RAGMaster-LlamaIndex-vs-Langchain/langchain_env_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "langchain-community",
+   "repo": "ocolakoglu/PetoiBittleChatGPT",
+   "path": "Requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "langchain-community",
+   "repo": "aasouzaconsult/portfolio-dados",
+   "path": "IA Generativa/RAG + Langchain/Requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "langchain-community",
+   "repo": "jgraber/PythonFriday",
+   "path": "AI/lang_chain/csv_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "langchain-openai",
+   "repo": "Azure/azure-search-vector-samples",
+   "path": "demo-python/code/community-integration/ragas/ragas-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "langchain-openai",
+   "repo": "DjangoPeng/openai-quickstart",
+   "path": "requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "langchain-openai",
+   "repo": "benman1/generative_ai_with_langchain",
+   "path": "requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "langchain-openai",
+   "repo": "ForzaETH/LLMxRobot",
+   "path": "arm_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "langchain-openai",
+   "repo": "zjunlp/MemBase",
+   "path": "envs/rag_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "langchain-openai",
+   "repo": "ivebotunac/PrimoGPT",
+   "path": "requirements.txt",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "langchain-openai",
+   "repo": "ocolakoglu/PetoiBittleChatGPT",
+   "path": "Requirements.txt",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "langchain-openai",
+   "repo": "NVIDIA/nim-anywhere",
+   "path": "requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "langchain-openai",
+   "repo": "aasouzaconsult/portfolio-dados",
+   "path": "IA Generativa/RAG + Langchain/Requirements.txt",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "langchain-openai",
+   "repo": "jgraber/PythonFriday",
+   "path": "AI/lang_chain/csv_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "langgraph",
+   "repo": "sambanova/ai-starter-kit",
+   "path": "base-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "langgraph",
+   "repo": "benman1/generative_ai_with_langchain",
+   "path": "requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "langgraph",
+   "repo": "zjunlp/MemBase",
+   "path": "envs/rag_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "langgraph",
+   "repo": "louisgthier/decompai",
+   "path": "requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "langgraph",
+   "repo": "USC-FORTIS/AD-AGENT",
+   "path": "requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "llama-index-core",
+   "repo": "hhhuang/CAG",
+   "path": "requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "llama-index-core",
+   "repo": "Siddhant-Goswami/100x-LLM",
+   "path": "requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "llama-index-core",
+   "repo": "nrl-ai/llama-assistant",
+   "path": "requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "llama-index-core",
+   "repo": "BUAADreamer/EasyRAG",
+   "path": "requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "mcp",
+   "repo": "Drakkar-Software/OctoBot",
+   "path": "packages/services/full_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "mcp",
+   "repo": "OpenCSGs/csghub-server",
+   "path": "docker/spaces/space/base_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "mcp",
+   "repo": "OpenSPG/KAG",
+   "path": "requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "mcp",
+   "repo": "yuezhiai/jonex",
+   "path": "Reference/OpenKB/openkb-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "mcp",
+   "repo": "Mixar-AI/mixar-app",
+   "path": "scripts/python_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "fastmcp",
+   "repo": "oracle/mcp",
+   "path": "requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "fastmcp",
+   "repo": "prakharsr/audiobook-creator",
+   "path": "requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "fastmcp",
+   "repo": "Context-Engine-AI/Context-Engine",
+   "path": "requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "fastmcp",
+   "repo": "answerlink/MCP-Workspace-Server",
+   "path": "requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "fastmcp",
+   "repo": "keta1930/agent-graph",
+   "path": "requirements.txt",
+   "skipped": "pin '2.8' not in [0.1.0, 4.1.6)"
+  },
+  {
+   "package": "fastmcp",
+   "repo": "SylvianAI/sv-excel-agent",
+   "path": "requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "pydantic",
+   "repo": "Drakkar-Software/OctoBot",
+   "path": "full_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "pydantic",
+   "repo": "Bitmessage/PyBitmessage",
+   "path": "kivy-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pydantic",
+   "repo": "mit-han-lab/streaming-vlm",
+   "path": "ovo_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "pydantic",
+   "repo": "sambanova/ai-starter-kit",
+   "path": "base-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "pydantic",
+   "repo": "simon-ging/coot-videotext",
+   "path": "frozen_requirements.txt",
+   "skipped": "pin '1.7.3' not in [1.10.0, 2.14.3)"
+  },
+  {
+   "package": "pydantic",
+   "repo": "qgis/QGIS-Website",
+   "path": "REQUIREMENTS.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pydantic",
+   "repo": "DrewThomasson/VoxNovel",
+   "path": "MAC-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pydantic",
+   "repo": "barrycarey/RedditRepostSleuth",
+   "path": "worker-requirements.txt",
+   "skipped": "1 uses"
+  },
+  {
+   "package": "pydantic",
+   "repo": "google-marketing-solutions/Tightlock",
+   "path": "airflow_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "pydantic",
+   "repo": "containerbuildsystem/atomic-reactor",
+   "path": "otel-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pydantic",
+   "repo": "ai-forever/Kandinsky-3",
+   "path": "exact_requirements.txt",
+   "skipped": "pin '1.9.0' not in [1.10.0, 2.14.3)"
+  },
+  {
+   "package": "pydantic",
+   "repo": "sc2musa/Large-Language-Models-play-StarCraftII",
+   "path": "pip_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "pydantic",
+   "repo": "OpenHelix-Team/ReconVLA",
+   "path": "recon_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pydantic",
+   "repo": "zhaochen0110/OpenThinkIMG",
+   "path": "train_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pydantic",
+   "repo": "daswer123/xtts-finetune-webui",
+   "path": "apple_silicon_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pydantic",
+   "repo": "mbzuai-oryx/XrayGPT",
+   "path": "xraygpt_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pydantic",
+   "repo": "dod-advana/gamechanger-ml",
+   "path": "lock.requirements.txt",
+   "skipped": "pin '1.8.2' not in [1.10.0, 2.14.3)"
+  },
+  {
+   "package": "pydantic",
+   "repo": "yynil/RWKVTTS",
+   "path": "rwkvtts_requirements.txt",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "pydantic",
+   "repo": "Tencent/VITA",
+   "path": "vita_e_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "OpenCSGs/csghub-server",
+   "path": "docker/spaces/space/base_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "yuezhiai/jonex",
+   "path": "Reference/OpenKB/openkb-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "didilili/ai-agents-from-zero",
+   "path": "\u6848\u4f8b\u4e0e\u6e90\u7801-4-\u5fae\u8c03/examples/deployment/installed-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "thevickypedia/Jarvis",
+   "path": "jarvis/lib/version_pinned_requirements.txt",
+   "skipped": "pin '2.14.*' not in [1.99, 2.16.2)"
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "tawounfouet/rncp_crypto-bot-app",
+   "path": "models/requirements.txt.template",
+   "skipped": "pin '$PYDANTIC_SETTINGS_VERSION' not in [1.99, 2.16.2)"
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "Huaqiu-Electronics/kicad-win-builder",
+   "path": "support/mcprequirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "NVIDIA/OSMO",
+   "path": "src/locked_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "alibaba/ROCK",
+   "path": "examples/tinker_quick_start/public_bundle.requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "sambanova/generative_data_prep",
+   "path": "requirements/docs-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "thamarai-guna/Post-Discharge-AI-Assistant",
+   "path": "temp_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "arunv3rma/MeMo",
+   "path": "memo_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "mburaksayici/FinancialAdvisorGPT",
+   "path": "all_requirements.txt",
+   "skipped": "1 uses"
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "GoogleCloudPlatform/agentsmithy",
+   "path": "agent_bar_v2/app_utils/.requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "Ch3nYe/AutoCompiler",
+   "path": "Requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "taco-group/LangCoop",
+   "path": "my_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "malingshu2015/llm-protection-system",
+   "path": "requirements/current_requirements.txt",
+   "skipped": "1 uses"
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "dwani-ai/llm-recipes",
+   "path": "tutorials/rolmocr/dhwani-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "Amirrdoustdar/fastclean",
+   "path": "fastclean/templates/base/requirements.txt.j2",
+   "skipped": "1 uses"
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "padmapria/RAG-Care-Mental-Wellness-Assistant",
+   "path": "services/app/app_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "Lewington-pitsos/remote-graphcast",
+   "path": "local_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "neocharlesprojects/tradeagents",
+   "path": "requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "ankushdixit/solokit",
+   "path": "src/solokit/templates/ml_ai_fastapi/base/requirements.txt.template",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "graze-social/grazer",
+   "path": "py311-linux-requirements.txt",
+   "skipped": "1 uses"
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "trashchenkov/telegram-posts-clustering",
+   "path": "backend/venv_requirements.txt",
+   "skipped": "1 uses"
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "ProjectZeroDays/codeforge-ai",
+   "path": "hf_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "akamai-developers/rag-langgraph-k8s-quickstart",
+   "path": "requirements.txt.save",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "agntcy/identity-service",
+   "path": "sdk/python/lint-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "aisingapore/web_scale_pdf_processing_pipeline",
+   "path": "pip_freeze_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "EasySprache/klartext",
+   "path": "Requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "aws-samples/sample-social-intelligence-agents",
+   "path": "infra/runtime-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "rhyang2021/LoGU",
+   "path": "vllm_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "kartik703/space_app",
+   "path": "backend_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pydantic-settings",
+   "repo": "sizifart/SeedCoinBot",
+   "path": "requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "pydantic-ai-slim",
+   "repo": "coleam00/ai-agents-masterclass",
+   "path": "pydantic-ai/requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "pydantic-ai-slim",
+   "repo": "galaxyproject/galaxy",
+   "path": "lib/galaxy/dependencies/pinned-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "pydantic-ai-slim",
+   "repo": "coleam00/ottomator-agents",
+   "path": "ai-agent-fundamentals/requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "pydantic-ai-slim",
+   "repo": "FSoft-AI4Code/CodeWiki",
+   "path": "requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "openai-agents",
+   "repo": "openai/openai-cookbook",
+   "path": "examples/mcp/building-a-supply-chain-copilot-with-agent-sdk-and-databricks-mcp/requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "openai-agents",
+   "repo": "yuezhiai/jonex",
+   "path": "Reference/OpenKB/openkb-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "openai-agents",
+   "repo": "NirDiamant/agents-towards-production",
+   "path": "tutorials/agent-security-with-llamafirewall/requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "openai-agents",
+   "repo": "BasedHardware/omi",
+   "path": "mcp/examples/requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "openai-agents",
+   "repo": "VRSEN/OpenSwarm",
+   "path": "requirements.txt",
+   "skipped": "pin None not in [0.0.2, 0.24.0)"
+  },
+  {
+   "package": "openai-agents",
+   "repo": "GAIR-NLP/ASI-Arch",
+   "path": "requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "openai-agents",
+   "repo": "Azure/azure-functions-durable-python",
+   "path": "requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "crewai",
+   "repo": "sambanova/ai-starter-kit",
+   "path": "base-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "crewai",
+   "repo": "sinanuozdemir/oreilly-ai-pipelines",
+   "path": "requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "crewai",
+   "repo": "UnfoldDataScience/Agentic_Ai_For_Beginner",
+   "path": "RETIRED_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "crewai",
+   "repo": "shaunthecomputerscientist/EDA-GPT",
+   "path": "requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "crewai",
+   "repo": "kid0317/crewai_mas_demo",
+   "path": "requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "crewai",
+   "repo": "anjaliii255/crewAI-trip-planner",
+   "path": "requirements.txt",
+   "skipped": "pin None not in [0.1.0, 1.15.37)"
+  },
+  {
+   "package": "crewai",
+   "repo": "nithilanimraka/TravelAgent-crewAI",
+   "path": "requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "dspy",
+   "repo": "BasedHardware/omi",
+   "path": "mcp/examples/requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "dspy",
+   "repo": "zjunlp/OmniThink",
+   "path": "requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "dspy",
+   "repo": "oborchers/Fast_Sentence_Embeddings",
+   "path": "recipes/requirements.txt",
+   "skipped": "pin '3.4.1' not in [0.0.1, 3.4.1)"
+  },
+  {
+   "package": "dspy",
+   "repo": "TheStageAI/TheWhisper",
+   "path": "asr_postprocess/requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "dspy",
+   "repo": "ai-builders/curriculum",
+   "path": "requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "dspy",
+   "repo": "lakshmanok/generative-ai-design-patterns",
+   "path": "examples/20_prompt_optimization/requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "dspy",
+   "repo": "FireBird-Technologies/Auto-Analyst",
+   "path": "auto-analyst-backend/requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "instructor",
+   "repo": "KoljaB/Linguflex",
+   "path": "conda_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "instructor",
+   "repo": "D-Star-AI/dsRAG",
+   "path": "requirements.txt",
+   "skipped": "1 uses"
+  },
+  {
+   "package": "instructor",
+   "repo": "haizelabs/dspy-redteam",
+   "path": "requirements.txt",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "instructor",
+   "repo": "AGI4Engineering/EngDesign",
+   "path": "docker_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "instructor",
+   "repo": "jbexta/AgentPilot",
+   "path": "requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "instructor",
+   "repo": "Papr-ai/memory-opensource",
+   "path": "requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "transformers",
+   "repo": "LargeWorldModel/LWM",
+   "path": "gpu_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "transformers",
+   "repo": "mims-harvard/PrimeKG",
+   "path": "updated_requirements.txt",
+   "skipped": "pin '4.11.3' not in [4.26.0, 5.22.2)"
+  },
+  {
+   "package": "transformers",
+   "repo": "mit-han-lab/streaming-vlm",
+   "path": "ovo_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "transformers",
+   "repo": "MoonInTheRiver/NeuralSVB",
+   "path": "Requirements.txt",
+   "skipped": "pin '4.15.0' not in [4.26.0, 5.22.2)"
+  },
+  {
+   "package": "transformers",
+   "repo": "alexiglad/EBT",
+   "path": "loose_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "transformers",
+   "repo": "meituan-longcat/LongCat-Image",
+   "path": "train_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "huggingface-hub",
+   "repo": "mims-harvard/PrimeKG",
+   "path": "updated_requirements.txt",
+   "skipped": "pin '0.5.1' not in [0.12.0, 2.4.0)"
+  },
+  {
+   "package": "huggingface-hub",
+   "repo": "mit-han-lab/streaming-vlm",
+   "path": "ovo_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "huggingface-hub",
+   "repo": "alexiglad/EBT",
+   "path": "loose_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "huggingface-hub",
+   "repo": "stanford-crfm/mistral",
+   "path": "setup/pip-requirements.txt",
+   "skipped": "pin '0.4.0' not in [0.12.0, 2.4.0)"
+  },
+  {
+   "package": "huggingface-hub",
+   "repo": "meituan-longcat/LongCat-Image",
+   "path": "train_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "huggingface-hub",
+   "repo": "sambanova/ai-starter-kit",
+   "path": "base-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "huggingface-hub",
+   "repo": "OHDSI/Criteria2Query",
+   "path": "venv_requirements.txt",
+   "skipped": "pin '0.4.0' not in [0.12.0, 2.4.0)"
+  },
+  {
+   "package": "huggingface-hub",
+   "repo": "OpenBMB/VisRAG",
+   "path": "EVisRAG_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "huggingface-hub",
+   "repo": "DrewThomasson/VoxNovel",
+   "path": "MAC-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "huggingface-hub",
+   "repo": "moonshinelabs-ai/moonshine-remote-sensing",
+   "path": "docs_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "huggingface-hub",
+   "repo": "multimodal-art-projection/AutoMV",
+   "path": "SongFormer_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "huggingface-hub",
+   "repo": "NVlabs/object_centric_diffusion",
+   "path": "dp3_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "huggingface-hub",
+   "repo": "ai-forever/Kandinsky-3",
+   "path": "exact_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "huggingface-hub",
+   "repo": "sc2musa/Large-Language-Models-play-StarCraftII",
+   "path": "pip_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "huggingface-hub",
+   "repo": "Amshaker/Mobile-O",
+   "path": "eval/geneval_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "chromadb",
+   "repo": "agiresearch/OpenAGI",
+   "path": "pyopenagi/agents/example/rag_agent/meta_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "chromadb",
+   "repo": "sc2musa/Large-Language-Models-play-StarCraftII",
+   "path": "pip_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "chromadb",
+   "repo": "Farzad-R/LLM-Zero-to-Hundred",
+   "path": "RAGMaster-LlamaIndex-vs-Langchain/langchain_env_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "chromadb",
+   "repo": "AIIRWKV/RWKV-RAG",
+   "path": "required/index_service_requirements.txt",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "chromadb",
+   "repo": "5uru/Dialogue",
+   "path": "requirements.txt",
+   "skipped": "pin '=0.4.24' not in [0.1.0, 1.5.9)"
+  },
+  {
+   "package": "chromadb",
+   "repo": "abgulati/LARS",
+   "path": "requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "chromadb",
+   "repo": "GoodAI/charlie-mnemonic",
+   "path": "requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "chromadb",
+   "repo": "Open-TutorAi/open-tutor-ai-CE",
+   "path": "requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "chromadb",
+   "repo": "Baishaki-sfdc/StyleSynth",
+   "path": "requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "chromadb",
+   "repo": "Adrian1998-java/ChatBot",
+   "path": "requirements.txt",
+   "skipped": "pin '=0.5.23' not in [0.1.0, 1.5.9)"
+  },
+  {
+   "package": "chromadb",
+   "repo": "mburaksayici/FinancialAdvisorGPT",
+   "path": "all_requirements.txt",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "chromadb",
+   "repo": "Ch3nYe/AutoCompiler",
+   "path": "Requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "chromadb",
+   "repo": "taco-group/LangCoop",
+   "path": "my_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "chromadb",
+   "repo": "genaiconference/RAG_Workshop_DHS2024",
+   "path": "rag_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "qdrant-client",
+   "repo": "RasaHQ/rasa-calm-demo",
+   "path": "qdrant-requirements.txt",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "qdrant-client",
+   "repo": "Softlandia-Ltd/vision-is-all-you-need",
+   "path": "requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "qdrant-client",
+   "repo": "filipealtoe/Automatic-evidence-based-explanation",
+   "path": "requirements.txt",
+   "skipped": "pin '==0.14.0' not in [0.11.0, 1.20.0)"
+  },
+  {
+   "package": "qdrant-client",
+   "repo": "guyernest/advanced-rag",
+   "path": "requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "qdrant-client",
+   "repo": "Divyanshu-sharma-coder/Advanced-AI-Agent-",
+   "path": "Correactive RAG (CRAG)/Requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "qdrant-client",
+   "repo": "AIAnytime/Medical-RAG-using-Bio-Mistral-7B",
+   "path": "requirements.txt",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "qdrant-client",
+   "repo": "adi7820/Regulatory-Compliance-Advisor",
+   "path": "qdrant_requirements.txt",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "qdrant-client",
+   "repo": "menloparklab/langchain-cohere-qdrant-retrieval",
+   "path": "requirements.txt",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "qdrant-client",
+   "repo": "menloparklab/langchain-cohere-qdrant-doc-retrieval",
+   "path": "requirements.txt",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "qdrant-client",
+   "repo": "Mohit1053/Cement-Concall-RAG",
+   "path": "rag_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "qdrant-client",
+   "repo": "khaledzakarya/Knowva-AI-Features-",
+   "path": "src/Requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "pinecone",
+   "repo": "Mapileon2/Scraper_lol",
+   "path": "## Requirements.txt",
+   "skipped": "pin None not in [2.2.2, 10.3.0)"
+  },
+  {
+   "package": "pinecone",
+   "repo": "samrasugu/nutrimate_backend",
+   "path": "requirements.txt",
+   "skipped": "pin None not in [2.2.2, 10.3.0)"
+  },
+  {
+   "package": "pinecone",
+   "repo": "Roniwatson4222/Medical-Chatbot",
+   "path": "requirements.txt",
+   "skipped": "pin None not in [2.2.2, 10.3.0)"
+  },
+  {
+   "package": "pinecone",
+   "repo": "sinanuozdemir/oreilly-retrieval-augmented-gen-ai",
+   "path": "requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "pinecone",
+   "repo": "kyoky-Fundasta/LangraBot",
+   "path": "requirements.txt",
+   "skipped": "pin None not in [2.2.2, 10.3.0)"
+  },
+  {
+   "package": "pinecone",
+   "repo": "Vargha-Kh/Langchain-RAG-DevelopmentKit",
+   "path": "requirements.txt",
+   "skipped": "pin None not in [2.2.2, 10.3.0)"
+  },
+  {
+   "package": "pinecone",
+   "repo": "harshverma4028/Medical-ChatBot-GenAI",
+   "path": "newrequirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "pinecone",
+   "repo": "EdIzaguirre/Rosebud",
+   "path": "requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "pinecone",
+   "repo": "pinecone-io/contextual-webinar-rag",
+   "path": "requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "weaviate-client",
+   "repo": "LangChain-OpenTutorial/LangChain-OpenTutorial",
+   "path": "requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "weaviate-client",
+   "repo": "malywut/gpt_examples",
+   "path": "requirements.txt",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "weaviate-client",
+   "repo": "EpistasisLab/KRAGEN",
+   "path": "docker/requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "weaviate-client",
+   "repo": "Haohao-end/openagent",
+   "path": "api/requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "weaviate-client",
+   "repo": "weaviate/weaviate-examples",
+   "path": "nearest-neighbor-dog-search/requirements.txt",
+   "skipped": "pin '3.9.0' not in [3.11.0, 4.24.1)"
+  },
+  {
+   "package": "weaviate-client",
+   "repo": "FeatureBaseDB/DoctorGPT",
+   "path": "requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "weaviate-client",
+   "repo": "LinkedInLearning/vector-databases-in-practice-deep-dive-4513162",
+   "path": "requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "ollama",
+   "repo": "KoljaB/Linguflex",
+   "path": "conda_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "ollama",
+   "repo": "benman1/generative_ai_with_langchain",
+   "path": "requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "ollama",
+   "repo": "thevickypedia/Jarvis",
+   "path": "jarvis/lib/version_pinned_requirements.txt",
+   "skipped": "pin '0.6.*' not in [0.0.0, 0.6.3)"
+  },
+  {
+   "package": "ollama",
+   "repo": "zstar1003/ragflow-plus",
+   "path": "requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "ollama",
+   "repo": "tonykipkemboi/ollama_pdf_rag",
+   "path": "requirements.txt",
+   "skipped": "pin None not in [0.0.0, 0.6.3)"
+  },
+  {
+   "package": "ollama",
+   "repo": "wunderwuzzi23/yolo-ai-cmdbot",
+   "path": "requirements.txt",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "ollama",
+   "repo": "KodyKendall/LlamaBot",
+   "path": "requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "ollama",
+   "repo": "aasouzaconsult/portfolio-dados",
+   "path": "IA Generativa/RAG + Langchain/Requirements.txt",
+   "skipped": "pin None not in [0.0.0, 0.6.3)"
+  },
+  {
+   "package": "ollama",
+   "repo": "Lum1104/MER-Factory",
+   "path": "requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "ollama",
+   "repo": "MannLabs/alphapeptstats",
+   "path": "requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "ollama",
+   "repo": "cristianleoo/models-from-scratch-python",
+   "path": "requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "ollama",
+   "repo": "mburaksayici/FinancialAdvisorGPT",
+   "path": "all_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "ollama",
+   "repo": "dwani-ai/llm-recipes",
+   "path": "python/fine-tuning/onnx-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "ollama",
+   "repo": "LexiestLeszek/scrapeGPT",
+   "path": "requirements.txt",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "ollama",
+   "repo": "paulbrowne-irl/AI-Knowledgement-Emails-and-Documents",
+   "path": "snapshot-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "ollama",
+   "repo": "malingshu2015/llm-protection-system",
+   "path": "requirements/current_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "ollama",
+   "repo": "raj-maharajwala/AI_Agent_Chatbot_Synapse",
+   "path": "requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "ollama",
+   "repo": "padmapria/RAG-Care-Mental-Wellness-Assistant",
+   "path": "services/app/app_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "ollama",
+   "repo": "SoftBacon-Software/mycelium",
+   "path": "bench/memory/arms/mem0-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "ollama",
+   "repo": "lprm-ufes/MininetFed",
+   "path": "util/requirements/local/docs.requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "ollama",
+   "repo": "nagaraj-real/localaipilot-api",
+   "path": "requirements.txt",
+   "skipped": "pin None not in [0.0.0, 0.6.3)"
+  },
+  {
+   "package": "ollama",
+   "repo": "wortai/deep-research-agent",
+   "path": "server/clean_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "ollama",
+   "repo": "OpenCSGs/csghub-dataflow",
+   "path": "docker/apiserver_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "ollama",
+   "repo": "Bui1dMySea/MemLong",
+   "path": "requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "ollama",
+   "repo": "dudajulian/hybrid-ai-plan-execution-monitoring",
+   "path": "pip-requirements.txt",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "ollama",
+   "repo": "skillrepos/ato-agents",
+   "path": "requirements/requirements.txt.new",
+   "skipped": "pin None not in [0.0.0, 0.6.3)"
+  },
+  {
+   "package": "ollama",
+   "repo": "itswadesh/meeting-summary",
+   "path": "Requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "fastapi",
+   "repo": "punk-security/dnsReaper",
+   "path": "lambda-requirements.txt",
+   "skipped": "pin '0.87.0' not in [0.89.0, 0.162.2)"
+  },
+  {
+   "package": "fastapi",
+   "repo": "mit-han-lab/streaming-vlm",
+   "path": "ovo_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "fastapi",
+   "repo": "KoljaB/Linguflex",
+   "path": "conda_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "fastapi",
+   "repo": "sambanova/ai-starter-kit",
+   "path": "base-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "fastapi",
+   "repo": "Wordcab/wordcab-transcribe",
+   "path": "pre_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "fastapi",
+   "repo": "ai-forever/Kandinsky-3",
+   "path": "exact_requirements.txt",
+   "skipped": "pin '0.72.0' not in [0.89.0, 0.162.2)"
+  },
+  {
+   "package": "fastapi",
+   "repo": "sc2musa/Large-Language-Models-play-StarCraftII",
+   "path": "pip_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "fastapi",
+   "repo": "OpenHelix-Team/ReconVLA",
+   "path": "recon_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "fastapi",
+   "repo": "zhaochen0110/OpenThinkIMG",
+   "path": "train_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "starlette",
+   "repo": "Drakkar-Software/OctoBot",
+   "path": "packages/services/full_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "starlette",
+   "repo": "fiatrete/OpenDAN-Personal-AI-OS",
+   "path": "src/requirements.txt.bak",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "starlette",
+   "repo": "Tencent-Hunyuan/HunyuanDiT",
+   "path": "kohya_ss-hydit/hunyuan_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "starlette",
+   "repo": "mit-han-lab/streaming-vlm",
+   "path": "ovo_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "starlette",
+   "repo": "OpenBMB/VisRAG",
+   "path": "EVisRAG_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "starlette",
+   "repo": "open-contracting/standard",
+   "path": "common-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "starlette",
+   "repo": "oceanbase/obdeploy",
+   "path": "service/service-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "starlette",
+   "repo": "OpenGVLab/VideoChat-Flash",
+   "path": "xtuner-eval_niah/niah_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "starlette",
+   "repo": "david-xinyuwei/david-share",
+   "path": "Deep-Learning/Qwen-Reranker/pip-requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "starlette",
+   "repo": "ai-forever/Kandinsky-3",
+   "path": "exact_requirements.txt",
+   "skipped": "pin '0.17.1' not in [0.24.0, 1.10.0)"
+  },
+  {
+   "package": "starlette",
+   "repo": "sybil-solutions/local-ai-registry",
+   "path": "data/scripts/mtplx-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "starlette",
+   "repo": "EpicWink/proxpi",
+   "path": "app.requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "httpx",
+   "repo": "mit-han-lab/streaming-vlm",
+   "path": "sft_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "httpx",
+   "repo": "OpenBMB/VisRAG",
+   "path": "EVisRAG_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "httpx",
+   "repo": "Ostorlab/oxo",
+   "path": "typing_requirements.txt",
+   "skipped": "pin None not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "sambanova/ai-starter-kit",
+   "path": "base-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "httpx",
+   "repo": "DrewThomasson/VoxNovel",
+   "path": "MAC-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "ns3098/FastAPI_Template",
+   "path": "dev_requirements.txt",
+   "skipped": "pin '\"0.17.1\"' not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "ai-forever/Kandinsky-3",
+   "path": "exact_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "mc-lan/Text4Seg",
+   "path": "ms-swift/my_requirements.txt",
+   "skipped": "pin '0.28.1' not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "sc2musa/Large-Language-Models-play-StarCraftII",
+   "path": "pip_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "httpx",
+   "repo": "OpenHelix-Team/ReconVLA",
+   "path": "recon_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "zhaochen0110/OpenThinkIMG",
+   "path": "train_requirements.txt",
+   "skipped": "pin '0.28.1' not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "daswer123/xtts-finetune-webui",
+   "path": "apple_silicon_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "mbzuai-oryx/XrayGPT",
+   "path": "xraygpt_requirements.txt",
+   "skipped": "pin '0.13.3' not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "corail-research/seahorse",
+   "path": "dev_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "httpx",
+   "repo": "Weasyl/weasyl",
+   "path": "poetry-requirements.txt",
+   "skipped": "pin '0.28.1' not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "amd/AMD-PACE",
+   "path": "dev_requirements.txt",
+   "skipped": "pin '0.28.1' not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "Hyperclaw79/StocksALot",
+   "path": "dev_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "jim-schwoebel/nala_assistant",
+   "path": "gpu_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "Huaqiu-Electronics/kicad-win-builder",
+   "path": "support/mcprequirements.txt",
+   "skipped": "pin '0.28.1' not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "enoobis/short-video-creator",
+   "path": "old_requirements.txt",
+   "skipped": "pin '0.13.3' not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "ByteDance-Seed/FlexPrefill",
+   "path": "extra_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "NVIDIA/OSMO",
+   "path": "src/locked_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "httpx",
+   "repo": "ArrogantL/ChatGPT4CausalReasoning",
+   "path": "pip_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "UnfoldDataScience/Agentic_Ai_For_Beginner",
+   "path": "RETIRED_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "JEFworks-Lab/STalign",
+   "path": "pipenv-requirements.txt",
+   "skipped": "pin '0.28.1' not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "ArtistC220/BERT-LLM-Yuri-cls",
+   "path": "assets/u-requirements.txt",
+   "skipped": "pin '0.28.1' not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "franciscoliu/MLLMU-Bench",
+   "path": "idefics_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "neurotechuoft/NeuroStack_2023",
+   "path": "server_requirements.txt",
+   "skipped": "pin '0.9.3' not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "tuneinsight/federated-llms",
+   "path": "pip_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "Haoqiu-Yan/PerceptiveAgent",
+   "path": "cap_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "P2Enjoy/stable-diffusion-docker",
+   "path": "data/webui-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "ibis-project/ibis-tutorial",
+   "path": "codespace_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "utah-MFDA/openmfda_flow",
+   "path": "python-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "Latand/delegatus",
+   "path": "scripts/whisper-requirements.txt",
+   "skipped": "pin '0.28.1' not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "arunv3rma/MeMo",
+   "path": "memo_requirements.txt",
+   "skipped": "pin '0.28.1' not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "daggy1234/dagpi-image",
+   "path": "prod.requirements.txt",
+   "skipped": "pin '0.16.1' not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "audio-df-ucb/ClonedVoiceDetection",
+   "path": "pip_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "RAINet-Lab/SYMBXRL",
+   "path": "pip-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "canonical/iam-bundle",
+   "path": "integration-requirements.txt",
+   "skipped": "pin '0.28.1' not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "MASWorks/ML-Agent",
+   "path": "eval_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "Manish9250/TDS_project2",
+   "path": "other_requirements.txt",
+   "skipped": "pin '0.28.1' not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "taco-group/LangCoop",
+   "path": "langcoop_requirements.txt",
+   "skipped": "pin '0.28.1' not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "AGI-Eval-Official/FORTE",
+   "path": "docker/agent-requirements.txt",
+   "skipped": "pin '0.28.1' not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "UW-Madison-Lee-Lab/CoBSAT",
+   "path": "conda_env/llava_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "PalisadeResearch/ctfish",
+   "path": "docker-requirements.txt",
+   "skipped": "pin '0.28.1' not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "provena/provena",
+   "path": "auth-api/testing_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "httpx",
+   "repo": "mburaksayici/FinancialAdvisorGPT",
+   "path": "all_requirements.txt",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "internetarchive/fatcat-scholar",
+   "path": "ci.requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "andreidev1/deepbookpy",
+   "path": "example-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "cewebbr/cordata",
+   "path": "openai_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "sul-rds/avila",
+   "path": "cuda_requirements.txt",
+   "skipped": "pin '0.28.1' not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "nayemabs/cattle-web",
+   "path": "server_requirements.txt",
+   "skipped": "pin '0.21.1' not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "LSEG-API-Samples/Article.DataLibrary.Python.Xlwings",
+   "path": "xlwingsce_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "JanetMo/empathy-technologies",
+   "path": "Requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "ihmeuw/vivarium_gates_lsff",
+   "path": "archive_requirements.txt",
+   "skipped": "pin '0.17.1' not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "LSEG-API-Samples/Article.RDPLibrary.Python.Xlwings",
+   "path": "xlwingspro_requirements.txt",
+   "skipped": "pin '0.14.3' not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "allenai/mathfish",
+   "path": "runningRequirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "YuxuanXiu/ChatGPT-for-Translation-with-Updated-API",
+   "path": "stable_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "Ch3nYe/AutoCompiler",
+   "path": "Requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "i8o8i-Developer/Telegram-Identity-Bot",
+   "path": "Requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "DabDans/AudioMarathon",
+   "path": "Qwen_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "josh-ashkinaze/plurals",
+   "path": "dev_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "malingshu2015/llm-protection-system",
+   "path": "requirements/current_requirements.txt",
+   "skipped": "pin '0.28.1' not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "rohingosling/service-provider-agnostic-chatbot-python",
+   "path": "src/venv_requirements.txt",
+   "skipped": "pin '0.28.1' not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "epu-ntua/AI4EF",
+   "path": "python_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "Raytsang123/CLIBE",
+   "path": "requirements.txt.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "Hobit2002/TracheoSpeech_ASR",
+   "path": "pip_requirements.txt",
+   "skipped": "pin '0.28.1' not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "Wenbo-Nie/CoCoDiff",
+   "path": "CoCo.requirements.txt",
+   "skipped": "pin '0.28.1' not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "pengxuanyang/UncAD",
+   "path": "VAD_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "gowrav-vishwakarma/ai-video-generator-editor",
+   "path": "__requirements.txt",
+   "skipped": "pin '0.28.1' not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "eflows4hpc/datacatalog",
+   "path": "testing_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "abdur75648/MedicalGPT",
+   "path": "hard_requirements.txt",
+   "skipped": "pin '0.13.3' not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "Met4FoF/agentMET4FOF",
+   "path": "docs/sphinx-requirements.txt",
+   "skipped": "pin '0.28.1' not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "Lewington-pitsos/remote-graphcast",
+   "path": "local_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "interfacerproject/Interfacer-notebook",
+   "path": "pip_requirements.txt",
+   "skipped": "pin '0.28.1' not in [0.23.0, 0.28.1)"
+  },
+  {
+   "package": "httpx",
+   "repo": "rhyang2021/LoGU",
+   "path": "lf_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "httpx",
+   "repo": "Ayobamidele/wattpad-scraper",
+   "path": "dev_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "httpx",
+   "repo": "YashvirGaming/TikTikCheckerCLI",
+   "path": "Requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "httpx",
+   "repo": "trashchenkov/telegram-posts-clustering",
+   "path": "backend/venv_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "sqlalchemy",
+   "repo": "selfspy/selfspy",
+   "path": "osx-requirements.txt",
+   "skipped": "pin '0.9.4' not in [1.4.0, 2.1.8)"
+  },
+  {
+   "package": "sqlalchemy",
+   "repo": "nvbn/everpad",
+   "path": "dev_requirements.txt",
+   "skipped": "pin '0.7.9' not in [1.4.0, 2.1.8)"
+  },
+  {
+   "package": "sqlalchemy",
+   "repo": "Meituan-Dianping/lyrebird",
+   "path": "requirements.txt.lock",
+   "skipped": "pin '1.3.22' not in [1.4.0, 2.1.8)"
+  },
+  {
+   "package": "sqlalchemy",
+   "repo": "mit-han-lab/streaming-vlm",
+   "path": "infer_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "sqlalchemy",
+   "repo": "nityansuman/warren",
+   "path": "REQUIREMENTS.txt",
+   "skipped": "pin '1.3.18' not in [1.4.0, 2.1.8)"
+  },
+  {
+   "package": "sqlalchemy",
+   "repo": "meanstrong/pydelo",
+   "path": "pip_requirements.txt",
+   "skipped": "pin None not in [1.4.0, 2.1.8)"
+  },
+  {
+   "package": "sqlalchemy",
+   "repo": "flyteorg/flytesnacks",
+   "path": "docs-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "sqlalchemy",
+   "repo": "cairis-platform/cairis",
+   "path": "travis_requirements.txt",
+   "skipped": "pin '1.3.20' not in [1.4.0, 2.1.8)"
+  },
+  {
+   "package": "sqlalchemy",
+   "repo": "opalbow/KyberCrystalDisplay",
+   "path": "Requirements.txt",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "sqlalchemy",
+   "repo": "zjubio/jupyterhub",
+   "path": "reset_requirements.txt",
+   "skipped": "pin None not in [1.4.0, 2.1.8)"
+  },
+  {
+   "package": "sqlalchemy",
+   "repo": "Tsinghua-MARS-Lab/StateTransformer",
+   "path": "generation_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "sqlalchemy",
+   "repo": "linkedin/iris-relay",
+   "path": "dev_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "sqlalchemy",
+   "repo": "barrycarey/RedditRepostSleuth",
+   "path": "worker-requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "sqlmodel",
+   "repo": "jiggy-ai/hn_summary",
+   "path": "requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "sqlmodel",
+   "repo": "Azure-Samples/azure-postgres-pgvector-python",
+   "path": "requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "sqlmodel",
+   "repo": "big-data-team/python-course",
+   "path": "requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "sqlmodel",
+   "repo": "KodyKendall/LlamaBot",
+   "path": "requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "sqlmodel",
+   "repo": "FLAIR-THU/VFLAIR",
+   "path": "requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "pandas",
+   "repo": "rdcolema/tensorflow-image-classification",
+   "path": "tf1_requirements.txt",
+   "skipped": "pin '0.25.0' not in [1.5.0, 3.1.1)"
+  },
+  {
+   "package": "pandas",
+   "repo": "MoonInTheRiver/NeuralSVB",
+   "path": "Requirements.txt",
+   "skipped": "pin '1.1.5' not in [1.5.0, 3.1.1)"
+  },
+  {
+   "package": "pandas",
+   "repo": "nityansuman/warren",
+   "path": "REQUIREMENTS.txt",
+   "skipped": "pin '1.1.0' not in [1.5.0, 3.1.1)"
+  },
+  {
+   "package": "pandas",
+   "repo": "oarriaga/neural_image_captioning",
+   "path": "REQUIREMENTS.txt",
+   "skipped": "pin '0.19.1' not in [1.5.0, 3.1.1)"
+  },
+  {
+   "package": "pandas",
+   "repo": "JIA-Lab-research/Jenga",
+   "path": "hy_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pandas",
+   "repo": "kiptoorono/Kenya-soil-moisture-Analysis",
+   "path": "Requirements.txt",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "pandas",
+   "repo": "opalbow/KyberCrystalDisplay",
+   "path": "Requirements.txt",
+   "skipped": "pin '1.3.5' not in [1.5.0, 3.1.1)"
+  },
+  {
+   "package": "pandas",
+   "repo": "just-krivi/option-pricing-models",
+   "path": "Requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "pandas",
+   "repo": "flyteorg/flytesnacks",
+   "path": "docs-requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "pandas",
+   "repo": "user1342/DroidDetective",
+   "path": "REQUIREMENTS.txt",
+   "skipped": "pin '1.4.2' not in [1.5.0, 3.1.1)"
+  },
+  {
+   "package": "pandas",
+   "repo": "evansochieng/Kenya-soil-moisture-Analysis",
+   "path": "Requirements.txt",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "pandas",
+   "repo": "nityansuman/marvin",
+   "path": "REQUIREMENTS.txt",
+   "skipped": "pin '1.1.0' not in [1.5.0, 3.1.1)"
+  },
+  {
+   "package": "pandas",
+   "repo": "derUbermenk/helloAirflow",
+   "path": ".requirements.txt",
+   "skipped": "pin '=2.2.1' not in [1.5.0, 3.1.1)"
+  },
+  {
+   "package": "pandas",
+   "repo": "CosmiQ/CometTS",
+   "path": "Requirements.txt",
+   "skipped": "pin '0.24.1' not in [1.5.0, 3.1.1)"
+  },
+  {
+   "package": "pandas",
+   "repo": "Sarthak000001/Crop_Predication_model",
+   "path": "requirements.txt.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pandas",
+   "repo": "Zhao-Med/SmartAST",
+   "path": "requirements.txt.txt",
+   "skipped": null
+  },
+  {
+   "package": "numpy",
+   "repo": "MoonInTheRiver/NeuralSVB",
+   "path": "Requirements.txt",
+   "skipped": "pin '1.21.5' not in [1.24.0, 2.5.4)"
+  },
+  {
+   "package": "numpy",
+   "repo": "nityansuman/warren",
+   "path": "REQUIREMENTS.txt",
+   "skipped": "pin '1.22.0' not in [1.24.0, 2.5.4)"
+  },
+  {
+   "package": "numpy",
+   "repo": "oarriaga/neural_image_captioning",
+   "path": "REQUIREMENTS.txt",
+   "skipped": "pin '1.12.1' not in [1.24.0, 2.5.4)"
+  },
+  {
+   "package": "numpy",
+   "repo": "goruck/smart-zoneminder",
+   "path": "ml-requirements.txt",
+   "skipped": "pin '1.19.5' not in [1.24.0, 2.5.4)"
+  },
+  {
+   "package": "numpy",
+   "repo": "JIA-Lab-research/Jenga",
+   "path": "hy_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "numpy",
+   "repo": "just-krivi/option-pricing-models",
+   "path": "Requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "numpy",
+   "repo": "warnikchow/dlk2nlp",
+   "path": "Requirements.txt",
+   "skipped": "pin '1.14.3' not in [1.24.0, 2.5.4)"
+  },
+  {
+   "package": "numpy",
+   "repo": "Dinones/Nintendo-Switch-Pokemon-Shiny-Hunter",
+   "path": "Requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "polars",
+   "repo": "briefercloud/briefer",
+   "path": "apps/api/jupyter-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "polars",
+   "repo": "UnravelSports/unravelsports",
+   "path": "requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "polars",
+   "repo": "ibis-project/ibis-tutorial",
+   "path": "codespace_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "polars",
+   "repo": "crabbuild/crab",
+   "path": "crab/scripts/e2e/s3_gateway_ecosystem_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "polars",
+   "repo": "thunlp/Migician",
+   "path": "requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "polars",
+   "repo": "jha-lab/graphmert_umls",
+   "path": "llm_helper_utils/vllm_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "polars",
+   "repo": "TomBurdge/polari",
+   "path": "examples/example_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "polars",
+   "repo": "MediaBrain-SJTU/LED",
+   "path": "requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "polars",
+   "repo": "icip-cas/StructRAG",
+   "path": "requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "polars",
+   "repo": "GenomicsAotearoa/Kakapo",
+   "path": "ANALYSIS_localpca/pip_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "polars",
+   "repo": "a96123155/UTR-LM",
+   "path": "utrlm_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "polars",
+   "repo": "EternityJune25/ComoRAG",
+   "path": "requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "polars",
+   "repo": "caciviclab/disclosure-backend-static",
+   "path": "requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "polars",
+   "repo": "JessicaAquino/bank-churn-prediction",
+   "path": "vm_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "scikit-learn",
+   "repo": "LearnedVector/A-Hackers-AI-Voice-Assistant",
+   "path": "rpi-requirements.txt",
+   "skipped": "pin '0.22.2.post1' not in [1.2.0, 1.9.1)"
+  },
+  {
+   "package": "scikit-learn",
+   "repo": "rdcolema/tensorflow-image-classification",
+   "path": "tf1_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "scikit-learn",
+   "repo": "MoonInTheRiver/NeuralSVB",
+   "path": "Requirements.txt",
+   "skipped": "pin '0.21.3' not in [1.2.0, 1.9.1)"
+  },
+  {
+   "package": "scikit-learn",
+   "repo": "thunlp/BERT-KPE",
+   "path": "pip-requirements.txt",
+   "skipped": "pin '1.0.1' not in [1.2.0, 1.9.1)"
+  },
+  {
+   "package": "scikit-learn",
+   "repo": "labbdogg/python",
+   "path": "REQUIREMENTS.txt",
+   "skipped": "pin '0.20' not in [1.2.0, 1.9.1)"
+  },
+  {
+   "package": "scikit-learn",
+   "repo": "goruck/smart-zoneminder",
+   "path": "ml-requirements.txt",
+   "skipped": "pin '0.22.1' not in [1.2.0, 1.9.1)"
+  },
+  {
+   "package": "scikit-learn",
+   "repo": "warnikchow/dlk2nlp",
+   "path": "Requirements.txt",
+   "skipped": "pin '0.19.1' not in [1.2.0, 1.9.1)"
+  },
+  {
+   "package": "scikit-learn",
+   "repo": "flyteorg/flytesnacks",
+   "path": "docs-requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "matplotlib",
+   "repo": "mit-han-lab/streaming-vlm",
+   "path": "infer_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "matplotlib",
+   "repo": "rdcolema/tensorflow-image-classification",
+   "path": "tf1_requirements.txt",
+   "skipped": "pin '3.3.1' not in [3.6.0, 3.11.2)"
+  },
+  {
+   "package": "matplotlib",
+   "repo": "nipy/nitime",
+   "path": "min-requirements.txt",
+   "skipped": "pin '3.9' not in [3.6.0, 3.11.2)"
+  },
+  {
+   "package": "matplotlib",
+   "repo": "Jakobovski/free-spoken-digit-dataset",
+   "path": "pip_requirements.txt",
+   "skipped": "pin '1.5.1' not in [3.6.0, 3.11.2)"
+  },
+  {
+   "package": "matplotlib",
+   "repo": "OmniaGit/odooplm",
+   "path": "aaa_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "matplotlib",
+   "repo": "nityansuman/warren",
+   "path": "REQUIREMENTS.txt",
+   "skipped": "pin '3.3.1' not in [3.6.0, 3.11.2)"
+  },
+  {
+   "package": "matplotlib",
+   "repo": "wzk1015/video-bgm-generation",
+   "path": "py3_requirements.txt",
+   "skipped": "pin '3.3.4' not in [3.6.0, 3.11.2)"
+  },
+  {
+   "package": "matplotlib",
+   "repo": "oarriaga/neural_image_captioning",
+   "path": "REQUIREMENTS.txt",
+   "skipped": "pin '2.1.0' not in [3.6.0, 3.11.2)"
+  },
+  {
+   "package": "matplotlib",
+   "repo": "labbdogg/python",
+   "path": "REQUIREMENTS.txt",
+   "skipped": null
+  },
+  {
+   "package": "streamlit",
+   "repo": "AI-Yash/st-chat",
+   "path": "pip-requirements.txt",
+   "skipped": "pin '1.3.0' not in [1.17.0, 1.67.0)"
+  },
+  {
+   "package": "streamlit",
+   "repo": "just-krivi/option-pricing-models",
+   "path": "Requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "streamlit",
+   "repo": "sandialabs/snl-quest",
+   "path": "quest/app/tools/reqs/viz_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "streamlit",
+   "repo": "JohnTong12/Public_ML_Spam_mail",
+   "path": "requirements.txt.txt",
+   "skipped": null
+  },
+  {
+   "package": "streamlit",
+   "repo": "malamishra/LinierRegression",
+   "path": "requirements.txt.txt",
+   "skipped": null
+  },
+  {
+   "package": "gradio",
+   "repo": "jasonppy/VoiceCraft",
+   "path": "gradio_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "gradio",
+   "repo": "microsoft/unilm",
+   "path": "textdiffuser-2/assets/reference_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "gradio",
+   "repo": "VITA-MLLM/VITA",
+   "path": "web_demo/web_demo_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "gradio",
+   "repo": "OpenCSGs/csghub-server",
+   "path": "docker/spaces/space/base_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "gradio",
+   "repo": "intelligent-machine-learning/dlrover",
+   "path": "examples/pytorch/llama2/npu_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "gradio",
+   "repo": "Tencent-Hunyuan/HunyuanDiT",
+   "path": "kohya_ss-hydit/hunyuan_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "django",
+   "repo": "pyston/pyston",
+   "path": "pyston/pgo_requirements.txt",
+   "skipped": "pin '3.0.7' not in [3.2, 6.1.3)"
+  },
+  {
+   "package": "django",
+   "repo": "b12io/orchestra",
+   "path": "docs-requirements.txt",
+   "skipped": "pin '2.2.13' not in [3.2, 6.1.3)"
+  },
+  {
+   "package": "django",
+   "repo": "hagsteel/swampdragon",
+   "path": "tox_requirements.txt",
+   "skipped": "pin None not in [3.2, 6.1.3)"
+  },
+  {
+   "package": "django",
+   "repo": "OpenAgricultureFoundation/openag-device-software",
+   "path": "osx_requirements.txt",
+   "skipped": "pin '1.11.23' not in [3.2, 6.1.3)"
+  },
+  {
+   "package": "django",
+   "repo": "karrioapi/karrio",
+   "path": "source.requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "django",
+   "repo": "Partisk/Partisk.nu",
+   "path": "python_requirements.txt",
+   "skipped": "pin '=2.0.1' not in [3.2, 6.1.3)"
+  },
+  {
+   "package": "django",
+   "repo": "qgriffith-zz/OpenEats",
+   "path": "OE2_Requirements.txt",
+   "skipped": "pin '1.5.12' not in [3.2, 6.1.3)"
+  },
+  {
+   "package": "django",
+   "repo": "bemoss/BEMOSS3.5",
+   "path": "BEMOSS_requirements.txt",
+   "skipped": "pin '1.11' not in [3.2, 6.1.3)"
+  },
+  {
+   "package": "django",
+   "repo": "PyAr/pyarweb",
+   "path": "dev_requirements.txt",
+   "skipped": "pin None not in [3.2, 6.1.3)"
+  },
+  {
+   "package": "django",
+   "repo": "dreaswar/AuShadha",
+   "path": "docs/REQUIREMENTS.txt",
+   "skipped": "pin '1.7.2' not in [3.2, 6.1.3)"
+  },
+  {
+   "package": "django",
+   "repo": "zhy0216/OhMyPocket",
+   "path": "dev_requirements.txt",
+   "skipped": "pin '1.8' not in [3.2, 6.1.3)"
+  },
+  {
+   "package": "django",
+   "repo": "tfoxy/graphene-django-optimizer",
+   "path": "dev-env-requirements.txt",
+   "skipped": "pin None not in [3.2, 6.1.3)"
+  },
+  {
+   "package": "django",
+   "repo": "montylounge/django-mingus",
+   "path": "mingus/stable-requirements.txt",
+   "skipped": "pin '1.3' not in [3.2, 6.1.3)"
+  },
+  {
+   "package": "django",
+   "repo": "mbylstra/django-wham",
+   "path": "ipython-requirements.txt",
+   "skipped": "pin '1.6.5' not in [3.2, 6.1.3)"
+  },
+  {
+   "package": "django",
+   "repo": "itimor/one-workflow",
+   "path": "backend/dev_requirements.txt",
+   "skipped": "pin '3.0.3' not in [3.2, 6.1.3)"
+  },
+  {
+   "package": "django",
+   "repo": "YakindanEgitim/malwarez",
+   "path": "pip_requirements.txt",
+   "skipped": "pin '1.5.1' not in [3.2, 6.1.3)"
+  },
+  {
+   "package": "django",
+   "repo": "karanlyons/django-save-the-change",
+   "path": "rtd_requirements.txt",
+   "skipped": "pin '1.10' not in [3.2, 6.1.3)"
+  },
+  {
+   "package": "django",
+   "repo": "ai-forever/Kandinsky-3",
+   "path": "exact_requirements.txt",
+   "skipped": "pin None not in [3.2, 6.1.3)"
+  },
+  {
+   "package": "django",
+   "repo": "gh877916059/drf-Vue-website",
+   "path": "python-lib-requirements.txt",
+   "skipped": "pin '2.0.1' not in [3.2, 6.1.3)"
+  },
+  {
+   "package": "django",
+   "repo": "OpenToAllCTF/OTA-University",
+   "path": "REQUIREMENTS.txt",
+   "skipped": "pin '2.0.1' not in [3.2, 6.1.3)"
+  },
+  {
+   "package": "django",
+   "repo": "django-graph-api/django-graph-api",
+   "path": "rtd-requirements.txt",
+   "skipped": "pin '1.11.4' not in [3.2, 6.1.3)"
+  },
+  {
+   "package": "django",
+   "repo": "neurodata/ndstore",
+   "path": "setup/requirements.txt.old",
+   "skipped": "pin '1.8.4' not in [3.2, 6.1.3)"
+  },
+  {
+   "package": "django",
+   "repo": "LexPredict/lexpredict-contraxsuite-deploy",
+   "path": "base/python-requirements.txt",
+   "skipped": "pin '1.11.15' not in [3.2, 6.1.3)"
+  },
+  {
+   "package": "django",
+   "repo": "norn/bustime",
+   "path": "requirements.txt.upgrade",
+   "skipped": null
+  },
+  {
+   "package": "django",
+   "repo": "quanted/qed",
+   "path": "dask_requirements.txt",
+   "skipped": "pin '2.0.6' not in [3.2, 6.1.3)"
+  },
+  {
+   "package": "django",
+   "repo": "drbob/djrs",
+   "path": "djrs_requirements.txt",
+   "skipped": "pin '1.4.5' not in [3.2, 6.1.3)"
+  },
+  {
+   "package": "django",
+   "repo": "canvasnetworks/canvas",
+   "path": "requirements/non_aws_dev_requirements.txt",
+   "skipped": "pin '1.2.7' not in [3.2, 6.1.3)"
+  },
+  {
+   "package": "django",
+   "repo": "ChrisCooper/QcumberD",
+   "path": "prod_requirements.txt",
+   "skipped": "pin '1.5' not in [3.2, 6.1.3)"
+  },
+  {
+   "package": "django",
+   "repo": "antsmc2/webrtc_meetings",
+   "path": "pip-requirements.txt",
+   "skipped": "pin '1.8.1' not in [3.2, 6.1.3)"
+  },
+  {
+   "package": "django",
+   "repo": "lukesneeringer/pycon2013-socketio",
+   "path": "pip-requirements.txt",
+   "skipped": "pin '1.5' not in [3.2, 6.1.3)"
+  },
+  {
+   "package": "django",
+   "repo": "kartoza/prj.app",
+   "path": "deployment/docker/REQUIREMENTS.txt",
+   "skipped": null
+  },
+  {
+   "package": "flask",
+   "repo": "Netflix-Skunkworks/diffy",
+   "path": "web-requirements.txt",
+   "skipped": "pin '1.1.1' not in [2.2.0, 3.1.3)"
+  },
+  {
+   "package": "flask",
+   "repo": "GT4SD/gt4sd-core",
+   "path": "dev_requirements.txt",
+   "skipped": "pin '1.1.2' not in [2.2.0, 3.1.3)"
+  },
+  {
+   "package": "flask",
+   "repo": "nityansuman/warren",
+   "path": "REQUIREMENTS.txt",
+   "skipped": null
+  },
+  {
+   "package": "flask",
+   "repo": "meanstrong/pydelo",
+   "path": "pip_requirements.txt",
+   "skipped": "pin '0.10.1' not in [2.2.0, 3.1.3)"
+  },
+  {
+   "package": "flask",
+   "repo": "jalajthanaki/NLPython",
+   "path": "pip-requirements.txt",
+   "skipped": "pin '0.12.2' not in [2.2.0, 3.1.3)"
+  },
+  {
+   "package": "flask",
+   "repo": "openxc/openxc-vehicle-simulator",
+   "path": "pip-requirements.txt",
+   "skipped": "pin '1.0' not in [2.2.0, 3.1.3)"
+  },
+  {
+   "package": "flask",
+   "repo": "zhy0216/OhMyPocket",
+   "path": "dev_requirements.txt",
+   "skipped": "pin '0.10.1' not in [2.2.0, 3.1.3)"
+  },
+  {
+   "package": "flask",
+   "repo": "bricewalker/Hey-Jetson",
+   "path": "server_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "werkzeug",
+   "repo": "Netflix-Skunkworks/diffy",
+   "path": "web-requirements.txt",
+   "skipped": "pin '1.0.0' not in [2.2.0, 3.1.9)"
+  },
+  {
+   "package": "werkzeug",
+   "repo": "mit-han-lab/streaming-vlm",
+   "path": "ovo_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "werkzeug",
+   "repo": "MoonInTheRiver/NeuralSVB",
+   "path": "Requirements.txt",
+   "skipped": "pin '2.0.1' not in [2.2.0, 3.1.9)"
+  },
+  {
+   "package": "werkzeug",
+   "repo": "AASHISHAG/deepspeech-german",
+   "path": "python_requirements.txt",
+   "skipped": "pin '1.0.1' not in [2.2.0, 3.1.9)"
+  },
+  {
+   "package": "werkzeug",
+   "repo": "meanstrong/pydelo",
+   "path": "pip_requirements.txt",
+   "skipped": "pin '0.11.8' not in [2.2.0, 3.1.9)"
+  },
+  {
+   "package": "werkzeug",
+   "repo": "jalajthanaki/NLPython",
+   "path": "pip-requirements.txt",
+   "skipped": "pin '0.12.2' not in [2.2.0, 3.1.9)"
+  },
+  {
+   "package": "werkzeug",
+   "repo": "openxc/openxc-vehicle-simulator",
+   "path": "pip-requirements.txt",
+   "skipped": "pin '0.15.3' not in [2.2.0, 3.1.9)"
+  },
+  {
+   "package": "werkzeug",
+   "repo": "goruck/smart-zoneminder",
+   "path": "ml-requirements.txt",
+   "skipped": "pin '1.0.1' not in [2.2.0, 3.1.9)"
+  },
+  {
+   "package": "werkzeug",
+   "repo": "zhy0216/OhMyPocket",
+   "path": "dev_requirements.txt",
+   "skipped": "pin '0.9.6' not in [2.2.0, 3.1.9)"
+  },
+  {
+   "package": "werkzeug",
+   "repo": "zjubio/jupyterhub",
+   "path": "reset_requirements.txt",
+   "skipped": "pin None not in [2.2.0, 3.1.9)"
+  },
+  {
+   "package": "werkzeug",
+   "repo": "WebControlCNC/WebControl",
+   "path": "holeyrequirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "werkzeug",
+   "repo": "OHDSI/Criteria2Query",
+   "path": "venv_requirements.txt",
+   "skipped": "pin '2.1.1' not in [2.2.0, 3.1.9)"
+  },
+  {
+   "package": "werkzeug",
+   "repo": "DrewThomasson/VoxNovel",
+   "path": "MAC-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "werkzeug",
+   "repo": "bricewalker/Hey-Jetson",
+   "path": "jetson_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "celery",
+   "repo": "BCCVL/BCCVL",
+   "path": "salt/roots/salt/dev/worker/worker_requirements.txt",
+   "skipped": "pin '{{' not in [5.3.0, 5.7.0)"
+  },
+  {
+   "package": "celery",
+   "repo": "healthsites/healthsites",
+   "path": "deployment/docker/REQUIREMENTS.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "celery",
+   "repo": "LazyAGI/LazyCraft",
+   "path": "back/src/base-lazyllm.requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "celery",
+   "repo": "ifwenvlook/blog",
+   "path": "centos_config/win_requirements.txt",
+   "skipped": "pin '3.1.17' not in [5.3.0, 5.7.0)"
+  },
+  {
+   "package": "celery",
+   "repo": "ztosec/hunter",
+   "path": "HunterAdminApi/plugin_requirements.txt",
+   "skipped": "pin '4.1.0' not in [5.3.0, 5.7.0)"
+  },
+  {
+   "package": "celery",
+   "repo": "citusdata/django-multitenant",
+   "path": "requirements/static-analysis-requirements.txt",
+   "skipped": "pin None not in [5.3.0, 5.7.0)"
+  },
+  {
+   "package": "celery",
+   "repo": "google-marketing-solutions/Tightlock",
+   "path": "airflow_requirements.txt",
+   "skipped": "pin None not in [5.3.0, 5.7.0)"
+  },
+  {
+   "package": "celery",
+   "repo": "bookieio/Bookie",
+   "path": "requirements.txt",
+   "skipped": "pin '3.0.21' not in [5.3.0, 5.7.0)"
+  },
+  {
+   "package": "celery",
+   "repo": "Pratham-Mishra04/interact-ml",
+   "path": "celery.requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "celery",
+   "repo": "openhealthcare/opal",
+   "path": "opal/scaffolding/scaffold/requirements.txt.jinja2",
+   "skipped": "pin '5.0.2' not in [5.3.0, 5.7.0)"
+  },
+  {
+   "package": "celery",
+   "repo": "neurodata/ndstore",
+   "path": "setup/requirements.txt.old",
+   "skipped": "pin '3.1.18' not in [5.3.0, 5.7.0)"
+  },
+  {
+   "package": "celery",
+   "repo": "testdevhome/Autotestplat",
+   "path": "requirements.txt",
+   "skipped": "pin '3.1.26.post2' not in [5.3.0, 5.7.0)"
+  },
+  {
+   "package": "celery",
+   "repo": "ckan/ckanext-datastorer",
+   "path": "pip-requirements.txt",
+   "skipped": "pin '2.4.2' not in [5.3.0, 5.7.0)"
+  },
+  {
+   "package": "celery",
+   "repo": "quanted/qed",
+   "path": "dask_requirements.txt",
+   "skipped": "pin None not in [5.3.0, 5.7.0)"
+  },
+  {
+   "package": "celery",
+   "repo": "wnyc/django-crowdsourcing",
+   "path": "crowdsourcing_requirements.txt",
+   "skipped": "pin None not in [5.3.0, 5.7.0)"
+  },
+  {
+   "package": "celery",
+   "repo": "UrbanCCD-UChicago/plenario",
+   "path": "requirements.txt",
+   "skipped": "pin '4.0.2' not in [5.3.0, 5.7.0)"
+  },
+  {
+   "package": "celery",
+   "repo": "Geoportail-Luxembourg/geoportailv3",
+   "path": "geoportal/luxembourg_requirements.txt",
+   "skipped": "pin '5.2.7' not in [5.3.0, 5.7.0)"
+  },
+  {
+   "package": "celery",
+   "repo": "leffss/devops",
+   "path": "requirements.txt",
+   "skipped": "pin '5.2.7' not in [5.3.0, 5.7.0)"
+  },
+  {
+   "package": "celery",
+   "repo": "unixhot/opsany-bastion",
+   "path": "websocket-requirements.txt",
+   "skipped": "pin '3.1.25' not in [5.3.0, 5.7.0)"
+  },
+  {
+   "package": "celery",
+   "repo": "OpenHumans/open-humans",
+   "path": "requirements.txt.bck",
+   "skipped": null
+  },
+  {
+   "package": "redis",
+   "repo": "Netflix-Skunkworks/diffy",
+   "path": "web-requirements.txt",
+   "skipped": "pin '3.4.1' not in [4.3.0, 8.1.0)"
+  },
+  {
+   "package": "redis",
+   "repo": "plone/guillotina",
+   "path": "contrib-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "redis",
+   "repo": "Meituan-Dianping/lyrebird",
+   "path": "requirements.txt.lock",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "redis",
+   "repo": "dongweiming/lyanna",
+   "path": "dev_requirements.txt",
+   "skipped": "pin None not in [4.3.0, 8.1.0)"
+  },
+  {
+   "package": "redis",
+   "repo": "ActiDoo/gamification-engine",
+   "path": "optional-requirements.txt",
+   "skipped": "pin '2.10.5' not in [4.3.0, 8.1.0)"
+  },
+  {
+   "package": "redis",
+   "repo": "karrioapi/karrio",
+   "path": "source.requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "redis",
+   "repo": "openplans/shareabouts",
+   "path": "app-requirements.txt",
+   "skipped": "pin None not in [4.3.0, 8.1.0)"
+  },
+  {
+   "package": "redis",
+   "repo": "martinrusev/django-redis-sessions",
+   "path": "dev_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "redis",
+   "repo": "ella/ella",
+   "path": "dev_requirements.txt",
+   "skipped": "pin '2.9.0' not in [4.3.0, 8.1.0)"
+  },
+  {
+   "package": "redis",
+   "repo": "ifwenvlook/blog",
+   "path": "centos_config/win_requirements.txt",
+   "skipped": "pin '2.10.3' not in [4.3.0, 8.1.0)"
+  },
+  {
+   "package": "redis",
+   "repo": "ai-forever/Kandinsky-3",
+   "path": "exact_requirements.txt",
+   "skipped": "pin '4.1.1' not in [4.3.0, 8.1.0)"
+  },
+  {
+   "package": "redis",
+   "repo": "zhy0216/OhMyPocket",
+   "path": "dev_requirements.txt",
+   "skipped": "pin '2.10.1' not in [4.3.0, 8.1.0)"
+  },
+  {
+   "package": "redis",
+   "repo": "ztosec/hunter",
+   "path": "HunterAdminApi/plugin_requirements.txt",
+   "skipped": "pin '3.0.1' not in [4.3.0, 8.1.0)"
+  },
+  {
+   "package": "redis",
+   "repo": "clearcare/cc_dynamodb3",
+   "path": "py3_requirements.txt",
+   "skipped": "pin '2.10.5' not in [4.3.0, 8.1.0)"
+  },
+  {
+   "package": "redis",
+   "repo": "dessa-oss/atlas",
+   "path": "worker_images/foundations_requirements.txt",
+   "skipped": "pin '3.3.11' not in [4.3.0, 8.1.0)"
+  },
+  {
+   "package": "redis",
+   "repo": "onecommons/unfurl",
+   "path": "full-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "redis",
+   "repo": "earthgecko/skyline",
+   "path": "docs/readthedocs.requirements.txt",
+   "skipped": "pin '8.1.0' not in [4.3.0, 8.1.0)"
+  },
+  {
+   "package": "redis",
+   "repo": "Chinese-NLP-book/rasa_chinese_book_code",
+   "path": "full_requirements.txt",
+   "skipped": "pin '3.5.3' not in [4.3.0, 8.1.0)"
+  },
+  {
+   "package": "redis",
+   "repo": "Pratham-Mishra04/interact-ml",
+   "path": "celery.requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "redis",
+   "repo": "practisec/pwnedhub",
+   "path": "pwnedapi/REQUIREMENTS.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "redis",
+   "repo": "DangerOnTheRanger/maniwani",
+   "path": "pipenv_requirements.txt",
+   "skipped": "pin '3.5.0' not in [4.3.0, 8.1.0)"
+  },
+  {
+   "package": "redis",
+   "repo": "abrenaut/posio",
+   "path": "requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "redis",
+   "repo": "norn/bustime",
+   "path": "requirements.txt.upgrade",
+   "skipped": null
+  },
+  {
+   "package": "pymongo",
+   "repo": "claritylab/lucida",
+   "path": "tools/python_requirements.txt",
+   "skipped": "pin '3.4.0' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "ptwobrussell/Mining-the-Social-Web-2nd-Edition",
+   "path": "mtsw2e-requirements.txt",
+   "skipped": "pin '2.5.1' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "briefercloud/briefer",
+   "path": "apps/api/jupyter-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pymongo",
+   "repo": "mldbai/mldb",
+   "path": "python_requirements.txt",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "pymongo",
+   "repo": "tensorflow/lingvo",
+   "path": "docker/dev.requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pymongo",
+   "repo": "hi-primus/optimus",
+   "path": "requirements/databricks-requirements.txt",
+   "skipped": "pin '3.9.0' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "jalajthanaki/NLPython",
+   "path": "pip-requirements.txt",
+   "skipped": "pin '3.4.0' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "spotify/klio",
+   "path": "examples/catvdog/job-requirements.txt",
+   "skipped": "pin '3.11.0' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "MillionIntegrals/vel",
+   "path": "travis-requirements.txt",
+   "skipped": "pin '3.7.2' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "heynemann/motorengine",
+   "path": "doc_requirements.txt",
+   "skipped": "pin '3.6' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "qeeqbox/url-sandbox",
+   "path": "backend-requirements.txt",
+   "skipped": "pin '3.12.1' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "fcoury/oxide",
+   "path": "scripts/mongodb-parity-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "pymongo",
+   "repo": "bbli/ml_board",
+   "path": "devel_requirements.txt",
+   "skipped": "pin '3.7.0' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "Chinese-NLP-book/rasa_chinese_book_code",
+   "path": "full_requirements.txt",
+   "skipped": "pin '3.10.1' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "oceanbase/obdeploy",
+   "path": "service/service-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "pymongo",
+   "repo": "PacktPublishing/Python-Natural-Language-Processing",
+   "path": "Chapter01/pip-requirements.txt",
+   "skipped": "pin '3.4.0' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "mskcc/roslin-variant",
+   "path": "build/run_requirements.txt",
+   "skipped": "pin '3.10.0' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "quanted/qed",
+   "path": "dask_requirements.txt",
+   "skipped": "pin '3.6.1' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "GoogleCloudPlatform/medical-imaging",
+   "path": "pathology/bazel_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pymongo",
+   "repo": "mGalarnyk/DSE200_Python_for_Data_Analysis",
+   "path": "day_5_mining_the_Social_web/mtsw2e-requirements.txt",
+   "skipped": "pin '2.5.1' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "rackerlabs/simpl",
+   "path": "mongo-requirements.txt",
+   "skipped": "pin '3.0.3' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "cloudmesh/cloudmesh1",
+   "path": "requirements.txt.orig",
+   "skipped": "pin '2.8' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "baichuan-inc/Baichuan-Omni-1.5",
+   "path": "baichuan_omni_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pymongo",
+   "repo": "xiaohei-info/cdh-deploy-robot",
+   "path": "py_requirements.txt",
+   "skipped": "pin '3.6.1' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "savarin/rateflask",
+   "path": "REQUIREMENTS.txt",
+   "skipped": "pin '2.7.2' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "ilex/aiomotorengine",
+   "path": "doc_requirements.txt",
+   "skipped": "pin '2.8' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "intelligence-csd-auth-gr/Ethos-Hate-Speech-Dataset",
+   "path": "colab_requirements.txt",
+   "skipped": "pin '3.11.4' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "rishabhjoshi/DialoGraph_ICLR21",
+   "path": "pip_requirements.txt",
+   "skipped": "pin '3.10.1' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "fga-eps-mds/2019.1-ADA",
+   "path": "docker/actions.requirements.txt",
+   "skipped": "pin '3.7.1' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "code-for-india/routely-akshaya-patra",
+   "path": "python_requirements.txt",
+   "skipped": "pin '2.7' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "whtsky/Gather",
+   "path": "migrate-requirements.txt",
+   "skipped": "pin '2.6.3' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "bing-zhub/RasaChatBot",
+   "path": "win-requirements.txt",
+   "skipped": "pin '3.7.2' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "aimas-upb/AmI-Platform",
+   "path": "python_requirements.txt",
+   "skipped": "pin '2.5' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "yc015/TalkTuner-chatbot-llm-dashboard",
+   "path": "dashboard_v1/queue_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "pymongo",
+   "repo": "usnistgov/SpectrumBrowser",
+   "path": "devel/requirements/python_pip_requirements.txt",
+   "skipped": "pin '2.7.2' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "a0x8o/kafka",
+   "path": "sdks/python/container/base_image_requirements.txt",
+   "skipped": "pin '3.8.0' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "ONDC-Official/py-protocol-layer",
+   "path": "webserver/cron_requirements.txt",
+   "skipped": "pin '4.1.1' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "BotLino/Lino",
+   "path": "docker/actions.requirements.txt",
+   "skipped": "pin '3.7.1' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "wspr-ncsu/FV8",
+   "path": "celery_workers/task_requirements.txt",
+   "skipped": "pin '4.3.3' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "wingify/kroomsa",
+   "path": "inference_requirements.txt",
+   "skipped": "pin '4.0.1' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "idiap/cncsharedtask",
+   "path": "subtask2/st2_requirements.txt",
+   "skipped": "pin '3.12.0' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "azunre/transfer-learning-for-nlp",
+   "path": "Ch4/kaggle_image_requirements.txt",
+   "skipped": "pin '3.9.0' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "ophicleide/ophicleide-training",
+   "path": "wheel-requirements.txt",
+   "skipped": "pin '3.2.2' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "Orange-OpenSource/WikiFactDiff",
+   "path": "setup_env/wfd_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pymongo",
+   "repo": "opendatamonitor/socrata-harvester",
+   "path": "pip-requirements.txt",
+   "skipped": "pin '2.8.1' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "RafiKueng/SpaghettiLens",
+   "path": "pip_requirements.txt",
+   "skipped": "pin None not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "madhat2r/plaid2text",
+   "path": "requirements.txt",
+   "skipped": "pin '3.10.1' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "AIS-SNU/GraNNDis_Artifact",
+   "path": "pip-requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "pymongo",
+   "repo": "mburaksayici/FinancialAdvisorGPT",
+   "path": "all_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pymongo",
+   "repo": "wtyler2505/pdanet-linux",
+   "path": "requirements.txt.backup",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pymongo",
+   "repo": "jtratner/graphalchemy",
+   "path": ".frozen_requirements.txt",
+   "skipped": "pin '2.2.1' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "ipop-project/Network-Visualizer",
+   "path": "setup/Requirements.txt",
+   "skipped": "pin '3.4.0' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "bhanuprasadChesetti/Land-Registration-System-with-Blockchain",
+   "path": "python_package_requirements.txt",
+   "skipped": "pin '4.3.3' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "Daniel-ChenJH/Carla-Dataset-Generator",
+   "path": "py370_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pymongo",
+   "repo": "BaySchoolCS2/ProjectRepo",
+   "path": "tool-requirements.txt",
+   "skipped": "pin '2.8' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "DJMIN/D2D",
+   "path": "requirements.txt.backup",
+   "skipped": "pin None not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "fdouetteau/PyBabe",
+   "path": "optional-requirements.txt",
+   "skipped": "pin '2.1.1' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "bcgov/aries-vcr-issuer-controller",
+   "path": "issuer_pipeline/requirements.txt.freeze",
+   "skipped": "pin '3.7.2' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "datamagic2020/Chatbot-for-Biginners",
+   "path": "chatbot_flask_requirements.txt",
+   "skipped": "pin '3.11.4' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "inderpartap/fact.err",
+   "path": "Dataset/Requirements.txt",
+   "skipped": "pin '3.9.0' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "Polaris000/BlogCode",
+   "path": "requirements/rasa_requirements.txt",
+   "skipped": "pin '3.10.1' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "kilicogluh/lbd-covid",
+   "path": "filtering/colab_requirements.txt",
+   "skipped": "pin '3.10.1' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "georgetown-cset/ai-relevant-papers",
+   "path": "replication-requirements.txt",
+   "skipped": "pin '3.9.0' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "alexander-n-thomas/spark-nlp-book",
+   "path": "colab_requirements.txt",
+   "skipped": "pin '3.10.1' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "superdesk/superdesk-planning",
+   "path": "e2e/server/core-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pymongo",
+   "repo": "accodev/jovabot",
+   "path": "reqs/win-requirements.txt",
+   "skipped": "pin '3.2.1' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "EndianKnight/smart-ai-iot-app-deployment-platform",
+   "path": "masterRequirements.txt",
+   "skipped": "pin '4.1.1' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "donaldng/bitfinex-arbitrage",
+   "path": "requirements.txt",
+   "skipped": "pin '3.5.1' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "OpenLinkedSocialData/aa01",
+   "path": "BACK/requirements.txt.server",
+   "skipped": "pin '2.7.1' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "mayankchutani/rule-engine",
+   "path": "conda_requirements.txt",
+   "skipped": "pin '3.3.0' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "mitsei/dlkit",
+   "path": "travis_ci_requirements.txt",
+   "skipped": "pin '3.4.0' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "xlanor/SIM-UoW-Timetable-bot",
+   "path": "old_files/requirements.txt.bak",
+   "skipped": "pin '3.7.1' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "guoguowei/mini_ximi",
+   "path": "pypi_requirements.txt",
+   "skipped": "pin '2.8.0' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "hyper-light/hyperscale",
+   "path": "requirements.txt.dev",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "pymongo",
+   "repo": "Neuroseed/neuroseed-mvp",
+   "path": "worker-requirements.txt",
+   "skipped": "pin '3.6.0' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "lukbrew/easy-mongodb-auth-handler",
+   "path": "minrequirements.txt",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "pymongo",
+   "repo": "wubinhong/dict",
+   "path": "docker/pip-requirements.txt",
+   "skipped": "pin '3.9.0' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "felicityallen/SelfTarget",
+   "path": "requirements.txt",
+   "skipped": "pin '3.8.0' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "lnls-sirius/docker-config-db",
+   "path": "api_requirements.txt",
+   "skipped": "pin '3.5.1' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "Goom11/uclaapi",
+   "path": "v1/requirements.txt.orig",
+   "skipped": "pin '2.6.3' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "pymongo",
+   "repo": "dimartinot/Text-Semantic-Similarity",
+   "path": "pip_requirements.txt",
+   "skipped": "pin '3.8.0' not in [4.4.0, 4.19.0)"
+  },
+  {
+   "package": "selenium",
+   "repo": "python-geeks/Automation-scripts",
+   "path": "auto_news_reader/Requirements.txt",
+   "skipped": "pin '4.0.0' not in [4.8.0, 4.52.0)"
+  },
+  {
+   "package": "selenium",
+   "repo": "ifwenvlook/blog",
+   "path": "centos_config/win_requirements.txt",
+   "skipped": "pin '2.45.0' not in [4.8.0, 4.52.0)"
+  },
+  {
+   "package": "selenium",
+   "repo": "Logan1x/Python-Scripts",
+   "path": "bin/mi-community-bot.requirements.txt",
+   "skipped": "pin '3.4.3' not in [4.8.0, 4.52.0)"
+  },
+  {
+   "package": "selenium",
+   "repo": "open-contracting/standard",
+   "path": "common-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "selenium",
+   "repo": "practisec/pwnedhub",
+   "path": "adminbot/REQUIREMENTS.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "selenium",
+   "repo": "gasvaktin/gasvaktin",
+   "path": "pip_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "selenium",
+   "repo": "xTEddie/Scrapstagram",
+   "path": "pip_requirements.txt",
+   "skipped": "pin '3.0.2' not in [4.8.0, 4.52.0)"
+  },
+  {
+   "package": "selenium",
+   "repo": "NAVADMC/ADSM",
+   "path": "Requirements.txt",
+   "skipped": "pin '2.44.0' not in [4.8.0, 4.52.0)"
+  },
+  {
+   "package": "selenium",
+   "repo": "testdevhome/Autotestplat",
+   "path": "requirements.txt",
+   "skipped": "pin '3.141.0' not in [4.8.0, 4.52.0)"
+  },
+  {
+   "package": "selenium",
+   "repo": "ferru97/PyPaperBot",
+   "path": "requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "urllib3",
+   "repo": "Netflix-Skunkworks/diffy",
+   "path": "web-requirements.txt",
+   "skipped": "pin '1.25.8' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "awslabs/aws-glue-libs",
+   "path": "base-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "AI-Yash/st-chat",
+   "path": "pip-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "mit-han-lab/streaming-vlm",
+   "path": "ovo_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "urllib3",
+   "repo": "opentok/Opentok-Python-SDK",
+   "path": ".requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "nityansuman/warren",
+   "path": "REQUIREMENTS.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "wzk1015/video-bgm-generation",
+   "path": "py3_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "goruck/smart-zoneminder",
+   "path": "ml-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "qeeqbox/url-sandbox",
+   "path": "box-requirements.txt",
+   "skipped": "pin '1.25.8' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "tqsd/QuNetSim",
+   "path": "dev_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "OHDSI/Criteria2Query",
+   "path": "venv_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "flyteorg/flytesnacks",
+   "path": "docs-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "qgis/QGIS-Website",
+   "path": "REQUIREMENTS.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "DrewThomasson/VoxNovel",
+   "path": "MAC-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "netscaler/netscaler-adc-metrics-exporter",
+   "path": "pip_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "urllib3",
+   "repo": "pnnl/socialsim",
+   "path": "pip_requirements.txt",
+   "skipped": "pin '1.23' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "bbli/ml_board",
+   "path": "devel_requirements.txt",
+   "skipped": "pin '1.23' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "python-trio/pytest-trio",
+   "path": "docs-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "dremio/dbt-dremio",
+   "path": "dev_requirements.txt",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "EpicWink/proxpi",
+   "path": "app.requirements.txt",
+   "skipped": "pin '2.8.0' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "OpenToAllCTF/OTA-University",
+   "path": "REQUIREMENTS.txt",
+   "skipped": "pin '1.22' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "eljost/pysisyphus",
+   "path": "doc-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "daveoncode/python-string-utils",
+   "path": "dev.requirements.txt",
+   "skipped": "pin '1.25.8' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "hadi-abdine/Prot2Text",
+   "path": "Requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "horacio9a/chaturbate-anonymous",
+   "path": "Requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "urllib3",
+   "repo": "charmlab/recourse",
+   "path": "pip_requirements.txt",
+   "skipped": "pin '1.25.9' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "Haoqiu-Yan/PerceptiveAgent",
+   "path": "syn_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "mateusmuller/udemy-bot",
+   "path": "dev_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "kiwicom/konfetti",
+   "path": "docs-requirements.txt",
+   "skipped": "pin '1.25.3' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "PacktPublishing/Azure-AI102-Certification-Essentials",
+   "path": "Requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "controlecidadao/sinarc",
+   "path": "cnpj_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "ynadji/hands-on-adversarial-ml",
+   "path": "all-requirements.txt",
+   "skipped": "pin '1.24.1' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "Jo-wang/OTTA_ViT_survey",
+   "path": "pip_requirements.txt",
+   "skipped": "pin '1.25.11' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "ayu-22/BPPNet-Back-Projected-Pyramid-Network",
+   "path": "Requirements.txt",
+   "skipped": "pin '1.24.2' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "corail-research/seahorse",
+   "path": "dev_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "urllib3",
+   "repo": "InternRobotics/InstructVLA",
+   "path": "pip_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "LonglongaaaGo/GRIG_few_shot_inpainting",
+   "path": "grig_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "PaloAltoNetworks/pc-python-integration",
+   "path": "min_requirements.txt",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "officialcryptomaster/pydex",
+   "path": "dev_requirements.txt",
+   "skipped": "pin '1.24.1' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "xiaohei-info/cdh-deploy-robot",
+   "path": "py_requirements.txt",
+   "skipped": "pin '1.22' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "irec-org/irec",
+   "path": "all_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "sonynka/fashion_gan",
+   "path": "pip_requirements.txt",
+   "skipped": "pin '1.23' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "heblade/pythontraining",
+   "path": "all_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "LilLouis5/Vision-Mamba-",
+   "path": "vim_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "IBM/z_ansible_collections_doc",
+   "path": "requirements.txt.org",
+   "skipped": "pin '1.25.11' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "rishabhjoshi/DialoGraph_ICLR21",
+   "path": "pip_requirements.txt",
+   "skipped": "pin '1.25.10' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "ValentinRicher/emotion-recognition-GAN",
+   "path": "gpu_requirements.txt",
+   "skipped": "pin '1.24.2' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "kataquin/AccessibleStardewSetup",
+   "path": "Requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "robertmrk/rabbit_force",
+   "path": "dev_requirements.txt",
+   "skipped": "pin '1.24.3' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "bing-zhub/RasaChatBot",
+   "path": "win-requirements.txt",
+   "skipped": "pin '1.22' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "CORE-Robotics-Lab/ProLoNets",
+   "path": "sc2_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "Chargily/chargily-pay-python",
+   "path": "dev_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "jhotujec/crispy-forms-bulma",
+   "path": "dev_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "enoobis/short-video-creator",
+   "path": "old_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "nouse4it/Netmiko_IOS_Update",
+   "path": "REQUIREMENTS.txt",
+   "skipped": "pin '1.25.8' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "UCF-CRCV/TeD-SPAD",
+   "path": "pip_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "Chen-Wang-CUHK/ExHiRD-DKG",
+   "path": "Requirements.txt",
+   "skipped": "pin '1.25.3' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "andrew-silva/clean-rl-mlx",
+   "path": "mlx-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "ArrogantL/ChatGPT4CausalReasoning",
+   "path": "pip_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "NorskRegnesentral/naturinngrep",
+   "path": "REQUIREMENTS.txt",
+   "skipped": "pin '1.25.8' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "pegahcarter/transaction-log",
+   "path": "Requirements.txt",
+   "skipped": "pin '1.24.1' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "thaihungle/DMNC",
+   "path": "pip_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "jedrzejd/scrap-otomoto",
+   "path": "Requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "Tbruno25/btc_faucet",
+   "path": "Requirements.txt",
+   "skipped": "pin '1.24.1' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "zerohd4869/SPC",
+   "path": "spc_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "simon-weber/kleroteria",
+   "path": "all-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "yashkant/housekeep",
+   "path": "pip_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "exante/telegram-bot-with-md-api",
+   "path": "pip_requirements.txt",
+   "skipped": "pin '1.19.1' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "kernel-loophole/KG-graph",
+   "path": " requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "tuneinsight/federated-llms",
+   "path": "pip_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "horacio9a/cam4-anonymous",
+   "path": "Requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "urllib3",
+   "repo": "AliMokhammad/arabicttstrain",
+   "path": "myrequirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "openstack-charmers/zaza",
+   "path": "doc-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "wahaj/Hamzar",
+   "path": "pip_requirements.txt",
+   "skipped": "pin '1.25.3' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "kaspagang/kaspad-py-explorer",
+   "path": "pip_requirements.txt",
+   "skipped": "pin '1.23' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "amvtek/SqlMake",
+   "path": "dev_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "tau-adl/FastDepth",
+   "path": "pip_requirements.txt",
+   "skipped": "pin '1.24.2' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "nutes-uepb/amqp-client-python",
+   "path": "dev_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "horacio9a/streamate-anonymous",
+   "path": "Requirements.txt",
+   "skipped": "pin '1.24.2' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "frasertheking/DeepPrecip",
+   "path": "ipu_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "psweens/Vascular-TDA",
+   "path": "REQUIREMENTS.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "audio-df-ucb/ClonedVoiceDetection",
+   "path": "pip_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "ameyanatu/compare-screenshots",
+   "path": "Requirements.txt",
+   "skipped": "pin '1.23' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "fpleoni/where_do_we_go_from_here",
+   "path": "REQUIREMENTS.txt",
+   "skipped": "pin '1.25.3' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "BioSciResearch/optimus_bind_sample",
+   "path": "auto_requirements.txt",
+   "skipped": "pin '1.25.3' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "opendatamonitor/socrata-harvester",
+   "path": "pip-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "Qi-Le1/Probe_Pruning",
+   "path": "pprequirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "RAINet-Lab/SYMBXRL",
+   "path": "pip-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "giacomolozito/uptime-reporting",
+   "path": "pip-requirements.txt",
+   "skipped": "pin '1.25.8' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "ci-ber/PHANES",
+   "path": "pip_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "arunv3rma/MeMo",
+   "path": "lfm_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "nilax97/NLP-Project",
+   "path": "demo_requirements.txt",
+   "skipped": "pin '1.24.3' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "anwar-gazi/freightforward",
+   "path": "old_requirements.txt",
+   "skipped": "pin '1.24.1' not in [1.26.0, 2.8.0)"
+  },
+  {
+   "package": "urllib3",
+   "repo": "WCCMS-UTAustin/CARDIAX",
+   "path": "SC_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "internetarchive/fatcat-scholar",
+   "path": "ci.requirements.txt",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "AbhishekR3/Basketball-PlayAnalysis",
+   "path": "Requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "urllib3",
+   "repo": "4m4n5/NASDM",
+   "path": "pip_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "awslabs/aws-glue-libs",
+   "path": "base-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "Meituan-Dianping/lyrebird",
+   "path": "requirements.txt.lock",
+   "skipped": "pin '3.9' not in [3.8.0, 3.14.5)"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "mit-han-lab/streaming-vlm",
+   "path": "ovo_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "alexiglad/EBT",
+   "path": "loose_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "sambanova/ai-starter-kit",
+   "path": "base-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "OHDSI/Criteria2Query",
+   "path": "venv_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "OpenBMB/VisRAG",
+   "path": "EVisRAG_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "flyteorg/flytesnacks",
+   "path": "docs-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "DrewThomasson/VoxNovel",
+   "path": "MAC-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "microsoft/dbt-synapse",
+   "path": "dev_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "ThibaultGROUEIX/NeuralJacobianFields",
+   "path": "py39_njf_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "Chinese-NLP-book/rasa_chinese_book_code",
+   "path": "full_requirements.txt",
+   "skipped": "pin '3.7.4' not in [3.8.0, 3.14.5)"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "aptnotes/tools",
+   "path": "APTnotes_async_requirements.txt",
+   "skipped": "pin '1.1.6' not in [3.8.0, 3.14.5)"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "ai-forever/Kandinsky-3",
+   "path": "exact_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "sc2musa/Large-Language-Models-play-StarCraftII",
+   "path": "pip_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "Amshaker/Mobile-O",
+   "path": "eval/geneval_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "zhaochen0110/OpenThinkIMG",
+   "path": "train_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "daswer123/xtts-finetune-webui",
+   "path": "apple_silicon_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "mbzuai-oryx/XrayGPT",
+   "path": "xraygpt_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "flatironinstitute/deepblast",
+   "path": "ci/pip_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "wayveai/Driving-with-LLMs",
+   "path": "requirements.txt.lock",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "Urist-Mc-Urist/DoppeLLaMA",
+   "path": "colab_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "isjinghao/T-Mamba",
+   "path": "Tim/vim/vim_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "controlecidadao/sinarc",
+   "path": "cnpj_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "linden-li/collage-diffusion-ui",
+   "path": "webserver_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "VectorInstitute/forecasting-with-dl",
+   "path": "forecasting_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "corail-research/seahorse",
+   "path": "dev_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "ComplexData-MILA/TGX",
+   "path": "full_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "InternRobotics/InstructVLA",
+   "path": "pip_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "mc-lan/Text4Seg",
+   "path": "ms-swift/my_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "aiohttp",
+   "repo": "yynil/RWKVTTS",
+   "path": "eval/eval_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "alphanome-ai/sec-parser",
+   "path": "docs/rtd_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "LilLouis5/Vision-Mamba-",
+   "path": "vim_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "aiohttp",
+   "repo": "Hyperclaw79/StocksALot",
+   "path": "dev_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "pytest",
+   "repo": "google/grr",
+   "path": "build_requirements.txt",
+   "skipped": "pin '6.2.5' not in [7.2.0, 9.2.0)"
+  },
+  {
+   "package": "pytest",
+   "repo": "offu/WeRoBot",
+   "path": "tox-requirements.txt",
+   "skipped": "pin '7.0.1' not in [7.2.0, 9.2.0)"
+  },
+  {
+   "package": "pytest",
+   "repo": "waveform80/picamera",
+   "path": "py32dev_requirements.txt",
+   "skipped": "pin '2.8.7' not in [7.2.0, 9.2.0)"
+  },
+  {
+   "package": "pytest",
+   "repo": "dropbox/PyHive",
+   "path": "dev_requirements.txt",
+   "skipped": "pin '3.2.1' not in [7.2.0, 9.2.0)"
+  },
+  {
+   "package": "pytest",
+   "repo": "CyberPunkMetalHead/gateio-crypto-trading-bot-binance-announcements-new-coins",
+   "path": "dev_requirements.txt",
+   "skipped": "pin '6.2.5' not in [7.2.0, 9.2.0)"
+  },
+  {
+   "package": "pytest",
+   "repo": "iver56/audiomentations",
+   "path": "dev_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "pytest",
+   "repo": "LexPredict/lexpredict-lexnlp",
+   "path": "python-requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "typer",
+   "repo": "awsdocs/aws-doc-sdk-examples",
+   "path": ".tools/base_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "typer",
+   "repo": "Tencent-Hunyuan/HunyuanDiT",
+   "path": "kohya_ss-hydit/hunyuan_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "typer",
+   "repo": "mit-han-lab/streaming-vlm",
+   "path": "ovo_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "typer",
+   "repo": "databricks/containers",
+   "path": "ubuntu/blackice/docker/global_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "typer",
+   "repo": "yuezhiai/jonex",
+   "path": "Reference/OpenKB/openkb-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "typer",
+   "repo": "didilili/ai-agents-from-zero",
+   "path": "\u6848\u4f8b\u4e0e\u6e90\u7801-4-\u5fae\u8c03/examples/deployment/installed-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "typer",
+   "repo": "OpenBMB/VisRAG",
+   "path": "EVisRAG_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "typer",
+   "repo": "DrewThomasson/VoxNovel",
+   "path": "MAC-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "typer",
+   "repo": "OpenGVLab/VideoChat-Flash",
+   "path": "xtuner-eval_niah/niah_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "typer",
+   "repo": "lowRISC/ot-sca",
+   "path": "python-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "typer",
+   "repo": "david-xinyuwei/david-share",
+   "path": "Deep-Learning/Qwen-Reranker/pip-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "typer",
+   "repo": "ai-forever/Kandinsky-3",
+   "path": "exact_requirements.txt",
+   "skipped": "pin '0.4.0' not in [0.8.0, 0.28.0)"
+  },
+  {
+   "package": "typer",
+   "repo": "sybil-solutions/local-ai-registry",
+   "path": "data/scripts/mtplx-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "typer",
+   "repo": "sc2musa/Large-Language-Models-play-StarCraftII",
+   "path": "pip_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "typer",
+   "repo": "OpenHelix-Team/ReconVLA",
+   "path": "recon_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "typer",
+   "repo": "alexanderswerdlow/BEVGen",
+   "path": "pinned_requirements.txt",
+   "skipped": "pin '0.7.0' not in [0.8.0, 0.28.0)"
+  },
+  {
+   "package": "typer",
+   "repo": "zhaochen0110/OpenThinkIMG",
+   "path": "train_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "typer",
+   "repo": "daswer123/xtts-finetune-webui",
+   "path": "apple_silicon_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "typer",
+   "repo": "mbzuai-oryx/XrayGPT",
+   "path": "xraygpt_requirements.txt",
+   "skipped": "pin '0.7.0' not in [0.8.0, 0.28.0)"
+  },
+  {
+   "package": "typer",
+   "repo": "quanted/esat",
+   "path": "doc-requirements.txt",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "typer",
+   "repo": "dod-advana/gamechanger-ml",
+   "path": "lock.requirements.txt",
+   "skipped": "pin '0.3.2' not in [0.8.0, 0.28.0)"
+  },
+  {
+   "package": "typer",
+   "repo": "controlecidadao/sinarc",
+   "path": "cnpj_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "typer",
+   "repo": "casualcomputer/llm_google_colab",
+   "path": "requirements/kaggle-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "typer",
+   "repo": "OpenBMB/RLPR",
+   "path": "vllm-server-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "typer",
+   "repo": "mc-lan/Text4Seg",
+   "path": "ms-swift/my_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "typer",
+   "repo": "yynil/RWKVTTS",
+   "path": "eval/eval_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "typer",
+   "repo": "baichuan-inc/Baichuan-Omni-1.5",
+   "path": "baichuan_omni_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "typer",
+   "repo": "wellcometrust/grants_tagger",
+   "path": "dev_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "typer",
+   "repo": "Huaqiu-Electronics/kicad-win-builder",
+   "path": "support/mcprequirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "typer",
+   "repo": "ByteDance-Seed/FlexPrefill",
+   "path": "extra_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "typer",
+   "repo": "text-analytics-20/news-sentiment-development",
+   "path": "frozen-requirements.txt",
+   "skipped": "pin '0.3.2' not in [0.8.0, 0.28.0)"
+  },
+  {
+   "package": "typer",
+   "repo": "wpartscom/bolorgir",
+   "path": "benchmarks/t3/acceptance-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "typer",
+   "repo": "yashkant/housekeep",
+   "path": "pip_requirements.txt",
+   "skipped": "pin '0.3.2' not in [0.8.0, 0.28.0)"
+  },
+  {
+   "package": "typer",
+   "repo": "pysys-test/pysys-test",
+   "path": "docs/sphinx-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "typer",
+   "repo": "kernel-loophole/KG-graph",
+   "path": " requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "typer",
+   "repo": "Farzad-R/LLM-Zero-to-Hundred",
+   "path": "RAGMaster-LlamaIndex-vs-Langchain/llama_index_env_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "typer",
+   "repo": "Nootka-io/wee-benchmarking-tool",
+   "path": "freeze-requirements.txt",
+   "skipped": "pin '0.4.2' not in [0.8.0, 0.28.0)"
+  },
+  {
+   "package": "typer",
+   "repo": "Haoqiu-Yan/PerceptiveAgent",
+   "path": "cap_requirements.txt",
+   "skipped": "pin '0.7.0' not in [0.8.0, 0.28.0)"
+  },
+  {
+   "package": "typer",
+   "repo": "SAIL-Research-Lab/Robust-Gymnasium",
+   "path": "full_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "typer",
+   "repo": "Mzzzhu/CMNEE",
+   "path": "PAIE-main-CMNEE/new_requirements.txt",
+   "skipped": "pin '0.4.0' not in [0.8.0, 0.28.0)"
+  },
+  {
+   "package": "typer",
+   "repo": "Institute-Eng-and-Comp-Mechanics-UStgt/ApHIN",
+   "path": "paper_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "typer",
+   "repo": "xpybuild/xpybuild",
+   "path": "docs/sphinx-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "typer",
+   "repo": "dod-advana/gamechanger-data",
+   "path": "dev_tools/requirements/rhel8.locked.requirements.txt",
+   "skipped": "pin '0.3.2' not in [0.8.0, 0.28.0)"
+  },
+  {
+   "package": "typer",
+   "repo": "arunv3rma/MeMo",
+   "path": "memo_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "typer",
+   "repo": "seakers/daphne_brain",
+   "path": "new_requirements.txt",
+   "skipped": "pin '0.4.2' not in [0.8.0, 0.28.0)"
+  },
+  {
+   "package": "typer",
+   "repo": "Tele-AI/TELEVAL",
+   "path": "requirements/speechgpt2_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "typer",
+   "repo": "VectorInstitute/FL4Health",
+   "path": "research/gemini/first_requirements.txt",
+   "skipped": "pin '0.7.0' not in [0.8.0, 0.28.0)"
+  },
+  {
+   "package": "typer",
+   "repo": "leezythu/UCTR",
+   "path": "tat_qa_requirements.txt",
+   "skipped": "pin '0.3.2' not in [0.8.0, 0.28.0)"
+  },
+  {
+   "package": "typer",
+   "repo": "audio-df-ucb/ClonedVoiceDetection",
+   "path": "pip_requirements.txt",
+   "skipped": "pin '0.7.0' not in [0.8.0, 0.28.0)"
+  },
+  {
+   "package": "typer",
+   "repo": "jonamat/sim-modem-cli",
+   "path": "REQUIREMENTS.txt",
+   "skipped": "pin '0.7.0' not in [0.8.0, 0.28.0)"
+  },
+  {
+   "package": "typer",
+   "repo": "d223302/TRACT",
+   "path": "envs/train_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "typer",
+   "repo": "MCLAB-OCR/KnowledgeMiningWithSceneText",
+   "path": "exact_requirements.txt",
+   "skipped": "pin '0.4.2' not in [0.8.0, 0.28.0)"
+  },
+  {
+   "package": "typer",
+   "repo": "eunomia-bpf/gpu_ext",
+   "path": "workloads/moe-infinity/current-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "typer",
+   "repo": "mburaksayici/FinancialAdvisorGPT",
+   "path": "all_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "typer",
+   "repo": "dwani-ai/llm-recipes",
+   "path": "python/notebooklm/pytorch-requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "typer",
+   "repo": "leezythu/UCTR-ST",
+   "path": "TAT-QA/tat_qa_requirements.txt",
+   "skipped": "pin '0.3.2' not in [0.8.0, 0.28.0)"
+  },
+  {
+   "package": "typer",
+   "repo": "nebius/nebius-physical-ai",
+   "path": "npa/docker/workbench/isaac-arena/npa-cli-requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "typer",
+   "repo": "guardana/guardana",
+   "path": "deploy/docker/cli-requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "click",
+   "repo": "Netflix-Skunkworks/diffy",
+   "path": "web-requirements.txt",
+   "skipped": "pin '7.0' not in [8.1.0, 8.5.1)"
+  },
+  {
+   "package": "click",
+   "repo": "facebookresearch/CodeGen",
+   "path": "ci_requirements.txt",
+   "skipped": "pin '8.0.3' not in [8.1.0, 8.5.1)"
+  },
+  {
+   "package": "click",
+   "repo": "AI-Yash/st-chat",
+   "path": "pip-requirements.txt",
+   "skipped": "pin '7.1.2' not in [8.1.0, 8.5.1)"
+  },
+  {
+   "package": "click",
+   "repo": "mit-han-lab/streaming-vlm",
+   "path": "ovo_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "click",
+   "repo": "MoonInTheRiver/NeuralSVB",
+   "path": "Requirements.txt",
+   "skipped": "pin '8.0.1' not in [8.1.0, 8.5.1)"
+  },
+  {
+   "package": "click",
+   "repo": "opentok/Opentok-Python-SDK",
+   "path": ".requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "click",
+   "repo": "jalajthanaki/NLPython",
+   "path": "pip-requirements.txt",
+   "skipped": "pin '6.7' not in [8.1.0, 8.5.1)"
+  },
+  {
+   "package": "click",
+   "repo": "goruck/smart-zoneminder",
+   "path": "ml-requirements.txt",
+   "skipped": "pin '7.1.2' not in [8.1.0, 8.5.1)"
+  },
+  {
+   "package": "click",
+   "repo": "flyteorg/flytesnacks",
+   "path": "docs-requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "click",
+   "repo": "tqsd/QuNetSim",
+   "path": "dev_requirements.txt",
+   "skipped": "pin '7.0' not in [8.1.0, 8.5.1)"
+  },
+  {
+   "package": "click",
+   "repo": "CloverHealth/temple",
+   "path": "dev_requirements.txt",
+   "skipped": "pin None not in [8.1.0, 8.5.1)"
+  },
+  {
+   "package": "click",
+   "repo": "OHDSI/Criteria2Query",
+   "path": "venv_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "click",
+   "repo": "DrewThomasson/VoxNovel",
+   "path": "MAC-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "click",
+   "repo": "user1342/DroidDetective",
+   "path": "REQUIREMENTS.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "click",
+   "repo": "pnnl/socialsim",
+   "path": "pip_requirements.txt",
+   "skipped": "pin '7.0' not in [8.1.0, 8.5.1)"
+  },
+  {
+   "package": "click",
+   "repo": "bbli/ml_board",
+   "path": "devel_requirements.txt",
+   "skipped": "pin '6.7' not in [8.1.0, 8.5.1)"
+  },
+  {
+   "package": "click",
+   "repo": "Chinese-NLP-book/rasa_chinese_book_code",
+   "path": "full_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "click",
+   "repo": "moonshinelabs-ai/moonshine-remote-sensing",
+   "path": "docs_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "click",
+   "repo": "python-trio/pytest-trio",
+   "path": "docs-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "click",
+   "repo": "sc2musa/Large-Language-Models-play-StarCraftII",
+   "path": "pip_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "click",
+   "repo": "eljost/pysisyphus",
+   "path": "doc-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "click",
+   "repo": "quanted/esat",
+   "path": "doc-requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "marshmallow",
+   "repo": "Netflix-Skunkworks/diffy",
+   "path": "web-requirements.txt",
+   "skipped": "pin '2.20.5' not in [3.20.0, 4.4.0)"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "truenas/middleware",
+   "path": "src/middlewared_docs/_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "flyteorg/flytesnacks",
+   "path": "docs-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "OpenGVLab/VideoChat-Flash",
+   "path": "xtuner-eval_niah/niah_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "aws-samples/amazon-bedrock-prompting",
+   "path": "auto_prompting/auto-prompting-requirements.txt",
+   "skipped": "pin '3.19.0' not in [3.20.0, 4.4.0)"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "AllenInstitute/argschema",
+   "path": "doc_requirements.txt",
+   "skipped": "pin '3.0.0rc6' not in [3.20.0, 4.4.0)"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "GoogleCloudPlatform/medical-imaging",
+   "path": "pathology/bazel_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "UrbanCCD-UChicago/plenario",
+   "path": "requirements.txt",
+   "skipped": "pin '2.9.1' not in [3.20.0, 4.4.0)"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "Farzad-R/LLM-Zero-to-Hundred",
+   "path": "RAGMaster-LlamaIndex-vs-Langchain/langchain_env_requirements.txt",
+   "skipped": "in an earlier set"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "baichuan-inc/Baichuan-Omni-1.5",
+   "path": "baichuan_omni_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "MrMKN/PROFESSOR-BOT",
+   "path": "requirements.txt",
+   "skipped": "2 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "hdl/bazel_rules_hdl",
+   "path": "dependency_support/pip_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "edurange/edurange3",
+   "path": "requirements/prod_requirements.txt",
+   "skipped": null
+  },
+  {
+   "package": "marshmallow",
+   "repo": "audio-df-ucb/ClonedVoiceDetection",
+   "path": "pip_requirements.txt",
+   "skipped": "pin '3.19.0' not in [3.20.0, 4.4.0)"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "dzlab/deeplearning.ai",
+   "path": "2024/01/AutomatedTestingforLLMOps/Lesson2/dev_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "MetaX-MACA/Embodied_AI_Simulation",
+   "path": "MetaxDRL/offline_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "mburaksayici/FinancialAdvisorGPT",
+   "path": "all_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "evilnose/PyRKViewer",
+   "path": "requirements.txt.old",
+   "skipped": "pin '3.9.1' not in [3.20.0, 4.4.0)"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "andreidev1/deepbookpy",
+   "path": "example-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "GoogleCloudPlatform/agentsmithy",
+   "path": "agent_bar_v2/app_utils/.requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "CAVEconnectome/AnnotationEngine",
+   "path": "dev_requirements.txt",
+   "skipped": "pin '3.5.1' not in [3.20.0, 4.4.0)"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "cewebbr/cordata",
+   "path": "openai_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "Ch3nYe/AutoCompiler",
+   "path": "Requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "taco-group/LangCoop",
+   "path": "my_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "gnydick/qairon",
+   "path": "dev_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "jerome3o/schemallm",
+   "path": "requirements.txt.dev",
+   "skipped": "pin '3.19.0' not in [3.20.0, 4.4.0)"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "Raytsang123/CLIBE",
+   "path": "requirements.txt.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "CLEURNOC/ciscolive-potpourri",
+   "path": "automation/services/dhcp_api_requirements.txt",
+   "skipped": "pin '3.3.0' not in [3.20.0, 4.4.0)"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "fdrennan/ndexr-platform",
+   "path": "airflow/airflow.requirements.txt",
+   "skipped": "pin '2.19.5' not in [3.20.0, 4.4.0)"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "nedolsdev/traffic-flow-prediction-system",
+   "path": "mac_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "trashchenkov/telegram-posts-clustering",
+   "path": "backend/venv_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "pivothorizon/leo",
+   "path": "leo/template/requirements.txt.jinja2",
+   "skipped": "pin '2.20.0' not in [3.20.0, 4.4.0)"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "nrcrews/gpt-engineer",
+   "path": "action_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "Jay4Codes/GoogleVertexAI",
+   "path": "env_requirements.txt",
+   "skipped": "pin '3.19.0' not in [3.20.0, 4.4.0)"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "akamai-developers/rag-langgraph-k8s-quickstart",
+   "path": "requirements.txt.save",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "OSU-NLP-Group/InsightAgent",
+   "path": "server/clean_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "lasapp/lasapp",
+   "path": "src/py-requirements.txt",
+   "skipped": "pin '3.19.0' not in [3.20.0, 4.4.0)"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "SrGrace/Contextual-Compression",
+   "path": "venv_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "Certora/AutoProver",
+   "path": "scripts/rag_build_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "JamesOConnor/openaq-s5",
+   "path": "openaq_requirements.txt",
+   "skipped": "pin '3.6.1' not in [3.20.0, 4.4.0)"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "Pitcher755/soft-architect-ai",
+   "path": "requirements.txt.new",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "MahdiBahar/Loan_Reommender_System",
+   "path": "pip_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "deskool/brainworks-public",
+   "path": "requirements/full_requirements.txt",
+   "skipped": "pin '3.14.0' not in [3.20.0, 4.4.0)"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "pyhipster/generator-pyhipster",
+   "path": "generators/server-flask/templates/requirements.txt.ejs",
+   "skipped": "pin '3.18.0' not in [3.20.0, 4.4.0)"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "pbl-nl/appl-docchat",
+   "path": "requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "Ebuube/Nervenex",
+   "path": "prev_requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "formatkaka/college-connect",
+   "path": "requirements.txt~",
+   "skipped": "pin '2.4.2' not in [3.20.0, 4.4.0)"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "rambasnet/Docker-Podman",
+   "path": "python/ml-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "jonathanhus/back-to-school",
+   "path": "baselines/upgraded-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "rishikonapure/Advertisement-Recommendation",
+   "path": "requirements.txt.rtf",
+   "skipped": "pin '2.21.0\\\\' not in [3.20.0, 4.4.0)"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "u93/aws-iot-certificate-vending-machine",
+   "path": "etc/pip/lambda-requirements.txt",
+   "skipped": "pin '3.7.0' not in [3.20.0, 4.4.0)"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "metauto-ai/Mindstorm",
+   "path": "requirements.txt",
+   "skipped": "pin '3.19.0' not in [3.20.0, 4.4.0)"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "Maximilian-Pichler/BDPi",
+   "path": "templates/requirements/superset_pip_requirements.txt",
+   "skipped": "pin '3.12.1' not in [3.20.0, 4.4.0)"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "teddy-f-47/self-learning-llm-public",
+   "path": "snapshot_requirements.txt",
+   "skipped": "pin '2.21.0' not in [3.20.0, 4.4.0)"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "husudosu/yamakanban",
+   "path": "REQUIREMENTS.txt",
+   "skipped": "pin '3.15.0' not in [3.20.0, 4.4.0)"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "princechoudhary16/Image-Recognition-using-AWS-Services",
+   "path": "Requirements.txt",
+   "skipped": "pin '3.18.0' not in [3.20.0, 4.4.0)"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "AmmanChhetri/Adventure-Game-OpenAI",
+   "path": "Requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "ChocoPancakes1219/RAG-application-using-LlamaIndex",
+   "path": "Requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "NGI-TRUSTCHAIN/DOOF",
+   "path": "installation/py_requirements.txt",
+   "skipped": "pin '3.14.1' not in [3.20.0, 4.4.0)"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "paulbrowne-irl/AI-Knowledgement-Emails-and-Documents",
+   "path": "snapshot-requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "paramsgit/autochat-bot",
+   "path": "requirements.txt",
+   "skipped": "0 uses"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "darrishabh/coviprox",
+   "path": "requirements.txt.",
+   "skipped": "pin '2.21.0' not in [3.20.0, 4.4.0)"
+  },
+  {
+   "package": "marshmallow",
+   "repo": "joemrnice/flaskblog",
+   "path": "v1requirements.txt",
+   "skipped": null
+  }
+ ]
+}

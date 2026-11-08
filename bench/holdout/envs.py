@@ -7,7 +7,8 @@ upgrade asks about there; and from the `check` of each case in <set dir>/traceba
 
 - TimeMachine-bench upgrades: `to` only, on Python 3.12 with PyPI as of 2025-08-01 (the dataset's migration date).
 - Pinned upgrades: both `from` and `to`. A version installs with PyPI as of 30 days after its release, so its
-  dependencies are ones it was used with; the newest releases install with PyPI as of the set's cutoff.
+  dependencies are ones it was used with; the newest releases install with PyPI as of the set's cutoff (the `cutoff`
+  in <set dir>/selection.json).
 """
 
 from __future__ import annotations
@@ -21,7 +22,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from collect import pypi_releases
 
-CUTOFF = "2026-11-07"
+CUTOFF = "2026-11-07"  # the set's cutoff, from <set dir>/selection.json (set_cutoff)
 TMB_DATE = "2025-08-01"
 OLD_PYTHONS = ["3.11", "3.10", "3.12", "3.9"]
 NEW_PYTHONS = ["3.12", "3.11", "3.13"]
@@ -30,6 +31,14 @@ NEW_PYTHONS = ["3.12", "3.11", "3.13"]
 def use_key(u: dict) -> str:
     raw = json.dumps([u["kind"], u["path"], u.get("npos"), u.get("kwargs", []), u.get("via", "import")])
     return hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+
+def set_cutoff(root: Path) -> None:
+    """Use the cutoff the set's selection.json records: its newest releases are the ones before that day."""
+    global CUTOFF
+    sel = root / "selection.json"
+    if sel.exists():
+        CUTOFF = json.loads(sel.read_text(encoding="utf-8")).get("cutoff", CUTOFF)
 
 
 def exclude_newer(package: str, version: str) -> str:
@@ -46,6 +55,7 @@ def main() -> None:
     if len(sys.argv) != 2:
         sys.exit(__doc__)
     root = Path(sys.argv[1])
+    set_cutoff(root)
     envs: dict[str, dict] = {}
     checks: dict[str, dict] = {}
 

@@ -1,0 +1,1358 @@
+{
+"envs": [
+{
+"id": "anthropic==0.79.0@2026-03-09",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2026-03-09",
+"requires": [
+"anthropic==0.79.0"
+],
+"uses": [
+{
+"key": "5adf350a2584871e",
+"kind": "name",
+"path": "anthropic.types.beta.beta_web_search_tool_20250305_param.UserLocation"
+}
+]
+},
+{
+"id": "anthropic==0.80.0@2026-03-19",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2026-03-19",
+"requires": [
+"anthropic==0.80.0"
+],
+"uses": [
+{
+"key": "5adf350a2584871e",
+"kind": "name",
+"path": "anthropic.types.beta.beta_web_search_tool_20250305_param.UserLocation"
+}
+]
+},
+{
+"id": "chromadb==0.6.3@2025-02-13",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2025-02-13",
+"requires": [
+"chromadb==0.6.3"
+],
+"uses": [
+{
+"key": "63899a5cca65f035",
+"kind": "name",
+"path": "chromadb.api.types.IncludeEnum"
+}
+]
+},
+{
+"id": "chromadb==1.0.0@2025-05-03",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2025-05-03",
+"requires": [
+"chromadb==1.0.0"
+],
+"uses": [
+{
+"key": "63899a5cca65f035",
+"kind": "name",
+"path": "chromadb.api.types.IncludeEnum"
+}
+]
+},
+{
+"id": "chromadb==1.0.3@2025-05-07",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2025-05-07",
+"requires": [
+"chromadb==1.0.3"
+],
+"uses": [
+{
+"key": "63899a5cca65f035",
+"kind": "name",
+"path": "chromadb.api.types.IncludeEnum"
+}
+]
+},
+{
+"id": "click==8.1.8@2025-01-20",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2025-01-20",
+"requires": [
+"click==8.1.8"
+],
+"uses": [
+{
+"key": "5ae84b7d42988ce5",
+"kind": "call",
+"path": "click.Parameter.make_metavar",
+"npos": 0,
+"kwargs": [],
+"via": "instance"
+}
+]
+},
+{
+"id": "click==8.2.0@2025-06-09",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2025-06-09",
+"requires": [
+"click==8.2.0"
+],
+"uses": [
+{
+"key": "5ae84b7d42988ce5",
+"kind": "call",
+"path": "click.Parameter.make_metavar",
+"npos": 0,
+"kwargs": [],
+"via": "instance"
+}
+]
+},
+{
+"id": "click==8.2.1@2025-06-19",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2025-06-19",
+"requires": [
+"click==8.2.1"
+],
+"uses": [
+{
+"key": "5ae84b7d42988ce5",
+"kind": "call",
+"path": "click.Parameter.make_metavar",
+"npos": 0,
+"kwargs": [],
+"via": "instance"
+}
+]
+},
+{
+"id": "django==3.2.25@2024-04-03",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2024-04-03",
+"requires": [
+"django==3.2.25"
+],
+"uses": [
+{
+"key": "4cdedc8b08cbf3d2",
+"kind": "name",
+"path": "django.utils.http.urlquote"
+},
+{
+"key": "cd609bb167048f5e",
+"kind": "call",
+"path": "django.dispatch.Signal",
+"npos": 0,
+"kwargs": [
+"providing_args"
+]
+}
+]
+},
+{
+"id": "django==4.0.1@2022-02-03",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2022-02-03",
+"requires": [
+"django==4.0.1"
+],
+"uses": [
+{
+"key": "4cdedc8b08cbf3d2",
+"kind": "name",
+"path": "django.utils.http.urlquote"
+}
+]
+},
+{
+"id": "django==4.0@2022-01-06",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2022-01-06",
+"requires": [
+"django==4.0"
+],
+"uses": [
+{
+"key": "4cdedc8b08cbf3d2",
+"kind": "name",
+"path": "django.utils.http.urlquote"
+},
+{
+"key": "cd609bb167048f5e",
+"kind": "call",
+"path": "django.dispatch.Signal",
+"npos": 0,
+"kwargs": [
+"providing_args"
+]
+}
+]
+},
+{
+"id": "django==4.1.6@2023-03-03",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-03-03",
+"requires": [
+"django==4.1.6"
+],
+"uses": [
+{
+"key": "cd609bb167048f5e",
+"kind": "call",
+"path": "django.dispatch.Signal",
+"npos": 0,
+"kwargs": [
+"providing_args"
+]
+}
+]
+},
+{
+"id": "dspy==2.5.43@2025-01-12",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2025-01-12",
+"requires": [
+"dspy==2.5.43"
+],
+"uses": [
+{
+"key": "646b5da9dccec3ca",
+"kind": "name",
+"path": "dspy.functional"
+}
+]
+},
+{
+"id": "dspy==2.6.0@2025-03-01",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2025-03-01",
+"requires": [
+"dspy==2.6.0"
+],
+"uses": [
+{
+"key": "646b5da9dccec3ca",
+"kind": "name",
+"path": "dspy.functional"
+}
+]
+},
+{
+"id": "dspy==2.6.8@2025-03-29",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2025-03-29",
+"requires": [
+"dspy==2.6.8"
+],
+"uses": [
+{
+"key": "646b5da9dccec3ca",
+"kind": "name",
+"path": "dspy.functional"
+}
+]
+},
+{
+"id": "fastmcp==2.14.7@2026-05-13",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2026-05-13",
+"requires": [
+"fastmcp==2.14.7"
+],
+"uses": [
+{
+"key": "c80d8cbe87ab0d37",
+"kind": "name",
+"path": "fastmcp.utilities.lifespan"
+}
+]
+},
+{
+"id": "fastmcp==3.0.0@2026-03-20",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2026-03-20",
+"requires": [
+"fastmcp==3.0.0"
+],
+"uses": [
+{
+"key": "c80d8cbe87ab0d37",
+"kind": "name",
+"path": "fastmcp.utilities.lifespan"
+}
+]
+},
+{
+"id": "flask==2.2.5@2023-06-01",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-06-01",
+"requires": [
+"flask==2.2.5"
+],
+"uses": [
+{
+"key": "0b4769bad05145d9",
+"kind": "name",
+"path": "flask.json.JSONEncoder"
+}
+]
+},
+{
+"id": "flask==2.3.0@2023-05-25",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-05-25",
+"requires": [
+"flask==2.3.0"
+],
+"uses": [
+{
+"key": "0b4769bad05145d9",
+"kind": "name",
+"path": "flask.json.JSONEncoder"
+}
+]
+},
+{
+"id": "flask==2.3.2@2023-05-31",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-05-31",
+"requires": [
+"flask==2.3.2"
+],
+"uses": [
+{
+"key": "0b4769bad05145d9",
+"kind": "name",
+"path": "flask.json.JSONEncoder"
+}
+]
+},
+{
+"id": "google-genai==1.31.0@2025-09-17",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2025-09-17",
+"requires": [
+"google-genai==1.31.0"
+],
+"uses": [
+{
+"key": "35a3618e17341901",
+"kind": "name",
+"path": "google.genai.types.FinishReason.IMAGE_PROHIBITED_CONTENT"
+}
+]
+},
+{
+"id": "google-genai==1.39.1@2025-10-26",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2025-10-26",
+"requires": [
+"google-genai==1.39.1"
+],
+"uses": [
+{
+"key": "35a3618e17341901",
+"kind": "name",
+"path": "google.genai.types.FinishReason.IMAGE_PROHIBITED_CONTENT"
+}
+]
+},
+{
+"id": "google-genai==1.40.0@2025-10-31",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2025-10-31",
+"requires": [
+"google-genai==1.40.0"
+],
+"uses": [
+{
+"key": "35a3618e17341901",
+"kind": "name",
+"path": "google.genai.types.FinishReason.IMAGE_PROHIBITED_CONTENT"
+}
+]
+},
+{
+"id": "huggingface-hub==0.36.2@2026-03-08",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2026-03-08",
+"requires": [
+"huggingface-hub==0.36.2"
+],
+"uses": [
+{
+"key": "25a907eb3110bff7",
+"kind": "name",
+"path": "huggingface_hub.HfFolder"
+}
+]
+},
+{
+"id": "huggingface-hub==1.0.0@2025-11-26",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2025-11-26",
+"requires": [
+"huggingface-hub==1.0.0"
+],
+"uses": [
+{
+"key": "25a907eb3110bff7",
+"kind": "name",
+"path": "huggingface_hub.HfFolder"
+}
+]
+},
+{
+"id": "huggingface-hub==1.1.4@2025-12-13",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2025-12-13",
+"requires": [
+"huggingface-hub==1.1.4"
+],
+"uses": [
+{
+"key": "25a907eb3110bff7",
+"kind": "name",
+"path": "huggingface_hub.HfFolder"
+}
+]
+},
+{
+"id": "langchain==0.3.29@2026-06-04",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2026-06-04",
+"requires": [
+"langchain==0.3.29"
+],
+"uses": [
+{
+"key": "bf5406133c4a2557",
+"kind": "name",
+"path": "langchain.memory"
+}
+]
+},
+{
+"id": "langchain==1.0.0@2025-11-16",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2025-11-16",
+"requires": [
+"langchain==1.0.0"
+],
+"uses": [
+{
+"key": "bf5406133c4a2557",
+"kind": "name",
+"path": "langchain.memory"
+}
+]
+},
+{
+"id": "langchain==1.2.14@2026-04-30",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2026-04-30",
+"requires": [
+"langchain==1.2.14"
+],
+"uses": [
+{
+"key": "bf5406133c4a2557",
+"kind": "name",
+"path": "langchain.memory"
+}
+]
+},
+{
+"id": "marshmallow==3.26.2@2026-01-21",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2026-01-21",
+"requires": [
+"marshmallow==3.26.2"
+],
+"uses": [
+{
+"key": "e81737001deca0db",
+"kind": "name",
+"path": "marshmallow.__version_info__"
+}
+]
+},
+{
+"id": "marshmallow==4.0.0@2025-05-17",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2025-05-17",
+"requires": [
+"marshmallow==4.0.0"
+],
+"uses": [
+{
+"key": "e81737001deca0db",
+"kind": "name",
+"path": "marshmallow.__version_info__"
+}
+]
+},
+{
+"id": "matplotlib==3.7.5@2024-03-17",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2024-03-17",
+"requires": [
+"matplotlib==3.7.5"
+],
+"uses": [
+{
+"key": "709b555af34ebd08",
+"kind": "name",
+"path": "matplotlib.cbook.GrouperView.join"
+},
+{
+"key": "f8490617ec21783e",
+"kind": "name",
+"path": "mpl_toolkits.mplot3d.axes3d.Axes3D.w_xaxis"
+}
+]
+},
+{
+"id": "matplotlib==3.8.0@2023-10-15",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-10-15",
+"requires": [
+"matplotlib==3.8.0"
+],
+"uses": [
+{
+"key": "709b555af34ebd08",
+"kind": "name",
+"path": "matplotlib.cbook.GrouperView.join"
+},
+{
+"key": "f8490617ec21783e",
+"kind": "name",
+"path": "mpl_toolkits.mplot3d.axes3d.Axes3D.w_xaxis"
+}
+]
+},
+{
+"id": "matplotlib==3.8.1@2023-12-01",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-12-01",
+"requires": [
+"matplotlib==3.8.1"
+],
+"uses": [
+{
+"key": "f8490617ec21783e",
+"kind": "name",
+"path": "mpl_toolkits.mplot3d.axes3d.Axes3D.w_xaxis"
+}
+]
+},
+{
+"id": "mcp==1.29.1@2026-09-23",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2026-09-23",
+"requires": [
+"mcp==1.29.1"
+],
+"uses": [
+{
+"key": "e4acd5ca58daa7af",
+"kind": "name",
+"path": "mcp.shared.memory.create_connected_server_and_client_session"
+}
+]
+},
+{
+"id": "mcp==2.0.0@2026-08-27",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2026-08-27",
+"requires": [
+"mcp==2.0.0"
+],
+"uses": [
+{
+"key": "e4acd5ca58daa7af",
+"kind": "name",
+"path": "mcp.shared.memory.create_connected_server_and_client_session"
+}
+]
+},
+{
+"id": "mcp==2.1.1@2026-09-24",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2026-09-24",
+"requires": [
+"mcp==2.1.1"
+],
+"uses": [
+{
+"key": "e4acd5ca58daa7af",
+"kind": "name",
+"path": "mcp.shared.memory.create_connected_server_and_client_session"
+}
+]
+},
+{
+"id": "numpy==2.3.5@2025-12-16",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2025-12-16",
+"requires": [
+"numpy==2.3.5"
+],
+"uses": [
+{
+"key": "10f7e16aaba59277",
+"kind": "name",
+"path": "numpy.trapz"
+},
+{
+"key": "3c5fb63db12dab46",
+"kind": "call",
+"path": "numpy.reshape",
+"npos": 1,
+"kwargs": [
+"newshape",
+"order",
+"shape"
+]
+}
+]
+},
+{
+"id": "numpy==2.4.0@2026-01-19",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2026-01-19",
+"requires": [
+"numpy==2.4.0"
+],
+"uses": [
+{
+"key": "10f7e16aaba59277",
+"kind": "name",
+"path": "numpy.trapz"
+},
+{
+"key": "3c5fb63db12dab46",
+"kind": "call",
+"path": "numpy.reshape",
+"npos": 1,
+"kwargs": [
+"newshape",
+"order",
+"shape"
+]
+}
+]
+},
+{
+"id": "numpy==2.4.2@2026-03-02",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2026-03-02",
+"requires": [
+"numpy==2.4.2"
+],
+"uses": [
+{
+"key": "10f7e16aaba59277",
+"kind": "name",
+"path": "numpy.trapz"
+}
+]
+},
+{
+"id": "openai==1.20.0@2024-05-16",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2024-05-16",
+"requires": [
+"openai==1.20.0"
+],
+"uses": [
+{
+"key": "89155cbb633b7f88",
+"kind": "call",
+"path": "openai.resources.beta.Assistants.create",
+"npos": 0,
+"kwargs": [
+"file_ids",
+"instructions",
+"model",
+"tools"
+],
+"via": "instance"
+}
+]
+},
+{
+"id": "openai==1.21.0@2024-05-17",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2024-05-17",
+"requires": [
+"openai==1.21.0"
+],
+"uses": [
+{
+"key": "89155cbb633b7f88",
+"kind": "call",
+"path": "openai.resources.beta.Assistants.create",
+"npos": 0,
+"kwargs": [
+"file_ids",
+"instructions",
+"model",
+"tools"
+],
+"via": "instance"
+}
+]
+},
+{
+"id": "openai==1.28.1@2024-06-10",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2024-06-10",
+"requires": [
+"openai==1.28.1"
+],
+"uses": [
+{
+"key": "89155cbb633b7f88",
+"kind": "call",
+"path": "openai.resources.beta.Assistants.create",
+"npos": 0,
+"kwargs": [
+"file_ids",
+"instructions",
+"model",
+"tools"
+],
+"via": "instance"
+}
+]
+},
+{
+"id": "pinecone==2.2.2@2024-08-30",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2024-08-30",
+"requires": [
+"pinecone==2.2.2"
+],
+"uses": [
+{
+"key": "50a64c71d755a729",
+"kind": "name",
+"path": "pinecone.Pinecone"
+}
+]
+},
+{
+"id": "pinecone==2.2.4@2024-08-30",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2024-08-30",
+"requires": [
+"pinecone==2.2.4"
+],
+"uses": [
+{
+"key": "50a64c71d755a729",
+"kind": "name",
+"path": "pinecone.Pinecone"
+}
+]
+},
+{
+"id": "pinecone==3.0.0@2024-08-30",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2024-08-30",
+"requires": [
+"pinecone==3.0.0"
+],
+"uses": [
+{
+"key": "50a64c71d755a729",
+"kind": "name",
+"path": "pinecone.Pinecone"
+}
+]
+},
+{
+"id": "pydantic==2.10.0@2024-12-20",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2024-12-20",
+"requires": [
+"pydantic==2.10.0"
+],
+"uses": [
+{
+"key": "9712b37c3ce71871",
+"kind": "name",
+"path": "pydantic.networks.Url"
+}
+]
+},
+{
+"id": "pydantic==2.13.5@2026-09-27",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2026-09-27",
+"requires": [
+"pydantic==2.13.5"
+],
+"uses": [
+{
+"key": "beac8263c55a75fc",
+"kind": "name",
+"path": "pydantic._internal._typing_extra.eval_type_backport"
+}
+]
+},
+{
+"id": "pydantic==2.14.0@2026-11-07",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2026-11-07",
+"requires": [
+"pydantic==2.14.0"
+],
+"uses": [
+{
+"key": "beac8263c55a75fc",
+"kind": "name",
+"path": "pydantic._internal._typing_extra.eval_type_backport"
+}
+]
+},
+{
+"id": "pydantic==2.14.1@2026-11-08",
+"python": [
+"3.12",
+"3.11",
+"3.13"
+],
+"exclude_newer": "2026-11-08",
+"requires": [
+"pydantic==2.14.1"
+],
+"uses": [
+{
+"key": "beac8263c55a75fc",
+"kind": "name",
+"path": "pydantic._internal._typing_extra.eval_type_backport"
+}
+]
+},
+{
+"id": "pydantic==2.9.2@2024-10-17",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2024-10-17",
+"requires": [
+"pydantic==2.9.2"
+],
+"uses": [
+{
+"key": "9712b37c3ce71871",
+"kind": "name",
+"path": "pydantic.networks.Url"
+}
+]
+},
+{
+"id": "qdrant-client==1.15.1@2025-08-30",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2025-08-30",
+"requires": [
+"qdrant-client==1.15.1"
+],
+"uses": [
+{
+"key": "164e9fd4112fcfa9",
+"kind": "name",
+"path": "qdrant_client.QdrantClient.upload_records"
+}
+]
+},
+{
+"id": "qdrant-client==1.16.0@2025-12-17",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2025-12-17",
+"requires": [
+"qdrant-client==1.16.0"
+],
+"uses": [
+{
+"key": "164e9fd4112fcfa9",
+"kind": "name",
+"path": "qdrant_client.QdrantClient.upload_records"
+}
+]
+},
+{
+"id": "qdrant-client==1.16.1@2025-12-25",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2025-12-25",
+"requires": [
+"qdrant-client==1.16.1"
+],
+"uses": [
+{
+"key": "164e9fd4112fcfa9",
+"kind": "name",
+"path": "qdrant_client.QdrantClient.upload_records"
+}
+]
+},
+{
+"id": "scikit-learn==1.2.2@2023-04-08",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-04-08",
+"requires": [
+"scikit-learn==1.2.2"
+],
+"uses": [
+{
+"key": "12ed5b74c594afda",
+"kind": "name",
+"path": "sklearn.metrics.SCORERS"
+}
+]
+},
+{
+"id": "scikit-learn==1.3.0@2023-07-30",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-07-30",
+"requires": [
+"scikit-learn==1.3.0"
+],
+"uses": [
+{
+"key": "12ed5b74c594afda",
+"kind": "name",
+"path": "sklearn.metrics.SCORERS"
+}
+]
+},
+{
+"id": "scikit-learn==1.7.2@2025-10-09",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2025-10-09",
+"requires": [
+"scikit-learn==1.7.2"
+],
+"uses": [
+{
+"key": "c0b6eeef3a4bb263",
+"kind": "call",
+"path": "sklearn.utils.check_array",
+"npos": 1,
+"kwargs": [
+"force_all_finite"
+]
+}
+]
+},
+{
+"id": "scikit-learn==1.8.0@2026-01-09",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2026-01-09",
+"requires": [
+"scikit-learn==1.8.0"
+],
+"uses": [
+{
+"key": "c0b6eeef3a4bb263",
+"kind": "call",
+"path": "sklearn.utils.check_array",
+"npos": 1,
+"kwargs": [
+"force_all_finite"
+]
+}
+]
+},
+{
+"id": "sqlalchemy==1.4.54@2024-10-05",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2024-10-05",
+"requires": [
+"sqlalchemy==1.4.54"
+],
+"uses": [
+{
+"key": "eb03d7eec62cd036",
+"kind": "name",
+"path": "sqlalchemy.engine.Engine.table_names"
+}
+]
+},
+{
+"id": "sqlalchemy==2.0.0@2023-02-25",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-02-25",
+"requires": [
+"sqlalchemy==2.0.0"
+],
+"uses": [
+{
+"key": "eb03d7eec62cd036",
+"kind": "name",
+"path": "sqlalchemy.engine.Engine.table_names"
+}
+]
+},
+{
+"id": "sqlalchemy==2.0.3@2023-03-12",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-03-12",
+"requires": [
+"sqlalchemy==2.0.3"
+],
+"uses": [
+{
+"key": "eb03d7eec62cd036",
+"kind": "name",
+"path": "sqlalchemy.engine.Engine.table_names"
+}
+]
+},
+{
+"id": "werkzeug==2.3.8@2023-12-08",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-12-08",
+"requires": [
+"werkzeug==2.3.8"
+],
+"uses": [
+{
+"key": "cae47c30c9829cd4",
+"kind": "name",
+"path": "werkzeug.http.parse_authorization_header"
+}
+]
+},
+{
+"id": "werkzeug==3.0.0@2023-10-30",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-10-30",
+"requires": [
+"werkzeug==3.0.0"
+],
+"uses": [
+{
+"key": "cae47c30c9829cd4",
+"kind": "name",
+"path": "werkzeug.http.parse_authorization_header"
+}
+]
+}
+]
+}

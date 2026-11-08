@@ -1,0 +1,507 @@
+{
+ "hold-openai-assistants-create-file-ids-azure-notebook": {
+  "ok": true,
+  "versions": {
+   "1.20.0": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.21.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   },
+   "1.28.1": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   }
+  }
+ },
+ "hold-anthropic-beta-userlocation-airflow-pydantic-ai": {
+  "ok": true,
+  "versions": {
+   "0.79.0": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "0.80.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-google-genai-finishreason-image-prohibited-content-pydantic-ai": {
+  "ok": true,
+  "versions": {
+   "1.40.0": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.31.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "1.39.1": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-langchain-memory-django-chain": {
+  "ok": true,
+  "versions": {
+   "0.3.29": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "1.2.14": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-mcp-create-connected-server-and-client-session-voice-gatekeeper": {
+  "ok": true,
+  "versions": {
+   "1.29.1": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-mcp-create-connected-server-and-client-session-attenu-guard": {
+  "ok": true,
+  "versions": {
+   "1.29.1": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "2.1.1": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-fastmcp-utilities-lifespan-not-yet-added": {
+  "ok": true,
+  "versions": {
+   "3.0.0": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.14.7": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-pydantic-eval-type-backport-nebius-mcp-server": {
+  "ok": true,
+  "versions": {
+   "2.13.5": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.14.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-pydantic-eval-type-backport-chroma-mcp": {
+  "ok": true,
+  "versions": {
+   "2.13.5": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.14.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "2.14.1": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-pydantic-networks-url-semantic-kernel": {
+  "ok": true,
+  "versions": {
+   "2.9.2": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.10.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-dspy-functional-module-removed-cheatsheet": {
+  "ok": true,
+  "versions": {
+   "2.5.43": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.6.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "2.6.8": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-huggingface-hub-hffolder-edgetam": {
+  "ok": true,
+  "versions": {
+   "0.36.2": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "1.1.4": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-chromadb-includeenum-autogen": {
+  "ok": true,
+  "versions": {
+   "0.6.3": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "1.0.3": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-qdrant-client-upload-records-openllmetry": {
+  "ok": true,
+  "versions": {
+   "1.15.1": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.16.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "1.16.1": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-pinecone-pinecone-class-not-yet-pinecone-examples": {
+  "ok": true,
+  "versions": {
+   "3.0.0": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.2.2": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "2.2.4": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-sqlalchemy-engine-table-names-melodie": {
+  "ok": true,
+  "versions": {
+   "1.4.54": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "2.0.3": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-numpy-trapz-pyfuzzy-toolbox": {
+  "ok": true,
+  "versions": {
+   "2.3.5": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.4.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "2.4.2": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-numpy-reshape-newshape-numpoly": {
+  "ok": true,
+  "versions": {
+   "2.3.5": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.4.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   }
+  }
+ },
+ "hold-scikit-learn-scorers-piml-toolbox": {
+  "ok": true,
+  "versions": {
+   "1.2.2": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.3.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-scikit-learn-check-array-force-all-finite-modern-time-series-forecasting": {
+  "ok": true,
+  "versions": {
+   "1.7.2": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.8.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   }
+  }
+ },
+ "hold-matplotlib-axes3d-w-xaxis-fio-plot": {
+  "ok": true,
+  "versions": {
+   "3.7.5": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "3.8.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "3.8.1": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-matplotlib-grouperview-join-alibi": {
+  "ok": true,
+  "versions": {
+   "3.7.5": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "3.8.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-django-signal-providing-args-django-tus": {
+  "ok": true,
+  "versions": {
+   "3.2.25": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "4.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   },
+   "4.1.6": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   }
+  }
+ },
+ "hold-django-urlquote-django-allauth": {
+  "ok": true,
+  "versions": {
+   "3.2.25": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "4.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "4.0.1": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-flask-json-jsonencoder-flask-api": {
+  "ok": true,
+  "versions": {
+   "2.2.5": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.3.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "2.3.2": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-werkzeug-parse-authorization-header-httpbin": {
+  "ok": true,
+  "versions": {
+   "2.3.8": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "3.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-click-parameter-make-metavar-ctx-bma-cli-python": {
+  "ok": true,
+  "versions": {
+   "8.1.8": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "8.2.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_now_required"
+   },
+   "8.2.1": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_now_required"
+   }
+  }
+ },
+ "hold-marshmallow-version-info-doccano": {
+  "ok": true,
+  "versions": {
+   "3.26.2": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "4.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ }
+}

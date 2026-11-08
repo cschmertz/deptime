@@ -322,8 +322,9 @@ def main(argv: list[str] | None = None) -> int:
         hit = sum(1 for r in dep_true if r[tool]["answered"] and r[tool]["deprecated"])
         out += [
             "",
-            f"**Deprecations** (uses that work; truth: a warning when the name is read, `__deprecated__`, or a docstring"
-            f" note): flagged {len(dep_flag)}, of which {hit} have that evidence; recall {rate(hit, len(dep_true))}.",
+            f"**Deprecations** (uses that work; truth: the probe's evidence that the name is deprecated, as"
+            f" `../README.md` defines it for this set): flagged {len(dep_flag)}, of which {hit} have that evidence;"
+            f" recall {rate(hit, len(dep_true))}.",
         ]
         fps = [r for r in scored if r["label"] == "works" and r[tool]["answered"] and r[tool]["flagged"]]
         fns = [r for r in scored if r["label"] == "breaks" and r[tool]["answered"] and not r[tool]["flagged"]]

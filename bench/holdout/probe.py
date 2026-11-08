@@ -5,7 +5,8 @@ against, so it never asks DepTime anything.
 GitHub Actions Linux only (`.github/workflows/holdout.yml`), like bench/s3/run.py: checking a use imports the package
 (invariant 1 forbids that anywhere else). Per environment:
 1. A fresh venv, filled with `uv pip install --only-binary :all: --exclude-newer` (wheels only, so no package code runs
-   at install time), trying each listed Python until one installs.
+   at install time), trying each listed Python until one installs; if none does, again allowing only SOURCE_BUILDS (two
+   pure-Python sdist-only dependencies) to build.
 2. CHECK runs as the throwaway user `dev` with no network (`unshare --net`), no capabilities, no new privileges and an
    empty environment, and writes one result per use.
 
@@ -33,11 +34,15 @@ PY = VENV / "bin" / "python"
 TOOLS = Path("/opt/holdout")
 INSTALL_TIMEOUT_S = 15 * 60
 CHECK_TIMEOUT_S = 15 * 60
+# Pure-Python dependencies published only as sdists, which some environments need (chromadb's pypika, gradio 3's
+# ffmpy; DT-QA-08). An environment that doesn't install from wheels alone is retried allowing just these to build.
+# Nothing else builds, and the packages under test always come from wheels.
+SOURCE_BUILDS = ["pypika", "ffmpy"]
 
 # Runs inside the sandbox with the environment's interpreter: argv[1] = uses (JSON), argv[2] = results (JSON lines on
 # stdout). Every use is checked on its own, so one that hangs or crashes the import of a module loses only itself.
 CHECK = r'''
-import importlib, inspect, json, sys, types, warnings
+import importlib, inspect, itertools, json, re, sys, types, warnings
 
 MAX = 300
 
@@ -46,24 +51,133 @@ def short(e):
     return f"{type(e).__name__}: {e}"[:MAX]
 
 
-def deprecation_evidence(obj, caught):
-    found = []
+SECTION = re.compile(
+    r"(Parameters|Params|Args|Arguments|Keyword Arguments|Other Parameters|Returns|Yields|Raises|Attributes|"
+    r"Examples?|Notes?|See Also|Warnings?)\s*:?\s*$"
+)
+THIS = re.compile(r"\bthis (function|class|method|module|property|attribute|object|model|api|decorator)\b", re.I)
+PARAM_LEVEL = ("arg", "param", "keyword", "positional")
+ARG_LEVEL = re.compile(r"\b(arguments?|parameters?|keywords?|kwargs?|positional)\b", re.I)
+
+
+def _functions(obj):
+    """The functions behind a name, unwrapped: a function or method, a property's getter, a class's own __init__ and
+    __new__; each with the chain of __wrapped__ below it."""
+    if isinstance(obj, property):
+        heads = [obj.fget]
+    elif isinstance(obj, type):
+        heads = [vars(obj).get("__init__"), vars(obj).get("__new__")]
+    elif inspect.ismethod(obj):
+        heads = [obj.__func__]
+    else:
+        heads = [obj]
+    out = []
+    for f in heads:
+        if isinstance(f, (staticmethod, classmethod)):
+            f = f.__func__
+        for _ in range(10):
+            if f is None or not (inspect.isfunction(f) or hasattr(f, "_self_wrapper")):
+                break
+            out.append(f)
+            f = getattr(f, "__wrapped__", None)
+    return out
+
+
+def _decorator(obj):
+    """The qualified name of a deprecation wrapper around the name itself, not one of its parameters: a wrapper
+    function defined in a function or module whose name says `deprecat` (the package's own @deprecated), or a wrapt
+    wrapper whose adapter does."""
+    for f in _functions(obj):
+        try:
+            if hasattr(f, "_self_wrapper"):
+                w = f._self_wrapper  # the `deprecated` package's ClassicAdapter.__call__.<locals>.wrapper_function
+                mod = getattr(w, "__module__", None) or getattr(type(w), "__module__", "")
+                where = f"{mod}.{getattr(w, '__qualname__', None) or getattr(type(w), '__qualname__', '')}"
+            elif hasattr(f.__code__, "co_qualname"):  # Python 3.11+: functools.wraps copies __qualname__ over
+                code = f.__code__
+                where = f"{code.co_filename.rsplit('/', 1)[-1]}:{code.co_qualname}"
+            else:
+                continue
+        except Exception:
+            continue
+        parts = re.split(r"[.:<>/]", where.lower())
+        # `deprecate_kwarg`, `_deprecate_positional_args`, matplotlib's `make_keyword_only` and `rename_parameter`
+        # (in its deprecation.py) are about a parameter.
+        if any("deprecat" in s for s in parts) and not any(p in s for s in parts for p in PARAM_LEVEL):
+            return where
+    return None
+
+
+def _own_deprecated(obj):
+    """PEP 702's __deprecated__ set on the object itself (a class's own, not inherited from a base)."""
+    try:
+        if isinstance(obj, type):
+            return vars(obj).get("__deprecated__")
+        if inspect.ismethod(obj):
+            obj = obj.__func__
+        if isinstance(obj, property):  # langchain marks the property object, typing_extensions the getter
+            if (d := getattr(obj, "__deprecated__", None)):
+                return d
+            obj = obj.fget
+        if inspect.isfunction(obj):
+            return getattr(obj, "__deprecated__", None)
+    except Exception:
+        pass
+    return None
+
+
+def _doc_note(obj, leaf):
+    """A deprecation note in the docstring that is about the object: a `.. deprecated::` directive at the docstring's
+    own indentation before its first section (not one indented under a parameter), or a first paragraph that says
+    deprecated and starts with it, says "this function/class/...", or names the object."""
+    doc = getattr(obj, "__doc__", None) if not isinstance(obj, type) else vars(obj).get("__doc__")
+    if not isinstance(doc, str) or "deprecat" not in doc.lower():
+        return None
+    lines = inspect.cleandoc(doc).splitlines()
+    for i, line in enumerate(lines):
+        if SECTION.match(line):
+            break
+        if line.startswith(".. deprecated::"):
+            block = [line] + [l for l in itertools.takewhile(lambda l: not l or l[:1].isspace(), lines[i + 1 :])]
+            if not ARG_LEVEL.search(" ".join(block)):  # sqlalchemy's and_(): calling it with no arguments
+                return line.strip()
+    first = " ".join(l.strip() for l in lines[: next((i for i, l in enumerate(lines) if not l.strip()), len(lines))])
+    low = first.lower()
+    if "deprecat" in low and not ARG_LEVEL.search(first) and (
+        low.lstrip("*[(!_ ").startswith("deprecat") or THIS.search(first) or re.search(rf"\b{re.escape(leaf)}\b", first)
+    ):
+        return first
+    return None
+
+
+def deprecation_evidence(obj, caught, path):
+    """(evidence that the name itself is deprecated, other deprecation notes seen on the way). A warning counts when
+    reading the name raises it and it names the name; the others are kept apart (a parameter's note, an unrelated
+    module's import warning)."""
+    leaf = path.rsplit(".", 1)[-1]
+    found, other = [], []
     for w in caught:
         cat = w.category
         if issubclass(cat, (DeprecationWarning, PendingDeprecationWarning, FutureWarning)) or "deprecat" in cat.__name__.lower():
-            found.append(f"warning {cat.__name__}: {str(w.message)[:MAX]}")
+            text = f"warning {cat.__name__}: {str(w.message)[:MAX]}"
+            (found if re.search(rf"\b{re.escape(leaf)}\b", str(w.message)) else other).append(text)
+    if (d := _own_deprecated(obj)):
+        found.append(f"__deprecated__: {str(d)[:MAX]}")
     try:
-        if getattr(obj, "__deprecated__", None):
-            found.append(f"__deprecated__: {str(obj.__deprecated__)[:MAX]}")
+        if (dec := _decorator(obj)):
+            found.append(f"decorator: {dec[:MAX]}")
     except Exception:
         pass
     try:
-        doc = obj.__doc__ if not isinstance(obj, types.ModuleType) else None
-        if isinstance(doc, str) and (".. deprecated::" in doc or "\nDeprecated" in doc[:400] or doc.lstrip().lower().startswith("deprecated")):
-            found.append("docstring: " + next(l.strip() for l in doc.splitlines() if "eprecated" in l)[:MAX])
+        if (note := _doc_note(obj, leaf)):
+            found.append(f"docstring: {note[:MAX]}")
+        else:
+            doc = getattr(obj, "__doc__", None)
+            if isinstance(doc, str) and "deprecat" in doc.lower() and not isinstance(obj, types.ModuleType):
+                other.append("docstring: " + next(l.strip() for l in doc.splitlines() if "deprecat" in l.lower())[:MAX])
     except Exception:
         pass
-    return found
+    return found, other
 
 
 class Missing(Exception):
@@ -170,7 +284,10 @@ def check(use):
     except BaseException as e:  # an import that fails for another reason says nothing about this name
         r.update(resolved=None, error=short(e))
         return r
-    r.update(resolved=True, objkind=kind_of(obj), deprecation=deprecation_evidence(obj, caught))
+    found, other = deprecation_evidence(obj, caught, path)
+    r.update(resolved=True, objkind=kind_of(obj), deprecation=found)
+    if other:
+        r["deprecation_other"] = other
     if use.get("via") == "instance":
         r["builder_is_class"] = isinstance(parent, type)
     if use["kind"] != "call":
@@ -304,43 +421,50 @@ def freeze() -> dict[str, str]:
     return found
 
 
-def install(env: dict) -> str | None:
-    """The Python that installed the environment, or None."""
-    for python in env["python"]:
-        fresh_project()
-        try:
-            sh("uv", "venv", "--quiet", "--python", python, str(VENV), timeout=INSTALL_TIMEOUT_S)
-            sh(
-                "uv",
-                "pip",
-                "install",
-                "--quiet",
-                "--python",
-                str(PY),
-                "--only-binary",
-                ":all:",
-                "--exclude-newer",
-                env["exclude_newer"],
-                *env["requires"],
-                timeout=INSTALL_TIMEOUT_S,
-            )
-            return python
-        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
-            continue
+def install(env: dict) -> tuple[str, list[str]] | None:
+    """(the Python that installed the environment, the dependencies built from source), or None. Wheels only first,
+    on each listed Python; then the same allowing SOURCE_BUILDS to build from their sdists."""
+    for builds in ([], SOURCE_BUILDS):
+        allow = [a for b in builds for a in ("--no-binary", b)]
+        for python in env["python"]:
+            fresh_project()
+            try:
+                sh("uv", "venv", "--quiet", "--python", python, str(VENV), timeout=INSTALL_TIMEOUT_S)
+                sh(
+                    "uv",
+                    "pip",
+                    "install",
+                    "--quiet",
+                    "--python",
+                    str(PY),
+                    "--only-binary",
+                    ":all:",
+                    *allow,
+                    "--exclude-newer",
+                    env["exclude_newer"],
+                    *env["requires"],
+                    timeout=INSTALL_TIMEOUT_S,
+                )
+                return python, list(builds)
+            except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+                continue
     return None
 
 
 def probe(env: dict) -> dict:
     base = {"id": env["id"], "requires": env["requires"]}
-    python = install(env)
-    if python is None:
+    installed = install(env)
+    if installed is None:
         return {**base, "result": "install_failed", "tried": env["python"]}
+    _, built = installed
     version = sh(
         str(PY), "-I", "-S", "-c", "import sys; print(sys.version.split()[0])", capture_output=True, text=True
     )
     (PROJECT / "check.py").write_text(CHECK, encoding="utf-8")
     (PROJECT / "uses.json").write_text(json.dumps(env["uses"]), encoding="utf-8")
     record = {**base, "python": version.stdout.strip(), "installed": freeze()}
+    if built:
+        record["source_builds_allowed"] = built
     results: dict[str, dict] = {}
     remaining = list(env["uses"])
     # A use that kills the interpreter (a segfault in an extension) loses only itself: rerun the rest without it.

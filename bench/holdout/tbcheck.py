@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from envs import exclude_newer, use_key
+from envs import exclude_newer, set_cutoff, use_key
 from labels import works
 
 
@@ -21,6 +21,7 @@ def main() -> int:
     if len(sys.argv) != 3:
         sys.exit(__doc__)
     root, arts = Path(sys.argv[1]), Path(sys.argv[2])
+    set_cutoff(root)
     res: dict[str, dict[str, dict]] = {}
     for f in sorted(arts.rglob("*.jsonl")):
         for line in f.read_text(encoding="utf-8").splitlines():

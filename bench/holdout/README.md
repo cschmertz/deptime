@@ -32,7 +32,7 @@ shares no code with DepTime's own reader): a name it imports or reads (`numpy.li
 Calls that splat (`*args`, `**kw`) count as names only. At most 40 uses per upgrade, picked by hash, so one large project
 can't dominate.
 
-Two sources:
+Two sources (from 2026-11b on, only the second):
 
 1. **TimeMachine-bench** (its verified subset, dataset commit `9928dbf`; see `bench/tmb/README.md`): 100 repositories
    whose tests pass under their original dependencies and, after the gold fix, under PyPI as of 2025-07-31. Each covered
@@ -40,10 +40,12 @@ Two sources:
    the repository's reproduction date. Their breaks were in DT-QA-04 and fixes were designed from them, so **only uses
    that work count** (and none named in the gold patch).
 2. **Pinned repositories** (`find_pinned.py`): for each package TimeMachine-bench barely covers (every Tier A package,
-   and the Tier B ones with fewer than three of its upgrades), GitHub code search for `<package>==` in requirements
-   files, in the order it returns them. A repository qualifies when it isn't a fork or the package itself, pins a final
-   release from the package's first indexed release up to but not including its newest release on PyPI, and its source
-   at the default branch's head uses the package at least three times. The first two qualifying repositories are kept.
+   and the Tier B ones with fewer than three of its upgrades; from 2026-11b on, every covered package, since
+   TimeMachine-bench's repositories are used up), GitHub code search for `<package>==` in requirements files, in the
+   order it returns them. A repository qualifies when it isn't a fork or the package itself, wasn't asked about in an
+   earlier set (`--exclude`), pins a final release from the package's first indexed release up to but not including
+   its newest release on PyPI as of the set's cutoff, and its source at the default branch's head uses the package at
+   least three times. The first two qualifying repositories are kept.
    Each gives two upgrades from the pin: to the newest release (`up`), and to the newest release at least a year older
    than the pin when that is indexed (`down`: code written for a newer release than the one installed).
 
@@ -51,8 +53,11 @@ Two sources:
 
 `.github/workflows/holdout.yml` installs each package version in a throwaway venv on a GitHub runner (wheels only; PyPI
 as of 30 days after the version's release, so its dependencies are ones it shipped with; the newest releases as of the
-set's cutoff; TimeMachine-bench's `to` as of 2025-08-01 on Python 3.12) and, with no network as an unprivileged user,
-checks each use at run time (`probe.py`): does the name resolve, and does the call shape bind to `inspect.signature`?
+set's cutoff; TimeMachine-bench's `to` as of 2025-08-01 on Python 3.12). From 2026-11b on, an environment that installs
+from wheels on none of its Pythons is tried once more allowing two pure-Python dependencies published only as sdists to
+build (`SOURCE_BUILDS` in `probe.py`: pypika for chromadb and crewai, ffmpy for gradio 3); the package under test still
+comes from a wheel, and `probe-envs.json` records which environments needed it. Then, with no network as an
+unprivileged user, it checks each use at run time (`probe.py`): does the name resolve, and does the call shape bind to `inspect.signature`?
 A path resolves when reading attributes down from the top package works (importing a submodule where an attribute is
 missing), as `from a import b` and `a.b.c` do, or else when importing its longest module prefix and reading the rest
 works, which finds a module a package registers in `sys.modules` under a name an attribute shadows.
@@ -74,8 +79,17 @@ library's source at `to`, because a generated signature can disagree with what `
 built from its fields). A use the source shows still works goes into `label-overrides.json` and is excluded; the ones
 checked and kept are listed there too.
 
-A use that works is also **deprecated** when reading it in `to` raises a deprecation warning, or the object carries
-`__deprecated__` or a deprecation note in its docstring.
+A use that works is also **deprecated** when the probe finds, in `to`, evidence about the name itself (from 2026-11b on):
+reading it raises a deprecation warning whose message names it; the object carries its own `__deprecated__` (PEP 702; a
+class's own, not a base's); a deprecation wrapper sits on the function, a property's getter or a class's own `__init__`
+or `__new__` (a wrapper defined in a function or module whose name says `deprecat`, read from the code object on Python
+3.11+, and not one whose qualified name is about a parameter: `deprecate_kwarg`, `_deprecate_positional_args`,
+matplotlib's `make_keyword_only`); or its docstring has a `.. deprecated::` directive at its own indentation before the
+first section, or a first paragraph that says deprecated and starts with it, says "this function" (class, method, ...)
+or names the object, and neither speaks of arguments, parameters or keywords (sqlalchemy's `and_()` deprecates calling
+it with none). Warnings that don't name it and
+docstring notes under a parameter are recorded apart (`deprecation_other`) and don't count. 2026-11 took any deprecation
+warning on the last step, any `__deprecated__` and any docstring note, which mostly marked deprecated parameters.
 
 ### Tracebacks
 

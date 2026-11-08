@@ -161,6 +161,128 @@ def test_probe_resolves_like_python_imports(tmp_path: Path) -> None:
     assert got["gone"]["resolved"] is False
 
 
+def test_probe_deprecation_is_about_the_name(tmp_path: Path) -> None:
+    """DT-QA-08's truth: a warning that names the name, its own __deprecated__, a deprecation wrapper that isn't about
+    a parameter, a docstring note about the object; not a parameter's note, a base's marker or another warning."""
+    import json
+    import subprocess
+
+    import probe
+
+    (tmp_path / "deppkg").mkdir()
+    (tmp_path / "deppkg" / "__init__.py").write_text(
+        '''import functools, warnings
+
+
+def deprecated(f):
+    @functools.wraps(f)
+    def warning_emitting_wrapper(*a, **k):
+        return f(*a, **k)
+    return warning_emitting_wrapper
+
+
+def deprecate_kwarg(name):
+    def deco(f):
+        @functools.wraps(f)
+        def wrapper(*a, **k):
+            return f(*a, **k)
+        return wrapper
+    return deco
+
+
+@deprecated
+def wrapped():
+    pass
+
+
+@deprecate_kwarg("x")
+def kwarg_only(x=None):
+    pass
+
+
+def param_note(sep=None):
+    """Read.
+
+    Parameters
+    ----------
+    delim_whitespace : bool
+        .. deprecated:: 2.2.0
+    """
+
+
+def top_note():
+    """Summary.
+
+    .. deprecated:: 1.0
+    """
+
+
+def calling_note(*clauses):
+    """Join clauses.
+
+    .. deprecated:: 1.4
+       Calling it with no arguments is deprecated.
+    """
+
+
+from .deprecation import make_keyword_only
+
+
+@make_keyword_only("x")
+def keyword_wrapped(x=None):
+    pass
+
+
+class Old:
+    __deprecated__ = "use New"
+
+
+class Child(Old):
+    pass
+
+
+def __getattr__(name):
+    if name == "legacy":
+        warnings.warn("`legacy` is deprecated", DeprecationWarning, stacklevel=2)
+        return 1
+    if name == "noisy":
+        warnings.warn("something else is deprecated", DeprecationWarning, stacklevel=2)
+        return 2
+    raise AttributeError(name)
+''',
+        encoding="utf-8",
+    )
+    (
+        tmp_path / "deppkg" / "deprecation.py"
+    ).write_text(  # matplotlib keeps make_keyword_only in deprecation.py
+        "import functools\n\n\ndef make_keyword_only(name):\n    def deco(f):\n        @functools.wraps(f)\n"
+        "        def wrapper(*a, **k):\n            return f(*a, **k)\n        return wrapper\n    return deco\n",
+        encoding="utf-8",
+    )
+    names = [
+        "wrapped",
+        "kwarg_only",
+        "param_note",
+        "top_note",
+        "calling_note",
+        "keyword_wrapped",
+        "Old",
+        "Child",
+    ]
+    names += ["legacy", "noisy"]
+    uses = [{"key": n, "kind": "name", "path": f"deppkg.{n}"} for n in names]
+    (tmp_path / "check.py").write_text(probe.CHECK, encoding="utf-8")
+    (tmp_path / "uses.json").write_text(json.dumps(uses), encoding="utf-8")
+    out = subprocess.run(
+        [sys.executable, "check.py", "uses.json"], cwd=tmp_path, capture_output=True, text=True, check=True
+    ).stdout
+    got = {r["key"]: r for r in map(json.loads, out.splitlines())}
+    flagged = {k for k, r in got.items() if r["deprecation"]}
+    want = {"top_note", "Old", "legacy"} | ({"wrapped"} if sys.version_info >= (3, 11) else set())
+    assert flagged == want
+    assert got["param_note"]["deprecation_other"] and got["noisy"]["deprecation_other"]
+
+
 def test_regressions_on_shared_uses() -> None:
     base = {
         "uses": {

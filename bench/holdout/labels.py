@@ -16,8 +16,11 @@ Reads <set dir>/upgrades.jsonl and envs.json and every <shard>.jsonl under the a
 
 Uses listed in <set dir>/label-overrides.json (checked by hand against the library's source) are excluded.
 
-`deprecated` is true when, in `to`, reading the name raises a deprecation warning, or the object carries
-`__deprecated__` or a deprecation note in its docstring.
+`deprecated` is true when the probe found evidence in `to` that the name itself is deprecated (probe.py's
+`deprecation_evidence`): reading it raises a deprecation warning that names it, the object carries its own
+`__deprecated__`, a deprecation wrapper sits on it (the package's own `@deprecated`), or its docstring has a
+deprecation note about it rather than one of its parameters. Sets probed before DT-QA-08 (2026-11) took any
+deprecation warning, `__deprecated__` and any docstring note.
 """
 
 from __future__ import annotations
@@ -28,7 +31,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from envs import TMB_DATE, exclude_newer, use_key
+from envs import TMB_DATE, exclude_newer, set_cutoff, use_key
 
 
 def env_id(package: str, version: str, tmb: bool) -> str:
@@ -136,6 +139,7 @@ def main() -> None:
     if len(sys.argv) != 3:
         sys.exit(__doc__)
     root, arts = Path(sys.argv[1]), Path(sys.argv[2])
+    set_cutoff(root)
     res: dict[str, dict[str, dict]] = {}
     envs_meta: dict[str, dict] = {}
     for f in sorted(arts.rglob("*.jsonl")):
@@ -144,7 +148,9 @@ def main() -> None:
                 continue
             rec = json.loads(line)
             envs_meta[rec["id"]] = {
-                k: rec.get(k) for k in ("result", "python", "requires") if rec.get(k) is not None
+                k: rec.get(k)
+                for k in ("result", "python", "requires", "source_builds_allowed")
+                if rec.get(k) is not None
             }
             if rec.get("result") == "ok":
                 res.setdefault(rec["id"], {}).update({r["key"]: r for r in rec["results"]})

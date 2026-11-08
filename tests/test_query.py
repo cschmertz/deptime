@@ -1,5 +1,4 @@
 import shutil
-import sys
 from datetime import date
 
 from packaging.requirements import Requirement

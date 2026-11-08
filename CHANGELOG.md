@@ -42,6 +42,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
 - `explain_error` on `cannot import name X` with no module, as Cython-compiled code raises it (no quotes, frames
   without source lines) or as a trimmed paste gives it (DT-CORE-37): the name is looked up among the modules of
   the installed packages (scikit-learn 1.3's `SCORERS` is `sklearn.metrics.SCORERS`, removed after 1.2.2).
+- `check_symbols` reads a class's `typing_extensions` base as `typing`'s, and a TypedDict base as `dict`: a name
+  that openai's TypedDict params (and 7,000 other such classes) lack reads `missing`, not `unknown`.
 - `check_symbols` on a dunder name the index doesn't record (DT-CORE-38): one every module or class has
   (`mcp.__name__`, `Model.__dict__`) reads `present`; another (`polars.__version__`, pydantic's generated
   `__pydantic_serializer__`) reads `unknown` with the reason, unless another release binds it by name.

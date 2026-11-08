@@ -88,6 +88,8 @@ def _decorator(obj):
     function defined in a function or module whose name says `deprecat` (the package's own @deprecated), or a wrapt
     wrapper whose adapter does."""
     for f in _functions(obj):
+        if not hasattr(f, "__wrapped__"):  # the function itself, not a wrapper around it (a helper in deprecation.py)
+            continue
         try:
             if hasattr(f, "_self_wrapper"):
                 w = f._self_wrapper  # the `deprecated` package's ClassicAdapter.__call__.<locals>.wrapper_function
@@ -95,7 +97,7 @@ def _decorator(obj):
                 where = f"{mod}.{getattr(w, '__qualname__', None) or getattr(type(w), '__qualname__', '')}"
             elif hasattr(f.__code__, "co_qualname"):  # Python 3.11+: functools.wraps copies __qualname__ over
                 code = f.__code__
-                where = f"{code.co_filename.rsplit('/', 1)[-1]}:{code.co_qualname}"
+                where = f"{re.split(r'[\\/]', code.co_filename)[-1]}:{code.co_qualname}"
             else:
                 continue
         except Exception:

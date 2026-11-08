@@ -256,7 +256,8 @@ def __getattr__(name):
         tmp_path / "deppkg" / "deprecation.py"
     ).write_text(  # matplotlib keeps make_keyword_only in deprecation.py
         "import functools\n\n\ndef make_keyword_only(name):\n    def deco(f):\n        @functools.wraps(f)\n"
-        "        def wrapper(*a, **k):\n            return f(*a, **k)\n        return wrapper\n    return deco\n",
+        "        def wrapper(*a, **k):\n            return f(*a, **k)\n        return wrapper\n    return deco\n\n\n"
+        "def helper():\n    pass\n",
         encoding="utf-8",
     )
     names = [
@@ -269,7 +270,7 @@ def __getattr__(name):
         "Old",
         "Child",
     ]
-    names += ["legacy", "noisy"]
+    names += ["legacy", "noisy", "deprecation.helper"]
     uses = [{"key": n, "kind": "name", "path": f"deppkg.{n}"} for n in names]
     (tmp_path / "check.py").write_text(probe.CHECK, encoding="utf-8")
     (tmp_path / "uses.json").write_text(json.dumps(uses), encoding="utf-8")

@@ -18,7 +18,7 @@
 
 ---
 
-## Current state: public alpha, v0.1.8 (since 2026-11-07)
+## Current state: public alpha, v0.1.9 (since 2026-11-07)
 
 - 0.1.8 (tag on `6e04922`) is on PyPI, the MCP Registry (latest) and GitHub (Latest), published by `release.yml`; a fresh `uvx --from deptime==0.1.8` install answers from the `SNAPSHOT_FORMAT` 18 index with a fix, links and confidence factors, and reads `collections.Mapping` as removed after Python 3.9. What changed since 0.1.7 is in `CHANGELOG.md`.
 

@@ -23,6 +23,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-11-07
+
 ### Added
 - Signed build provenance for the index (DT-OSS-09): each published index has a GitHub artifact attestation from
   `build-index.yml`, with its Sigstore bundle published beside it as `index.sigstore.json`.
@@ -171,7 +173,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
 - The prebuilt index of 52 packages, downloaded on first run and refreshed daily; `deptime index pull|status|pack`;
   offline mode (`DEPTIME_OFFLINE=1`).
 
-[Unreleased]: https://github.com/cschmertz/deptime/compare/v0.1.8...HEAD
+[Unreleased]: https://github.com/cschmertz/deptime/compare/v0.1.9...HEAD
+[0.1.9]: https://github.com/cschmertz/deptime/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/cschmertz/deptime/compare/v0.1.7...v0.1.8
 [0.1.7]: https://github.com/cschmertz/deptime/compare/v0.1.6...v0.1.7
 [0.1.6]: https://github.com/cschmertz/deptime/compare/v0.1.5...v0.1.6

@@ -1168,6 +1168,70 @@ def test_the_packages_the_raising_code_requires_are_searched_first(store):
     assert "made inside" not in res.note
 
 
+def test_a_bare_callee_name_means_a_path_that_took_the_argument_in_an_installed_package():
+    # DT-CORE-36, from the 2026-11b holdout: `create() got an unexpected keyword argument 'file_ids'` with only
+    # openai 1.28.1 installed read litellm's `create(file_ids)`: openai's own lookup kept the five shortest of its
+    # `create` paths, none of which ever took `file_ids`, and the callee search then took a package not installed.
+    api = PackageSpec(name="api", import_names=("api",), tier="B", own_members=True)
+    other = PackageSpec(name="other", import_names=("other",), tier="B", own_members=False)
+
+    def api_snap(version: str) -> ApiSnapshot:
+        symbols = {"api": SymbolRecord("api", "module", "api")}
+        for i in range(6):  # shorter `create` paths than the one meant, none taking `ids`
+            symbols[f"api.m{i}"] = SymbolRecord(f"api.m{i}", "module", f"api.m{i}")
+            symbols[f"api.m{i}.create"] = SymbolRecord(
+                f"api.m{i}.create", "function", f"api.m{i}.create", [_param("model")]
+            )
+        cls = "api.resources.beta.Assistants"
+        symbols[cls] = SymbolRecord(cls, "class", cls)
+        ids = [_param("ids")] if version == "1.0" else []
+        classes = {
+            cls: ClassRecord(
+                cls, [], {"create": SymbolRecord(f"{cls}.create", "function", f"{cls}.create", ids)}
+            )
+        }
+        if version == "3.0":  # a later class whose `create` takes `ids`: absent from the installed 2.0
+            later = "api.resources.Containers"
+            symbols[later] = SymbolRecord(later, "class", later)
+            create = SymbolRecord(f"{later}.create", "function", f"{later}.create", [_param("ids")])
+            classes[later] = ClassRecord(later, [], {"create": create})
+        return ApiSnapshot("api", version, ["api"], symbols, own_members=True, classes=classes)
+
+    def other_snap(version: str) -> ApiSnapshot:
+        params = [_param("ids"), _param("flag")] if version == "1.0" else []
+        symbols = {
+            "other": SymbolRecord("other", "module", "other"),
+            "other.create": SymbolRecord("other.create", "function", "other.create", params),
+        }
+        return ApiSnapshot("other", version, ["other"], symbols)
+
+    store = IndexStore.memory()
+    store.rebuild_package(api, [api_snap(v) for v in ("1.0", "2.0", "3.0")])
+    store.rebuild_package(other, [other_snap(v) for v in ("1.0", "2.0")])
+    dt = DepTime(store, Coverage(POLICY, (api, other)))
+
+    res = dt.explain_error("TypeError: create() got an unexpected keyword argument 'ids'", {"api": "2.0"})
+    top = res.findings[0]
+    assert (top.package, top.symbol, top.issue, top.last_version_with) == (
+        "api",
+        "api.resources.beta.Assistants.create(ids)",
+        "param_removed",
+        "1.0",
+    )
+    assert "api.resources.Containers.create(ids)" not in [f.symbol for f in res.findings]
+    assert "other" not in {f.package for f in res.findings}
+
+    # Only a package installed (or required) is searched as the callee of a bare name ...
+    flag = "TypeError: create() got an unexpected keyword argument 'flag'"
+    assert "other" not in {f.package for f in dt.explain_error(flag, {"api": "2.0"}).findings}
+    res = dt.explain_error(flag, {"api": "2.0", "other": "2.0"})
+    assert [(f.package, f.symbol, f.issue) for f in res.findings if f.package == "other"] == [
+        ("other", "other.create(flag)", "param_removed")
+    ]
+    # ... and without installed versions, any package is.
+    assert "other" in {f.package for f in dt.explain_error(flag).findings}
+
+
 def test_requirements_round_trip_and_an_index_without_them_still_opens(tmp_path):
     # DT-DATA-14: each release's Requires-Dist, NULL when unknown; released clients never read the column.
     snaps = [

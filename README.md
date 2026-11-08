@@ -62,7 +62,7 @@ Each check's right answers were written down before DepTime first ran on it ([be
 
 | Check | Cases | First run | Now |
 |---|---|---|---|
-| Right package, name and breaking release for a traceback from a GitHub issue, on the [holdout of 2026-11-08](https://github.com/cschmertz/deptime/blob/main/bench/holdout/2026-11b/results-2026-11-08.md) | 37, after every fix so far | 91.9% | 91.9% |
+| Right package, name and breaking release for a traceback from a GitHub issue, on the [holdout of 2026-11-08](https://github.com/cschmertz/deptime/blob/main/bench/holdout/2026-11b/results-2026-11-08.md) | 37, after every fix so far | 91.9% | 94.6% |
 | Code that still works after an upgrade, flagged as broken by `check_symbols` (lower is better) | 2,542 uses from 176 upgrades of real projects, labelled by running them | 1.5% | 1.5% |
 | The same, by `diff_versions(used_symbols=...)` | 2,542 | 0.2% | 0.2% |
 | Code that breaks, flagged by `check_symbols` / `diff_versions` | 146 uses (140 once six wrong labels are corrected) | 95.9% / 95.9% | 100% / 100% |
@@ -76,7 +76,7 @@ Each check's right answers were written down before DepTime first ran on it ([be
 
 `check_symbols` answers `unknown`, with the reason, where the index can't tell (a path through an instance such as `pytest.mark`): 39 working uses of the 2026-11-08 holdout (79 working uses and 4 breaks of 2026-11-07's since that answer was added), left out of its rates above. On the 2026-11-08 holdout, 16 of its 38 false alarms are mcp 2's `mcp.types` names, which the index can't see yet ([DT-DATA-56](https://github.com/cschmertz/deptime/blob/main/BACKLOG.md)).
 
-Across all 274 real tracebacks in the benchmark, including the ones fixes were designed from, DepTime names the right package, name and release for 98.2%, and a right replacement is among its first three for 62.4%. CI re-scores them and the holdouts on every code change and every published index, and fails on a drop of more than 2 points (or a false-positive rate up by more than 1).
+Across all 274 real tracebacks in the benchmark, including the ones fixes were designed from, DepTime names the right package, name and release for 98.5%, and a right replacement is among its first three for 62.4%. CI re-scores them and the holdouts on every code change and every published index, and fails on a drop of more than 2 points (or a false-positive rate up by more than 1).
 
 ## Install
 

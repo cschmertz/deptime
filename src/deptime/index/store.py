@@ -1476,7 +1476,9 @@ class IndexStore:
                     best[key] = dict(r) | {"path": key[0]}
         return sorted(best.values(), key=lambda r: (r["path"], -r["confidence"]))  # type: ignore[return-value]
 
-    def _suffix_query(self, suffix: str, packages: Sequence[str] | None) -> tuple[str, list]:
+    def _suffix_query(
+        self, suffix: str, packages: Sequence[str] | None, param: str | None = None
+    ) -> tuple[str, list]:
         """A query for `package, path` of the public paths equal to or ending with `.suffix`, in any version.
 
         Rows are found by tail, and each costs a read from the table. A member's own tail can match tens of
@@ -1488,6 +1490,8 @@ class IndexStore:
 
         A package stored with own members (DT-DATA-16) has a class's members in `members`, its own and those of
         its MRO. A bare name is matched there at the label of the class defining it.
+
+        `param` (a bare suffix only) keeps the rows whose signature has a parameter of that name (DT-CORE-36).
         """
         in_packages = f" AND p.package IN ({','.join('?' * len(packages))})" if packages is not None else ""
         # Only the packages stored with own members: SQLite otherwise read every member row for a package without
@@ -1496,11 +1500,14 @@ class IndexStore:
         in_own = f" AND p.package IN ({','.join('?' * len(own))})"
         parent, _, leaf = suffix.rpartition(".")
         if not parent:
+            # `params` is JSON, so `"name": "<param>"` appears only as a parameter's name: quotes in values are escaped.
+            needle = [json.dumps({"name": param})[1:-1]] if param else []
             sql = (
                 f"SELECT p.package AS package, p.path AS path FROM spans p WHERE p.tail = ?{in_packages}"
                 " AND (p.path = ? OR substr(p.path, -?) = ?)"
+                + (" AND instr(p.params, ?) > 0" if param else "")
             )
-            params = [suffix, *(packages or ()), suffix, len(suffix) + 1, "." + suffix]
+            params = [suffix, *(packages or ()), suffix, len(suffix) + 1, "." + suffix, *needle]
             if own:
                 # UNION ALL: a UNION made SQLite read every span of the package in path order, not by tail.
                 sql += (
@@ -1508,9 +1515,12 @@ class IndexStore:
                     " ON c.package = m.package AND c.cls = m.cls"
                     " AND c.first_ordinal <= m.last_ordinal AND c.last_ordinal >= m.first_ordinal"
                     f" WHERE m.package IN ({','.join('?' * len(own))}) AND m.name = ? AND m.kind != ?"
+                    + (" AND instr(m.params, ?) > 0" if param else "")
                 )
-                params += [*own, suffix, HIDDEN]
+                params += [*own, suffix, HIDDEN, *needle]
             return sql, params
+        if param:
+            raise ValueError("a parameter filter needs a bare suffix")
         sql = (
             "SELECT p.package AS package, p.path || '.' || ? AS path FROM spans p"
             f" WHERE p.tail = ?{in_packages} AND (p.path = ? OR substr(p.path, -?) = ?)"
@@ -1568,11 +1578,14 @@ class IndexStore:
                 out.append(package)
         return out
 
-    def find_by_suffix(self, packages: list[str], suffix: str, limit: int = 20) -> list[tuple[str, str]]:
-        """(package, path) pairs whose public path equals or ends with `.suffix`, across all indexed versions."""
+    def find_by_suffix(
+        self, packages: list[str], suffix: str, limit: int = 20, param: str | None = None
+    ) -> list[tuple[str, str]]:
+        """(package, path) pairs whose public path equals or ends with `.suffix`, across all indexed versions;
+        with `param`, only those whose signature had a parameter of that name in some release (a bare suffix)."""
         if not packages:
             return []
-        sql, params = self._suffix_query(suffix, packages)
+        sql, params = self._suffix_query(suffix, packages, param)
         rows = self.conn.execute(
             f"SELECT DISTINCT package, path FROM ({sql}) ORDER BY length(path), path LIMIT ?",
             [*params, limit],

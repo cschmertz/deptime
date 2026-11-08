@@ -2,11 +2,11 @@
   "index_built_at": "2026-11-08T03:54:36+00:00",
   "summary": {
     "cases": 282,
-    "known_gap_share": 2.8,
+    "known_gap_share": 1.8,
     "overall": {
-      "root_cause": 98.2,
-      "root_cause_and_boundary": 97.9,
-      "boundary": 97.8,
+      "root_cause": 98.6,
+      "root_cause_and_boundary": 98.2,
+      "boundary": 98.2,
       "replacement": 63.8,
       "replacement_uncurated": 56.2
     },
@@ -21,9 +21,9 @@
       },
       "A": {
         "cases": 141,
-        "root_cause": 99.3,
-        "root_cause_and_boundary": 98.6,
-        "boundary": 98.5,
+        "root_cause": 100.0,
+        "root_cause_and_boundary": 99.3,
+        "boundary": 99.3,
         "replacement": 40.0,
         "replacement_uncurated": 36.4
       },
@@ -47,9 +47,9 @@
       },
       "reported": {
         "cases": 274,
-        "root_cause": 98.5,
-        "root_cause_and_boundary": 98.2,
-        "boundary": 98.2,
+        "root_cause": 98.9,
+        "root_cause_and_boundary": 98.5,
+        "boundary": 98.5,
         "replacement": 62.4,
         "replacement_uncurated": 54.4
       }
@@ -999,8 +999,8 @@
       "replacement_uncurated": null
     },
     "hold-openai-assistants-create-file-ids-azure-notebook": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": null,
       "replacement_uncurated": null
     },

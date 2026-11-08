@@ -23,6 +23,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
 
 ## [Unreleased]
 
+### Fixed
+- `explain_error` on an argument error that names a function without its class (`create() got an unexpected keyword
+  argument 'file_ids'`) looks first at the functions of that name whose signature had the argument and that exist in
+  the installed release (openai's `Assistants.create`, not the shortest `create`), and, when installed versions are
+  given, only at packages installed or required by the raising code (DT-CORE-36).
+
 ## [0.1.9] - 2026-11-07
 
 ### Added

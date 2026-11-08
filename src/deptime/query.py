@@ -1755,6 +1755,10 @@ class DepTime:
         if not suffix:
             return []
         packages = [p for p in self.store.packages_with_suffix(suffix) if p not in tried]
+        if installed and "." not in suffix:
+            # A bare name is in most packages (`create` in 26): with the installed versions given, only those
+            # installed or required can be the callee (DT-CORE-36), not litellm for openai's `create(file_ids)`.
+            packages = [p for p in packages if p in installed or p in declared]
         groups = [
             [p for p in packages if (p in declared) == want_declared and (p in installed) == want_installed]
             for want_declared in (True, False)
@@ -1836,7 +1840,8 @@ class DepTime:
             out = []
             # The owner the message names, then a class whose __init__ passed **kwargs on to it (DT-CORE-27).
             for owner in [signal.owner, *signal.forwarded_owners]:
-                paths = self._rank(self.store.find_by_suffix([name], owner), signal)
+                pairs, takes = self._takers(name, owner, param, resolved)
+                paths = self._rank(pairs, signal, takes)
                 out += [
                     self._param_finding(
                         spec,
@@ -2128,7 +2133,10 @@ class DepTime:
         return out
 
     @staticmethod
-    def _rank(pairs: list[tuple[str, str]], signal: ErrorSignal) -> list[str]:
+    def _rank(
+        pairs: list[tuple[str, str]], signal: ErrorSignal, prefer: frozenset[str] = frozenset()
+    ) -> list[str]:
+        """The paths most likely meant, shortest first after those the code names and then those in `prefer`."""
         refs = signal.referenced_names
         # The classes the code names, by their own name: `pl.DataFrame(data).sort(...)` names polars' `DataFrame`
         # through an alias the traceback doesn't resolve (DT-CORE-31).
@@ -2139,7 +2147,22 @@ class DepTime:
                 return 0
             return 0 if path.rpartition(".")[0].rpartition(".")[2] in named else 1
 
-        return sorted((p for _, p in pairs), key=lambda p: (score(p), len(p)))[:MAX_FINDINGS_PER_PACKAGE]
+        paths = dict.fromkeys(p for _, p in pairs)
+        return sorted(paths, key=lambda p: (score(p), p not in prefer, len(p)))[:MAX_FINDINGS_PER_PACKAGE]
+
+    def _takers(
+        self, name: str, owner: str, param: str | None, resolved: sqlite3.Row | None
+    ) -> tuple[list[tuple[str, str]], frozenset[str]]:
+        """The paths ending with `owner`, and which to rank first (DT-CORE-36): for a bare name, those whose signature
+        had `param` in some release and that exist in the installed one, the only ones a call can have reached.
+        `create() got an unexpected keyword argument 'file_ids'` on openai 1.28.1 means `Assistants.create`, one of
+        hundreds of `create` paths, not the shortest, nor `Containers.create`, which took `file_ids` from 1.81."""
+        assert self.store is not None
+        takes = self.store.find_by_suffix([name], owner, param=param) if param and "." not in owner else []
+        prefer = {p for _, p in takes}
+        if resolved is not None:
+            prefer = {p for p in prefer if self.store.span_at(name, p, resolved["ordinal"]) is not None}
+        return [*takes, *self.store.find_by_suffix([name], owner)], frozenset(prefer)
 
     def _confidence(self, resolved: sqlite3.Row | None, exact: bool) -> Confidence:
         if resolved is not None and exact:

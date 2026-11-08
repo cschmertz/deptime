@@ -127,10 +127,14 @@ def initial_events(snapshot: ApiSnapshot) -> list[ChangeEvent]:
     return events
 
 
-def _changed(path: str, a: SymbolRecord, b: SymbolRecord) -> list[ChangeEvent]:
-    """What changed on a path both releases have."""
+def _changed(path: str, a: SymbolRecord, b: SymbolRecord, member: bool = False) -> list[ChangeEvent]:
+    """What changed on a path both releases have; `member`, a class member's."""
     events: list[ChangeEvent] = []
-    if a.kind != b.kind:
+    # A class member that holds a class in one release and is an attribute in the next is mostly a static misread:
+    # transformers 4.54's models declare `config: XConfig`, and `PreTrainedModel.__init_subclass__` sets
+    # `config_class` from it, so the name falls back to the base's `config_class = None`. A module-level class
+    # that becomes an alias stays a change (openai 1.99.2's `ChatCompletionMessageToolCall` union).
+    if a.kind != b.kind and not (member and {a.kind, b.kind} == {"attribute", "class"}):
         events.append(ChangeEvent(path, "kind_changed", {"from": a.kind, "to": b.kind}))
     if a.params is not None and b.params is not None:
         pa, pb = _params(a), _params(b)
@@ -170,9 +174,12 @@ def _changed(path: str, a: SymbolRecord, b: SymbolRecord) -> list[ChangeEvent]:
     return events
 
 
-def path_events(path: str, old: SymbolRecord | None, new: SymbolRecord | None) -> list[ChangeEvent]:
+def path_events(
+    path: str, old: SymbolRecord | None, new: SymbolRecord | None, member: bool = False
+) -> list[ChangeEvent]:
     """The events between two consecutive releases' records of one path (None where a release doesn't have it),
-    as `diff_snapshots` reports them, less `moved`, which pairs module-level paths with each other."""
+    as `diff_snapshots` reports them, less `moved`, which pairs module-level paths with each other. `member`: the
+    path is a class member's."""
     if old is None and new is None:
         return []
     if old is None:
@@ -181,7 +188,7 @@ def path_events(path: str, old: SymbolRecord | None, new: SymbolRecord | None) -
         return [ChangeEvent(path, "added", {"kind": new.kind}), *_deprecation_events(path, new)]  # type: ignore[union-attr]
     if new is None:
         return [ChangeEvent(path, "removed", {"kind": old.kind})]
-    return _changed(path, old, new)
+    return _changed(path, old, new, member)
 
 
 def diff_snapshots(old: ApiSnapshot, new: ApiSnapshot) -> list[ChangeEvent]:
@@ -279,7 +286,7 @@ def member_events(old: ApiSnapshot | None, new: ApiSnapshot) -> list[ChangeEvent
         for name in sorted(names):
             a = resolve_member(old.classes, prev, name) if prev else None
             b = resolve_member(new.classes, cls, name) if cls else None
-            events.extend(path_events(f"{label}.{name}", a, b))
+            events.extend(path_events(f"{label}.{name}", a, b, member=True))
     return events
 
 

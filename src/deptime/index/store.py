@@ -1292,7 +1292,7 @@ class IndexStore:
             if o == 0:
                 found, prev = initial_path_events(path, at[0]), None
             else:
-                found, prev = path_events(path, at.get(o - 1), at.get(o)), o - 1
+                found, prev = path_events(path, at.get(o - 1), at.get(o), member=True), o - 1
             out += [
                 {"package": name, "path": path, "ordinal": o, "prev_ordinal": prev, "kind": ev.kind}
                 | {"detail": json.dumps(ev.detail, sort_keys=True)}

@@ -1,5 +1,5 @@
 from deptime.ingest.diff import diff_snapshots, initial_events
-from deptime.ingest.snapshot import ApiSnapshot, SymbolRecord
+from deptime.ingest.snapshot import ApiSnapshot, ClassRecord, SymbolRecord
 from tests.conftest import SNAPSHOTS
 
 
@@ -74,6 +74,31 @@ def test_a_class_that_becomes_a_type_alias_is_a_kind_change():
     assert [(e.path, e.kind, e.detail) for e in diff_snapshots(old, new)] == [
         ("p.ToolCall", "kind_changed", {"from": "class", "to": "attribute"})
     ]
+
+
+def test_a_class_member_switching_between_class_and_attribute_is_no_kind_change():
+    # transformers 4.54's models declare `config: XConfig` and `PreTrainedModel.__init_subclass__` sets
+    # `config_class` from it: statically the member falls back to the base's `config_class = None`.
+    def snap(version: str, own: dict[str, SymbolRecord]) -> ApiSnapshot:
+        base = {"config_class": SymbolRecord("p.Base.config_class", "attribute", "p.Base.config_class")}
+        return ApiSnapshot(
+            "p",
+            version,
+            ["p"],
+            {
+                "p": SymbolRecord("p", "module", "p"),
+                "p.Base": SymbolRecord("p.Base", "class", "p.Base"),
+                "p.Model": SymbolRecord("p.Model", "class", "p.Model"),
+            },
+            own_members=True,
+            classes={
+                "p.Base": ClassRecord("p.Base", [], base),
+                "p.Model": ClassRecord("p.Model", ["p.Base"], own),
+            },
+        )
+
+    old = snap("1", {"config_class": SymbolRecord("p.Model.config_class", "class", "p.XConfig")})
+    assert diff_snapshots(old, snap("2", {})) == []
 
 
 def test_moved_module_level_symbol_to_new_module():

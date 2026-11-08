@@ -241,7 +241,7 @@ tier = "B"
 
 [[package]]
 name = "matplotlib"
-import_names = ["matplotlib"]
+import_names = ["matplotlib", "mpl_toolkits"]  # mpl_toolkits ships in the same wheel (DT-DATA-57)
 tier = "B"
 
 [[package]]

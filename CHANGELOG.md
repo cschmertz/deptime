@@ -39,6 +39,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
 - A base class imported through the package's own re-export of another distribution's class is that distribution's
   (DT-DATA-55): langchain-community's `PyPDFLoader.load` reads present, inherited from langchain-core's
   `BaseLoader`. Needs the next index build.
+- matplotlib's `mpl_toolkits` (`mplot3d`, `axes_grid1`, `axisartist`), installed by the same wheel, is indexed with it
+  (DT-DATA-57): `'Axes3D' object has no attribute 'w_xaxis'` reads removed in 3.8. Needs the next index build.
 
 ### Added
 - Replacement hints for names renamed in case or underscores under the same parent (`McpError` → `MCPError`).

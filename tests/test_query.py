@@ -2113,6 +2113,8 @@ def test_the_shipped_coverage_names_the_collisions():
     assert typer.alias_version({"typer-slim": "0.21.1"}) == ("typer-slim", "0.21.1")
     assert typer.alias_version({"typer-slim": "0.22.0"}) is None  # an empty wheel requiring typer from 0.22.0
     assert typer.alias_version({"typer-slim": "not a version"}) is None
+    # matplotlib's wheel installs `mpl_toolkits` too (DT-DATA-57): `Axes3D.w_xaxis` went in 3.8.
+    assert cov.get("matplotlib").import_names == ("matplotlib", "mpl_toolkits")
 
 
 def test_an_installed_release_newer_than_the_index_is_a_window_with_no_upper_end(dt):

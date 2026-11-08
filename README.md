@@ -62,20 +62,20 @@ Each check's right answers were written down before DepTime first ran on it ([be
 
 | Check | Cases | First run | Now |
 |---|---|---|---|
-| Right package, name and breaking release for a traceback from a GitHub issue, on the [holdout of 2026-11-07](https://github.com/cschmertz/deptime/blob/main/bench/holdout/2026-11/results-2026-11-07.md) | 35, after every fix so far | 88.6% | 91.4% |
-| Code that still works after an upgrade, flagged as broken by `check_symbols` (lower is better) | 3,600 uses from 292 upgrades of real projects, labelled by running them | 3.8% | 1.4% |
-| The same, by `diff_versions(used_symbols=...)` | 2,399 it answers | 0.3% | 0.3% |
-| Code that breaks, flagged by `check_symbols` / `diff_versions` | 130 uses | 97.7% / 76.9% | 97.6% / 94.6% |
-| Right package, name and breaking release for a traceback from a GitHub issue | 32 collected 2026-11-05 | 68.8% | 96.9% |
+| Right package, name and breaking release for a traceback from a GitHub issue, on the [holdout of 2026-11-07](https://github.com/cschmertz/deptime/blob/main/bench/holdout/2026-11/results-2026-11-07.md) | 35, after every fix so far | 88.6% | 97.1% |
+| Code that still works after an upgrade, flagged as broken by `check_symbols` (lower is better) | 3,600 uses from 292 upgrades of real projects, labelled by running them | 3.8% | 0.3% |
+| The same, by `diff_versions(used_symbols=...)` | 2,399 it answers | 0.3% | 0.2% |
+| Code that breaks, flagged by `check_symbols` / `diff_versions` | 130 uses | 97.7% / 76.9% | 98.4% / 98.5% |
+| Right package, name and breaking release for a traceback from a GitHub issue | 32 collected 2026-11-05 | 68.8% | 100% |
 | The same, on a holdout fixed in advance from [TimeMachine-bench](https://github.com/tohoku-nlp/timemachine-bench) | 29 | 72.4% | 96.6% |
-| Error kind and package read from the traceback: scripts, pytest, chained exceptions, `ExceptionGroup`, IPython, Python 3.10–3.14 | 736, holdout fixed in advance | 93.8% | 93.8% |
+| Error kind and package read from the traceback: scripts, pytest, chained exceptions, `ExceptionGroup`, IPython, Python 3.10–3.14 | 736, holdout fixed in advance | 93.8% | 100% |
 | Replacement hints at confidence ≥ 0.75 that are right | hints for 50 documented migrations | 11 of 11 | 42 of 45 |
 | Documented migrations that get a right hint at ≥ 0.75 | 50 | 11 | 42 (32 without hand-checked hints from migration guides) |
 | Names that exist at runtime but read as absent | 2,428 sampled at runtime from 10 dynamic packages | 5.1% | 1.2% |
 
-Since the first run, `check_symbols` answers `unknown`, with the reason, where the index can't tell (a path through an instance such as `pytest.mark`): 81 working uses and 6 breaks, left out of its rates above.
+Since the first run, `check_symbols` answers `unknown`, with the reason, where the index can't tell (a path through an instance such as `pytest.mark`): 79 working uses and 4 breaks, left out of its rates above.
 
-Across all 237 real tracebacks in the benchmark, including the ones fixes were designed from, DepTime names the right package, name and release for 98.3%, and a right replacement is among its first three for 67.6%. CI re-scores them and both holdouts on every code change and every published index, and fails on a drop of more than 2 points (or a false-positive rate up by more than 1).
+Across all 237 real tracebacks in the benchmark, including the ones fixes were designed from, DepTime names the right package, name and release for 99.2%, and a right replacement is among its first three for 67.6%. CI re-scores them and both holdouts on every code change and every published index, and fails on a drop of more than 2 points (or a false-positive rate up by more than 1).
 
 ## Install
 

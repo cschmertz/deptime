@@ -1,11 +1,11 @@
 {
-"index_built_at": "2026-11-07T13:33:38+00:00",
+"index_built_at": "2026-11-08T03:54:36+00:00",
 "tracebacks": {
 "hold-anthropic-beta-prompt-caching-gptcmd": true,
 "hold-django-checkconstraint-check-drf-toolkit": true,
 "hold-django-get-storage-class-django-cms": true,
-"hold-fastmcp-tools-tool-patent-client": false,
-"hold-fastmcp-tools-tool-starrocks": false,
+"hold-fastmcp-tools-tool-patent-client": true,
+"hold-fastmcp-tools-tool-starrocks": true,
 "hold-gradio-sidebar-smolagents": true,
 "hold-gradio-textbox-show-copy-button-f5-tts": true,
 "hold-huggingface-hub-ddufentry-diffusers": true,
@@ -459,7 +459,7 @@
 "label": "works"
 },
 "pin-azure-samples__azure-postgres-pgvector-python-sqlmodel-down|59bed48162031552": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -489,7 +489,7 @@
 "label": "works"
 },
 "pin-azure-samples__azure-postgres-pgvector-python-sqlmodel-down|a7757471f5d5dc5c": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -559,7 +559,7 @@
 "label": "works"
 },
 "pin-azure-samples__azure-postgres-pgvector-python-sqlmodel-up|59bed48162031552": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -589,7 +589,7 @@
 "label": "works"
 },
 "pin-azure-samples__azure-postgres-pgvector-python-sqlmodel-up|a7757471f5d5dc5c": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -1589,7 +1589,7 @@
 "label": "works"
 },
 "pin-benman1__generative_ai_with_langchain-langgraph-up|351e423f369f6364": {
-"check_symbols": true,
+"check_symbols": null,
 "diff_versions": false,
 "label": "works"
 },
@@ -1609,7 +1609,7 @@
 "label": "works"
 },
 "pin-benman1__generative_ai_with_langchain-langgraph-up|6ed0d1520afe921b": {
-"check_symbols": true,
+"check_symbols": null,
 "diff_versions": false,
 "label": "works"
 },
@@ -1624,7 +1624,7 @@
 "label": "works"
 },
 "pin-benman1__generative_ai_with_langchain-langgraph-up|8234625c78e985ee": {
-"check_symbols": true,
+"check_symbols": null,
 "diff_versions": false,
 "label": "works"
 },
@@ -3869,7 +3869,7 @@
 "label": "works"
 },
 "pin-jiggy-ai__hn_summary-sqlmodel-down|69f162a54c423aac": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -3889,7 +3889,7 @@
 "label": "works"
 },
 "pin-jiggy-ai__hn_summary-sqlmodel-down|7fef666d6e85a09f": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -3924,7 +3924,7 @@
 "label": "works"
 },
 "pin-jiggy-ai__hn_summary-sqlmodel-down|dcd9f4391cc34b9c": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -3944,18 +3944,18 @@
 "label": "works"
 },
 "pin-jiggy-ai__hn_summary-sqlmodel-down|ea7601fa10946e47": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
 "pin-jiggy-ai__hn_summary-sqlmodel-up|1f27f8f901c5223a": {
-"check_symbols": true,
-"diff_versions": true,
+"check_symbols": false,
+"diff_versions": false,
 "label": "works"
 },
 "pin-jiggy-ai__hn_summary-sqlmodel-up|205441f9ab663fdb": {
-"check_symbols": true,
-"diff_versions": true,
+"check_symbols": false,
+"diff_versions": false,
 "label": "works"
 },
 "pin-jiggy-ai__hn_summary-sqlmodel-up|24af34a3008acb4c": {
@@ -3999,7 +3999,7 @@
 "label": "works"
 },
 "pin-jiggy-ai__hn_summary-sqlmodel-up|69f162a54c423aac": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -4019,7 +4019,7 @@
 "label": "works"
 },
 "pin-jiggy-ai__hn_summary-sqlmodel-up|7fef666d6e85a09f": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -4054,7 +4054,7 @@
 "label": "works"
 },
 "pin-jiggy-ai__hn_summary-sqlmodel-up|dcd9f4391cc34b9c": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -4074,7 +4074,7 @@
 "label": "works"
 },
 "pin-jiggy-ai__hn_summary-sqlmodel-up|ea7601fa10946e47": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -4384,7 +4384,7 @@
 "label": "works"
 },
 "pin-koljab__linguflex-fastapi-down|a1c13e5fa197fda6": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -4404,7 +4404,7 @@
 "label": "works"
 },
 "pin-koljab__linguflex-fastapi-down|bfffaf69cb093db8": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -4429,7 +4429,7 @@
 "label": "works"
 },
 "pin-koljab__linguflex-fastapi-down|e0f07312ede2545b": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -4519,7 +4519,7 @@
 "label": "works"
 },
 "pin-koljab__linguflex-fastapi-up|a1c13e5fa197fda6": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -4539,7 +4539,7 @@
 "label": "works"
 },
 "pin-koljab__linguflex-fastapi-up|bfffaf69cb093db8": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -4564,7 +4564,7 @@
 "label": "works"
 },
 "pin-koljab__linguflex-fastapi-up|e0f07312ede2545b": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -4604,8 +4604,8 @@
 "label": "works"
 },
 "pin-koljab__linguflex-instructor-down|ca6ef7295cb1d5c3": {
-"check_symbols": false,
-"diff_versions": false,
+"check_symbols": true,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-koljab__linguflex-instructor-down|e0abfee63c4f067a": {
@@ -4644,7 +4644,7 @@
 "label": "works"
 },
 "pin-langchain-opentutorial__langchain-opentutorial-weaviate-client-down|12c18bcb344db465": {
-"check_symbols": null,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -4654,13 +4654,13 @@
 "label": "works"
 },
 "pin-langchain-opentutorial__langchain-opentutorial-weaviate-client-down|26757e19d474954b": {
-"check_symbols": null,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
 "pin-langchain-opentutorial__langchain-opentutorial-weaviate-client-down|3c71c308fbbaef4e": {
-"check_symbols": null,
-"diff_versions": false,
+"check_symbols": true,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-langchain-opentutorial__langchain-opentutorial-weaviate-client-down|3e77f99ddd6e59d9": {
@@ -4679,7 +4679,7 @@
 "label": "works"
 },
 "pin-langchain-opentutorial__langchain-opentutorial-weaviate-client-down|590113cf37efd910": {
-"check_symbols": null,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -4729,7 +4729,7 @@
 "label": "works"
 },
 "pin-langchain-opentutorial__langchain-opentutorial-weaviate-client-down|bdbfbcc7401eeea8": {
-"check_symbols": null,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -4739,8 +4739,8 @@
 "label": "works"
 },
 "pin-langchain-opentutorial__langchain-opentutorial-weaviate-client-down|c374480ee59688b2": {
-"check_symbols": null,
-"diff_versions": false,
+"check_symbols": true,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-langchain-opentutorial__langchain-opentutorial-weaviate-client-down|c75953bb529cf4cd": {
@@ -4794,7 +4794,7 @@
 "label": "works"
 },
 "pin-langchain-opentutorial__langchain-opentutorial-weaviate-client-up|12c18bcb344db465": {
-"check_symbols": null,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -4804,12 +4804,12 @@
 "label": "works"
 },
 "pin-langchain-opentutorial__langchain-opentutorial-weaviate-client-up|26757e19d474954b": {
-"check_symbols": null,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
 "pin-langchain-opentutorial__langchain-opentutorial-weaviate-client-up|3c71c308fbbaef4e": {
-"check_symbols": null,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -4829,7 +4829,7 @@
 "label": "works"
 },
 "pin-langchain-opentutorial__langchain-opentutorial-weaviate-client-up|590113cf37efd910": {
-"check_symbols": null,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -4879,7 +4879,7 @@
 "label": "works"
 },
 "pin-langchain-opentutorial__langchain-opentutorial-weaviate-client-up|bdbfbcc7401eeea8": {
-"check_symbols": null,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -4889,7 +4889,7 @@
 "label": "works"
 },
 "pin-langchain-opentutorial__langchain-opentutorial-weaviate-client-up|c374480ee59688b2": {
-"check_symbols": null,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -6525,7 +6525,7 @@
 },
 "pin-oracle__mcp-fastmcp-down|c381e55e0b0e814b": {
 "check_symbols": true,
-"diff_versions": false,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-oracle__mcp-fastmcp-down|c9890bc71ab12a34": {
@@ -7629,12 +7629,12 @@
 "label": "works"
 },
 "pin-sambanova__ai-starter-kit-langchain-community-down|28dd88f12235d199": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
 "pin-sambanova__ai-starter-kit-langchain-community-down|2ea3e10895cbdf91": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -7684,7 +7684,7 @@
 "label": "works"
 },
 "pin-sambanova__ai-starter-kit-langchain-community-down|8af74a1e95d9bcec": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -7699,7 +7699,7 @@
 "label": "works"
 },
 "pin-sambanova__ai-starter-kit-langchain-community-down|a38511a764dcf15d": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -7789,12 +7789,12 @@
 "label": "works"
 },
 "pin-sambanova__ai-starter-kit-langchain-community-up|28dd88f12235d199": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
 "pin-sambanova__ai-starter-kit-langchain-community-up|2ea3e10895cbdf91": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -7839,12 +7839,12 @@
 "label": "works"
 },
 "pin-sambanova__ai-starter-kit-langchain-community-up|895ec23486e1fbdf": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
 "pin-sambanova__ai-starter-kit-langchain-community-up|8af74a1e95d9bcec": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -8780,7 +8780,7 @@
 },
 "pin-yuezhiai__jonex-openai-agents-down|26f40ac79086eb0c": {
 "check_symbols": true,
-"diff_versions": false,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-yuezhiai__jonex-openai-agents-down|3dd52a2ff2512b49": {
@@ -9059,32 +9059,32 @@
 "label": "works"
 },
 "pin-zjunlp__membase-langgraph-down|844502ba7a369e8c": {
-"check_symbols": true,
+"check_symbols": null,
 "diff_versions": false,
 "label": "works"
 },
 "pin-zjunlp__membase-langgraph-down|9a0666f5e27c58c2": {
-"check_symbols": true,
+"check_symbols": null,
 "diff_versions": false,
 "label": "works"
 },
 "pin-zjunlp__membase-langgraph-down|be9694d7158ce951": {
-"check_symbols": true,
+"check_symbols": null,
 "diff_versions": false,
 "label": "works"
 },
 "pin-zjunlp__membase-langgraph-up|844502ba7a369e8c": {
-"check_symbols": true,
+"check_symbols": null,
 "diff_versions": false,
 "label": "works"
 },
 "pin-zjunlp__membase-langgraph-up|9a0666f5e27c58c2": {
-"check_symbols": true,
+"check_symbols": null,
 "diff_versions": false,
 "label": "works"
 },
 "pin-zjunlp__membase-langgraph-up|be9694d7158ce951": {
-"check_symbols": true,
+"check_symbols": null,
 "diff_versions": false,
 "label": "works"
 },
@@ -11659,7 +11659,7 @@
 "label": "works"
 },
 "tmb-demorest__sdmpy-numpy|6648e1c052053c14": {
-"check_symbols": null,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },

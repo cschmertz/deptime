@@ -1,12 +1,12 @@
 {
-  "index_built_at": "2026-11-07T13:33:38+00:00",
+  "index_built_at": "2026-11-08T03:54:36+00:00",
   "summary": {
     "cases": 245,
     "known_gap_share": 2.0,
     "overall": {
       "root_cause": 99.2,
-      "root_cause_and_boundary": 98.0,
-      "boundary": 97.9,
+      "root_cause_and_boundary": 98.8,
+      "boundary": 98.8,
       "replacement": 69.1,
       "replacement_uncurated": 60.0
     },
@@ -22,8 +22,8 @@
       "A": {
         "cases": 118,
         "root_cause": 100.0,
-        "root_cause_and_boundary": 97.5,
-        "boundary": 97.4,
+        "root_cause_and_boundary": 99.2,
+        "boundary": 99.1,
         "replacement": 46.7,
         "replacement_uncurated": 42.2
       },
@@ -48,8 +48,8 @@
       "reported": {
         "cases": 237,
         "root_cause": 99.6,
-        "root_cause_and_boundary": 98.3,
-        "boundary": 98.3,
+        "root_cause_and_boundary": 99.2,
+        "boundary": 99.1,
         "replacement": 67.6,
         "replacement_uncurated": 58.1
       }
@@ -280,13 +280,13 @@
     },
     "hold-fastmcp-tools-tool-starrocks": {
       "root_cause": true,
-      "boundary": false,
+      "boundary": true,
       "replacement": null,
       "replacement_uncurated": null
     },
     "hold-fastmcp-tools-tool-patent-client": {
       "root_cause": true,
-      "boundary": false,
+      "boundary": true,
       "replacement": null,
       "replacement_uncurated": null
     },

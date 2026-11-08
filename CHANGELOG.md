@@ -39,18 +39,32 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
   release the package's requirement allows, and a module imported under another path at its own.
 - `check_symbols` looks a name a class lacks up in its bases from other distributions (`fastapi.FastAPI.mount` is
   starlette's, `sqlmodel.Session.add` sqlalchemy's), in the standard library's (`enum.Enum`), and reads `unknown` for
-  a module missing directly under a namespace package (langgraph-checkpoint installs `langgraph.checkpoint` into
-  langgraph). A class attribute bound to a class (`Configure.Generative`) and a nested class have their members.
-  These need an index built with `SNAPSHOT_FORMAT` 19, which records each class's bases from outside its package
-  (`classes.external`) and each release's namespace packages (`releases.namespaces`) (DT-CORE-32).
-- `releases.module_aliases`: modules a package makes importable under another name with `sys.modules[...] = ...`;
-  `explain_error` counts them for a module that became a name (fastmcp kept `fastmcp.tools.tool` through 3.4)
-  (DT-DATA-52).
+  a module missing directly under a namespace package when the release requires a distribution that may install it
+  (langgraph-checkpoint installs `langgraph.checkpoint` into langgraph). A class attribute bound to a class
+  (`Configure.Generative`), a module attribute bound to one (`masked_array = MaskedArray`) and a nested class have
+  their members. These need an index built with `SNAPSHOT_FORMAT` 20, which records each class's bases from outside
+  its package (`classes.external`) and each release's namespace packages (`releases.namespaces`) (DT-CORE-32).
+- `releases.module_aliases`: paths importable as a module though the index records another object there, those a
+  package makes with `sys.modules[...] = ...` (DT-DATA-52) and a submodule whose name its package rebinds (DT-DATA-54);
+  `explain_error` reads such a module as present, and counts those releases for one that became only a name (fastmcp
+  kept `fastmcp.tools.tool` importable through 3.4).
 - `SymbolQuery.positional` and `SymbolCheck.missing_args` (DT-CORE-34): with the call's positional count,
   `check_symbols` lists the required parameters it passes neither by position nor by keyword; `code=` counts them
   from the snippet's calls.
 
 ### Changed
+- A submodule name its package rebinds (`from .patch import patch`) is recorded as the object it's bound to, still
+  importable as the module: `instructor.patch` is the function, with its signature (DT-DATA-54).
+- Deprecations a module serves through `__getattr__` are read from a `class __getattr__`'s `deprecated(...)`
+  properties (matplotlib's `rcsetup.interactive_bk`) and from a warning helper that is a static or class method of an
+  imported class (weaviate's top-level `AuthApiKey`), and reach names a stub already types (DT-DATA-53).
+- A class member that switches between class and attribute is no longer a `kind_changed` event: transformers 4.54's
+  models declare `config: XConfig` and `PreTrainedModel.__init_subclass__` sets `config_class` from it, so read
+  statically the member falls back to the base's `config_class = None`. A module-level class that becomes an alias
+  still is one (openai 1.99.2's `ChatCompletionMessageToolCall` union) (DT-CORE-32).
+- An argument error's findings rank by the class Python names in the message (its `__qualname__`): `Client.__init__()`
+  is httpx's `Client`, not anthropic's, an alias of `Anthropic`; and by a class the caller's line names
+  (`pl.DataFrame(...).sort(...)`) (DT-CORE-31).
 - `explain_error` reads `No module named 'x.y'` as `module_removed` when the installed release has `x.y` as another
   kind of name and it was a module before (fastmcp 3.2 turned `fastmcp.tools.tool` into a function), and reads a
   library's own exception that says a name was removed (polars 2's `AttributeRemovedError`) as the `AttributeError`

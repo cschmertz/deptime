@@ -480,6 +480,27 @@ def test_import_name_without_its_module_takes_it_from_the_import_line():
     )
 
 
+def test_import_name_without_quotes_or_module_from_compiled_code():
+    # DT-CORE-37: Cython's import raises `cannot import name X`, no quotes, and its frames have no source line, so
+    # nothing names the module: the name alone is looked up among the installed packages.
+    s = parse_traceback(
+        'File "piml/workflow/pipeline.py", line 10, in init piml.workflow.pipeline\n'
+        'File "piml/data/base.py", line 7, in init piml.data.base\n'
+        "ImportError: cannot import name SCORERS\n"
+    )
+    assert (s.kind, s.module, s.name) == ("import_name", None, "SCORERS")
+    # With the module in an import line, as with quotes.
+    s = parse_traceback(
+        'File ".../app.py", line 3, in <module>\n'
+        "    from sklearn.metrics import SCORERS\n"
+        "ImportError: cannot import name SCORERS\n"
+    )
+    assert (s.kind, s.module, s.name) == ("import_name", "sklearn.metrics", "SCORERS")
+    # A quoted message trimmed of its module, with no import line: the same.
+    s = parse_traceback("ImportError: cannot import name 'SCORERS'\n")
+    assert (s.kind, s.module, s.name) == ("import_name", None, "SCORERS")
+
+
 GRADIO_TB = (
     "Traceback (most recent call last):\n"
     '  File "/venv/lib/python3.12/site-packages/smolagents/gradio_ui.py", line 419, in create_app\n'

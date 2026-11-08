@@ -1277,6 +1277,11 @@ class DepTime:
         notes += [alias_notes[p] for p in sorted({f.package for f in findings}) if p in alias_notes]
         if signal.kind in {"unexpected_kwarg", "missing_argument", "too_many_positional"} and signal.owner:
             notes += self._owner_unknown_note(signal.owner, findings)
+        if signal.kind == "import_name" and not signal.module and findings:
+            notes.append(
+                f"The error names `{signal.name}` without its module (compiled code, or a trimmed message), so "
+                "DepTime looked it up among the modules of the installed packages."
+            )
         if signal.wrapped_in:
             notes.append(
                 f"The last exception, {signal.wrapped_in}, was raised from or while handling this "
@@ -1906,6 +1911,8 @@ class DepTime:
         resolved, exact = (
             self.store.resolve_version(name, installed_version) if installed_version else (None, False)
         )
+        if signal.kind == "import_name" and not signal.module:
+            return self._unplaced_import_findings(spec, signal, resolved, exact, installed_version)
         if signal.kind in {"import_name", "module_attribute"}:
             return [
                 self._symbol_finding(
@@ -2396,6 +2403,34 @@ class DepTime:
                 message = untrusted_text(detail.get("message"))  # it is quoted in explanations too
                 return (f"<={version}" if row["prev_ordinal"] is None else version), message
         return None, None
+
+    def _unplaced_import_findings(
+        self,
+        spec: PackageSpec,
+        signal: ErrorSignal,
+        resolved: sqlite3.Row | None,
+        exact: bool,
+        installed: str | None,
+    ) -> list[Finding]:
+        """`cannot import name X` with no module (DT-CORE-37): Cython's message, whose frames have no source line,
+        or a trimmed paste. `from M import X` takes a name from a module, so X is looked up as a module's name in any
+        indexed release, shortest path first: scikit-learn 1.3's `SCORERS` is `sklearn.metrics.SCORERS`. Medium
+        confidence at most when more than one module has it."""
+        assert self.store is not None
+        name = spec.name
+        paths = [
+            p
+            for _, p in self.store.find_by_suffix([name], signal.name or "", limit=200)
+            if any(s["kind"] == "module" for s in self.store.spans(name, p.rpartition(".")[0]))
+        ][:MAX_FINDINGS_PER_PACKAGE]
+        out = [
+            self._symbol_finding(spec, p, resolved, exact, installed, message=signal.message) for p in paths
+        ]
+        if len(paths) > 1:
+            out = [
+                f.model_copy(update={"confidence": "medium"}) if f.confidence == "high" else f for f in out
+            ]
+        return out
 
     def _symbol_finding(
         self,

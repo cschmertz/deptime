@@ -1282,6 +1282,41 @@ def test_a_bare_callee_name_means_a_path_that_took_the_argument_in_an_installed_
     assert "other" in {f.package for f in dt.explain_error(flag).findings}
 
 
+def test_an_import_name_without_its_module_is_looked_up_among_the_installed_packages_modules():
+    # DT-CORE-37, from the 2026-11b holdout: scikit-learn 1.3's `cannot import name SCORERS`, raised in Cython code
+    # whose frames have no source line, read as a shape DepTime doesn't analyse.
+    spec = PackageSpec(name="skl", import_names=("skl",), tier="B", own_members=False)
+
+    def snap(version: str, *names: str) -> ApiSnapshot:
+        symbols = {
+            "skl": SymbolRecord("skl", "module", "skl"),
+            "skl.metrics": SymbolRecord("skl.metrics", "module", "skl.metrics"),
+            "skl.extra": SymbolRecord("skl.extra", "module", "skl.extra"),
+            "skl.Thing": SymbolRecord("skl.Thing", "class", "skl.Thing"),
+            # A class's attribute of that name: `from M import X` can't take it.
+            "skl.Thing.SCORERS": SymbolRecord("skl.Thing.SCORERS", "attribute", "skl.Thing.SCORERS"),
+        }
+        symbols |= {p: SymbolRecord(p, "attribute", p) for p in names}
+        return ApiSnapshot("skl", version, ["skl"], symbols)
+
+    store = IndexStore.memory()
+    store.rebuild_package(spec, [snap("1.0", "skl.metrics.SCORERS"), snap("2.0")])
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+    tb = 'File "app/data/base.py", line 7, in init app.data.base\nImportError: cannot import name SCORERS\n'
+    res = dt.explain_error(tb, {"skl": "2.0"})
+    assert [(f.symbol, f.issue, f.last_version_with, f.confidence) for f in res.findings] == [
+        ("skl.metrics.SCORERS", "symbol_removed", "1.0", "high")
+    ]
+    assert "names `SCORERS` without its module" in res.note
+    # Two modules with the name: either may be the one, so medium at most.
+    store.rebuild_package(spec, [snap("1.0", "skl.metrics.SCORERS", "skl.extra.SCORERS"), snap("2.0")])
+    res = dt.explain_error(tb, {"skl": "2.0"})
+    assert [(f.symbol, f.confidence) for f in res.findings] == [
+        ("skl.extra.SCORERS", "medium"),
+        ("skl.metrics.SCORERS", "medium"),
+    ]
+
+
 def test_requirements_round_trip_and_an_index_without_them_still_opens(tmp_path):
     # DT-DATA-14: each release's Requires-Dist, NULL when unknown; released clients never read the column.
     snaps = [

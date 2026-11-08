@@ -2,11 +2,11 @@
   "index_built_at": "2026-11-08T03:54:36+00:00",
   "summary": {
     "cases": 282,
-    "known_gap_share": 1.8,
+    "known_gap_share": 1.4,
     "overall": {
-      "root_cause": 98.6,
-      "root_cause_and_boundary": 98.2,
-      "boundary": 98.2,
+      "root_cause": 98.9,
+      "root_cause_and_boundary": 98.6,
+      "boundary": 98.6,
       "replacement": 63.8,
       "replacement_uncurated": 56.2
     },
@@ -29,9 +29,9 @@
       },
       "B": {
         "cases": 130,
-        "root_cause": 96.9,
-        "root_cause_and_boundary": 96.9,
-        "boundary": 96.9,
+        "root_cause": 97.7,
+        "root_cause_and_boundary": 97.7,
+        "boundary": 97.7,
         "replacement": 81.1,
         "replacement_uncurated": 70.3
       }
@@ -47,9 +47,9 @@
       },
       "reported": {
         "cases": 274,
-        "root_cause": 98.9,
-        "root_cause_and_boundary": 98.5,
-        "boundary": 98.5,
+        "root_cause": 99.3,
+        "root_cause_and_boundary": 98.9,
+        "boundary": 98.9,
         "replacement": 62.4,
         "replacement_uncurated": 54.4
       }
@@ -1419,8 +1419,8 @@
       "replacement_uncurated": true
     },
     "hold-scikit-learn-scorers-piml-toolbox": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": false,
       "replacement_uncurated": false
     },

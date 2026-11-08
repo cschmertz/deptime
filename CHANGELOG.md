@@ -28,6 +28,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
   argument 'file_ids'`) looks first at the functions of that name whose signature had the argument and that exist in
   the installed release (openai's `Assistants.create`, not the shortest `create`), and, when installed versions are
   given, only at packages installed or required by the raising code (DT-CORE-36).
+- mcp 2.x's `mcp.types` (DT-DATA-56): `from mcp_types import *` of the `mcp-types` distribution each release pins at
+  its own version is now read from that wheel, so `mcp.types.Tool` and the rest are present in 2.x, and 1.x → 2.x
+  reports what really changed (`Tool.inputSchema` → `input_schema`) rather than every type removed. A name under a
+  module that star-imports a distribution DepTime doesn't read (google-generativeai's `protos`) reads `unknown`,
+  not `missing`. Needs the next index build.
+
+### Added
+- Replacement hints for names renamed in case or underscores under the same parent (`McpError` → `MCPError`).
 
 ## [0.1.9] - 2026-11-07
 

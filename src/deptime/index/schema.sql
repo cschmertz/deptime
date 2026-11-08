@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS releases (
   project_urls TEXT,                       -- JSON object of its Project-URL entries, label to URL (DT-CORE-29)
   namespaces  TEXT,                        -- JSON array of its namespace packages (DT-CORE-32)
   module_aliases TEXT,                     -- JSON object, sys.modules alias -> module (DT-DATA-52)
+  star_sources TEXT,                       -- JSON object, module -> the unread modules it star-imports (DT-DATA-56)
   PRIMARY KEY (package, version),
   UNIQUE (package, ordinal)
 );

@@ -26,7 +26,13 @@ from packaging.version import Version
 from deptime.config import PackageSpec, VersionPolicy
 from deptime.index.store import IndexStore, RebuildStats
 from deptime.ingest import pypi
-from deptime.ingest.snapshot import SNAPSHOT_FORMAT, ApiSnapshot, LazySnapshot, build_snapshot
+from deptime.ingest.snapshot import (
+    SNAPSHOT_FORMAT,
+    ApiSnapshot,
+    LazySnapshot,
+    build_snapshot,
+    external_star_imports,
+)
 
 
 @dataclass
@@ -285,28 +291,61 @@ def _build(
 
     A release with no code for its import names is analysed from the first distribution it pins at the same
     version that has it: fastmcp 3.3+ (`fastmcp-slim`), pinecone 2.2.2-5.0.1 (`pinecone-client`), typer
-    0.12.0 (`typer-cli`, itself empty, then `typer-slim`) (DT-DATA-17).
+    0.12.0 (`typer-cli`, itself empty, then `typer-slim`) (DT-DATA-17). A distribution it pins at the same version
+    that has a module its code star-imports is analysed with it (DT-DATA-56: mcp 2.x's `mcp.types` is
+    `from mcp_types import *`, and mcp 2.3.0 requires `mcp-types==2.3.0`).
     """
     with ExitStack() as cleanup:
         root = _fetch(spec.name, version, file, client, cache_dir, cleanup)
+        pins = pypi.same_version_pins(root, version)
         if not pypi.has_code(root, spec.import_names):
-            for dist in pypi.same_version_pins(root, version):
-                pinned = next((r for r in releases_of(dist) if r.version == Version(version)), None)
-                pinned_file = pypi.pick_file(pinned) if pinned else None
+            for dist in pins:
+                pinned_file = _pinned_file(dist, version, releases_of)
                 if pinned_file is None:
                     continue
                 pinned_root = _fetch(dist, version, pinned_file, client, cache_dir, cleanup)
                 if pypi.has_code(pinned_root, spec.import_names):
                     root, file = pinned_root, pinned_file
+                    pins = pypi.same_version_pins(root, version)
                     break
+        siblings: list[tuple[Path, list[str]]] = []
+        sibling_files: list[str] = []
+        wanted = external_star_imports(root, list(spec.import_names))
+        for dist in pins if wanted else ():
+            pinned_file = _pinned_file(dist, version, releases_of)
+            if pinned_file is None or pinned_file.filename == file.filename:
+                continue
+            pinned_root = _fetch(dist, version, pinned_file, client, cache_dir, cleanup)
+            names = sorted(m for m in wanted if pypi.has_code(pinned_root, [m]))
+            if names:
+                siblings.append((pinned_root, names))
+                sibling_files.append(pinned_file.filename)
+                wanted -= set(names)
+            if not wanted:
+                break
         snap = build_snapshot(
-            spec.name, version, list(spec.import_names), root, list(spec.namespace_skip), spec.own_members
+            spec.name,
+            version,
+            list(spec.import_names),
+            root,
+            list(spec.namespace_skip),
+            spec.own_members,
+            siblings,
         )
         # The analysed code's own requirements: a wrapper release's are those of the distribution it pins.
         snap.requires = pypi.requires_dist(root, file.filename)
         snap.project_urls = pypi.project_urls(root, file.filename)
     snap.source_file = file.filename
+    snap.sibling_files = sibling_files
     return snap
+
+
+def _pinned_file(
+    dist: str, version: str, releases_of: Callable[[str], list[pypi.Release]]
+) -> pypi.ReleaseFile | None:
+    """The artifact of `dist`'s release `version`, which a release pins; None when PyPI has none."""
+    pinned = next((r for r in releases_of(dist) if r.version == Version(version)), None)
+    return pypi.pick_file(pinned) if pinned else None
 
 
 def _previous_release_info(

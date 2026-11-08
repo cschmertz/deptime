@@ -17,7 +17,7 @@ import string
 import sys
 import textwrap
 import warnings
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any
@@ -33,7 +33,7 @@ from deptime.ingest.replacements import (
     worded_deprecated,
 )
 
-SNAPSHOT_FORMAT = 20  # bump when extraction changes: cached snapshots in another format are rebuilt
+SNAPSHOT_FORMAT = 21  # bump when extraction changes: cached snapshots in another format are rebuilt
 MAX_DEPTH = 12  # guards pathological re-export cycles
 
 DEPRECATED_DECORATOR_RE = re.compile(r"^(?:[\w.]+\.)?deprecated\b(?:\(.*\))?$", re.S)
@@ -156,6 +156,13 @@ class ApiSnapshot:
     # `sys.modules[...] = ...` (DT-DATA-52: fastmcp 3.2-3.4 kept `fastmcp.tools.tool` importable as
     # `fastmcp.tools.base`), and a submodule whose name its package rebinds (DT-DATA-54: `instructor.patch`).
     module_aliases: dict[str, str] = field(default_factory=dict)
+    # Other distributions' artifacts analysed with the release because it star-imports them (DT-DATA-56: mcp 2.x's
+    # `mcp-types`, pinned at the same version). Empty in older snapshots.
+    sibling_files: list[str] = field(default_factory=list)
+    # Public modules' star imports of code the analysis couldn't read, another distribution's, module -> the
+    # modules, in order (DT-DATA-56): the names they bind aren't recorded, so a name missing under such a module
+    # may still be there (google-generativeai's `protos`, from google-ai-generativelanguage).
+    star_sources: dict[str, list[str]] = field(default_factory=dict)
 
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -3306,6 +3313,12 @@ class _Walker:
         self.visiting.add(key)
         self._finish_stars(mod)
         self.record(SymbolRecord(public_path, "module", mod.path))
+        for source in self.runtime_all.of(mod).stars:  # another distribution's, which griffe didn't load
+            outside = not self._internal(source) and source.split(".")[0] not in STDLIB_MODULES
+            if outside and _module_at(mod, source) is None:
+                unread = self.snap.star_sources.setdefault(public_path, [])
+                if source not in unread:
+                    unread.append(source)
         # A module another one forwards to is public as at its own path, but its submodules aren't walked again.
         reexporter = mod.path if (public_path == mod.path or forwarded) and mod.is_init_module else None
         walk_from = None if forwarded else reexporter
@@ -4134,6 +4147,32 @@ class _OverloadsOnly(griffe.Extension):
             del obj.overloads[name]
 
 
+_STAR_IMPORT_RE = re.compile(rb"^[ \t]*from[ \t]+([A-Za-z_][\w.]*)[ \t]+import[ \t]*\*", re.M)
+
+
+def external_star_imports(search_path: Path, import_names: list[str]) -> set[str]:
+    """The top-level modules that the code under `search_path`'s import roots star-imports from outside itself and
+    the standard library (DT-DATA-56: `mcp_types`, for mcp 2.x's `mcp/types/__init__.py`). A cheap textual scan:
+    it only decides which pinned distributions are worth fetching, and griffe reads the code itself."""
+    tops = {n.split(".")[0] for n in import_names}
+    found: set[str] = set()
+    for name in import_names:
+        base = search_path.joinpath(*name.split("."))
+        files = sorted(base.rglob("*.py")) if base.is_dir() else [base.with_suffix(".py")]
+        for file in files:
+            try:
+                data = file.read_bytes()
+            except OSError:
+                continue
+            if b"import" not in data or b"*" not in data:
+                continue
+            for m in _STAR_IMPORT_RE.finditer(data):
+                top = m.group(1).decode("ascii", "replace").split(".")[0]
+                if top not in tops and top not in STDLIB_MODULES:
+                    found.add(top)
+    return found
+
+
 def _clear_griffe_caches() -> None:
     """Empty griffe's module-level memo caches. They hold loaded objects, and through their parents the whole
     package, for the life of the process: the dataclasses extension's `_dataclass_parameters` kept one package
@@ -4195,10 +4234,16 @@ def build_snapshot(
     search_path: Path,
     namespace_skip: list[str] = (),
     own_members: bool = False,
+    siblings: Sequence[tuple[Path, list[str]]] = (),
 ) -> ApiSnapshot:
     """Snapshot the public API under `search_path`, a private extraction of one release: folders without
     `__init__.py` get an empty one first (see `add_namespace_inits`). `own_members` records each class's own
-    members once, with its MRO, rather than every member under every public path (DT-DATA-16)."""
+    members once, with its MRO, rather than every member under every public path (DT-DATA-16).
+
+    `siblings`: other distributions' private extractions, with the import names to load from each, analysed with
+    the release because it star-imports them (DT-DATA-56: mcp 2.x's `mcp.types` is `from mcp_types import *`,
+    and each release pins `mcp-types` at its own version). Their names are recorded only where the release's own
+    modules bind them."""
     snap = ApiSnapshot(
         package=package,
         version=version,
@@ -4217,22 +4262,38 @@ def build_snapshot(
     walker = _Walker(snap, tuple(import_names))
     global _READINGS
     _READINGS = {}
+    # With siblings, one collection for the release and them, loaded first, so griffe expands star imports of
+    # them. Without, a fresh one per import name, as always.
+    shared = (griffe.ModulesCollection(), griffe.LinesCollection()) if siblings else (None, None)
+    paths = [str(search_path), *(str(root) for root, _ in siblings)]
+
+    def load(name: str, where: list[str]) -> griffe.Object | griffe.Alias:
+        return griffe.load(
+            name,
+            search_paths=where,
+            modules_collection=shared[0],
+            lines_collection=shared[1],
+            allow_inspection=False,  # never import untrusted code
+            try_relative_path=False,
+            resolve_aliases=True,
+            # None loads only a private sibling (`_pytest` for `pytest`), found in the same wheel because
+            # search_paths replaces sys.path; other distributions' names stay aliases.
+            resolve_external=None,
+            extensions=griffe.load_extensions(
+                _RuntimeElse(), _OverloadsOnly(), _Rebound(), _ImportStructure()
+            ),
+        )
+
     try:
+        for root, names in siblings:
+            for name in names:
+                try:
+                    load(name, [str(root)])
+                except Exception as exc:  # the release's own names still load; star imports of it stay unread
+                    snap.errors.append(f"load sibling {name}: {type(exc).__name__}: {exc}")
         for import_name in import_names:
             try:
-                loaded = griffe.load(
-                    import_name,
-                    search_paths=[str(search_path)],
-                    allow_inspection=False,  # never import untrusted code
-                    try_relative_path=False,
-                    resolve_aliases=True,
-                    # None loads only a private sibling (`_pytest` for `pytest`), found in the same wheel because
-                    # search_paths replaces sys.path; other distributions' names stay aliases.
-                    resolve_external=None,
-                    extensions=griffe.load_extensions(
-                        _RuntimeElse(), _OverloadsOnly(), _Rebound(), _ImportStructure()
-                    ),
-                )
+                loaded = load(import_name, paths)
             except Exception as exc:  # report and continue: one bad import name must not sink the release
                 snap.errors.append(f"load {import_name}: {type(exc).__name__}: {exc}")
                 continue

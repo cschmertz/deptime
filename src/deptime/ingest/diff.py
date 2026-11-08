@@ -7,6 +7,7 @@ they are noise for "why does my code break" (griffe reports `__version__` change
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -68,6 +69,33 @@ def renamed_params(old: dict[str, dict[str, Any]], new: dict[str, dict[str, Any]
         for key, names in gone.items()
         if len(names) == 1 and len(came.get(key, ())) == 1
     }
+
+
+def renamed_names(events: Iterable[tuple[int, int | None, ChangeEvent]]) -> list[tuple[str, str, str]]:
+    """Names removed in a release that come back under the same parent in another case or with other underscores,
+    as (old, new, evidence): mcp 2.0's `Tool.inputSchema` -> `Tool.input_schema` and `McpError` -> `MCPError`
+    (DT-DATA-56), as `renamed_params` pairs parameters. Same kind, the new name not private, one to one."""
+    gone: dict[tuple, list[str]] = defaultdict(list)
+    came: dict[tuple, list[str]] = defaultdict(list)
+    for ordinal, _prev, ev in events:
+        if ev.kind not in ("removed", "added"):
+            continue
+        parent, _, leaf = ev.path.rpartition(".")
+        key = (ordinal, parent, _plain(leaf), ev.detail.get("kind"))
+        if not parent or not key[2]:
+            continue
+        if ev.kind == "removed":
+            gone[key].append(leaf)
+        elif not leaf.startswith("_"):
+            came[key].append(leaf)
+    out = []
+    for key, olds in gone.items():
+        news = came.get(key, [])
+        if len(olds) == 1 and len(news) == 1 and olds[0] != news[0]:
+            parent = key[1]
+            evidence = f"{parent} lost {olds[0]} and gained {news[0]} in the same release"
+            out.append((f"{parent}.{olds[0]}", f"{parent}.{news[0]}", evidence))
+    return out
 
 
 def _param_event(path: str, param: str, message: str | None, hints: list[Hint]) -> ChangeEvent:

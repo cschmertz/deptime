@@ -1,4 +1,4 @@
-from deptime.ingest.diff import diff_snapshots, initial_events
+from deptime.ingest.diff import ChangeEvent, diff_snapshots, initial_events, renamed_names
 from deptime.ingest.snapshot import ApiSnapshot, ClassRecord, SymbolRecord
 from tests.conftest import SNAPSHOTS
 
@@ -219,3 +219,35 @@ def test_a_parameter_renamed_in_case_or_underscores_is_a_rename():
     }
     removed = next(e for e in diff_snapshots(old, new) if e.detail.get("param") == "obj")
     assert "renamed_to" not in removed.detail  # other events keep their detail as it was
+
+
+def test_a_name_renamed_in_case_or_underscores_is_paired():
+    # DT-DATA-56: mcp 2.0 renamed `Tool.inputSchema` to `input_schema` and `McpError` to `MCPError`.
+    def ev(path: str, kind: str, what: str = "attribute") -> ChangeEvent:
+        return ChangeEvent(path, kind, {"kind": what})
+
+    events = [
+        (1, 0, ev("m.Tool.inputSchema", "removed")),
+        (1, 0, ev("m.Tool.input_schema", "added")),
+        (1, 0, ev("m.McpError", "removed", "class")),
+        (1, 0, ev("m.MCPError", "added", "class")),
+        (1, 0, ev("m.Other.mimeType", "removed")),
+        (1, 0, ev("m.Other.mime_type", "added", "function")),  # another kind
+        (1, 0, ev("m.Res.data", "removed")),
+        (1, 0, ev("m.Res._data", "added")),  # private now: not a rename
+        (1, 0, ev("m.Two.aB", "removed")),
+        (1, 0, ev("m.Two.a_b", "added")),
+        (1, 0, ev("m.Two.A_B", "added")),  # not one to one
+        (1, 0, ev("m.Late.isError", "removed")),
+        (2, 1, ev("m.Late.is_error", "added")),  # another release
+        (1, 0, ev("m.Tool.description", "removed")),
+        (1, 0, ev("m.Tools.description", "added")),  # another parent
+    ]
+    assert renamed_names(events) == [
+        (
+            "m.Tool.inputSchema",
+            "m.Tool.input_schema",
+            "m.Tool lost inputSchema and gained input_schema in the same release",
+        ),
+        ("m.McpError", "m.MCPError", "m lost McpError and gained MCPError in the same release"),
+    ]

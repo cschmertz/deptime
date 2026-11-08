@@ -28,6 +28,7 @@ from deptime.ingest.diff import (
     initial_path_events,
     labels,
     path_events,
+    renamed_names,
 )
 from deptime.ingest.replacements import PublicNames, mine
 from deptime.ingest.snapshot import HIDDEN, ApiSnapshot, ClassRecord, LazySnapshot, SymbolRecord
@@ -47,6 +48,8 @@ STRONG_HINT = 0.75  # a name that already has a hint this strong gets no DT-CORE
 # A parameter renamed in case or underscores on the same function (DT-CORE-24): the same name, so stronger
 # evidence than a module-level name that reappears elsewhere.
 RENAMED_PARAM_CONFIDENCE = 0.8
+# A name that comes back under the same parent in another case or with other underscores (DT-DATA-56).
+RENAMED_NAME_CONFIDENCE = 0.8
 
 
 _STATE_COLUMNS = ("kind", "canonical", "params", "deprecated", "deprecated_params")
@@ -438,7 +441,11 @@ class IndexStore:
                 self.conn.execute("ALTER TABLE releases ADD COLUMN requires TEXT")
             if "project_urls" not in releases:
                 self.conn.execute("ALTER TABLE releases ADD COLUMN project_urls TEXT")
-            for column in ("namespaces", "module_aliases"):  # DT-CORE-32, DT-DATA-52
+            for column in (
+                "namespaces",
+                "module_aliases",
+                "star_sources",
+            ):  # DT-CORE-32, DT-DATA-52, DT-DATA-56
                 if column not in releases:
                     self.conn.execute(f"ALTER TABLE releases ADD COLUMN {column} TEXT")
             if "external" not in {r[1] for r in self.conn.execute("PRAGMA table_info(classes)")}:
@@ -521,6 +528,7 @@ class IndexStore:
                     None if snap.project_urls is None else json.dumps(snap.project_urls),
                     json.dumps(snap.namespaces) if snap.namespaces else None,
                     json.dumps(snap.module_aliases, sort_keys=True) if snap.module_aliases else None,
+                    json.dumps(snap.star_sources, sort_keys=True) if snap.star_sources else None,
                 )
             )
             for path, rec in snap.symbols.items():
@@ -615,6 +623,8 @@ class IndexStore:
                     "moved_heuristic",
                     f"{ev.path} lost the parameter {param} and gained {to} in the same release",
                 )
+        for path, to, evidence in renamed_names(events):
+            add_repl(path, to, RENAMED_NAME_CONFIDENCE, "moved_heuristic", evidence)
         strong = {path for (path, _target), (conf, _s, _e) in repl.items() if conf >= STRONG_HINT}
         versions = [row[1] for row in release_rows]
         removed = [(ev.path, ordinal) for ordinal, _prev, ev in events if ev.kind == "removed"]
@@ -673,7 +683,7 @@ class IndexStore:
             )
             self.conn.executemany(
                 "INSERT INTO releases(package, version, ordinal, released_at, source_file, error_count, requires,"
-                " project_urls, namespaces, module_aliases) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " project_urls, namespaces, module_aliases, star_sources) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 release_rows,
             )
             self.conn.executemany(
@@ -849,6 +859,7 @@ class IndexStore:
                     classes[r["cls"]].internal[r["name"]] = SymbolRecord(member, r["kind"], r["canonical"])
         namespaces = rel["namespaces"] if "namespaces" in rel.keys() else None  # noqa: SIM118
         aliases = rel["module_aliases"] if "module_aliases" in rel.keys() else None  # noqa: SIM118
+        stars = rel["star_sources"] if "star_sources" in rel.keys() else None  # noqa: SIM118
         return ApiSnapshot(
             spec.name,
             version,
@@ -862,6 +873,7 @@ class IndexStore:
             classes=classes,
             namespaces=json.loads(namespaces) if namespaces else [],
             module_aliases=json.loads(aliases) if aliases else {},
+            star_sources=json.loads(stars) if stars else {},
         )
 
     def declared_dependencies(self, name: str, ordinal: int | None = None) -> set[str]:
@@ -906,6 +918,12 @@ class IndexStore:
     def namespaces(self, name: str, ordinal: int) -> set[str]:
         """The release's namespace packages (DT-CORE-32); empty in an index from before they were recorded."""
         return set(self._release_json(name, ordinal, "namespaces") or [])
+
+    def star_sources(self, name: str, ordinal: int) -> dict[str, list[str]]:
+        """The release's public modules that star-import code DepTime didn't read, module -> those modules, in
+        order (DT-DATA-56); empty in an index from before they were recorded."""
+        found = self._release_json(name, ordinal, "star_sources")
+        return found if isinstance(found, dict) else {}
 
     def module_alias_ordinals(self, name: str, path: str) -> list[int]:
         """The releases in which `sys.modules` made `path` importable as another module (DT-DATA-52)."""

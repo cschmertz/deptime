@@ -2506,3 +2506,51 @@ def test_a_method_named_without_its_class_says_which_classes_fit():
         assert dt.explain_error(tb, {"p12": "1.0"}).findings[0].symbol == f"p12.{first}.sort(descending)", (
             code
         )
+
+
+def test_a_name_under_a_module_that_star_imports_unread_code_is_asked_there():
+    # DT-DATA-56: matplotlib's `pylab` is `from numpy import *` (numpy is covered); google-generativeai's `protos`
+    # star-imports google-ai-generativelanguage, which isn't. Neither binds names the index lists.
+    plot = PackageSpec(name="plot", import_names=("plot",), tier="B", own_members=False)
+    num = PackageSpec(name="num", import_names=("num",), tier="B", own_members=False)
+
+    def rec(path: str, kind: str = "module") -> SymbolRecord:
+        return SymbolRecord(path, kind, path, [] if kind == "function" else None)
+
+    snap = ApiSnapshot(
+        "plot",
+        "1.0",
+        ["plot"],
+        {p: rec(p) for p in ("plot", "plot.pylab", "plot.protos")},
+        requires=["num>=1"],
+        star_sources={"plot.pylab": ["num"], "plot.protos": ["faraway.types"]},
+    )
+    store = IndexStore.memory()
+    store.rebuild_package(plot, [snap])
+    store.rebuild_package(
+        num,
+        [ApiSnapshot("num", "1.5", ["num"], {"num": rec("num"), "num.array": rec("num.array", "function")})],
+    )
+    assert store.snapshot_at(plot, "1.0").star_sources == snap.star_sources
+    dt = DepTime(store, Coverage(POLICY, (plot, num)))
+    got = {
+        r.path: r
+        for r in dt.check_symbols(
+            "plot",
+            "1.0",
+            [SymbolQuery(path=p) for p in ("plot.pylab.array", "plot.pylab.nope", "plot.protos.Part")],
+        ).results
+    }
+    assert got["plot.pylab.array"].status == "present"
+    assert got["plot.pylab.array"].hint.startswith(
+        "plot.pylab star-imports `num`: checked as `num.array` in num 1.5"
+    )
+    assert got["plot.pylab.nope"].status == "missing"
+    assert got["plot.protos.Part"].status == "unknown"
+    assert got["plot.protos.Part"].hint == (
+        "plot.protos star-imports `faraway.types`: `faraway.types.Part`, which DepTime doesn't index (faraway)"
+    )
+    tb = "ImportError: cannot import name 'Part' from 'plot.protos' (/site-packages/plot/protos/__init__.py)"
+    f = dt.explain_error(tb, {"plot": "1.0"}).findings[0]
+    assert (f.issue, f.confidence) == ("never_existed", "low")
+    assert "At 1.0, plot.protos star-imports `faraway.types`, another distribution's code" in f.explanation

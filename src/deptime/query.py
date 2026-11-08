@@ -630,6 +630,13 @@ class DepTime:
                 return self._inherited(name, row, q, full, prefix, span["canonical"], rest, depth)
             if (
                 span["kind"] == "module"
+                and depth < 2
+                and (sources := self.store.star_sources(name, row["ordinal"]).get(prefix))
+                and (starred := self._starred(name, row, q, full, prefix, sources, depth)) is not None
+            ):
+                return starred
+            if (
+                span["kind"] == "module"
                 and prefix in self.store.namespaces(name, row["ordinal"])
                 and (shared := self._namespace(name, row, full, prefix)) is not None
             ):
@@ -697,6 +704,40 @@ class DepTime:
                 " can't check here, which may have it",
             )
         return None
+
+    def _starred(
+        self,
+        name: str,
+        row: sqlite3.Row,
+        q: SymbolQuery,
+        full: str,
+        prefix: str,
+        sources: list[str],
+        depth: int,
+    ) -> SymbolCheck | None:
+        """A path missing under a module that star-imports code DepTime didn't read (DT-DATA-56): each such module
+        is asked for the rest of the path, in the covered package that has it at the newest release `name`'s
+        release allows (matplotlib's `pylab` is `from numpy import *`), and one DepTime can't ask makes it
+        `unknown` (google-generativeai's `protos`, from google-ai-generativelanguage). None (so `missing`) when
+        every one was asked and lacks it."""
+        rest = full[len(prefix) + 1 :]
+        unknown: SymbolCheck | None = None
+        for source in reversed(sources):  # the last star import wins at runtime
+            got = self._through(
+                name,
+                row,
+                q,
+                full,
+                prefix,
+                f"{source}.{rest}",
+                depth,
+                lead=f"{prefix} star-imports `{source}`",
+            )
+            if got.status == "present":
+                return got
+            if got.status == "unknown" and unknown is None:
+                unknown = got
+        return unknown
 
     def _namespace(self, name: str, row: sqlite3.Row, full: str, prefix: str) -> SymbolCheck | None:
         """A path missing directly under a namespace package (DT-CORE-32), when the release requires a distribution
@@ -2495,6 +2536,18 @@ class DepTime:
                 f" {owner} defines `__getattr__` at {self._version(name, ordinal)}, so it can create names"
                 " at runtime, which DepTime's static index can't see."
             )
+        # A module that star-imports another distribution's code binds names the index doesn't list (DT-DATA-56).
+        stars = self.store.star_sources(name, ordinal)
+        parts = path.split(".")
+        starred = next(
+            (p for p in (".".join(parts[:k]) for k in range(len(parts) - 1, 0, -1)) if p in stars), None
+        )
+        if starred is not None:
+            sources = _and([f"`{m}`" for m in stars[starred]])
+            explanation += (
+                f" At {self._version(name, ordinal)}, {starred} star-imports {sources}, another distribution's code,"
+                " which DepTime doesn't read, so it can't tell whether that binds the name."
+            )
         # A class's private members, and a private class's members, are indexed only for packages stored with own
         # members, by indexes from DT-DATA-46 on, and only for a class the index has a record of.
         owners = [*self.store.spans(name, owner), *self.store.internal_spans(name, owner)] if owner else []
@@ -2520,7 +2573,9 @@ class DepTime:
         return Finding(
             **base,
             issue="never_existed",
-            confidence="medium" if resolved and not dynamic and not unindexed_member and not ahead else "low",
+            confidence="medium"
+            if resolved and not dynamic and not unindexed_member and not ahead and starred is None
+            else "low",
             explanation=explanation + _before_index(rels),
         )
 

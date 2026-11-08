@@ -6,7 +6,7 @@ from pathlib import Path
 
 import griffe
 
-from deptime.ingest.snapshot import ApiSnapshot, build_snapshot
+from deptime.ingest.snapshot import ApiSnapshot, build_snapshot, external_star_imports
 
 FILES = {
     "fakepkg/__init__.py": 'from fakepkg._impl import Client, helper\n__all__ = ["Client", "helper", "sub"]\n',
@@ -3404,3 +3404,62 @@ def test_a_submodule_name_its_package_rebinds_is_the_object(tmp_path):
     assert (snap.symbols["rb.tool"].kind, snap.symbols["rb.tool"].canonical) == ("function", "rb.tool.tool")
     assert snap.symbols["rb.keep"].kind == "module"  # the package imports another name from it
     assert snap.module_aliases == {"rb.patch": "rb.patch", "rb.tool": "rb.tool"}
+
+
+MIRROR = {
+    # mcp 2.x: `mcp.types` mirrors the `mcp-types` distribution with a star import and its `__all__`.
+    "mir/__init__.py": "from mir_types import Tool as Tool\nfrom mir.types import jsonrpc\n",
+    "mir/types/__init__.py": (
+        "from mir_types import *\nfrom mir_types import __all__ as __all__\nfrom . import jsonrpc as jsonrpc\n"
+    ),
+    "mir/types/jsonrpc.py": "from mir_types.jsonrpc import *\nfrom mir_types.jsonrpc import __all__ as __all__\n",
+    "mir/other.py": "from os.path import *\nfrom .types import *\n",
+    "mir/plot.py": "from faraway.tables import *\n",
+}
+MIRROR_TYPES = {
+    "mir_types/__init__.py": "from mir_types._types import Base, Tool\nfrom mir_types import jsonrpc\n__all__ = ['Base', 'Tool', 'jsonrpc']\n",
+    "mir_types/_types.py": (
+        "from pydantic import BaseModel\n\n\nclass Base(BaseModel):\n    name: str\n\n\n"
+        "class Tool(Base):\n    input_schema: dict\n\n    def run(self, x):\n        pass\n"
+    ),
+    "mir_types/jsonrpc.py": "__all__ = ['Request']\n\n\nclass Request:\n    pass\n",
+}
+
+
+def test_a_star_import_of_a_sibling_distribution_is_read_from_it(tmp_path):
+    # DT-DATA-56: mcp 2.x's `mcp/types/__init__.py` is `from mcp_types import *`, and each release pins `mcp-types` at
+    # its own version. Analysed with that wheel, `mcp.types.Tool` is mcp-types' class, with its members.
+    root, sibling = _write(tmp_path / "rel", MIRROR), _write(tmp_path / "sib", MIRROR_TYPES)
+    assert external_star_imports(root, ["mir"]) == {"mir_types", "faraway"}  # not `os.path`, nor `.types`
+    snap = build_snapshot("mir", "2.0", ["mir"], root, own_members=True, siblings=[(sibling, ["mir_types"])])
+    assert not snap.errors
+    tool = snap.symbols["mir.types.Tool"]
+    assert (tool.kind, tool.canonical) == ("class", "mir_types._types.Tool")
+    assert snap.classes["mir_types._types.Tool"].mro == ["mir_types._types.Base"]
+    assert set(snap.classes["mir_types._types.Tool"].members) == {"input_schema", "run"}
+    assert snap.classes["mir_types._types.Base"].external == [
+        "pydantic.BaseModel"
+    ]  # the sibling's own base isn't
+    assert snap.symbols["mir.types.jsonrpc.Request"].canonical == "mir_types.jsonrpc.Request"
+    assert snap.symbols["mir.jsonrpc.Request"].canonical == "mir_types.jsonrpc.Request"
+    assert (snap.symbols["mir.Tool"].kind, snap.symbols["mir.Tool"].canonical) == (
+        "class",
+        "mir_types._types.Tool",
+    )
+    assert not any(
+        p.startswith("mir_types") for p in snap.symbols
+    )  # its names only where the release binds them
+    # The star import nothing could read stays recorded, for the query layer to ask elsewhere.
+    assert snap.star_sources == {"mir.plot": ["faraway.tables"]}
+    assert snap.sibling_files == []  # set by the pipeline, which fetched the sibling
+
+    alone = build_snapshot("mir", "2.0", ["mir"], _write(tmp_path / "alone", MIRROR), own_members=True)
+    assert "mir.types.Tool" not in alone.symbols and alone.symbols["mir.Tool"].kind == "alias"
+    assert alone.star_sources == {
+        "mir.jsonrpc": ["mir_types.jsonrpc"],  # re-exported by the package, at each path it's walked
+        "mir.plot": ["faraway.tables"],
+        "mir.types": ["mir_types"],
+        "mir.types.jsonrpc": ["mir_types.jsonrpc"],
+    }
+    again = ApiSnapshot.load(_saved(alone, tmp_path))
+    assert again.star_sources == alone.star_sources and again.sibling_files == []

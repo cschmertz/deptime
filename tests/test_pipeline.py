@@ -17,6 +17,7 @@ from deptime.index.store import IndexStore
 from deptime.ingest import pipeline
 from deptime.ingest.pipeline import IngestReport, coverage_summary, ingest_package, snapshot_path
 from deptime.ingest.snapshot import ApiSnapshot, LazySnapshot, SymbolRecord
+from deptime.models import SymbolQuery
 from deptime.query import DepTime
 from tests.conftest import HTTPX, RELEASED_AT, SNAPSHOTS
 
@@ -619,6 +620,75 @@ def test_wrapper_release_is_analysed_from_the_distribution_it_pins(tmp_path):
     assert again.cached == ["1.0.0", "2.0.0"]
     assert {r["version"]: r["source_file"] for r in fresh.releases("wrapped")} == expected
     assert {r["version"]: r["requires"] for r in fresh.releases("wrapped")} == requires
+
+
+MIRROR = PackageSpec(name="mirror", import_names=("mirror",), tier="A")
+MIRROR_META = "mirror-2.0.0.dist-info/METADATA"
+MIRROR_PROJECTS = {
+    "mirror": {
+        "mirror-1.0.0-py3-none-any.whl": _zip(
+            {
+                "mirror/__init__.py": "",
+                "mirror/types.py": "class Tool:\n    inputSchema: dict = {}\n    name: str = ''\n",
+            }
+        ),
+        # mcp 2.x: `mcp.types` is a star import of the `mcp-types` distribution, pinned at the same version.
+        "mirror-2.0.0-py3-none-any.whl": _zip(
+            {
+                "mirror/__init__.py": "",
+                "mirror/types.py": "from mirror_types import *\nfrom mirror_types import __all__ as __all__\n",
+                MIRROR_META: "Metadata-Version: 2.1\nName: mirror\nVersion: 2.0.0\n"
+                "Requires-Dist: other-types==2.0.0\nRequires-Dist: mirror-types==2.0.0\n",
+            }
+        ),
+    },
+    "mirror-types": {
+        "mirror_types-2.0.0-py3-none-any.whl": _zip(
+            {
+                "mirror_types/__init__.py": "from mirror_types._t import Tool\n__all__ = ['Tool']\n",
+                "mirror_types/_t.py": "class Tool:\n    input_schema: dict = {}\n    name: str = ''\n",
+            }
+        )
+    },
+    # Pinned first, but without a module the release star-imports: fetched, and not analysed.
+    "other-types": {"other_types-2.0.0-py3-none-any.whl": _zip({"other_types/__init__.py": "X = 1\n"})},
+}
+
+
+def test_a_pinned_distribution_the_release_star_imports_is_analysed_with_it(tmp_path):
+    """DT-DATA-56: mcp 2.x's `mcp.types` is `from mcp_types import *`; 1.x -> 2.x shows only what really changed."""
+    fetched: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        url = str(request.url)
+        for project, wheels in MIRROR_PROJECTS.items():
+            if url == f"https://pypi.org/simple/{project}/":
+                return httpx.Response(200, json=_project_page(project, wheels))
+            if (name := url.rsplit("/", 1)[-1]) in wheels:
+                fetched.append(name)
+                return httpx.Response(200, content=wheels[name])
+        return httpx.Response(404)
+
+    store = IndexStore.memory()
+    with httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        report = ingest_package(MIRROR, POLICY, store, tmp_path, client=client, today=TODAY, log=_quiet)
+    assert report.built == ["1.0.0", "2.0.0"] and report.failed == {}
+    snap = ApiSnapshot.load(snapshot_path(tmp_path, "mirror", "2.0.0"))
+    assert snap.sibling_files == ["mirror_types-2.0.0-py3-none-any.whl"] and snap.star_sources == {}
+    assert (snap.symbols["mirror.types.Tool"].kind, snap.symbols["mirror.types.Tool"].canonical) == (
+        "class",
+        "mirror_types._t.Tool",
+    )
+    assert fetched[2:] == ["other_types-2.0.0-py3-none-any.whl", "mirror_types-2.0.0-py3-none-any.whl"]
+    assert [p for p in tmp_path.rglob("*") if p.is_file() and "snapshots" not in p.parts] == []
+
+    dt = DepTime(store, Coverage(POLICY, (MIRROR,)))
+    events = {(e.path, e.kind) for e in dt.diff_versions("mirror", "1.0.0", "2.0.0").events}
+    assert events == {("mirror.types.Tool.inputSchema", "removed")}  # not `Tool`, nor `Tool.name`
+    got = dt.check_symbols("mirror", "2.0.0", [SymbolQuery(path="mirror.types.Tool.input_schema")]).results[0]
+    assert got.status == "present"
+    renamed = dt.symbol_history("mirror", "mirror.types.Tool.inputSchema").replacements
+    assert [(r.target, r.confidence) for r in renamed] == [("mirror.types.Tool.input_schema", 0.8)]
 
 
 def test_a_release_yanked_after_it_was_indexed_is_dropped(tmp_path):

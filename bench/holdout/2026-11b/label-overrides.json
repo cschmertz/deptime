@@ -1,5 +1,5 @@
 {
- "about": "Labels changed by hand, each with the library source that shows it (bench/holdout/README.md: call breaks found by binding are checked against the source at `to`). A use overridden here is excluded.",
+ "about": "Labels changed by hand, each with the library source that shows it (bench/holdout/README.md: call breaks found by binding are checked against the source at `to`). A use overridden here is excluded. The gradio 3.40.1 entries were found after the first scoring (results-2026-11-08.md counts them as labelled).",
  "overrides": [
   {
    "upgrade": "pin-kid0317__crewai_mas_demo-crewai-down",
@@ -16,6 +16,54 @@
    "probe": "breaks (param_removed): the function's signature has no `local_dir_use_symlinks`",
    "why": "@validate_hf_hub_args calls smoothly_deprecate_legacy_arguments, which drops `local_dir_use_symlinks` with a warning, so the call still works",
    "evidence": "https://github.com/huggingface/huggingface_hub/blob/v2.4.0/src/huggingface_hub/utils/_validators.py#L79-L89 and #L152-L175"
+  },
+  {
+   "upgrade": "pin-vita-mllm__vita-gradio-down",
+   "key": "839c0857847fd644",
+   "use": "gradio.Button.click on an instance",
+   "probe": "breaks (symbol_not_yet_added): type object 'Button' has no attribute 'click'",
+   "why": "found after the first scoring: gradio 3.40.1 sets `self.click = EventListenerMethod(self, \"click\")` in an event mixin's __init__, so every instance has it though the class doesn't (the probe's blind spot for attributes each instance sets)",
+   "evidence": "https://github.com/gradio-app/gradio/blob/v3.40.1/gradio/events.py#L187-L189"
+  },
+  {
+   "upgrade": "pin-vita-mllm__vita-gradio-down",
+   "key": "7a1d31473540fdf1",
+   "use": "gradio.UploadButton.upload(...) on an instance",
+   "probe": "breaks (symbol_not_yet_added): type object 'UploadButton' has no attribute 'upload'",
+   "why": "found after the first scoring: gradio 3.40.1 sets `self.upload = EventListenerMethod(self, \"upload\")` in an event mixin's __init__, so every instance has it though the class doesn't (the probe's blind spot for attributes each instance sets)",
+   "evidence": "https://github.com/gradio-app/gradio/blob/v3.40.1/gradio/events.py#L316"
+  },
+  {
+   "upgrade": "pin-vita-mllm__vita-gradio-down",
+   "key": "d9549ee08e6b6bf9",
+   "use": "gradio.UploadButton.upload(...) on an instance",
+   "probe": "breaks (symbol_not_yet_added): type object 'UploadButton' has no attribute 'upload'",
+   "why": "found after the first scoring: gradio 3.40.1 sets `self.upload = EventListenerMethod(self, \"upload\")` in an event mixin's __init__, so every instance has it though the class doesn't (the probe's blind spot for attributes each instance sets)",
+   "evidence": "https://github.com/gradio-app/gradio/blob/v3.40.1/gradio/events.py#L316"
+  },
+  {
+   "upgrade": "pin-vita-mllm__vita-gradio-down",
+   "key": "377a92e7f3a818c7",
+   "use": "gradio.UploadButton.upload on an instance",
+   "probe": "breaks (symbol_not_yet_added): type object 'UploadButton' has no attribute 'upload'",
+   "why": "found after the first scoring: gradio 3.40.1 sets `self.upload = EventListenerMethod(self, \"upload\")` in an event mixin's __init__, so every instance has it though the class doesn't (the probe's blind spot for attributes each instance sets)",
+   "evidence": "https://github.com/gradio-app/gradio/blob/v3.40.1/gradio/events.py#L316"
+  },
+  {
+   "upgrade": "pin-vita-mllm__vita-gradio-down",
+   "key": "122e2ad2ce3b117e",
+   "use": "gradio.Video.stop_recording(...) on an instance",
+   "probe": "breaks (symbol_not_yet_added): type object 'Video' has no attribute 'stop_recording'",
+   "why": "found after the first scoring: gradio 3.40.1 sets `self.stop_recording = EventListenerMethod(self, \"stop_recording\")` in an event mixin's __init__, so every instance has it though the class doesn't (the probe's blind spot for attributes each instance sets)",
+   "evidence": "https://github.com/gradio-app/gradio/blob/v3.40.1/gradio/events.py#L290"
+  },
+  {
+   "upgrade": "pin-vita-mllm__vita-gradio-down",
+   "key": "eb73e8ce9056f7aa",
+   "use": "gradio.Video.stop_recording on an instance",
+   "probe": "breaks (symbol_not_yet_added): type object 'Video' has no attribute 'stop_recording'",
+   "why": "found after the first scoring: gradio 3.40.1 sets `self.stop_recording = EventListenerMethod(self, \"stop_recording\")` in an event mixin's __init__, so every instance has it though the class doesn't (the probe's blind spot for attributes each instance sets)",
+   "evidence": "https://github.com/gradio-app/gradio/blob/v3.40.1/gradio/events.py#L290"
   }
  ],
  "checked_and_kept": [

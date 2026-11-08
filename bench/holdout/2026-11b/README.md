@@ -39,9 +39,9 @@ checked and kept.
 
 ## Tracebacks
 
-37 real tracebacks from GitHub issues, 26 packages (Tier A 23, Tier B 14). By change type: moved (removed, with a
-replacement the library states) 15, removed 9, module removed 3, parameter renamed 3, parameter removed 2, now required 1,
-not yet added 4. Each traceback was matched against its page and each version against the thread, and each expected
+37 real tracebacks from GitHub issues, 26 packages (Tier A 23, Tier B 14). By change type, as the scoring splits them:
+moved (a name or module removed, with a replacement the library states) 17, removed 10, parameter renamed 3, parameter
+removed 2, now required 1, not yet added 4. Each traceback was matched against its page and each version against the thread, and each expected
 answer comes from the library's changelog, migration guide or source at the two releases.
 
 A break is one name, or one parameter of sibling classes, as in 2026-11: a release that removes several names in one

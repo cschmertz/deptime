@@ -1,14 +1,14 @@
 {
   "index_built_at": "2026-11-08T03:54:36+00:00",
   "summary": {
-    "cases": 245,
-    "known_gap_share": 2.0,
+    "cases": 282,
+    "known_gap_share": 2.8,
     "overall": {
-      "root_cause": 99.2,
-      "root_cause_and_boundary": 98.8,
-      "boundary": 98.8,
-      "replacement": 69.1,
-      "replacement_uncurated": 60.0
+      "root_cause": 98.2,
+      "root_cause_and_boundary": 97.9,
+      "boundary": 97.8,
+      "replacement": 63.8,
+      "replacement_uncurated": 56.2
     },
     "by_tier": {
       "-": {
@@ -20,20 +20,20 @@
         "replacement_uncurated": 100.0
       },
       "A": {
-        "cases": 118,
-        "root_cause": 100.0,
-        "root_cause_and_boundary": 99.2,
-        "boundary": 99.1,
-        "replacement": 46.7,
-        "replacement_uncurated": 42.2
+        "cases": 141,
+        "root_cause": 99.3,
+        "root_cause_and_boundary": 98.6,
+        "boundary": 98.5,
+        "replacement": 40.0,
+        "replacement_uncurated": 36.4
       },
       "B": {
-        "cases": 116,
-        "root_cause": 98.3,
-        "root_cause_and_boundary": 98.3,
-        "boundary": 98.3,
-        "replacement": 84.4,
-        "replacement_uncurated": 71.9
+        "cases": 130,
+        "root_cause": 96.9,
+        "root_cause_and_boundary": 96.9,
+        "boundary": 96.9,
+        "replacement": 81.1,
+        "replacement_uncurated": 70.3
       }
     },
     "by_origin": {
@@ -46,12 +46,12 @@
         "replacement_uncurated": 100.0
       },
       "reported": {
-        "cases": 237,
-        "root_cause": 99.6,
-        "root_cause_and_boundary": 99.2,
-        "boundary": 99.1,
-        "replacement": 67.6,
-        "replacement_uncurated": 58.1
+        "cases": 274,
+        "root_cause": 98.5,
+        "root_cause_and_boundary": 98.2,
+        "boundary": 98.2,
+        "replacement": 62.4,
+        "replacement_uncurated": 54.4
       }
     }
   },
@@ -104,6 +104,12 @@
       "replacement": null,
       "replacement_uncurated": null
     },
+    "hold-anthropic-beta-userlocation-airflow-pydantic-ai": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
     "chromadb-submitembeddingrecord-renamed-crewai": {
       "root_cause": true,
       "boundary": true,
@@ -128,6 +134,12 @@
       "replacement": false,
       "replacement_uncurated": false
     },
+    "hold-chromadb-includeenum-autogen": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
     "click-clirunner-mix-stderr-seagoat": {
       "root_cause": true,
       "boundary": true,
@@ -141,6 +153,12 @@
       "replacement_uncurated": null
     },
     "click-paramtype-get-metavar-ctx-filesender": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
+    "hold-click-parameter-make-metavar-ctx-bma-cli-python": {
       "root_cause": true,
       "boundary": true,
       "replacement": null,
@@ -161,6 +179,12 @@
     "crewai-mcp-module-not-yet-added": {
       "root_cause": true,
       "boundary": null,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
+    "hold-crewai-llm-not-yet-added-bedrock": {
+      "root_cause": true,
+      "boundary": true,
       "replacement": null,
       "replacement_uncurated": null
     },
@@ -206,6 +230,18 @@
       "replacement": true,
       "replacement_uncurated": true
     },
+    "hold-django-signal-providing-args-django-tus": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
+    "hold-django-urlquote-django-allauth": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true,
+      "replacement_uncurated": true
+    },
     "dspy-teleprompt-mipro-removed": {
       "root_cause": true,
       "boundary": true,
@@ -229,6 +265,12 @@
       "boundary": true,
       "replacement": null,
       "replacement_uncurated": null
+    },
+    "hold-dspy-functional-module-removed-cheatsheet": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false,
+      "replacement_uncurated": false
     },
     "fastapi-encoders-dictintstrany-removed-responseschema": {
       "root_cause": true,
@@ -290,6 +332,12 @@
       "replacement": null,
       "replacement_uncurated": null
     },
+    "hold-fastmcp-utilities-lifespan-not-yet-added": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
     "flask-before-first-request-ddtrace": {
       "root_cause": true,
       "boundary": true,
@@ -314,6 +362,12 @@
       "replacement": null,
       "replacement_uncurated": null
     },
+    "hold-flask-json-jsonencoder-flask-api": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
     "google-genai-files-upload-path-kwarg-removed": {
       "root_cause": true,
       "boundary": true,
@@ -327,6 +381,12 @@
       "replacement_uncurated": null
     },
     "google-genai-types-bigquerysource-not-yet-added-aiplatform-6536": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
+    "hold-google-genai-finishreason-image-prohibited-content-pydantic-ai": {
       "root_cause": true,
       "boundary": true,
       "replacement": null,
@@ -446,6 +506,12 @@
       "replacement": null,
       "replacement_uncurated": null
     },
+    "hold-huggingface-hub-hffolder-edgetam": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false,
+      "replacement_uncurated": false
+    },
     "instructor-from-anthropic-not-yet-added": {
       "root_cause": true,
       "boundary": true,
@@ -554,6 +620,12 @@
       "replacement": null,
       "replacement_uncurated": null
     },
+    "hold-langchain-memory-django-chain": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false,
+      "replacement_uncurated": false
+    },
     "langgraph-graph-graph-module-removed-openai-serve": {
       "root_cause": true,
       "boundary": true,
@@ -632,6 +704,12 @@
       "replacement": null,
       "replacement_uncurated": null
     },
+    "hold-llama-index-core-callback-manager-from-settings-or-context": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
     "marshmallow-field-default-kwarg-packit": {
       "root_cause": true,
       "boundary": true,
@@ -655,6 +733,12 @@
       "boundary": true,
       "replacement": true,
       "replacement_uncurated": false
+    },
+    "hold-marshmallow-version-info-doccano": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
     },
     "matplotlib-tostring-rgb-rvc-webui": {
       "root_cause": true,
@@ -691,6 +775,18 @@
       "boundary": true,
       "replacement": true,
       "replacement_uncurated": true
+    },
+    "hold-matplotlib-axes3d-w-xaxis-fio-plot": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": false,
+      "replacement_uncurated": false
+    },
+    "hold-matplotlib-grouperview-join-alibi": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false,
+      "replacement_uncurated": false
     },
     "mcp-fastmcp-module-wandb-server": {
       "root_cause": true,
@@ -739,6 +835,18 @@
       "boundary": true,
       "replacement": null,
       "replacement_uncurated": null
+    },
+    "hold-mcp-create-connected-server-and-client-session-voice-gatekeeper": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false,
+      "replacement_uncurated": false
+    },
+    "hold-mcp-create-connected-server-and-client-session-attenu-guard": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false,
+      "replacement_uncurated": false
     },
     "mistralai-chat-completion-module-removed-devika": {
       "root_cause": true,
@@ -799,6 +907,18 @@
       "boundary": true,
       "replacement": null,
       "replacement_uncurated": null
+    },
+    "hold-numpy-trapz-pyfuzzy-toolbox": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true,
+      "replacement_uncurated": true
+    },
+    "hold-numpy-reshape-newshape-numpoly": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true,
+      "replacement_uncurated": true
     },
     "ollama-create-modelfile-kwarg-removed": {
       "root_cause": true,
@@ -872,6 +992,24 @@
       "replacement": null,
       "replacement_uncurated": null
     },
+    "hold-openai-filecitation-quote-assistants-1789": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
+    "hold-openai-assistants-create-file-ids-azure-notebook": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
+    "hold-openai-embeddings-utils-ai-develop": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
     "pandas-dataframe-append-cpm-python": {
       "root_cause": true,
       "boundary": true,
@@ -914,6 +1052,12 @@
       "replacement": null,
       "replacement_uncurated": null
     },
+    "hold-pandas-to-csv-line-terminator-pandas-plink": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true,
+      "replacement_uncurated": true
+    },
     "pinecone-db-data-not-yet-added-microservice-utils": {
       "root_cause": true,
       "boundary": true,
@@ -921,6 +1065,12 @@
       "replacement_uncurated": null
     },
     "pinecone-grpcclientconfig-removed-sdk-678": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
+    "hold-pinecone-pinecone-class-not-yet-pinecone-examples": {
       "root_cause": true,
       "boundary": true,
       "replacement": null,
@@ -986,6 +1136,12 @@
       "replacement": null,
       "replacement_uncurated": null
     },
+    "hold-pydantic-ai-mcpserverhttp-mem0-cookbook": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false,
+      "replacement_uncurated": false
+    },
     "pydantic-settings-settingserror-moved-file-secrets": {
       "root_cause": true,
       "boundary": true,
@@ -1041,6 +1197,24 @@
       "replacement_uncurated": null
     },
     "hold-pydantic-secret-llama-cloud-services": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
+    "hold-pydantic-eval-type-backport-nebius-mcp-server": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
+    "hold-pydantic-eval-type-backport-chroma-mcp": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
+    "hold-pydantic-networks-url-semantic-kernel": {
       "root_cause": true,
       "boundary": true,
       "replacement": null,
@@ -1178,6 +1352,12 @@
       "replacement": true,
       "replacement_uncurated": true
     },
+    "hold-qdrant-client-upload-records-openllmetry": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true,
+      "replacement_uncurated": true
+    },
     "redis-errors-kwarg-splitio": {
       "root_cause": true,
       "boundary": true,
@@ -1233,6 +1413,18 @@
       "replacement_uncurated": null
     },
     "scikit-learn-bagging-base-estimator-celloracle": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true,
+      "replacement_uncurated": true
+    },
+    "hold-scikit-learn-scorers-piml-toolbox": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": false,
+      "replacement_uncurated": false
+    },
+    "hold-scikit-learn-check-array-force-all-finite-modern-time-series-forecasting": {
       "root_cause": true,
       "boundary": true,
       "replacement": true,
@@ -1346,6 +1538,12 @@
       "replacement": null,
       "replacement_uncurated": null
     },
+    "hold-sqlalchemy-engine-table-names-melodie": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false,
+      "replacement_uncurated": false
+    },
     "sqlmodel-sqltypes-guid-removed-mountaineer": {
       "root_cause": true,
       "boundary": true,
@@ -1442,6 +1640,24 @@
       "replacement": null,
       "replacement_uncurated": null
     },
+    "hold-transformers-adamw-ragatouille": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false,
+      "replacement_uncurated": false
+    },
+    "hold-transformers-hybridcache-comfyui-florence2": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false,
+      "replacement_uncurated": false
+    },
+    "hold-transformers-automodelforvision2seq-ms-swift": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false,
+      "replacement_uncurated": false
+    },
     "typer-clear-export-removed-async-typer": {
       "root_cause": true,
       "boundary": true,
@@ -1521,6 +1737,12 @@
       "replacement_uncurated": true
     },
     "werkzeug-version-attr-pytest-flask": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true,
+      "replacement_uncurated": true
+    },
+    "hold-werkzeug-parse-authorization-header-httpbin": {
       "root_cause": true,
       "boundary": true,
       "replacement": true,

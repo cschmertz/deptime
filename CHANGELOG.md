@@ -41,13 +41,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
   (DT-DATA-58): `ElectraTokenizer`, `LayoutLMTokenizer` and `LxmertTokenizer` and their `Fast` names as
   `BertTokenizer`, LED's, Longformer's and Mvp's as `RobertaTokenizer`, at the top level, in `transformers.models`
   and in their model packages (which read removed in 5.18), and mt5's `T5Tokenizer`. A `[[package.served]]` rule
-  can now read a literal mapping from the package's source. In the next index; no upgrade needed.
+  can now read a literal mapping from the package's source. In the index published 2026-11-09; no upgrade
+  needed.
 - More replacements from the package's own deprecation text (DT-CORE-40): "Please refer to X" (sqlalchemy 1.4's
   `Engine.table_names` → `Inspector.get_table_names`); a keyword argument written out in the advice names the
-  parameter, not its value (gradio 5.50's `show_copy_button` → `buttons`, not `copy`); and a class whose methods
-  say the class is deprecated gets their replacement (transformers' `AutoModelForVision2Seq` →
-  `AutoModelForImageTextToText`). In the next index. A replacement the installed release no longer has is followed
-  to its own replacement, which comes first (pydantic-ai 2's `MCPServerHTTP` → `MCPToolset`); in the next release.
+  parameter, not its value (gradio 5.50's `show_copy_button` → `buttons`, not `copy`); and a class whose methods say
+  the class is deprecated gets their replacement (transformers' `AutoModelForVision2Seq` →
+  `AutoModelForImageTextToText`). In the index published 2026-11-09. A replacement the installed release no longer has
+  is followed to its own replacement, which comes first (pydantic-ai 2's `MCPServerHTTP` → `MCPToolset`); in the next
+  release.
 - `deptime index pull` reports a failed download (an HTTP error such as GitHub's 504, a network error, a checksum
   mismatch) in one line and exits 1, rather than with a traceback; as before, nothing is installed and the current
   index is kept (DT-OSS-12).

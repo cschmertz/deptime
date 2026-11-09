@@ -1501,6 +1501,13 @@ quote = "The configure_http_backend function has been removed. You should now us
 url = "https://huggingface.co/docs/huggingface_hub/concepts/migration#breaking-changes"
 
 
+[[hint]]
+package = "huggingface-hub"
+path = "huggingface_hub.HfFolder"
+target = "huggingface_hub.get_token"
+quote = "HfFolder was used to manage the user access token. Use login() to save a new token, logout() to delete it and whoami() to check the user associated to the current token. Finally, use get_token() to retrieve user’s token in a script."
+url = "https://huggingface.co/docs/huggingface_hub/concepts/migration#hffolder-class"
+
 # hfhub-0.26
 [[hint]]
 package = "huggingface-hub"
@@ -2052,6 +2059,13 @@ quote = "The schema parameter of `ServerSession.elicit()` and `ServerSession.eli
 url = "https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/migration.md#serversessionelicit-and-elicit_form-take-requested_schema-not-requestedschema"
 
 
+[[hint]]
+package = "mcp"
+path = "mcp.shared.memory.create_connected_server_and_client_session"
+target = "mcp.client.Client"
+quote = "The `create_connected_server_and_client_session` helper in `mcp.shared.memory` has been removed. Use `mcp.client.Client` instead — it accepts a `Server` or `MCPServer` instance directly and handles the in-memory transport and session setup for you."
+url = "https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/migration.md#create_connected_server_and_client_session-removed"
+
 # langgraph-1
 [[hint]]
 package = "langgraph"
@@ -2182,6 +2196,13 @@ quote = "`Image.from_file()`, `Image.from_PIL()`, and `Audio.from_file()` remain
 url = "https://github.com/stanfordnlp/dspy/releases/tag/3.3.0"
 
 
+[[hint]]
+package = "dspy"
+path = "dspy.TypedPredictor"
+target = "dspy.ChainOfThought"
+quote = "Deprecate dspy.TypedPredictor and its variants. You'll get much better typed (and untyped) results out-of-the-box now with standard dspy.Predict, dspy.ChainOfThought, etc."
+url = "https://github.com/stanfordnlp/dspy/releases/tag/2.5.17"
+
 # starlette-1
 [[hint]]
 package = "starlette"
@@ -2248,6 +2269,21 @@ target = "input"
 quote = "__call__ now takes a single argument, input, to support data of any type D. The texts argument has been removed."
 url = "https://docs.trychroma.com/docs/overview/migration#migration-to-0-4-16-november-7-2023"
 
+
+# matplotlib-3.6
+[[hint]]
+package = "matplotlib"
+path = "matplotlib.cbook.GrouperView.join"
+target = "matplotlib.axes.Axes.sharex"
+quote = "Note that previously, calling e.g. join() would already fail to set up the correct structures for sharing axes; use Axes.sharex or Axes.sharey instead."
+url = "https://matplotlib.org/stable/api/prev_api_changes/api_changes_3.6.0.html#groupers-from-get-shared-x-axes-get-shared-y-axes-will-be-immutable"
+
+[[hint]]
+package = "matplotlib"
+path = "matplotlib.cbook.GrouperView.join"
+target = "matplotlib.axes.Axes.sharey"
+quote = "Note that previously, calling e.g. join() would already fail to set up the correct structures for sharing axes; use Axes.sharex or Axes.sharey instead."
+url = "https://matplotlib.org/stable/api/prev_api_changes/api_changes_3.6.0.html#groupers-from-get-shared-x-axes-get-shared-y-axes-will-be-immutable"
 
 # python (DT-DATA-48): the standard library's own removals, from What's New in Python. These apply when DepTime
 # answers, to findings with package "python" (DT-DATA-06, DT-DATA-47), and are checked against stdlib_versions.txt

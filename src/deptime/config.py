@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import tomllib
 from dataclasses import dataclass
 from datetime import date
@@ -109,6 +110,49 @@ class VersionPolicy:
 
 
 @dataclass(frozen=True)
+class ServedRule:
+    """Names a package serves through its own import machinery rather than by binding them (DT-DATA-52), in each
+    release whose `file` (a path in the analysed artifact) matches the regular expression `when`. Either `module`,
+    importable as the module `serves` with every name that module binds, `{part}` matching one dotted part the
+    same in both; or, in each module `modules` matches, `<name><add>` as `<name>` for each name ending in `ending`
+    that the module binds. Assembly counts a served name as public only where some release has it as public API.
+    """
+
+    file: str
+    when: str
+    module: str = ""
+    serves: str = ""
+    modules: tuple[str, ...] = ()
+    ending: str = ""
+    add: str = ""
+
+    def __post_init__(self) -> None:
+        re.compile(self.when)
+        if bool(self.module) == bool(self.modules) or bool(self.module) != bool(self.serves):
+            raise ValueError(f"served rule needs `module` and `serves`, or `modules`: {self}")
+        if self.modules and not (self.ending and self.add):
+            raise ValueError(f"served rule with `modules` needs `ending` and `add`: {self}")
+        if self.module and _parts(self.module) != _parts(self.serves):
+            raise ValueError(f"served rule's `module` and `serves` need the same {{parts}}: {self}")
+
+    def as_dict(self) -> dict[str, object]:
+        """As a snapshot records it (JSON: lists, not tuples)."""
+        return {
+            "file": self.file,
+            "when": self.when,
+            "module": self.module,
+            "serves": self.serves,
+            "modules": list(self.modules),
+            "ending": self.ending,
+            "add": self.add,
+        }
+
+
+def _parts(pattern: str) -> list[str]:
+    return sorted(re.findall(r"\{(\w+)\}", pattern))
+
+
+@dataclass(frozen=True)
 class PackageSpec:
     name: str  # canonical PEP 503 name
     import_names: tuple[str, ...]
@@ -124,6 +168,8 @@ class PackageSpec:
     # Store each class's own members once, with its MRO, and resolve inherited members when queried (DT-DATA-16;
     # every package since DT-DATA-49).
     own_members: bool = True
+    # Names the package serves through its import machinery (DT-DATA-52).
+    served: tuple[ServedRule, ...] = ()
 
     def alias_version(self, installed: dict[str, str]) -> tuple[str, str] | None:
         """(distribution, version) of the first `installed_as` entry that `installed` lists in its range."""
@@ -199,6 +245,10 @@ def load_coverage(path: Path | None = None) -> Coverage:
             installed_as=tuple(Requirement(r) for r in p.get("installed_as", ())),
             shares_import_name_with=tuple(canonicalize_name(n) for n in p.get("shares_import_name_with", ())),
             own_members=bool(p.get("own_members", True)),
+            served=tuple(
+                ServedRule(**{k: tuple(v) if k == "modules" else v for k, v in r.items()})
+                for r in p.get("served", ())
+            ),
         )
         for p in raw.get("package", [])
     )

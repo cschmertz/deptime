@@ -16,6 +16,11 @@
 #                  up when queried, rather than storing every member under every class that has it (DT-DATA-16,
 #                  DT-DATA-49). The answers are the same; an index with such a package has schema version 2, which
 #                  deptime 0.1.5 and older can't read. `false` stores every member under every class.
+# `[[package.served]]` = names the package serves through its own import machinery rather than by binding them
+#                  (DT-DATA-52), in each release whose `file` matches the regular expression `when`: `module` as the
+#                  module `serves`, with all its names (`{part}` matches one dotted part, the same in both), or in
+#                  each module `modules` matches, `<name><add>` as each `<name>` ending in `ending`. Such a name
+#                  counts as public only where some release of the package has it as public API.
 
 [policy]
 # For every minor series (X.Y) that has a release on/after `since`, index every release: a patch-level break
@@ -156,6 +161,56 @@ import_names = ["transformers"]
 tier = "A"
 # 5.22.1 has 1.6M public paths, 83% of them inherited members repeated under thousands of model classes; stored with
 # own members, 37k paths and 109k own members (DT-DATA-16).
+# transformers 5 serves 4.x names through its import machinery, written differently from one release to the next
+# (DT-DATA-52): `_LazyModule.__getattr__` falls back from `XTokenizerFast` to `XTokenizer` (5.0 on) and from
+# `XImageProcessorFast` to `XImageProcessor` (5.4 on); legacy module paths are served as their replacements, by
+# `_create_tokenization_alias` (5.0), `_create_module_alias` (5.4) and `_LegacyModuleAliasFinder` (5.21), and the
+# old `models/x/image_processing_y_fast.py` modules serve `XImageProcessorFast` too. Each `when` matches the code
+# that does it, in the releases that have it (checked on 4.57.3 to 5.22.2).
+[[package.served]]
+file = "transformers/utils/import_utils.py"
+when = 'name\.endswith\("TokenizerFast"\)'
+modules = ["transformers", "transformers.models", "transformers.models.{model}"]
+ending = "Tokenizer"
+add = "Fast"
+
+[[package.served]]
+file = "transformers/utils/import_utils.py"
+when = 'name\.endswith\("ImageProcessorFast"\)'
+modules = ["transformers", "transformers.models", "transformers.models.{model}"]
+ending = "ImageProcessor"
+add = "Fast"
+
+[[package.served]]
+file = "transformers/__init__.py"
+when = '''["']\.?tokenization_utils_sentencepiece["']'''
+module = "transformers.tokenization_utils"
+serves = "transformers.tokenization_utils_sentencepiece"
+
+[[package.served]]
+file = "transformers/__init__.py"
+when = '''["']\.?tokenization_utils_tokenizers["']'''
+module = "transformers.tokenization_utils_fast"
+serves = "transformers.tokenization_utils_tokenizers"
+
+[[package.served]]
+file = "transformers/__init__.py"
+when = '''["']\.?image_processing_backends["']'''
+module = "transformers.image_processing_utils_fast"
+serves = "transformers.image_processing_backends"
+
+[[package.served]]
+file = "transformers/__init__.py"
+when = '\{_module\}_fast|image_processing_\(\?!pil_\)'
+module = "transformers.models.{model}.image_processing_{name}_fast"
+serves = "transformers.models.{model}.image_processing_{name}"
+
+[[package.served]]
+file = "transformers/__init__.py"
+when = '\{_module\}_fast|image_processing_\(\?!pil_\)'
+modules = ["transformers.models.{model}.image_processing_{name}_fast"]
+ending = "ImageProcessor"
+add = "Fast"
 
 [[package]]
 name = "huggingface-hub"

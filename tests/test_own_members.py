@@ -8,13 +8,13 @@ from pathlib import Path
 
 import pytest
 
-from deptime.config import Coverage, PackageSpec, VersionPolicy
+from deptime.config import Coverage, PackageSpec, ServedRule, VersionPolicy
 from deptime.index.distribution import IndexIncompatible, _validate
 from deptime.index.store import OWN_MEMBERS_SCHEMA_VERSION, SCHEMA_VERSION, IndexStore
 from deptime.ingest.curated import CuratedHint
 from deptime.ingest.snapshot import ApiSnapshot, SymbolRecord, build_snapshot
 from deptime.models import SymbolQuery
-from deptime.query import DepTime
+from deptime.query import SEVERITY, DepTime
 
 CLASSIC = PackageSpec(name="inh", import_names=("inh",), tier="A", own_members=False)
 OWN = PackageSpec(name="inh", import_names=("inh",), tier="A", own_members=True)
@@ -527,3 +527,124 @@ def test_a_bare_name_defined_on_a_private_base_is_found_under_its_public_subclas
     own = [p for _pkg, p in stores["own"].find_by_suffix(["inh"], "get")]
     assert own and all(not p.startswith("inh._hidden") for p in own), own
     assert set(own) <= {p for _pkg, p in stores["classic"].find_by_suffix(["inh"], "get")}
+
+
+# DT-DATA-45: sqlalchemy 1.4's `types.py` imported `NullType` and left it out of `__all__`; 2.0 re-exports it with
+# `as`. `helper` is imported in both and public in neither.
+REEXPORT = {
+    "1.0": {
+        "sa/__init__.py": "",
+        "sa/sqltypes.py": "class NullType:\n    def compare(self, other):\n        pass\n\n\ndef helper():\n    pass\n",
+        "sa/types.py": (
+            "from sa.sqltypes import NullType, helper\n__all__ = ['Other']\n\n\nclass Other:\n    pass\n"
+        ),
+    },
+    "2.0": {
+        "sa/__init__.py": "",
+        "sa/sqltypes.py": "class NullType:\n    def compare(self, other):\n        pass\n\n\ndef helper():\n    pass\n",
+        "sa/types.py": (
+            "from sa.sqltypes import NullType as NullType\nfrom sa.sqltypes import helper\n\n\nclass Other:\n    pass\n"
+        ),
+    },
+}
+SA = PackageSpec(name="sa", import_names=("sa",), tier="B")
+
+
+def _snapshots(tmp_path: Path, releases: dict, package: str, served=()) -> list[ApiSnapshot]:
+    snaps = []
+    for version, files in releases.items():
+        root = tmp_path / version
+        for rel, text in files.items():
+            (root / rel).parent.mkdir(parents=True, exist_ok=True)
+            (root / rel).write_text(text)
+        snaps.append(build_snapshot(package, version, [package], root, own_members=True, served=served))
+    return snaps
+
+
+def test_a_name_a_module_binds_counts_public_where_another_release_has_it_public(tmp_path):
+    first, second = _snapshots(tmp_path, REEXPORT, "sa")
+    assert "sa.types.NullType" in first.bound and "sa.types.NullType" in second.symbols
+    store = IndexStore.memory()
+    store.rebuild_package(SA, [first, second])
+    spans = store.spans("sa", "sa.types.NullType")
+    assert [(r["first_ordinal"], r["last_ordinal"], r["kind"]) for r in spans] == [(0, 1, "class")]
+    assert not [
+        e for e in store.events("sa", "sa.types.NullType") if e["kind"] == "added" and e["ordinal"] == 1
+    ]
+    assert store.internal_spans("sa", "sa.types.NullType") == []  # public now, so not also internal
+    # Never public anywhere: it stays an internal name.
+    assert store.spans("sa", "sa.types.helper") == []
+    assert store.internal_spans("sa", "sa.types.helper")
+
+
+# DT-DATA-52: transformers 5 serves `BertTokenizerFast` as `BertTokenizer` from `_LazyModule.__getattr__`, and the
+# legacy module `tokenization_utils` as `tokenization_utils_sentencepiece`; the rules hold where `when` matches.
+SERVING = {
+    "4.0": {
+        "tok/__init__.py": (
+            "from tok.old_utils import Base\nfrom tok.fast import BertTokenizerFast\nfrom tok.slow import BertTokenizer\n"
+        ),
+        "tok/old_utils.py": "class Base:\n    def encode(self, text):\n        pass\n",
+        "tok/fast.py": (
+            "class BertTokenizerFast:\n"
+            "    def encode(self, text):\n        pass\n"
+            "    def fast_only(self):\n        pass\n"
+        ),
+        "tok/slow.py": "class BertTokenizer:\n    def encode(self, text):\n        pass\n",
+        "tok/lazy.py": "def __getattr__(name):\n    raise AttributeError(name)\n",
+    },
+    "5.0": {
+        "tok/__init__.py": (
+            "from tok.new_utils import Base\nfrom tok.slow import BertTokenizer\n"
+            "_LEGACY_MODULE_ALIASES = {'old_utils': 'new_utils'}\n"
+        ),
+        "tok/new_utils.py": "class Base:\n    def encode(self, text):\n        pass\n",
+        "tok/slow.py": (
+            "class BertTokenizer:\n    def encode(self, text):\n        pass\n\n\n"
+            "class XLMTokenizer:\n    pass\n"
+        ),
+        "tok/lazy.py": (
+            "def __getattr__(name):\n"
+            "    if name.endswith('TokenizerFast'):\n"
+            "        return globals()[name[:-4]]\n"
+            "    raise AttributeError(name)\n"
+        ),
+    },
+}
+SERVED_RULES = (
+    ServedRule(
+        file="tok/lazy.py",
+        when=r"endswith\('TokenizerFast'\)",
+        modules=("tok",),
+        ending="Tokenizer",
+        add="Fast",
+    ),
+    ServedRule(file="tok/__init__.py", when="'new_utils'", module="tok.old_utils", serves="tok.new_utils"),
+)
+TOK = PackageSpec(name="tok", import_names=("tok",), tier="A", served=SERVED_RULES)
+
+
+def test_names_a_package_serves_count_public_where_another_release_has_them_public(tmp_path):
+    old, new = _snapshots(tmp_path, SERVING, "tok", SERVED_RULES)
+    assert old.bound == {}  # neither `when` matches 4.0, and its names are real there
+    assert (new.bound["tok.BertTokenizerFast"].kind, new.bound["tok.BertTokenizerFast"].canonical) == (
+        "class",
+        "tok.slow.BertTokenizer",
+    )
+    assert new.bound["tok.old_utils"].canonical == "tok.new_utils"
+    assert new.bound["tok.old_utils.Base"].canonical == "tok.new_utils.Base"
+    assert new.served == [r.as_dict() for r in SERVED_RULES]
+    store = IndexStore.memory()
+    store.rebuild_package(TOK, [old, new])
+    for path in ("tok.BertTokenizerFast", "tok.old_utils", "tok.old_utils.Base"):
+        spans = store.spans("tok", path)
+        assert [o for r in spans for o in range(r["first_ordinal"], r["last_ordinal"] + 1)] == [0, 1], path
+    # Served, but never public API: `XLMTokenizerFast` never existed as a name of its own.
+    assert store.spans("tok", "tok.XLMTokenizerFast") == []
+    # The served class's members are compared with the old class's under the old label: `encode` stays.
+    rows, _total = store.events_between("tok", 0, 1, 100, severity=SEVERITY)
+    removed = {e["path"] for e in rows if e["kind"] == "removed"}
+    assert removed == {"tok.BertTokenizerFast.fast_only", "tok.fast", "tok.fast.BertTokenizerFast"}
+    dt = DepTime(store, Coverage(POLICY, (TOK,)))
+    (check,) = dt.check_symbols("tok", "5.0", [SymbolQuery(path="tok.BertTokenizerFast.encode")]).results
+    assert check.status == "present"

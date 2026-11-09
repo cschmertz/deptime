@@ -18,9 +18,10 @@ import sys
 import textwrap
 import warnings
 from collections.abc import Callable, Sequence
+from collections.abc import Set as AbstractSet
 from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import griffe
 import griffe._internal.finder as griffe_finder
@@ -33,7 +34,10 @@ from deptime.ingest.replacements import (
     worded_deprecated,
 )
 
-SNAPSHOT_FORMAT = 22  # bump when extraction changes: cached snapshots in another format are rebuilt
+if TYPE_CHECKING:
+    from deptime.config import ServedRule
+
+SNAPSHOT_FORMAT = 23  # bump when extraction changes: cached snapshots in another format are rebuilt
 MAX_DEPTH = 12  # guards pathological re-export cycles
 
 DEPRECATED_DECORATOR_RE = re.compile(r"^(?:[\w.]+\.)?deprecated\b(?:\(.*\))?$", re.S)
@@ -163,12 +167,21 @@ class ApiSnapshot:
     # modules, in order (DT-DATA-56): the names they bind aren't recorded, so a name missing under such a module
     # may still be there (google-generativeai's `protos`, from google-ai-generativelanguage).
     star_sources: dict[str, list[str]] = field(default_factory=dict)
+    # Names the release binds, or serves through its import machinery, that the public-API rules leave out, by path
+    # (DT-DATA-45, DT-DATA-52): imports by name that a module's `__all__`, or the plain-module rule, leaves out
+    # (`langgraph.channels.base.EmptyChannelError` from 0.6.0), and names a coverage.toml `served` rule serves
+    # (transformers 5's `BertTokenizerFast`). Full records, as in `symbols`, and never also there. Assembly counts
+    # one public in the releases that bind it only where some release of the package has it in `symbols`.
+    bound: dict[str, SymbolRecord] = field(default_factory=dict)
+    # The coverage.toml `served` rules it was built with, as `ServedRule.as_dict` gives them: editing them rebuilds it.
+    served: list[dict[str, Any]] = field(default_factory=list)
 
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         payload = asdict(self)
         payload["symbols"] = [asdict(s) for s in self.symbols.values()]
         payload["internal"] = [asdict(s) for s in self.internal.values()]
+        payload["bound"] = [asdict(s) for s in self.bound.values()]
         payload["classes"] = [
             {
                 "path": c.path,
@@ -188,6 +201,7 @@ class ApiSnapshot:
             payload = json.load(fh)
         symbols = {s["path"]: SymbolRecord(**s) for s in payload.pop("symbols")}
         internal = {s["path"]: SymbolRecord(**s) for s in payload.pop("internal", [])}
+        bound = {s["path"]: SymbolRecord(**s) for s in payload.pop("bound", [])}
         classes = {
             c["path"]: ClassRecord(
                 c["path"],
@@ -198,7 +212,20 @@ class ApiSnapshot:
             )
             for c in payload.pop("classes", [])
         }
-        return cls(symbols=symbols, internal=internal, classes=classes, **payload)
+        return cls(symbols=symbols, internal=internal, classes=classes, bound=bound, **payload)
+
+    def promoted(self, public: AbstractSet[str]) -> ApiSnapshot:
+        """This snapshot with the names it only binds counted public where `public`, the paths some release of
+        the package has as public API, holds them (DT-DATA-45): they leave `internal` then."""
+        up = [path for path in self.bound if path in public]
+        if not up:
+            return self
+        symbols, internal = dict(self.symbols), dict(self.internal)
+        for path in up:
+            symbols[path] = self.bound[path]
+            internal.pop(path, None)
+        bound = {path: rec for path, rec in self.bound.items() if path not in public}
+        return replace(self, symbols=symbols, internal=internal, bound=bound)
 
     def with_own_members(self) -> ApiSnapshot:
         """This snapshot stored with own members (DT-DATA-49). One that isn't, such as a release rebuilt from an
@@ -3225,6 +3252,23 @@ def _resolve(member: griffe.Object | griffe.Alias) -> griffe.Object | None:
         return None
 
 
+def _import_source(alias: griffe.Alias) -> str:
+    """The last path an import's chain of imports names: `typing.Any` for a star import of a module that imported
+    it, though griffe doesn't load `typing`."""
+    seen: set[str] = set()
+    path = alias.target_path
+    while path not in seen:
+        seen.add(path)
+        try:
+            obj = alias.modules_collection.get_member(path)
+        except (KeyError, ValueError, AttributeError, griffe.AliasResolutionError, griffe.CyclicAliasError):
+            return path
+        if not obj.is_alias:
+            return obj.path
+        path = obj.target_path
+    return path
+
+
 def _through_cycle(alias: griffe.Alias) -> griffe.Object | None:
     """What an import griffe reports as cyclic names, found by following each import's path by hand (DT-DATA-32).
 
@@ -3393,6 +3437,8 @@ class _Walker:
                     )  # recorded first, so it wins
                     self.snap.module_aliases.setdefault(f"{public_path}.{name}", member.path)
                 self.member(member, f"{public_path}.{name}", depth, walk_from)
+            elif self._bindable(mod, name, member):
+                self.bind(member, f"{public_path}.{name}")
         for name in sorted(exported - mod.members.keys()):
             found = self._from_stars(mod, name)
             if isinstance(found, str):
@@ -3420,6 +3466,40 @@ class _Walker:
                         rec = self.snap.symbols[path]
                         if message and rec.deprecated is None:
                             self.snap.symbols[path] = replace(rec, deprecated=message)
+
+    def _bindable(self, mod: griffe.Module, name: str, member: griffe.Object | griffe.Alias) -> bool:
+        """Whether a name the public-API rules leave out is an import `from mod import name` still finds
+        (DT-DATA-45): not private, bound at runtime and not deleted again, and not from the standard library."""
+        if name.startswith("_") or not member.is_alias or name in self._shapes(mod).deleted:
+            return False
+        try:
+            if not member.runtime:
+                return False
+        except (griffe.AliasResolutionError, griffe.CyclicAliasError):
+            return False
+        source = _import_source(member)  # type: ignore[arg-type]
+        return source.split(".")[0] not in STDLIB_MODULES and not source.startswith("__future__.")
+
+    def bind(self, member: griffe.Object | griffe.Alias, path: str) -> None:
+        """Record what a module binds at `path` without making it public API (DT-DATA-45), as `member` records a
+        public name, without walking it: a class's members come from its own record, where some public path
+        reaches the class."""
+        if path in self.snap.symbols or path in self.snap.bound:
+            return
+        target = _resolve(member)
+        if target is None:
+            rec = SymbolRecord(path, "alias", getattr(member, "target_path", None))
+        elif target.is_module:
+            rec = SymbolRecord(path, "module", target.path)
+        elif target.is_class:
+            rec = SymbolRecord(path, "class", target.path, None, deprecation_message(target))
+        elif target.is_function:
+            rec = SymbolRecord(path, "function", target.path, _params(target), *deprecations(target))  # type: ignore[arg-type]
+        elif (cls := _bound_class(target)) is not None:
+            rec = SymbolRecord(path, "class", cls.path, None, deprecation_message(cls))
+        else:
+            rec = SymbolRecord(path, target.kind.value, target.path, None, deprecation_message(target))
+        self.snap.bound[path] = rec
 
     def _served_object(
         self, mod: griffe.Module, path: str, name: str, shim: _GetattrShim, message: str | None, depth: int
@@ -4308,6 +4388,7 @@ def build_snapshot(
     namespace_skip: list[str] = (),
     own_members: bool = False,
     siblings: Sequence[tuple[Path, list[str]]] = (),
+    served: Sequence[ServedRule] = (),
 ) -> ApiSnapshot:
     """Snapshot the public API under `search_path`, a private extraction of one release: folders without
     `__init__.py` get an empty one first (see `add_namespace_inits`). `own_members` records each class's own
@@ -4316,7 +4397,8 @@ def build_snapshot(
     `siblings`: other distributions' private extractions, with the import names to load from each, analysed with
     the release because it star-imports them (DT-DATA-56: mcp 2.x's `mcp.types` is `from mcp_types import *`,
     and each release pins `mcp-types` at its own version). Their names are recorded only where the release's own
-    modules bind them."""
+    modules bind them. `served`: the package's coverage.toml rules for names it serves through its import
+    machinery (DT-DATA-52), applied after the walk."""
     snap = ApiSnapshot(
         package=package,
         version=version,
@@ -4385,7 +4467,62 @@ def build_snapshot(
                 snap.errors.append(f"internal names of {import_name}: {type(exc).__name__}: {exc}")
         walker.record_member_classes()
         walker.record_private_classes()
+        apply_served(snap, served, search_path)
+        for path in [p for p in snap.bound if p in snap.symbols]:  # public under another walk
+            del snap.bound[path]
     finally:
         _READINGS = None
         _clear_griffe_caches()
     return snap
+
+
+def _part_pattern(pattern: str) -> re.Pattern[str]:
+    """`pattern` with each `{part}` matching one dotted part, by that name."""
+    return re.compile(re.sub(r"\\\{(\w+)\\\}", r"(?P<\1>[^.]+)", re.escape(pattern)))
+
+
+def apply_served(snap: ApiSnapshot, rules: Sequence[ServedRule], root: Path) -> None:
+    """Bind the names coverage.toml's `served` rules say the release serves through its import machinery
+    (DT-DATA-52), in order, to the records of what they serve: transformers 5.0 serves
+    `transformers.tokenization_utils.PreTrainedTokenizer` and `transformers.BertTokenizerFast`, though no module
+    binds either. A rule holds in a release whose `file` matches its `when`. Names the release has as public API
+    stay as they are."""
+    snap.served = [rule.as_dict() for rule in rules]
+    for rule in rules:
+        try:
+            text = (root / rule.file).read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        if re.search(rule.when, text) is None:
+            continue
+        names = {**snap.bound, **snap.symbols}
+        children: dict[str, list[str]] = {}
+        for path in names:
+            children.setdefault(path.rpartition(".")[0], []).append(path)
+
+        def bind(path: str, rec: SymbolRecord) -> None:
+            if path not in snap.symbols:
+                snap.bound.setdefault(path, replace(rec, path=path))
+
+        if rule.module:
+            serves = _part_pattern(rule.serves)
+            for path, rec in names.items():
+                if rec.kind != "module" or (found := serves.fullmatch(path)) is None:
+                    continue
+                alias = rule.module.format(**found.groupdict())
+                if alias in snap.symbols:
+                    continue  # a module of its own there
+                bind(alias, rec)
+                stack = list(children.get(path, ()))
+                while stack:
+                    below = stack.pop()
+                    bind(alias + below[len(path) :], names[below])
+                    stack.extend(children.get(below, ()))
+        else:
+            modules = [_part_pattern(m) for m in rule.modules]
+            for path, rec in names.items():
+                if rec.kind != "module" or not any(m.fullmatch(path) for m in modules):
+                    continue
+                for child in children.get(path, ()):
+                    if child.endswith(rule.ending) and names[child].kind != "module":
+                        bind(child + rule.add, names[child])

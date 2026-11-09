@@ -63,6 +63,22 @@ def _now() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat()
 
 
+def public_somewhere(snapshots: Sequence[ApiSnapshot | LazySnapshot]) -> frozenset[str]:
+    """The paths some of `snapshots` only binds that another has as public API (DT-DATA-45): they count as public
+    wherever they're bound, so `langgraph.channels.base.EmptyChannelError` stays while 0.6's module still imports
+    it, and `transformers.BertTokenizerFast` while transformers 5 serves it (DT-DATA-52). A name no release has as
+    public API stays out. Each snapshot is loaded once more for this, one at a time."""
+    bound: set[str] = set()
+    public: set[str] = set()
+    for item in snapshots:
+        snap = item.load() if isinstance(item, LazySnapshot) else item
+        if snap is None:
+            continue
+        bound.update(snap.bound)
+        public.update(snap.symbols)
+    return frozenset(bound & public)
+
+
 def still_public(
     span_rows: Sequence[tuple[str, int, int, tuple]],
     removed: Sequence[tuple[str, int]],
@@ -491,6 +507,7 @@ class IndexStore:
         released_at, source_files = released_at or {}, source_files or {}
         ordered = sorted(snapshots, key=lambda s: Version(s.version))
         name = spec.name
+        public = public_somewhere(ordered)
 
         release_rows: list[tuple] = []
         span_rows: list[tuple] = []
@@ -515,6 +532,7 @@ class IndexStore:
             # Every release of a package stored one way (DT-DATA-49): a release carried from rows written the other
             # way, by an index from before a package switched, would otherwise read as removing every member.
             snap = snap.with_own_members() if spec.own_members else snap.without_own_members()
+            snap = snap.promoted(public)
             i = len(release_rows)
             release_rows.append(
                 (

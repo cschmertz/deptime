@@ -292,7 +292,14 @@ def member_events(old: ApiSnapshot | None, new: ApiSnapshot) -> list[ChangeEvent
             pairs.append((prev, cls, label))
         else:
             pairs.append((None, cls, label))
-    pairs.extend((cls, None, label) for cls, label in before.items() if cls not in matched)
+    for cls, label in before.items():
+        if cls in matched:
+            continue
+        # A label whose path still names a class, another one now, compares with that class's members (DT-DATA-52):
+        # transformers 5.0 serves `BertTokenizerFast` as `BertTokenizer`, which keeps most of its methods.
+        rec = new.symbols.get(label)
+        now = rec.canonical if rec is not None and rec.kind == "class" else None
+        pairs.append((cls, now if now in new.classes else None, label))
     # Names some class defines in one release and not the other, or defines differently: only those can resolve
     # through another class in an unchanged chain of classes.
     changed: set[str] = set()

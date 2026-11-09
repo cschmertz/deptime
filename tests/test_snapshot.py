@@ -2107,6 +2107,16 @@ def test_names_all_leaves_out_are_public_when_defined_or_star_imported(tmp_path)
         "listed.indexes.v",
         "listed.indexes._private",
     } & set(found)
+    # Imports `from m import x` still finds are recorded in full but apart, for assembly to count public where
+    # another release has them as public API (DT-DATA-45). Not the standard library's (`typing.Any`, through a star
+    # import of a module that imported it).
+    bound = {p: (r.kind, r.canonical) for p, r in snap.bound.items()}
+    assert bound == {
+        "listed.api.is_hidden": ("function", "listed.core.dtypes.is_hidden"),
+        "listed.core.plain.is_hidden": ("function", "listed.core.dtypes.is_hidden"),
+        "listed.indexes.is_float_dtype": ("function", "listed.core.dtypes.is_float_dtype"),
+    }
+    assert [p["name"] for p in snap.bound["listed.indexes.is_float_dtype"].params] == ["arr"]
 
 
 def test_stub_redefined_init_imports_are_public(tmp_path):

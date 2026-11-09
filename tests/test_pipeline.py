@@ -12,7 +12,7 @@ from importlib import resources
 import httpx
 
 from deptime import cli
-from deptime.config import Coverage, PackageSpec, VersionPolicy
+from deptime.config import Coverage, PackageSpec, ServedRule, VersionPolicy
 from deptime.index.store import IndexStore
 from deptime.ingest import pipeline
 from deptime.ingest.pipeline import IngestReport, coverage_summary, ingest_package, snapshot_path
@@ -209,6 +209,18 @@ def test_cached_snapshot_with_other_namespace_skips_is_rebuilt(tmp_path):
         report = ingest_package(skipping, POLICY, store, tmp_path, client=client, today=TODAY, log=_quiet)
     assert report.cached == [] and report.built == ["1.0.0", "2.0.0"]
     assert ApiSnapshot.load(snapshot_path(tmp_path, "fakepkg", "1.0.0")).namespace_skip == ["fakepkg.vendor"]
+
+
+def test_cached_snapshot_with_other_served_rules_is_rebuilt(tmp_path):
+    """DT-DATA-52: coverage.toml's `served` rules change what a snapshot binds, so an edit rebuilds it."""
+    store = IndexStore.memory()
+    _full_ingest(store, tmp_path)
+    rule = ServedRule(file="fakepkg/__init__.py", when="x", modules=("fakepkg",), ending="Client", add="Fast")
+    serving = PackageSpec(name="fakepkg", import_names=("fakepkg",), tier="B", served=(rule,))
+    with _client() as client:
+        report = ingest_package(serving, POLICY, store, tmp_path, client=client, today=TODAY, log=_quiet)
+    assert report.cached == [] and report.built == ["1.0.0", "2.0.0"]
+    assert ApiSnapshot.load(snapshot_path(tmp_path, "fakepkg", "1.0.0")).served == [rule.as_dict()]
 
 
 def test_switching_a_package_to_own_members_rebuilds_its_snapshots(tmp_path):

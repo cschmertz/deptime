@@ -744,3 +744,37 @@ def test_index_pull_verify_checks_a_current_index_that_was_installed_without_it(
     assert cli.main(["index", "pull", "--verify", "--force"]) == 1
     assert "Nothing was installed; the current index is unchanged." in capsys.readouterr().err
     assert dist.read_local_meta(cfg.index_path) == meta
+
+
+def test_index_pull_reports_a_failed_download_and_keeps_the_current_index(
+    tmp_path, settings, monkeypatch, capsys
+):
+    from deptime import cli
+
+    out, _ = _published(tmp_path)
+    cfg = _installed(settings, tmp_path, out)
+    meta = dist.read_local_meta(cfg.index_path)
+    monkeypatch.setenv("DEPTIME_HOME", str(cfg.index_path.parent))
+    monkeypatch.setenv("DEPTIME_INDEX_URL", "https://idx.test")
+    for name in ("DEPTIME_INDEX_PATH", "DEPTIME_VERIFY_INDEX", "DEPTIME_OFFLINE"):
+        monkeypatch.delenv(name, raising=False)
+    failing = {dist.XZ_ASSET, dist.INDEX_ASSET}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        name = str(request.url).rsplit("/", 1)[-1]
+        if name in failing:
+            return httpx.Response(504, text="Gateway Time-out")
+        return httpx.Response(200, content=(out / name).read_bytes())
+
+    monkeypatch.setattr(dist, "http_client", lambda: httpx.Client(transport=httpx.MockTransport(handler)))
+    capsys.readouterr()
+
+    assert cli.main(["index", "pull", "--force"]) == 1  # the asset times out
+    err = capsys.readouterr().err
+    assert "could not pull the index (HTTP 504 Gateway Timeout from https://idx.test/index.sqlite." in err
+    assert "Nothing was installed; the current index is unchanged." in err and "Traceback" not in err
+    failing.add(dist.MANIFEST_ASSET)
+    assert cli.main(["index", "pull"]) == 1  # so does the manifest
+    assert "could not pull the index" in capsys.readouterr().err
+    assert dist.read_local_meta(cfg.index_path) == meta
+    assert sorted(p.name for p in cfg.index_path.parent.iterdir() if "download" in p.name) == []

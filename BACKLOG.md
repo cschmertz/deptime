@@ -154,6 +154,9 @@ Method and pass bars: [docs/07](docs/07-risks-and-spikes.md).
   - Done 2026-11-07: the package request form asks for the releases in use and an example error; `explain_error`'s note names the distributions it doesn't index and points to `coverage` and the form, and so do the other tools' notes; `docs/coverage.md`, written by `tools/coverage_page.py` from the published index (first from the `SNAPSHOT_FORMAT` 18 index), lists each package with its first and latest indexed release and the build date, and says how an unindexed package is answered. Regenerate it at each release.
 
 ### Data (DT-DATA)
+- [x] **DT-OSS-12**: `deptime index pull` prints a traceback when a download fails · `P2` `S`
+  - Why: on 2026-11-09 GitHub answered 504 for the release's assets for a while after a publish (an incident on its side); `index pull` installed nothing and kept the current index, as it should, but showed a Python traceback, since it caught only a failed provenance check.
+  - Done 2026-11-09: a network or HTTP error, a checksum or size mismatch, a bad file or a schema it can't read exits 1 with one line that says why and that nothing was installed ("could not pull the index (HTTP 504 Gateway Time-out from …/index.sqlite.xz)"); a redirect's signed query string stays out of it. The server's refresh already reported these and retries (DT-OSS-10).
 - [x] **DT-DATA-01**: Index Tier A with the coverage policy · `P0` `M` · deps: SPIKE-01, SPIKE-04
   - AC: ≥ 90% of selected releases indexed for each package; failures listed in the workflow summary.
   - Done so far (2026-11-02): 6,568 of 6,569 selected releases are indexed; the lowest package is dspy at 87 of 88 (0.1.5 has no module `dspy`). `deptime ingest --summary` writes each package's share and failures to the run summary, and the publish job uses it. To close: check the summary on a published run.

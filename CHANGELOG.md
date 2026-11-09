@@ -37,6 +37,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
   `models.x.image_processing_y_fast` as their replacements. `coverage.toml` describes such names with
   `[[package.served]]` rules, each holding in the releases whose source has the code that serves them. In the
   `SNAPSHOT_FORMAT` 23 index published 2026-11-09; no upgrade needed.
+- `deptime index pull` reports a failed download (an HTTP error such as GitHub's 504, a network error, a checksum
+  mismatch) in one line and exits 1, rather than with a traceback; as before, nothing is installed and the current
+  index is kept (DT-OSS-12).
 
 ## [0.1.10] - 2026-11-08
 

@@ -152,7 +152,12 @@ def cmd_coverage(args: argparse.Namespace, settings: Settings) -> int:
     return 0
 
 
+_UNCHANGED = "Nothing was installed; the current index is unchanged."
+
+
 def cmd_index(args: argparse.Namespace, settings: Settings) -> int:
+    import httpx
+
     from deptime.index import distribution as dist
 
     if args.action == "pull":
@@ -164,20 +169,28 @@ def cmd_index(args: argparse.Namespace, settings: Settings) -> int:
             return 1
         verify = args.verify or settings.verify_index
         with dist.http_client() as client:
-            manifest = dist.fetch_manifest(settings.index_url, client)
-            installed = local and dist.active_index(settings.index_path).exists()
-            current = installed and local.get("manifest", {}).get("sha256") == manifest.sha256
-            # A current index installed without verifying is downloaded again, so the file itself is checked.
-            if current and not args.force and (not verify or local.get("provenance")):
-                checked = ", build provenance verified" if local.get("provenance") else ""
-                _err(f"deptime: index already up to date (built {manifest.built_at}{checked})")
-                return 0
             try:
+                manifest = dist.fetch_manifest(settings.index_url, client)
+                installed = local and dist.active_index(settings.index_path).exists()
+                current = installed and local.get("manifest", {}).get("sha256") == manifest.sha256
+                # A current index installed without verifying is downloaded again, so the file is checked.
+                if current and not args.force and (not verify or local.get("provenance")):
+                    checked = ", build provenance verified" if local.get("provenance") else ""
+                    _err(f"deptime: index already up to date (built {manifest.built_at}{checked})")
+                    return 0
                 dist.download(
                     settings.index_url, settings.index_path, client, manifest=manifest, verify=verify
                 )
-            except dist.ProvenanceError as exc:
-                _err(f"deptime: {exc}. Nothing was installed; the current index is unchanged.")
+            except (dist.ProvenanceError, dist.IndexIncompatible) as exc:
+                _err(f"deptime: {str(exc).rstrip('.')}. {_UNCHANGED}")
+                return 1
+            except (httpx.HTTPError, ValueError) as exc:  # network, HTTP status, checksum, size, a bad file
+                if isinstance(exc, httpx.HTTPStatusError):  # a redirect's signed query string stays out
+                    url = exc.request.url.copy_with(query=None)
+                    reason = f"HTTP {exc.response.status_code} {exc.response.reason_phrase} from {url}"
+                else:
+                    reason = f"{type(exc).__name__}: {exc}"
+                _err(f"deptime: could not pull the index ({reason}). {_UNCHANGED}")
                 return 1
         _err(f"deptime: installed index with {manifest.packages} packages, built {manifest.built_at}")
         provenance = (dist.read_local_meta(settings.index_path) or {}).get("provenance")

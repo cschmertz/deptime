@@ -31,13 +31,14 @@ from deptime.ingest.replacements import (
     deprecates_argument,
     deprecates_name,
     names_argument,
+    passed_as,
     worded_deprecated,
 )
 
 if TYPE_CHECKING:
     from deptime.config import ServedRule
 
-SNAPSHOT_FORMAT = 23  # bump when extraction changes: cached snapshots in another format are rebuilt
+SNAPSHOT_FORMAT = 24  # bump when extraction changes: cached snapshots in another format are rebuilt
 MAX_DEPTH = 12  # guards pathological re-export cycles
 
 DEPRECATED_DECORATOR_RE = re.compile(r"^(?:[\w.]+\.)?deprecated\b(?:\(.*\))?$", re.S)
@@ -401,6 +402,9 @@ def _deprecations(
     conditions: dict[str, frozenset[str]] = {}
     if isinstance(obj, griffe.Function) and not _MACHINERY_RE.match(obj.name):
         own, own_params, conditions = _function_warnings(obj, obj, values, mapping)
+        if not own and not own_params and (post := _post_init(obj)) is not None:
+            fields = frozenset(p.name for p in obj.parameters) - {"self"}
+            own, own_params, conditions = _function_warnings(post, obj, values, mapping, fields)
         whole = whole or own or _dispatcher_deprecation(obj)
         for name, message in own_params.items():
             params.setdefault(name, message)
@@ -419,6 +423,19 @@ def _deprecations(
             params.setdefault(name, message)
     kept = {n: c for n, c in conditions.items() if n in own_params and params.get(n) == own_params[n]}
     return _Reading(whole, params or None, kept)
+
+
+def _post_init(init: griffe.Function) -> griffe.Function | None:
+    """The `__post_init__` a dataclass's generated `__init__` calls, whose warnings about `self.<field>` are about
+    the `__init__` argument (DT-CORE-40): transformers 4.41-4.45's `TrainingArguments` warns there that
+    `evaluation_strategy` is deprecated for `eval_strategy`. None for an `__init__` the class writes itself."""
+    parent = init.parent
+    if init.name != "__init__" or parent is None or not parent.is_class or "dataclass" not in parent.labels:
+        return None
+    if init.lineno:  # written in the source, not generated
+        return None
+    post = _member(parent, "__post_init__", inherited=True)
+    return post if isinstance(post, griffe.Function) else None
 
 
 # Deprecation helpers recognized by name (DT-DATA-37), from a survey of the decorators and wrapper calls in the
@@ -926,9 +943,11 @@ def _function_warnings(
     reader: griffe.Function,
     values: dict[str, str] | None = None,
     mapping: str | None = None,
+    fields: frozenset[str] | None = None,
 ) -> tuple[str | None, dict[str, str], dict[str, frozenset[str]]]:
     """The warnings in `func`'s body, read as `reader`'s: its own name and class decide what they deprecate. Also,
-    for each argument they deprecate, the other arguments its warning's condition tests (`_Reading.conditions`)."""
+    for each argument they deprecate, the other arguments its warning's condition tests (`_Reading.conditions`).
+    `fields`: `reader`'s arguments, which `func` reads as attributes of `self` (a dataclass's `__post_init__`)."""
     try:
         source = func.source
     except (OSError, ValueError, AttributeError):
@@ -942,7 +961,7 @@ def _function_warnings(
         node, text = found
         if node is None:
             return None, {}, {}
-        body = _BodyWarnings(node, text, reader, values, mapping)
+        body = _BodyWarnings(node, text, reader, values, mapping, fields)
         try:
             whole, params = body.read()
             return whole, params or {}, body.conditions
@@ -1393,7 +1412,10 @@ def _documented_deprecations(obj: griffe.Object) -> tuple[str | None, dict[str, 
             for n in named:
                 params.setdefault(n, top.message)
             partial = _PARTIAL_NOTE_RE.search(_LITERAL_SPAN_RE.sub("", top.text))
-            if not named and not partial and not _about_value(top.text):
+            usage = any(
+                passed_as(top.text, n) for n in names
+            )  # sqlalchemy 1.4's "a string … for the "onclause""
+            if not named and not partial and not usage and not _about_value(top.text):
                 whole = top.message
         for entry, note in under:
             documented = [n for n in entry if n in names or (open_kwargs and n not in variadic)]
@@ -1462,12 +1484,29 @@ def _own_nodes(node: ast.AST):
             yield from _own_nodes(child)
 
 
+# A logger's warning is a deprecation when its text says so (DT-CORE-40): transformers' `shard_checkpoint` and
+# `HybridCache` deprecate themselves with `logger.warning(...)` and `logger.warning_once(...)`. The receiver's name
+# says it is a logger (`logger`, `self._log`, `logging`): streamlit's `st.warning` shows a message in the app.
+_LOG_METHODS = frozenset({"warning", "warning_once"})
+
+
+def _logged(call: ast.Call) -> bool:
+    func = call.func
+    return (
+        isinstance(func, ast.Attribute)
+        and func.attr in _LOG_METHODS
+        and "log" in ast.unparse(func.value).lower()
+    )
+
+
 def _warn_calls(st: ast.stmt):
-    """`warn(...)` calls, calls of warning helpers (`WARNING_HELPER_RE`), and of helpers that only build a
-    deprecation message (`MESSAGE_BUILDERS`): streamlit 1.36's `experimental_rerun` logs one."""
+    """`warn(...)` calls, a logger's warnings (`_logged`), calls of warning helpers (`WARNING_HELPER_RE`), and of
+    helpers that only build a deprecation message (`MESSAGE_BUILDERS`): streamlit 1.36's `experimental_rerun` logs
+    one."""
     for node in _own_nodes(st):
         if isinstance(node, ast.Call) and (
             (name := _callee(node)) == "warn"
+            or _logged(node)
             or (name and (WARNING_HELPER_RE.match(name) or name in MESSAGE_BUILDERS))
         ):
             yield node
@@ -1579,8 +1618,11 @@ class _BodyWarnings:
         func: griffe.Function,
         values: dict[str, str] | None = None,
         mapping: str | None = None,  # a parameter holding a caller's **kwargs (DT-DATA-52)
+        fields: frozenset[str]
+        | None = None,  # arguments read as `self.<name>` (a dataclass's `__post_init__`)
     ):
         self.node, self.text, self.func = node, text, func
+        self.fields = fields or frozenset()
         self.values = values or {}  # literals a caller passes for some parameters (DT-DATA-39)
         args = node.args
         own = list(_own_nodes(node))[1:]
@@ -1588,7 +1630,7 @@ class _BodyWarnings:
         loop_vars = {n for loop in loops for n in _bound_names(loop.target)}
         # A loop variable that reuses a parameter's name (`for key, val in kwargs.items()`) isn't the parameter.
         named = {a.arg for a in args.posonlyargs + args.args + args.kwonlyargs} - {"self", "cls"}
-        self.named = named - loop_vars - {mapping}
+        self.named = (named | self.fields) - loop_vars - {mapping}
         self.kwargs = mapping or (args.kwarg.arg if args.kwarg else None)
         self.varargs = args.vararg.arg if args.vararg else None
         parent = func.parent
@@ -1630,6 +1672,19 @@ class _BodyWarnings:
         for _ in range(2):  # a second pass picks up chains (`a = kwargs.pop("a")`, `b = a or …`)
             for sub in own:
                 self._bind(sub)
+
+    def _field(self, node: ast.AST) -> bool:
+        """`self.<name>` for one of `fields`."""
+        return (
+            isinstance(node, ast.Attribute)
+            and node.attr in self.fields
+            and isinstance(node.value, ast.Name)
+            and node.value.id == "self"
+        )
+
+    def _arg(self, node: ast.AST) -> bool:
+        """A name, or `self.<name>` for one of `fields`."""
+        return isinstance(node, ast.Name) or self._field(node)
 
     def _iterates_kwargs(self, it: ast.expr) -> bool:
         """`kwargs`, `kwargs.keys()`, `kwargs.items()`, `list(kwargs)`, `sorted(kwargs)`."""
@@ -1691,6 +1746,9 @@ class _BodyWarnings:
         for the mappings themselves."""
         keys: set[str] = set()
         for n in _own_nodes(expr):
+            if self._field(n):
+                keys.add(n.attr)  # type: ignore[attr-defined]
+                continue
             if not isinstance(n, ast.Name):
                 continue
             if n.id in self.named:
@@ -1707,11 +1765,11 @@ class _BodyWarnings:
         """`x is None`, `x is NOT_PASSED` (a sentinel default), `not x`, `"x" not in kwargs`: the branch runs when an
         argument is left out."""
         if isinstance(test, ast.UnaryOp) and isinstance(test.op, ast.Not):
-            return isinstance(test.operand, ast.Name)
+            return self._arg(test.operand)
         if not (isinstance(test, ast.Compare) and len(test.ops) == 1):
             return False
         op, right = test.ops[0], test.comparators[0]
-        if isinstance(op, (ast.Is, ast.Eq)) and isinstance(test.left, ast.Name):
+        if isinstance(op, (ast.Is, ast.Eq)) and self._arg(test.left):
             return (isinstance(right, ast.Constant) and right.value is None) or (
                 isinstance(op, ast.Is) and isinstance(right, (ast.Name, ast.Attribute))
             )
@@ -1726,9 +1784,11 @@ class _BodyWarnings:
             return self._valued(test.operand)
         if isinstance(test, ast.Call):
             return isinstance(test.func, ast.Name) and test.func.id in ("isinstance", "callable")
-        if not (isinstance(test, ast.Compare) and len(test.ops) == 1 and isinstance(test.left, ast.Name)):
+        if not (isinstance(test, ast.Compare) and len(test.ops) == 1 and self._arg(test.left)):
             return False
-        if test.left.id in self.kwarg_keys:  # `key in ("x", "y")`: names passed in **kwargs
+        if (
+            isinstance(test.left, ast.Name) and test.left.id in self.kwarg_keys
+        ):  # `key in ("x", "y")`: in **kwargs
             return False
         op, right = test.ops[0], test.comparators[0]
         if isinstance(op, (ast.IsNot, ast.NotEq, ast.NotIn)):
@@ -1781,6 +1841,16 @@ class _BodyWarnings:
             built = self._built(call, call)
             if built is not None:
                 self.found.append((built, guard, not branched))
+            return
+        if _logged(call):  # no category: a deprecation only by its words
+            message = (
+                call.args[0] if call.args else next((k.value for k in call.keywords if k.arg == "msg"), None)
+            )
+            text = self._text(message, call)
+            if text and re.search("deprecat", text, re.I):
+                # Logged under any condition, it's advice about a state (langchain-community's `lazy_load` when
+                # `self.mode == "paged"`), not the whole function's deprecation; an argument it names still is.
+                self.found.append((text, guard, not branched))
             return
         if _callee(call) != "warn":  # a warning helper: a deprecation by its name
             text, subject = self._helper_text(call)
@@ -1905,7 +1975,7 @@ class _BodyWarnings:
             # "`base_estimator` was renamed to `estimator`") isn't this function's deprecation.
             elsewhere = (
                 not marked and bool(worded_deprecated(text)) and not set(worded_deprecated(text)) & self.own
-            )
+            ) or any(passed_as(text, n) for n in self.named)  # a way of passing an argument (DT-CORE-40)
             if entire and not marked and not guard and not elsewhere and whole in (None, UNRECOVERABLE):
                 whole = text
         return whole, params or None

@@ -277,8 +277,33 @@ def mine(message: str | None, *, skip_expressions: bool = False) -> list[Hint]:
     return sorted(hints.values(), key=lambda h: -h.confidence)
 
 
+# "using `EvaluationStrategy` for `eval_strategy` is deprecated", "Passing a tuple of `past_key_values` is
+# deprecated": the name is what something else is passed as, and what is deprecated is that way of passing it, not
+# the name. Not "Use of `x`" or "Support for `x`", whose subject is `x` (DT-CORE-40).
+_PASSED_AS_RE = re.compile(
+    r"\b(?:using|passing|setting|providing|specifying|giving)\s+(?:[^.!?;]|\.(?!\s))+?\s(?:for|of|as|to|in)\s+"
+    r"(?:the\s+|a\s+|an\s+)?[`'\"*]*$",
+    re.I,
+)
+
+
 def _deprecated_at(message: str, start: int, end: int) -> bool:
-    return bool(DEPRECATED_BEFORE_RE.search(message[:start]) or DEPRECATED_AFTER_RE.match(message[end:]))
+    if DEPRECATED_BEFORE_RE.search(message[:start]):
+        return True
+    if not DEPRECATED_AFTER_RE.match(message[end:]):
+        return False
+    return not _PASSED_AS_RE.search(message[_sentence_start(message, start) : start])
+
+
+def passed_as(message: str, name: str) -> bool:
+    """Whether the wording deprecates a way of passing `name`, quoted: "using a string relationship name for the
+    "onclause" is deprecated" is about a usage of `onclause`, so neither it nor the function is deprecated."""
+    for m in re.finditer(rf"[`'\"*]+{re.escape(name)}[`'\"*]+", message):
+        if DEPRECATED_AFTER_RE.match(message[m.end() :]) and _PASSED_AS_RE.search(
+            message[_sentence_start(message, m.start()) : m.start() + 1]
+        ):
+            return True
+    return False
 
 
 def worded_deprecated(message: str | None) -> list[str]:

@@ -696,3 +696,24 @@ def test_a_keyword_argument_written_out_names_the_parameter_not_its_value():
     )
     # Not after a cue: a way of calling, not advice.
     assert alts("Passing `cert=...` is deprecated.", ["verify"], ["verify", "cert"]) == []
+
+
+def test_a_name_something_is_passed_as_is_not_what_is_deprecated():
+    # DT-CORE-40: transformers' "using `EvaluationStrategy` for `eval_strategy`" deprecates a value of
+    # `eval_strategy`, the argument to use, and "Passing a tuple of `past_key_values`" a type of value.
+    for msg, param in (
+        ("using `EvaluationStrategy` for `eval_strategy` is deprecated and will be removed", "eval_strategy"),
+        (
+            "Passing a tuple of `past_key_values` is deprecated and will be removed in Transformers v4.47.",
+            "past_key_values",
+        ),
+        (
+            "Passing raw bytes as `body` is deprecated. Please pass raw bytes via the `content` parameter.",
+            "body",
+        ),
+        ("Using dict as a `filter` is deprecated.", "filter"),
+    ):
+        assert param_deprecations(msg, [param]) == {}, msg
+    # Its subject: "Use of `x`", "Support for `x`", "Passing `x`".
+    for msg in ("Use of `x` is deprecated.", "Support for `x` is deprecated.", "Passing `x` is deprecated."):
+        assert list(param_deprecations(msg, ["x"])) == ["x"], msg

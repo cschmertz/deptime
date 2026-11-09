@@ -111,6 +111,13 @@ def label(row: dict, use: dict, res: dict[str, dict[str, dict]]) -> dict:
         if use["kind"] == "call" and var_keyword_only(to):
             return {**out, "label": "excluded", "why": "to: a keyword only **kwargs takes"}
         return {**out, "label": "works", "deprecated": deprecated(to)}
+    if use.get("via") == "instance" and why == "removed" and (to or {}).get("set_on_instances"):
+        # gradio 3 sets `click` on each instance in an event mixin's __init__ (2026-11b's label errors, DT-QA-09).
+        return {
+            **out,
+            "label": "excluded",
+            "why": "to: an attribute each instance sets (self.<name> = in the MRO)",
+        }
     if (
         use.get("via") == "instance"
         and why == "removed"

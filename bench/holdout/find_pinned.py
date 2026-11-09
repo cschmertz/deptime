@@ -119,27 +119,40 @@ def earlier_repos(sets: list[Path]) -> set[str]:
     return found
 
 
+# The first 100 results, then up to 500 when those didn't give `--per` repositories: two sets on, earlier sets have
+# asked about many of the first ones, and pymongo and urllib3 had one qualifying repository in 100 (DT-QA-09).
+SEARCH_LIMITS = (100, 500)
+
+
+def _hits(package: str):
+    """Code search hits for `<package>==` in requirements files, in its order, each repository once per call."""
+    done = 0
+    for limit in SEARCH_LIMITS:
+        hits = json.loads(
+            gh(
+                "search",
+                "code",
+                f"{package}==",
+                "--filename",
+                "requirements.txt",
+                "--limit",
+                str(limit),
+                "--json",
+                "repository,path",
+            )
+        )
+        time.sleep(7)  # code search allows 10 requests a minute
+        yield from hits[done:]
+        done = len(hits)
+
+
 def candidates(package: str, sources: Path, per: int, log: list, skip: set[str] = frozenset()) -> list[dict]:
     spec = COV[package]
     roots = tuple(spec.import_names)
-    hits = json.loads(
-        gh(
-            "search",
-            "code",
-            f"{package}==",
-            "--filename",
-            "requirements.txt",
-            "--limit",
-            "100",
-            "--json",
-            "repository,path",
-        )
-    )
-    time.sleep(7)  # code search allows 10 requests a minute
     latest = newest(package)
     kept: list[dict] = []
     seen: set[str] = set()
-    for h in hits:
+    for h in _hits(package):
         repo = h["repository"]["nameWithOwner"]
         if repo in seen:
             continue

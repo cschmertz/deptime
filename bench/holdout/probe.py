@@ -275,6 +275,27 @@ def kind_of(obj):
     return "other"
 
 
+def set_on_instances(path):
+    """Whether a class in the MRO of the class `path`'s parent names assigns `self.<name> = ...` in its source: an
+    attribute each instance sets (gradio 3's `self.click = EventListenerMethod(self, "click")` in an event mixin's
+    `__init__`), which reading the class can't see (DT-QA-09)."""
+    owner, _, name = path.rpartition(".")
+    try:
+        cls = resolve(owner)[0]
+    except BaseException:
+        return False
+    if not isinstance(cls, type):
+        return False
+    assign = re.compile(rf"\bself\.{re.escape(name)}\s*(?::[^=\n]+)?=(?!=)")
+    for c in cls.__mro__:
+        try:
+            if assign.search(inspect.getsource(c)):
+                return True
+        except (OSError, TypeError):
+            continue
+    return False
+
+
 def check(use):
     r = {"key": use["key"]}
     path = use["path"]
@@ -282,6 +303,8 @@ def check(use):
         obj, parent, caught = resolve(path)
     except Missing as e:
         r.update(resolved=False, error=str(e))
+        if use.get("via") == "instance" and set_on_instances(path):
+            r["set_on_instances"] = True
         return r
     except BaseException as e:  # an import that fails for another reason says nothing about this name
         r.update(resolved=None, error=short(e))

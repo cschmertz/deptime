@@ -97,7 +97,8 @@ def _decorator(obj):
                 where = f"{mod}.{getattr(w, '__qualname__', None) or getattr(type(w), '__qualname__', '')}"
             elif hasattr(f.__code__, "co_qualname"):  # Python 3.11+: functools.wraps copies __qualname__ over
                 code = f.__code__
-                where = f"{re.split(r'[\\/]', code.co_filename)[-1]}:{code.co_qualname}"
+                file = re.split(r"[\\/]", code.co_filename)[-1]  # no backslash in an f-string before 3.12
+                where = f"{file}:{code.co_qualname}"
             else:
                 continue
         except Exception:

@@ -647,3 +647,52 @@ def test_an_argument_to_pass_to_another_callable_instead():
         Hint("Embeddings", 0.6, "Pass `Embeddings` instance to `embeddings` instead."),
         Hint("embeddings", 0.59, "Pass `Embeddings` instance to `embeddings` instead."),
     ]
+
+
+def test_refer_to_a_name_that_looks_like_code():
+    # DT-CORE-40: sqlalchemy 1.4's "Please refer to Inspector.get_table_names()".
+    hints = mine(
+        "The Engine.table_names() method is deprecated and will be removed in a future release. Please refer to"
+        " Inspector.get_table_names()."
+    )
+    assert [(h.target, h.confidence) for h in hints] == [("Inspector.get_table_names", 0.75)]
+    assert [h.target for h in mine("`x` is deprecated; refer to `new_x` for details.")] == ["new_x"]
+    # Prose, a URL, a product, and langchain's RST link aren't names.
+    for msg in (
+        "`x` is deprecated. Please refer to the documentation.",
+        "`x` is deprecated; refer to docs.",
+        "`x` is deprecated, refer to https://example.com/migrate",
+        "`x` is deprecated. Please refer to LangGraph for agents.",
+        "Agent was deprecated in 0.1.0. For details, refer to the `LangGraph documentation <https://x.y/>`_.",
+    ):
+        assert mine(msg) == [], msg
+
+
+def test_a_keyword_argument_written_out_names_the_parameter_not_its_value():
+    # DT-CORE-40: gradio 5.50 advises `buttons`, a parameter of 6.0; "copy" is its value.
+    def alts(msg, deprecated, params):
+        return [(h.target, h.confidence) for h in param_alternatives(msg, deprecated, params)]
+
+    assert alts(
+        "The 'show_copy_button' parameter will be removed in Gradio 6.0. You will need to use 'buttons=[\"copy\"]'"
+        " instead.",
+        ["show_copy_button"],
+        ["value", "show_copy_button"],
+    ) == [("buttons", 0.8)]
+    assert alts(
+        "The 'app' shortcut is now deprecated. Use the explicit style 'transport=WSGITransport(app=...)' instead.",
+        ["app"],
+        ["app", "transport"],
+    ) == [("transport", 0.8)]
+    # The same parameter with another value: nothing to name, and neither value is a parameter.
+    assert (
+        alts(
+            "`type='protected'` is deprecated and will be removed in a future release. Use `type='authenticated'`"
+            " instead.",
+            ["type"],
+            ["type"],
+        )
+        == []
+    )
+    # Not after a cue: a way of calling, not advice.
+    assert alts("Passing `cert=...` is deprecated.", ["verify"], ["verify", "cert"]) == []

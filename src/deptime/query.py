@@ -503,6 +503,42 @@ class DepTime:
             r for r in self.store.param_replacements(name, func_path) if not instruction_like(r["evidence"])
         ]
 
+    def _followed(
+        self, name: str, replacements: list[Replacement], ordinal: int, depth: int = 2
+    ) -> list[Replacement]:
+        """`replacements` with a target of the package that release `ordinal` no longer has followed to that
+        target's own hint, when the index has one the release has (DT-CORE-40): pydantic-ai's `MCPServerHTTP` says to
+        use `MCPServerSSE`, which 1.97 deprecates for `MCPToolset` and 2.0 removes, so on 2.x the advice is
+        `MCPToolset`. The followed target comes first, then the one it stands for."""
+        assert self.store is not None
+        out: list[Replacement] = []
+        for r in replacements:
+            gone = (
+                depth > 0
+                and self.store.span_at(name, r.target, ordinal) is None
+                and bool(self.store.spans(name, r.target))
+            )
+            if gone:
+                later = [
+                    Replacement(
+                        target=h["target"],
+                        confidence=min(r.confidence, h["confidence"]),
+                        source=h["source"],
+                        evidence=f"Followed from {r.target}, which this release doesn't have: {h['evidence']}",
+                    )
+                    for h in sorted(self._hints(name, r.target), key=lambda h: -h["confidence"])
+                ]
+                out.extend(
+                    f
+                    for f in self._followed(name, later, ordinal, depth - 1)
+                    if self.store.span_at(name, f.target, ordinal) is not None
+                )
+            out.append(r)
+        first: dict[str, Replacement] = {}
+        for r in out:
+            first.setdefault(r.target, r)
+        return list(first.values())
+
     @staticmethod
     def _replacement(row: sqlite3.Row) -> Replacement:
         return Replacement(
@@ -1008,8 +1044,14 @@ class DepTime:
                     seen = f"seen in {self._version(name, spans[0]['first_ordinal'])}..{self._version(name, max(s['last_ordinal'] for s in spans))}"
                 else:
                     seen = "never seen in any indexed release"
-                repl = [r for r in self._hints(name, full) if r["confidence"] >= EXPLAIN_MIN_CONFIDENCE]
-                hint = seen + (f"; try {repl[0]['target']}" if repl else "")
+                repl = [
+                    r
+                    for r in self._followed(
+                        name, [self._replacement(r) for r in self._hints(name, full)], row["ordinal"]
+                    )
+                    if r.confidence >= EXPLAIN_MIN_CONFIDENCE
+                ]
+                hint = seen + (f"; try {repl[0].target}" if repl else "")
                 internal = bool(spans) and _is_internal(max(spans, key=lambda s: s["last_ordinal"]))
                 results.append(SymbolCheck(path=full, status="missing", hint=hint, internal=internal))
                 continue
@@ -2568,7 +2610,11 @@ class DepTime:
             last = max(before, key=lambda s: s["last_ordinal"])
             last_ord = last["last_ordinal"]
             last_with, first_without = self._version(name, last_ord), self._version(name, last_ord + 1)
-            replacements = _merge(self._error_hints(spec, path, [ordinal, last_ord + 1], message), indexed)
+            replacements = self._followed(
+                name,
+                _merge(self._error_hints(spec, path, [ordinal, last_ord + 1], message), indexed),
+                ordinal,
+            )
             strong = [r for r in replacements if r.confidence >= EXPLAIN_MIN_CONFIDENCE]
             hint = f" Use {strong[0].target} instead." if strong else ""
             internal = _is_internal(last)

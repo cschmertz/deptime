@@ -30,7 +30,7 @@ from deptime.ingest.diff import (
     path_events,
     renamed_names,
 )
-from deptime.ingest.replacements import PublicNames, mine
+from deptime.ingest.replacements import PublicNames, deprecates_class, mine
 from deptime.ingest.snapshot import HIDDEN, ApiSnapshot, ClassRecord, LazySnapshot, SymbolRecord
 
 SCHEMA_VERSION = "1"
@@ -609,11 +609,23 @@ class IndexStore:
             (lambda path: (found[0], found[1]) if (found := lookup(path)) else None) if lookup else None,
             heirs,
         )
+        class_paths = {path for path, _first, _last, state in name_rows if state[0] == "class"}
         for ordinal, _prev, ev in events:
             if ev.kind == "deprecated":
-                for hint in mine(ev.detail.get("message")):
+                message = ev.detail.get("message")
+                mined = mine(message)
+                for hint in mined:
                     hint = names.check(hint, ev.path, ordinal)
                     add_repl(ev.path, hint.target, hint.confidence, "deprecation_message", hint.evidence)
+                # A class's own deprecation, stated in its members' warnings: transformers 4.54's
+                # `AutoModelForVision2Seq` warns from `from_config` and `from_pretrained` alone that "The class
+                # `AutoModelForVision2Seq` is deprecated ... Please use `AutoModelForImageTextToText` instead", and
+                # the class is what goes in 5.0 (DT-CORE-40).
+                owner = ev.path.rpartition(".")[0]
+                if mined and owner in class_paths and deprecates_class(message, owner.rpartition(".")[2]):
+                    for hint in mined:
+                        hint = names.check(hint, owner, ordinal)
+                        add_repl(owner, hint.target, hint.confidence, "deprecation_message", hint.evidence)
             elif ev.kind == "param_deprecated":
                 for alt in ev.detail.get("alternatives", []):
                     add_repl(

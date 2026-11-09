@@ -57,6 +57,11 @@ PATTERNS: list[tuple[re.Pattern[str], float]] = [
     (re.compile(rf"\binstead,?\s+(?:use|call|access)\s+{_THE}{IDENT}", re.I), 0.75),
     (re.compile(rf"\buse\s+{_THE}{IDENT}", re.I), 0.6),
 ]
+# sqlalchemy's "Please refer to Inspector.get_table_names()" (DT-CORE-40). "Refer to" often points at prose, a URL or
+# a product ("refer to the documentation", "refer to https://…", langchain's "refer to LangGraph"), so only a name
+# that is quoted, dotted, has an underscore or is called counts.
+REFER_RE = re.compile(rf"\brefer\s+to\s+{_THE}{IDENT}", re.I)
+REFER_CONFIDENCE = 0.75
 # "Use `ChatMlflow` or `ChatDatabricks` instead", "Use DataFrame.ffill/Series.ffill instead": each name, in order.
 # A slash joins names only without spaces: "Use GET /v2/audio/voices instead" is a URL.
 _ITEM = rf"(?::[a-z]+:)?(?:`+~?{_NAME}{_CODE_ARGS}`+|{_QUOTES}~?{_NAME}{_QUOTES})"
@@ -259,6 +264,14 @@ def mine(message: str | None, *, skip_expressions: bool = False) -> list[Hint]:
     for pattern, conf in PATTERNS:
         for m in pattern.finditer(message):
             add(_target(message, m, skip_expressions), conf)
+    for m in REFER_RE.finditer(message):
+        start = m.start("t")
+        opened = bool(m.group("bq")) or (start > 0 and message[start - 1] in "`'\"")
+        # Quoted means closed after the name: "refer to the `LangGraph documentation <https://…>`_" is a link.
+        marked = bool(m.group("role")) or (opened and message[m.end() - 1] in "`'\"")
+        raw = m.group("t")  # "refer to docs." isn't code: the sentence's full stop doesn't count
+        if marked or raw.endswith("()") or re.search(r"[._]", _clean(raw)):
+            add(_target(message, m, skip_expressions), REFER_CONFIDENCE)
     for t in _imports(message):
         add(t, IMPORT_CONFIDENCE)
     return sorted(hints.values(), key=lambda h: -h.confidence)
@@ -297,6 +310,20 @@ def deprecates_name(message: str, name: str, before: Callable[[str], bool] | Non
         if worded and (before is None or before(message[_sentence_start(message, m.start()) : m.start()])):
             return True
     return False
+
+
+_CLASS_DEPRECATED_RE = re.compile(
+    r"[`'\"*]*\s+class\s+(?:is|was|has\s+been|will\s+be)\s+(?:now\s+)?deprecated", re.I
+)
+
+
+def deprecates_class(message: str, name: str) -> bool:
+    """Whether the wording deprecates the class `name`: as `deprecates_name` does ("The class `X` is deprecated"),
+    or with the noun after it ("The `X` class is deprecated")."""
+    return deprecates_name(message, name) or any(
+        _CLASS_DEPRECATED_RE.match(message, m.end())
+        for m in re.finditer(rf"[`'\"*]+{re.escape(name)}\b", message)
+    )
 
 
 def _sentence_start(message: str, at: int) -> int:
@@ -349,6 +376,7 @@ def names_argument(message: str, name: str) -> bool:
 
 # "You will need to pass 'theme' to Blocks.launch() instead" (gradio 5.50), "Pass the parameter `pdp_lim` to
 # sklearn.inspection.PartialDependenceDisplay.plot() instead": the same argument, given to another callable.
+KWARG_EXPR_RE = re.compile(r"(?P<q>[`'\"]+)(?P<t>[A-Za-z_]\w*)=(?:(?!(?P=q)).)+(?P=q)")
 PASS_TO_RE = re.compile(
     rf"\bpass\s+(?:the\s+{_PARAM_NOUN}\s+)?{_QUOTES}(?P<p>\w+){_QUOTES}\s+to\s+{_QUOTES}"
     rf"(?P<f>[A-Za-z_][\w.]*)\(\){_QUOTES}\s+instead\b",
@@ -363,13 +391,27 @@ def param_alternatives(message: str, deprecated: list[str], params: list[str]) -
     after it ("Please configure the 'retry' object instead"), anything else 0.6: polars' "…only be included if `k`
     is larger…" mentions `k` in passing (DT-CORE-12). Ties keep the message's order. First, at 0.8, another callable
     to pass the same argument to ("pass 'theme' to Blocks.launch() instead" gives `Blocks.launch(theme)`)."""
-    found = [(m.start(), m.end(), m.group("t")) for m in QUOTED_IDENT_RE.finditer(message)]
+    # A keyword argument written out in quotes after a cue: gradio 5.50's "use 'buttons=["copy"]' instead" advises
+    # `buttons`, a parameter of a later release, and the names in its value aren't arguments (DT-CORE-40).
+    expressions = list(KWARG_EXPR_RE.finditer(message))
+    written = [
+        m
+        for m in expressions
+        if CUE_BEFORE_RE.search(message[: m.start()]) or INSTEAD_AFTER_RE.match(message, m.end())
+    ]
+    inside = [m.span() for m in expressions]
+    found = [
+        (m.start(), m.end(), m.group("t"))
+        for m in QUOTED_IDENT_RE.finditer(message)
+        if not any(a <= m.start() and m.end() <= b for a, b in inside)
+    ]
     found += [
         (m.start("t"), m.end("t"), m.group("t"))
         for m in PARAM_CUE_RE.finditer(message)
         if m.group("t") in params
     ]
-    cued = {
+    found += [(m.start("t"), m.end("t"), m.group("t")) for m in written]
+    cued = {m.group("t") for m in written} | {
         n
         for at, end, n in found
         if n in params and (CUE_BEFORE_RE.search(message[:at]) or INSTEAD_AFTER_RE.match(message, end))

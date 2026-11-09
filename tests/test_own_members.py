@@ -738,3 +738,56 @@ def test_names_served_through_a_literal_table_follow_the_tokenizer_its_value_nam
 def test_a_served_rule_with_a_table_needs_its_fields(fields):
     with pytest.raises(ValueError):
         ServedRule(file="tok/lazy.py", when="x", **fields)
+
+
+# DT-CORE-40: transformers 4.54's `AutoModelForVision2Seq` warns only from its classmethods that the class is
+# deprecated; and pydantic-ai's `MCPServerHTTP` says to use `MCPServerSSE`, which is deprecated in turn and goes too.
+WARNS = "import warnings\n\n\n"
+CHAINED = {
+    "1.0": {
+        "tp/__init__.py": "from tp.models import Auto2Seq, AutoText, HTTPServer, SSEServer, Toolset\n",
+        "tp/models.py": WARNS
+        + "class AutoText:\n    pass\n\n\nclass Toolset:\n    pass\n\n\n"
+        + "class Auto2Seq:\n    @classmethod\n    def from_pretrained(cls, name):\n        return cls()\n\n\n"
+        + "class HTTPServer:\n    def __init__(self, url):\n        pass\n\n\n"
+        + "class SSEServer:\n    def __init__(self, url):\n        pass\n",
+    },
+    "2.0": {
+        "tp/__init__.py": "from tp.models import Auto2Seq, AutoText, HTTPServer, SSEServer, Toolset\n",
+        "tp/models.py": WARNS
+        + "class AutoText:\n    pass\n\n\nclass Toolset:\n    pass\n\n\n"
+        + "class Auto2Seq:\n    @classmethod\n    def from_pretrained(cls, name):\n"
+        + "        warnings.warn('The class `Auto2Seq` is deprecated and will be removed in v3. Please use"
+        + " `AutoText` instead.', FutureWarning)\n        return cls()\n\n\n"
+        + "class HTTPServer:\n    def __init__(self, url):\n"
+        + "        warnings.warn('The `HTTPServer` class is deprecated, use `SSEServer` instead.', DeprecationWarning)\n\n\n"
+        + "class SSEServer:\n    def __init__(self, url):\n"
+        + "        warnings.warn('`SSEServer` is deprecated and will be removed in v3. Use `Toolset` instead.',"
+        + " DeprecationWarning)\n",
+    },
+    "3.0": {
+        "tp/__init__.py": "from tp.models import AutoText, Toolset\n",
+        "tp/models.py": "class AutoText:\n    pass\n\n\nclass Toolset:\n    pass\n",
+    },
+}
+TP = PackageSpec(name="tp", import_names=("tp",), tier="A")
+
+
+def test_a_class_deprecated_in_its_members_words_gets_their_replacement_and_a_gone_target_is_followed(
+    tmp_path,
+):
+    store = IndexStore.memory()
+    store.rebuild_package(TP, _snapshots(tmp_path, CHAINED, "tp"))
+    assert [r["target"] for r in store.replacements("tp", "tp.Auto2Seq")] == ["tp.AutoText"]
+    assert [r["target"] for r in store.replacements("tp", "tp.HTTPServer")] == ["tp.SSEServer"]
+    dt = DepTime(store, Coverage(POLICY, (TP,)))
+    (old,) = dt.explain_error(
+        "ImportError: cannot import name 'HTTPServer' from 'tp' (/x/tp/__init__.py)", {"tp": "3.0"}
+    ).findings
+    assert [r.target for r in old.replacements] == ["tp.Toolset", "tp.SSEServer"]
+    assert old.replacements[0].evidence.startswith(
+        "Followed from tp.SSEServer, which this release doesn't have:"
+    )
+    # 2.0 still has `SSEServer`: nothing to follow.
+    (check,) = dt.check_symbols("tp", "3.0", [SymbolQuery(path="tp.HTTPServer")]).results
+    assert check.status == "missing" and check.hint.endswith("; try tp.Toolset")

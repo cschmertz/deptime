@@ -1,5 +1,5 @@
 {
-"index_built_at": "2026-11-08T23:02:12+00:00",
+"index_built_at": "2026-11-09T07:22:46+00:00",
 "tracebacks": {
 "hold-anthropic-beta-prompt-caching-gptcmd": true,
 "hold-django-checkconstraint-check-drf-toolkit": true,
@@ -5014,8 +5014,8 @@
 "label": "works"
 },
 "pin-largeworldmodel__lwm-transformers-up|09199e20996f2de4": {
-"check_symbols": true,
-"diff_versions": true,
+"check_symbols": false,
+"diff_versions": false,
 "label": "works"
 },
 "pin-largeworldmodel__lwm-transformers-up|1898335c6e5879ba": {
@@ -5054,8 +5054,8 @@
 "label": "works"
 },
 "pin-largeworldmodel__lwm-transformers-up|8e8962b3a72e0a82": {
-"check_symbols": true,
-"diff_versions": true,
+"check_symbols": false,
+"diff_versions": false,
 "label": "works"
 },
 "pin-largeworldmodel__lwm-transformers-up|9a867830912880d8": {

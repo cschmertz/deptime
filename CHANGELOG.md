@@ -23,6 +23,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
 
 ## [Unreleased]
 
+### Fixed
+- Names a module still imports, but that its `__all__` (or its being a plain module) leaves out of its public names,
+  count as public wherever another release of the package has them as public API (DT-DATA-45): langgraph 0.6's
+  `langgraph.channels.base.EmptyChannelError` no longer reads removed, sqlalchemy 2.0's `types.NullType` no longer
+  reads added late, and typer's `typer.testing.Result` reads present from 0.8 (click's class). A class member's
+  events follow a public name that now names another class: pinecone 9's `PineconeAsyncio` members are compared
+  with `AsyncPinecone`'s rather than all reported removed. In the `SNAPSHOT_FORMAT` 23 index published 2026-11-09;
+  no upgrade needed.
+- Names transformers 5 serves through its import machinery read present (DT-DATA-52): `Qwen2TokenizerFast` and the
+  other `XTokenizerFast` names as `XTokenizer`, `XImageProcessorFast` as `XImageProcessor`, and the legacy modules
+  `tokenization_utils`, `tokenization_utils_fast`, `image_processing_utils_fast` and
+  `models.x.image_processing_y_fast` as their replacements. `coverage.toml` describes such names with
+  `[[package.served]]` rules, each holding in the releases whose source has the code that serves them. In the
+  `SNAPSHOT_FORMAT` 23 index published 2026-11-09; no upgrade needed.
+
 ## [0.1.10] - 2026-11-08
 
 ### Fixed

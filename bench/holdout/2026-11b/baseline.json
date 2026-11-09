@@ -1,5 +1,5 @@
 {
-"index_built_at": "2026-11-08T23:02:12+00:00",
+"index_built_at": "2026-11-09T07:22:46+00:00",
 "tracebacks": {
 "hold-anthropic-beta-userlocation-airflow-pydantic-ai": true,
 "hold-chromadb-includeenum-autogen": true,
@@ -4437,7 +4437,7 @@
 },
 "pin-guardana__guardana-typer-down|05605b0863cf0612": {
 "check_symbols": false,
-"diff_versions": true,
+"diff_versions": false,
 "label": "works"
 },
 "pin-guardana__guardana-typer-down|098e8fccd55efb1e": {
@@ -8511,8 +8511,8 @@
 "label": "works"
 },
 "pin-meituan-longcat__longcat-image-transformers-up|5758f1582aee37cb": {
-"check_symbols": true,
-"diff_versions": true,
+"check_symbols": false,
+"diff_versions": false,
 "label": "works"
 },
 "pin-meituan-longcat__longcat-image-transformers-up|6671ea711b7df154": {

@@ -1,0 +1,1944 @@
+{
+"aiohttp==3.11.11@2025-01-17": {
+"python": "3.11.18",
+"requires": [
+"aiohttp==3.11.11"
+],
+"result": "ok"
+},
+"aiohttp==3.13.3@2026-02-02": {
+"python": "3.11.18",
+"requires": [
+"aiohttp==3.13.3"
+],
+"result": "ok"
+},
+"aiohttp==3.14.5@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"aiohttp==3.14.5"
+],
+"result": "ok"
+},
+"aiohttp==3.8.1@2021-12-14": {
+"python": "3.10.22",
+"requires": [
+"aiohttp==3.8.1"
+],
+"result": "ok"
+},
+"aiohttp==3.8.5@2023-08-18": {
+"python": "3.11.18",
+"requires": [
+"aiohttp==3.8.5"
+],
+"result": "ok"
+},
+"anthropic==0.18.1@2024-04-03": {
+"python": "3.11.18",
+"requires": [
+"anthropic==0.18.1"
+],
+"result": "ok"
+},
+"anthropic==0.2.2@2023-03-11": {
+"python": "3.11.18",
+"requires": [
+"anthropic==0.2.2"
+],
+"result": "ok"
+},
+"anthropic==0.6.0@2023-12-09": {
+"python": "3.11.18",
+"requires": [
+"anthropic==0.6.0"
+],
+"result": "ok"
+},
+"anthropic==2.6.0@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"anthropic==2.6.0"
+],
+"result": "ok"
+},
+"celery==5.4.0@2024-05-17": {
+"python": "3.11.18",
+"requires": [
+"celery==5.4.0"
+],
+"result": "ok"
+},
+"celery==5.6.3@2026-04-25": {
+"python": "3.11.18",
+"requires": [
+"celery==5.6.3"
+],
+"result": "ok"
+},
+"celery==5.7.0@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"celery==5.7.0"
+],
+"result": "ok"
+},
+"chromadb==0.3.22@2023-06-07": {
+"requires": [
+"chromadb==0.3.22"
+],
+"result": "install_failed"
+},
+"chromadb==0.3.29@2023-08-11": {
+"requires": [
+"chromadb==0.3.29"
+],
+"result": "install_failed"
+},
+"chromadb==1.5.9@2026-06-04": {
+"python": "3.11.18",
+"requires": [
+"chromadb==1.5.9"
+],
+"result": "ok"
+},
+"click==8.1.3@2022-05-28": {
+"python": "3.11.18",
+"requires": [
+"click==8.1.3"
+],
+"result": "ok"
+},
+"click==8.1.7@2023-09-16": {
+"python": "3.11.18",
+"requires": [
+"click==8.1.7"
+],
+"result": "ok"
+},
+"click==8.5.1@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"click==8.5.1"
+],
+"result": "ok"
+},
+"crewai==0.1.32@2024-02-13": {
+"python": "3.11.18",
+"requires": [
+"crewai==0.1.32"
+],
+"result": "ok"
+},
+"crewai==0.100.1@2025-03-02": {
+"python": "3.11.18",
+"requires": [
+"crewai==0.100.1"
+],
+"result": "ok",
+"source_builds_allowed": [
+"pypika",
+"ffmpy"
+]
+},
+"crewai==0.22.5@2024-04-11": {
+"python": "3.11.18",
+"requires": [
+"crewai==0.22.5"
+],
+"result": "ok"
+},
+"crewai==1.15.38@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"crewai==1.15.38"
+],
+"result": "ok"
+},
+"django==3.2.24@2024-03-07": {
+"python": "3.11.18",
+"requires": [
+"django==3.2.24"
+],
+"result": "ok"
+},
+"django==4.1.6@2023-03-03": {
+"python": "3.11.18",
+"requires": [
+"django==4.1.6"
+],
+"result": "ok"
+},
+"django==4.2.30@2026-05-07": {
+"python": "3.11.18",
+"requires": [
+"django==4.2.30"
+],
+"result": "ok"
+},
+"django==5.2@2025-05-02": {
+"python": "3.11.18",
+"requires": [
+"django==5.2"
+],
+"result": "ok"
+},
+"django==6.0.10@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"django==6.0.10"
+],
+"result": "ok"
+},
+"django==6.1.3@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"django==6.1.3"
+],
+"result": "ok"
+},
+"django==6.1@2026-09-04": {
+"python": "3.12.16",
+"requires": [
+"django==6.1"
+],
+"result": "ok"
+},
+"dspy==2.5.40@2024-12-26": {
+"requires": [
+"dspy==2.5.40"
+],
+"result": "install_failed"
+},
+"dspy==2.5.43@2025-01-12": {
+"python": "3.11.18",
+"requires": [
+"dspy==2.5.43"
+],
+"result": "ok"
+},
+"dspy==2.6.10@2025-04-03": {
+"python": "3.11.18",
+"requires": [
+"dspy==2.6.10"
+],
+"result": "ok"
+},
+"dspy==2.6.5@2025-03-22": {
+"python": "3.11.18",
+"requires": [
+"dspy==2.6.5"
+],
+"result": "ok"
+},
+"dspy==2.6.6@2025-03-26": {
+"python": "3.11.18",
+"requires": [
+"dspy==2.6.6"
+],
+"result": "ok"
+},
+"dspy==3.4.1@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"dspy==3.4.1"
+],
+"result": "ok"
+},
+"fastapi==0.115.14@2025-07-26": {
+"python": "3.11.18",
+"requires": [
+"fastapi==0.115.14"
+],
+"result": "ok"
+},
+"fastapi==0.138.2@2026-07-29": {
+"python": "3.11.18",
+"requires": [
+"fastapi==0.138.2"
+],
+"result": "ok"
+},
+"fastapi==0.162.2@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"fastapi==0.162.2"
+],
+"result": "ok"
+},
+"fastapi==0.95.2@2023-06-15": {
+"python": "3.11.18",
+"requires": [
+"fastapi==0.95.2"
+],
+"result": "ok"
+},
+"fastmcp==0.4.1@2025-01-08": {
+"python": "3.11.18",
+"requires": [
+"fastmcp==0.4.1"
+],
+"result": "ok"
+},
+"fastmcp==2.11.3@2025-09-10": {
+"requires": [
+"fastmcp==2.11.3"
+],
+"result": "install_failed"
+},
+"fastmcp==2.13.3@2026-01-02": {
+"python": "3.11.18",
+"requires": [
+"fastmcp==2.13.3"
+],
+"result": "ok"
+},
+"fastmcp==2.14.0@2026-01-10": {
+"python": "3.11.18",
+"requires": [
+"fastmcp==2.14.0"
+],
+"result": "ok"
+},
+"fastmcp==2.14.1@2026-01-14": {
+"python": "3.11.18",
+"requires": [
+"fastmcp==2.14.1"
+],
+"result": "ok"
+},
+"fastmcp==3.4.11@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"fastmcp==3.4.11"
+],
+"result": "ok"
+},
+"fastmcp==4.0.0@2026-09-30": {
+"python": "3.11.18",
+"requires": [
+"fastmcp==4.0.0"
+],
+"result": "ok"
+},
+"fastmcp==4.0.11@2026-11-03": {
+"python": "3.11.18",
+"requires": [
+"fastmcp==4.0.11"
+],
+"result": "ok"
+},
+"fastmcp==4.1.6@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"fastmcp==4.1.6"
+],
+"result": "ok"
+},
+"flask==2.3.2@2023-05-31": {
+"python": "3.11.18",
+"requires": [
+"flask==2.3.2"
+],
+"result": "ok"
+},
+"flask==3.0.0@2023-10-30": {
+"python": "3.11.18",
+"requires": [
+"flask==3.0.0"
+],
+"result": "ok"
+},
+"flask==3.1.0@2024-12-13": {
+"python": "3.11.18",
+"requires": [
+"flask==3.1.0"
+],
+"result": "ok"
+},
+"flask==3.1.3@2026-03-21": {
+"python": "3.11.18",
+"requires": [
+"flask==3.1.3"
+],
+"result": "ok"
+},
+"google-genai==1.7.0@2025-04-17": {
+"python": "3.11.18",
+"requires": [
+"google-genai==1.7.0"
+],
+"result": "ok"
+},
+"google-genai==1.70.0@2026-05-01": {
+"python": "3.11.18",
+"requires": [
+"google-genai==1.70.0"
+],
+"result": "ok"
+},
+"google-genai==1.9.0@2025-05-01": {
+"python": "3.11.18",
+"requires": [
+"google-genai==1.9.0"
+],
+"result": "ok"
+},
+"google-genai==3.0.0@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"google-genai==3.0.0"
+],
+"result": "ok"
+},
+"google-generativeai==0.3.2@2024-01-19": {
+"python": "3.11.18",
+"requires": [
+"google-generativeai==0.3.2"
+],
+"result": "ok"
+},
+"google-generativeai==0.5.1@2024-05-16": {
+"python": "3.11.18",
+"requires": [
+"google-generativeai==0.5.1"
+],
+"result": "ok"
+},
+"google-generativeai==0.8.5@2025-05-17": {
+"python": "3.11.18",
+"requires": [
+"google-generativeai==0.8.5"
+],
+"result": "ok"
+},
+"google-generativeai==0.8.6@2026-01-15": {
+"python": "3.11.18",
+"requires": [
+"google-generativeai==0.8.6"
+],
+"result": "ok"
+},
+"gradio==3.40.1@2023-09-10": {
+"python": "3.11.18",
+"requires": [
+"gradio==3.40.1"
+],
+"result": "ok",
+"source_builds_allowed": [
+"pypika",
+"ffmpy"
+]
+},
+"gradio==4.42.0@2024-09-20": {
+"python": "3.11.18",
+"requires": [
+"gradio==4.42.0"
+],
+"result": "ok"
+},
+"gradio==4.44.0@2024-10-10": {
+"python": "3.11.18",
+"requires": [
+"gradio==4.44.0"
+],
+"result": "ok"
+},
+"gradio==5.47.0@2025-10-23": {
+"python": "3.11.18",
+"requires": [
+"gradio==5.47.0"
+],
+"result": "ok"
+},
+"gradio==6.31.0@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"gradio==6.31.0"
+],
+"result": "ok"
+},
+"httpx==0.23.1@2022-12-18": {
+"python": "3.11.18",
+"requires": [
+"httpx==0.23.1"
+],
+"result": "ok"
+},
+"httpx==0.24.1@2023-06-18": {
+"python": "3.11.18",
+"requires": [
+"httpx==0.24.1"
+],
+"result": "ok"
+},
+"httpx==0.26.0@2024-01-19": {
+"python": "3.11.18",
+"requires": [
+"httpx==0.26.0"
+],
+"result": "ok"
+},
+"httpx==0.27.2@2024-09-26": {
+"python": "3.11.18",
+"requires": [
+"httpx==0.27.2"
+],
+"result": "ok"
+},
+"httpx==0.28.1@2025-01-05": {
+"python": "3.11.18",
+"requires": [
+"httpx==0.28.1"
+],
+"result": "ok"
+},
+"huggingface-hub==0.24.5@2024-08-30": {
+"python": "3.11.18",
+"requires": [
+"huggingface-hub==0.24.5"
+],
+"result": "ok"
+},
+"huggingface-hub==0.28.1@2025-03-01": {
+"python": "3.11.18",
+"requires": [
+"huggingface-hub==0.28.1"
+],
+"result": "ok"
+},
+"huggingface-hub==0.34.4@2025-09-07": {
+"python": "3.11.18",
+"requires": [
+"huggingface-hub==0.34.4"
+],
+"result": "ok"
+},
+"huggingface-hub==0.36.2@2026-03-08": {
+"python": "3.11.18",
+"requires": [
+"huggingface-hub==0.36.2"
+],
+"result": "ok"
+},
+"huggingface-hub==2.4.0@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"huggingface-hub==2.4.0"
+],
+"result": "ok"
+},
+"instructor==0.2.4@2023-09-16": {
+"python": "3.11.18",
+"requires": [
+"instructor==0.2.4"
+],
+"result": "ok"
+},
+"instructor==1.15.1@2026-05-03": {
+"python": "3.11.18",
+"requires": [
+"instructor==1.15.1"
+],
+"result": "ok"
+},
+"instructor==1.17.0@2026-10-09": {
+"python": "3.11.18",
+"requires": [
+"instructor==1.17.0"
+],
+"result": "ok"
+},
+"instructor==1.4.0@2024-09-21": {
+"python": "3.11.18",
+"requires": [
+"instructor==1.4.0"
+],
+"result": "ok"
+},
+"instructor==1.7.8@2025-04-28": {
+"python": "3.11.18",
+"requires": [
+"instructor==1.7.8"
+],
+"result": "ok"
+},
+"langchain-community==0.0.3@2024-01-12": {
+"python": "3.11.18",
+"requires": [
+"langchain-community==0.0.3"
+],
+"result": "ok"
+},
+"langchain-community==0.3.3@2024-11-17": {
+"python": "3.11.18",
+"requires": [
+"langchain-community==0.3.3"
+],
+"result": "ok"
+},
+"langchain-community==0.4.1@2025-11-26": {
+"python": "3.11.18",
+"requires": [
+"langchain-community==0.4.1"
+],
+"result": "ok"
+},
+"langchain-community==0.4.2@2026-06-21": {
+"python": "3.11.18",
+"requires": [
+"langchain-community==0.4.2"
+],
+"result": "ok"
+},
+"langchain-core==0.1.24@2024-03-20": {
+"python": "3.11.18",
+"requires": [
+"langchain-core==0.1.24"
+],
+"result": "ok"
+},
+"langchain-core==0.1.38@2024-05-02": {
+"python": "3.11.18",
+"requires": [
+"langchain-core==0.1.38"
+],
+"result": "ok"
+},
+"langchain-core==0.2.10@2024-07-25": {
+"python": "3.11.18",
+"requires": [
+"langchain-core==0.2.10"
+],
+"result": "ok"
+},
+"langchain-core==0.2.9@2024-07-18": {
+"python": "3.11.18",
+"requires": [
+"langchain-core==0.2.9"
+],
+"result": "ok"
+},
+"langchain-core==0.3.29@2025-02-02": {
+"python": "3.11.18",
+"requires": [
+"langchain-core==0.3.29"
+],
+"result": "ok"
+},
+"langchain-core==0.3.83@2026-02-12": {
+"python": "3.11.18",
+"requires": [
+"langchain-core==0.3.83"
+],
+"result": "ok"
+},
+"langchain-core==0.3.86@2026-06-06": {
+"python": "3.11.18",
+"requires": [
+"langchain-core==0.3.86"
+],
+"result": "ok"
+},
+"langchain-core==1.0.0@2025-11-16": {
+"python": "3.11.18",
+"requires": [
+"langchain-core==1.0.0"
+],
+"result": "ok"
+},
+"langchain-core==1.7.6@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"langchain-core==1.7.6"
+],
+"result": "ok"
+},
+"langchain-openai==0.1.22@2024-09-15": {
+"python": "3.11.18",
+"requires": [
+"langchain-openai==0.1.22"
+],
+"result": "ok"
+},
+"langchain-openai==0.2.5@2024-11-30": {
+"python": "3.11.18",
+"requires": [
+"langchain-openai==0.2.5"
+],
+"result": "ok"
+},
+"langchain-openai==0.3.32@2025-09-25": {
+"python": "3.11.18",
+"requires": [
+"langchain-openai==0.3.32"
+],
+"result": "ok"
+},
+"langchain-openai==1.7.4@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"langchain-openai==1.7.4"
+],
+"result": "ok"
+},
+"langchain==0.0.265@2023-09-14": {
+"python": "3.11.18",
+"requires": [
+"langchain==0.0.265"
+],
+"result": "ok"
+},
+"langchain==0.0.309@2023-11-04": {
+"python": "3.11.18",
+"requires": [
+"langchain==0.0.309"
+],
+"result": "ok"
+},
+"langchain==0.2.14@2024-09-14": {
+"python": "3.11.18",
+"requires": [
+"langchain==0.2.14"
+],
+"result": "ok"
+},
+"langchain==0.3.30@2026-06-06": {
+"python": "3.11.18",
+"requires": [
+"langchain==0.3.30"
+],
+"result": "ok"
+},
+"langchain==1.0.0@2025-11-16": {
+"python": "3.11.18",
+"requires": [
+"langchain==1.0.0"
+],
+"result": "ok"
+},
+"langchain==1.0.1@2025-11-19": {
+"python": "3.11.18",
+"requires": [
+"langchain==1.0.1"
+],
+"result": "ok"
+},
+"langchain==1.0.2@2025-11-20": {
+"python": "3.11.18",
+"requires": [
+"langchain==1.0.2"
+],
+"result": "ok"
+},
+"langchain==1.3.8@2026-07-12": {
+"python": "3.11.18",
+"requires": [
+"langchain==1.3.8"
+],
+"result": "ok"
+},
+"langchain==1.4.9@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"langchain==1.4.9"
+],
+"result": "ok"
+},
+"langgraph==0.0.21@2024-03-01": {
+"python": "3.11.18",
+"requires": [
+"langgraph==0.0.21"
+],
+"result": "ok"
+},
+"langgraph==0.0.23@2024-03-05": {
+"python": "3.11.18",
+"requires": [
+"langgraph==0.0.23"
+],
+"result": "ok"
+},
+"langgraph==0.0.24@2024-03-09": {
+"python": "3.11.18",
+"requires": [
+"langgraph==0.0.24"
+],
+"result": "ok"
+},
+"langgraph==0.2.52@2024-12-19": {
+"python": "3.11.18",
+"requires": [
+"langgraph==0.2.52"
+],
+"result": "ok"
+},
+"langgraph==0.2.54@2025-01-02": {
+"python": "3.11.18",
+"requires": [
+"langgraph==0.2.54"
+],
+"result": "ok"
+},
+"langgraph==0.2.55@2025-01-04": {
+"python": "3.11.18",
+"requires": [
+"langgraph==0.2.55"
+],
+"result": "ok"
+},
+"langgraph==0.5.2@2025-08-08": {
+"python": "3.11.18",
+"requires": [
+"langgraph==0.5.2"
+],
+"result": "ok"
+},
+"langgraph==0.5.4@2025-08-20": {
+"python": "3.11.18",
+"requires": [
+"langgraph==0.5.4"
+],
+"result": "ok"
+},
+"langgraph==0.6.0@2025-08-27": {
+"python": "3.11.18",
+"requires": [
+"langgraph==0.6.0"
+],
+"result": "ok"
+},
+"langgraph==0.6.3@2025-09-02": {
+"python": "3.11.18",
+"requires": [
+"langgraph==0.6.3"
+],
+"result": "ok"
+},
+"langgraph==1.2.20@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"langgraph==1.2.20"
+],
+"result": "ok"
+},
+"langgraph==1.2.9@2026-08-09": {
+"python": "3.11.18",
+"requires": [
+"langgraph==1.2.9"
+],
+"result": "ok"
+},
+"litellm==0.1.365@2023-09-08": {
+"python": "3.11.18",
+"requires": [
+"litellm==0.1.365"
+],
+"result": "ok"
+},
+"litellm==1.108.3@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"litellm==1.108.3"
+],
+"result": "ok"
+},
+"litellm==1.63.14@2025-04-21": {
+"python": "3.11.18",
+"requires": [
+"litellm==1.63.14"
+],
+"result": "ok"
+},
+"litellm==1.82.6@2026-04-21": {
+"python": "3.11.18",
+"requires": [
+"litellm==1.82.6"
+],
+"result": "ok"
+},
+"llama-index-core==0.10.44@2024-07-10": {
+"python": "3.11.18",
+"requires": [
+"llama-index-core==0.10.44"
+],
+"result": "ok"
+},
+"llama-index-core==0.10.58@2024-08-23": {
+"python": "3.11.18",
+"requires": [
+"llama-index-core==0.10.58"
+],
+"result": "ok"
+},
+"llama-index-core==0.14.25@2026-10-21": {
+"python": "3.11.18",
+"requires": [
+"llama-index-core==0.14.25"
+],
+"result": "ok"
+},
+"marshmallow==3.20.1@2023-08-19": {
+"python": "3.11.18",
+"requires": [
+"marshmallow==3.20.1"
+],
+"result": "ok"
+},
+"marshmallow==3.23.0@2024-11-16": {
+"python": "3.11.18",
+"requires": [
+"marshmallow==3.23.0"
+],
+"result": "ok"
+},
+"marshmallow==3.23.1@2024-12-01": {
+"python": "3.11.18",
+"requires": [
+"marshmallow==3.23.1"
+],
+"result": "ok"
+},
+"marshmallow==4.1.0@2025-12-01": {
+"python": "3.11.18",
+"requires": [
+"marshmallow==4.1.0"
+],
+"result": "ok"
+},
+"marshmallow==4.4.0@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"marshmallow==4.4.0"
+],
+"result": "ok"
+},
+"matplotlib==3.10.9@2026-05-24": {
+"python": "3.11.18",
+"requires": [
+"matplotlib==3.10.9"
+],
+"result": "ok"
+},
+"matplotlib==3.11.0@2026-07-12": {
+"python": "3.11.18",
+"requires": [
+"matplotlib==3.11.0"
+],
+"result": "ok"
+},
+"matplotlib==3.11.2@2026-10-11": {
+"python": "3.11.18",
+"requires": [
+"matplotlib==3.11.2"
+],
+"result": "ok"
+},
+"matplotlib==3.7.1@2023-04-03": {
+"python": "3.11.18",
+"requires": [
+"matplotlib==3.7.1"
+],
+"result": "ok"
+},
+"matplotlib==3.9.1@2024-08-03": {
+"python": "3.11.18",
+"requires": [
+"matplotlib==3.9.1"
+],
+"result": "ok"
+},
+"mcp==1.10.1@2025-07-27": {
+"python": "3.11.18",
+"requires": [
+"mcp==1.10.1"
+],
+"result": "ok"
+},
+"mcp==1.30.0@2026-10-07": {
+"python": "3.11.18",
+"requires": [
+"mcp==1.30.0"
+],
+"result": "ok"
+},
+"mcp==2.0.0@2026-08-27": {
+"python": "3.11.18",
+"requires": [
+"mcp==2.0.0"
+],
+"result": "ok"
+},
+"mcp==2.3.0@2026-11-01": {
+"python": "3.11.18",
+"requires": [
+"mcp==2.3.0"
+],
+"result": "ok"
+},
+"mistralai==0.0.12@2024-02-28": {
+"python": "3.11.18",
+"requires": [
+"mistralai==0.0.12"
+],
+"result": "ok"
+},
+"mistralai==0.1.2@2024-03-27": {
+"python": "3.11.18",
+"requires": [
+"mistralai==0.1.2"
+],
+"result": "ok"
+},
+"mistralai==0.1.3@2024-03-27": {
+"python": "3.11.18",
+"requires": [
+"mistralai==0.1.3"
+],
+"result": "ok"
+},
+"mistralai==0.1.8@2024-04-25": {
+"python": "3.11.18",
+"requires": [
+"mistralai==0.1.8"
+],
+"result": "ok"
+},
+"mistralai==3.7.0@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"mistralai==3.7.0"
+],
+"result": "ok"
+},
+"numpy==1.25.2@2023-08-30": {
+"python": "3.11.18",
+"requires": [
+"numpy==1.25.2"
+],
+"result": "ok"
+},
+"numpy==1.26.0@2023-10-16": {
+"python": "3.11.18",
+"requires": [
+"numpy==1.26.0"
+],
+"result": "ok"
+},
+"numpy==2.0.2@2024-09-25": {
+"python": "3.11.18",
+"requires": [
+"numpy==2.0.2"
+],
+"result": "ok"
+},
+"numpy==2.1.2@2024-11-04": {
+"python": "3.11.18",
+"requires": [
+"numpy==2.1.2"
+],
+"result": "ok"
+},
+"numpy==2.2.6@2025-06-16": {
+"python": "3.11.18",
+"requires": [
+"numpy==2.2.6"
+],
+"result": "ok"
+},
+"numpy==2.3.0@2025-07-07": {
+"python": "3.11.18",
+"requires": [
+"numpy==2.3.0"
+],
+"result": "ok"
+},
+"numpy==2.4.6@2026-06-17": {
+"python": "3.11.18",
+"requires": [
+"numpy==2.4.6"
+],
+"result": "ok"
+},
+"numpy==2.5.0@2026-07-21": {
+"python": "3.12.16",
+"requires": [
+"numpy==2.5.0"
+],
+"result": "ok"
+},
+"numpy==2.5.4@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"numpy==2.5.4"
+],
+"result": "ok"
+},
+"ollama==0.3.3@2024-10-09": {
+"python": "3.11.18",
+"requires": [
+"ollama==0.3.3"
+],
+"result": "ok"
+},
+"ollama==0.4.0@2024-12-21": {
+"python": "3.11.18",
+"requires": [
+"ollama==0.4.0"
+],
+"result": "ok"
+},
+"ollama==0.6.1@2025-12-13": {
+"python": "3.11.18",
+"requires": [
+"ollama==0.6.1"
+],
+"result": "ok"
+},
+"ollama==0.6.3@2026-10-29": {
+"python": "3.11.18",
+"requires": [
+"ollama==0.6.3"
+],
+"result": "ok"
+},
+"openai-agents==0.0.19@2025-07-18": {
+"python": "3.11.18",
+"requires": [
+"openai-agents==0.0.19"
+],
+"result": "ok"
+},
+"openai-agents==0.0.2@2025-04-10": {
+"python": "3.11.18",
+"requires": [
+"openai-agents==0.0.2"
+],
+"result": "ok"
+},
+"openai-agents==0.1.0@2025-07-27": {
+"python": "3.11.18",
+"requires": [
+"openai-agents==0.1.0"
+],
+"result": "ok"
+},
+"openai-agents==0.2.4@2025-08-28": {
+"python": "3.11.18",
+"requires": [
+"openai-agents==0.2.4"
+],
+"result": "ok"
+},
+"openai-agents==0.24.0@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"openai-agents==0.24.0"
+],
+"result": "ok"
+},
+"openai-agents==0.7.0@2026-02-22": {
+"python": "3.11.18",
+"requires": [
+"openai-agents==0.7.0"
+],
+"result": "ok"
+},
+"openai-agents==0.8.0@2026-03-07": {
+"python": "3.11.18",
+"requires": [
+"openai-agents==0.8.0"
+],
+"result": "ok"
+},
+"openai-agents==0.9.2@2026-03-21": {
+"python": "3.11.18",
+"requires": [
+"openai-agents==0.9.2"
+],
+"result": "ok"
+},
+"openai==0.26.5@2023-03-09": {
+"requires": [
+"openai==0.26.5"
+],
+"result": "install_failed"
+},
+"openai==1.13.3@2024-03-29": {
+"python": "3.11.18",
+"requires": [
+"openai==1.13.3"
+],
+"result": "ok"
+},
+"openai==1.65.5@2025-04-08": {
+"python": "3.11.18",
+"requires": [
+"openai==1.65.5"
+],
+"result": "ok"
+},
+"openai==1.66.0@2025-04-10": {
+"python": "3.11.18",
+"requires": [
+"openai==1.66.0"
+],
+"result": "ok"
+},
+"openai==1.93.2@2025-08-07": {
+"python": "3.11.18",
+"requires": [
+"openai==1.93.2"
+],
+"result": "ok"
+},
+"openai==1.99.1@2025-09-04": {
+"python": "3.11.18",
+"requires": [
+"openai==1.99.1"
+],
+"result": "ok"
+},
+"openai==1.99.2@2025-09-06": {
+"python": "3.11.18",
+"requires": [
+"openai==1.99.2"
+],
+"result": "ok"
+},
+"openai==3.46.0@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"openai==3.46.0"
+],
+"result": "ok"
+},
+"pandas==1.5.0@2022-10-19": {
+"python": "3.11.18",
+"requires": [
+"pandas==1.5.0"
+],
+"result": "ok"
+},
+"pandas==1.5.3@2023-02-18": {
+"python": "3.11.18",
+"requires": [
+"pandas==1.5.3"
+],
+"result": "ok"
+},
+"pandas==2.3.3@2025-10-29": {
+"python": "3.11.18",
+"requires": [
+"pandas==2.3.3"
+],
+"result": "ok"
+},
+"pandas==3.0.0@2026-02-20": {
+"python": "3.11.18",
+"requires": [
+"pandas==3.0.0"
+],
+"result": "ok"
+},
+"pandas==3.0.3@2026-06-10": {
+"python": "3.11.18",
+"requires": [
+"pandas==3.0.3"
+],
+"result": "ok"
+},
+"pandas==3.1.1@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"pandas==3.1.1"
+],
+"result": "ok"
+},
+"pinecone==10.3.0@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"pinecone==10.3.0"
+],
+"result": "ok"
+},
+"pinecone==4.0.0@2024-06-02": {
+"python": "3.11.18",
+"requires": [
+"pinecone==4.0.0"
+],
+"result": "ok"
+},
+"pinecone==6.0.2@2025-04-12": {
+"python": "3.11.18",
+"requires": [
+"pinecone==6.0.2"
+],
+"result": "ok"
+},
+"polars==0.19.6@2023-10-29": {
+"python": "3.11.18",
+"requires": [
+"polars==0.19.6"
+],
+"result": "ok"
+},
+"polars==0.20.26@2024-06-13": {
+"python": "3.11.18",
+"requires": [
+"polars==0.20.26"
+],
+"result": "ok"
+},
+"polars==1.30.0@2025-06-20": {
+"python": "3.11.18",
+"requires": [
+"polars==1.30.0"
+],
+"result": "ok"
+},
+"polars==1.44.2@2026-10-09": {
+"python": "3.11.18",
+"requires": [
+"polars==1.44.2"
+],
+"result": "ok"
+},
+"polars==1.9.0@2024-10-31": {
+"python": "3.11.18",
+"requires": [
+"polars==1.9.0"
+],
+"result": "ok"
+},
+"polars==2.0.0@2026-11-05": {
+"python": "3.11.18",
+"requires": [
+"polars==2.0.0"
+],
+"result": "ok"
+},
+"polars==2.1.0@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"polars==2.1.0"
+],
+"result": "ok"
+},
+"pydantic-ai-slim==0.0.17@2025-02-02": {
+"python": "3.11.18",
+"requires": [
+"pydantic-ai-slim==0.0.17"
+],
+"result": "ok"
+},
+"pydantic-ai-slim==1.18.0@2025-12-15": {
+"python": "3.11.18",
+"requires": [
+"pydantic-ai-slim==1.18.0"
+],
+"result": "ok"
+},
+"pydantic-ai-slim==2.66.0@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"pydantic-ai-slim==2.66.0"
+],
+"result": "ok"
+},
+"pydantic-settings==2.0.3@2023-09-13": {
+"python": "3.11.18",
+"requires": [
+"pydantic-settings==2.0.3"
+],
+"result": "ok"
+},
+"pydantic-settings==2.12.0@2025-12-10": {
+"python": "3.11.18",
+"requires": [
+"pydantic-settings==2.12.0"
+],
+"result": "ok"
+},
+"pydantic-settings==2.16.2@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"pydantic-settings==2.16.2"
+],
+"result": "ok"
+},
+"pydantic-settings==2.2.1@2024-03-20": {
+"python": "3.11.18",
+"requires": [
+"pydantic-settings==2.2.1"
+],
+"result": "ok"
+},
+"pydantic-settings==2.3.0@2024-07-03": {
+"python": "3.11.18",
+"requires": [
+"pydantic-settings==2.3.0"
+],
+"result": "ok"
+},
+"pydantic-settings==2.6.1@2024-12-01": {
+"python": "3.11.18",
+"requires": [
+"pydantic-settings==2.6.1"
+],
+"result": "ok"
+},
+"pydantic==1.10.26@2026-01-17": {
+"python": "3.11.18",
+"requires": [
+"pydantic==1.10.26"
+],
+"result": "ok"
+},
+"pydantic==2.10.3@2025-01-02": {
+"python": "3.11.18",
+"requires": [
+"pydantic==2.10.3"
+],
+"result": "ok"
+},
+"pydantic==2.11.7@2025-07-14": {
+"python": "3.11.18",
+"requires": [
+"pydantic==2.11.7"
+],
+"result": "ok"
+},
+"pydantic==2.14.3@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"pydantic==2.14.3"
+],
+"result": "ok"
+},
+"pydantic==2.7.4@2024-07-12": {
+"python": "3.11.18",
+"requires": [
+"pydantic==2.7.4"
+],
+"result": "ok"
+},
+"pymongo==4.11.3@2025-04-17": {
+"python": "3.11.18",
+"requires": [
+"pymongo==4.11.3"
+],
+"result": "ok"
+},
+"pymongo==4.19.0@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"pymongo==4.19.0"
+],
+"result": "ok"
+},
+"pymongo==4.5.0@2023-09-21": {
+"python": "3.11.18",
+"requires": [
+"pymongo==4.5.0"
+],
+"result": "ok"
+},
+"pymongo==4.6.2@2024-03-22": {
+"python": "3.11.18",
+"requires": [
+"pymongo==4.6.2"
+],
+"result": "ok"
+},
+"pymongo==4.9.2@2024-11-01": {
+"python": "3.11.18",
+"requires": [
+"pymongo==4.9.2"
+],
+"result": "ok"
+},
+"pytest==8.2.1@2024-06-18": {
+"python": "3.11.18",
+"requires": [
+"pytest==8.2.1"
+],
+"result": "ok"
+},
+"pytest==8.4.0@2025-07-02": {
+"python": "3.11.18",
+"requires": [
+"pytest==8.4.0"
+],
+"result": "ok"
+},
+"pytest==8.4.1@2025-07-18": {
+"python": "3.11.18",
+"requires": [
+"pytest==8.4.1"
+],
+"result": "ok"
+},
+"pytest==9.0.3@2026-05-07": {
+"python": "3.11.18",
+"requires": [
+"pytest==9.0.3"
+],
+"result": "ok"
+},
+"pytest==9.1.0@2026-07-13": {
+"python": "3.11.18",
+"requires": [
+"pytest==9.1.0"
+],
+"result": "ok"
+},
+"pytest==9.1.1@2026-07-19": {
+"python": "3.11.18",
+"requires": [
+"pytest==9.1.1"
+],
+"result": "ok"
+},
+"pytest==9.2.0@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"pytest==9.2.0"
+],
+"result": "ok"
+},
+"qdrant-client==1.10.1@2024-08-07": {
+"python": "3.11.18",
+"requires": [
+"qdrant-client==1.10.1"
+],
+"result": "ok"
+},
+"qdrant-client==1.13.3@2025-04-04": {
+"python": "3.11.18",
+"requires": [
+"qdrant-client==1.13.3"
+],
+"result": "ok"
+},
+"qdrant-client==1.15.1@2025-08-30": {
+"python": "3.11.18",
+"requires": [
+"qdrant-client==1.15.1"
+],
+"result": "ok"
+},
+"qdrant-client==1.16.0@2025-12-17": {
+"python": "3.11.18",
+"requires": [
+"qdrant-client==1.16.0"
+],
+"result": "ok"
+},
+"qdrant-client==1.16.2@2026-01-11": {
+"python": "3.11.18",
+"requires": [
+"qdrant-client==1.16.2"
+],
+"result": "ok"
+},
+"qdrant-client==1.17.1@2026-04-12": {
+"python": "3.11.18",
+"requires": [
+"qdrant-client==1.17.1"
+],
+"result": "ok"
+},
+"qdrant-client==1.20.0@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"qdrant-client==1.20.0"
+],
+"result": "ok"
+},
+"redis==5.0.1@2023-10-26": {
+"python": "3.11.18",
+"requires": [
+"redis==5.0.1"
+],
+"result": "ok"
+},
+"redis==5.2.1@2025-01-05": {
+"python": "3.11.18",
+"requires": [
+"redis==5.2.1"
+],
+"result": "ok"
+},
+"redis==6.2.0@2025-06-27": {
+"python": "3.11.18",
+"requires": [
+"redis==6.2.0"
+],
+"result": "ok"
+},
+"redis==7.4.1@2026-07-05": {
+"python": "3.11.18",
+"requires": [
+"redis==7.4.1"
+],
+"result": "ok"
+},
+"redis==8.1.0@2026-08-29": {
+"python": "3.11.18",
+"requires": [
+"redis==8.1.0"
+],
+"result": "ok"
+},
+"scikit-learn==1.2.1@2023-02-23": {
+"python": "3.11.18",
+"requires": [
+"scikit-learn==1.2.1"
+],
+"result": "ok"
+},
+"scikit-learn==1.3.0@2023-07-30": {
+"python": "3.11.18",
+"requires": [
+"scikit-learn==1.3.0"
+],
+"result": "ok"
+},
+"scikit-learn==1.4.1.post1@2024-03-17": {
+"python": "3.11.18",
+"requires": [
+"scikit-learn==1.4.1.post1"
+],
+"result": "ok"
+},
+"scikit-learn==1.5.1@2024-08-02": {
+"python": "3.11.18",
+"requires": [
+"scikit-learn==1.5.1"
+],
+"result": "ok"
+},
+"scikit-learn==1.6.1@2025-02-09": {
+"python": "3.11.18",
+"requires": [
+"scikit-learn==1.6.1"
+],
+"result": "ok"
+},
+"scikit-learn==1.7.0@2025-07-05": {
+"python": "3.11.18",
+"requires": [
+"scikit-learn==1.7.0"
+],
+"result": "ok"
+},
+"scikit-learn==1.7.2@2025-10-09": {
+"python": "3.11.18",
+"requires": [
+"scikit-learn==1.7.2"
+],
+"result": "ok"
+},
+"scikit-learn==1.8.0@2026-01-09": {
+"python": "3.11.18",
+"requires": [
+"scikit-learn==1.8.0"
+],
+"result": "ok"
+},
+"scikit-learn==1.9.0@2026-07-02": {
+"python": "3.11.18",
+"requires": [
+"scikit-learn==1.9.0"
+],
+"result": "ok"
+},
+"scikit-learn==1.9.1@2026-10-10": {
+"python": "3.11.18",
+"requires": [
+"scikit-learn==1.9.1"
+],
+"result": "ok"
+},
+"selenium==4.15.2@2023-12-03": {
+"python": "3.11.18",
+"requires": [
+"selenium==4.15.2"
+],
+"result": "ok"
+},
+"selenium==4.16.0@2024-01-05": {
+"python": "3.11.18",
+"requires": [
+"selenium==4.16.0"
+],
+"result": "ok"
+},
+"selenium==4.52.0@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"selenium==4.52.0"
+],
+"result": "ok"
+},
+"sqlalchemy==1.4.0@2021-04-14": {
+"python": "3.9.25",
+"requires": [
+"sqlalchemy==1.4.0"
+],
+"result": "ok"
+},
+"sqlalchemy==2.0.57@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"sqlalchemy==2.0.57"
+],
+"result": "ok"
+},
+"sqlalchemy==2.1.0@2026-10-24": {
+"python": "3.11.18",
+"requires": [
+"sqlalchemy==2.1.0"
+],
+"result": "ok"
+},
+"sqlalchemy==2.1.8@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"sqlalchemy==2.1.8"
+],
+"result": "ok"
+},
+"sqlmodel==0.0.22@2024-09-30": {
+"python": "3.11.18",
+"requires": [
+"sqlmodel==0.0.22"
+],
+"result": "ok"
+},
+"sqlmodel==0.0.25@2025-10-17": {
+"python": "3.11.18",
+"requires": [
+"sqlmodel==0.0.25"
+],
+"result": "ok"
+},
+"sqlmodel==0.0.27@2025-11-07": {
+"python": "3.11.18",
+"requires": [
+"sqlmodel==0.0.27"
+],
+"result": "ok"
+},
+"sqlmodel==0.0.48@2026-11-05": {
+"python": "3.11.18",
+"requires": [
+"sqlmodel==0.0.48"
+],
+"result": "ok"
+},
+"starlette==0.27.0@2023-06-15": {
+"python": "3.11.18",
+"requires": [
+"starlette==0.27.0"
+],
+"result": "ok"
+},
+"starlette==0.45.2@2025-02-03": {
+"python": "3.11.18",
+"requires": [
+"starlette==0.45.2"
+],
+"result": "ok"
+},
+"starlette==0.52.1@2026-02-17": {
+"python": "3.11.18",
+"requires": [
+"starlette==0.52.1"
+],
+"result": "ok"
+},
+"starlette==1.10.0@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"starlette==1.10.0"
+],
+"result": "ok"
+},
+"streamlit==1.22.0@2023-05-27": {
+"python": "3.11.18",
+"requires": [
+"streamlit==1.22.0"
+],
+"result": "ok"
+},
+"streamlit==1.28.0@2023-11-25": {
+"python": "3.11.18",
+"requires": [
+"streamlit==1.28.0"
+],
+"result": "ok"
+},
+"streamlit==1.35.0@2024-06-22": {
+"python": "3.11.18",
+"requires": [
+"streamlit==1.35.0"
+],
+"result": "ok"
+},
+"streamlit==1.67.0@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"streamlit==1.67.0"
+],
+"result": "ok"
+},
+"transformers==4.31.0@2023-08-17": {
+"python": "3.11.18",
+"requires": [
+"transformers==4.31.0"
+],
+"result": "ok"
+},
+"transformers==4.34.0@2023-11-02": {
+"python": "3.11.18",
+"requires": [
+"transformers==4.34.0"
+],
+"result": "ok"
+},
+"transformers==4.45.2@2024-11-06": {
+"python": "3.11.18",
+"requires": [
+"transformers==4.45.2"
+],
+"result": "ok"
+},
+"transformers==5.22.2@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"transformers==5.22.2"
+],
+"result": "ok"
+},
+"typer==0.15.1@2025-01-03": {
+"python": "3.11.18",
+"requires": [
+"typer==0.15.1"
+],
+"result": "ok"
+},
+"typer==0.16.0@2025-06-25": {
+"python": "3.11.18",
+"requires": [
+"typer==0.16.0"
+],
+"result": "ok"
+},
+"typer==0.24.1@2026-03-23": {
+"python": "3.11.18",
+"requires": [
+"typer==0.24.1"
+],
+"result": "ok"
+},
+"typer==0.27.1@2026-09-02": {
+"python": "3.11.18",
+"requires": [
+"typer==0.27.1"
+],
+"result": "ok"
+},
+"typer==0.28.0@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"typer==0.28.0"
+],
+"result": "ok"
+},
+"urllib3==1.26.12@2022-09-21": {
+"python": "3.11.18",
+"requires": [
+"urllib3==1.26.12"
+],
+"result": "ok"
+},
+"urllib3==1.26.6@2021-07-25": {
+"python": "3.11.18",
+"requires": [
+"urllib3==1.26.6"
+],
+"result": "ok"
+},
+"urllib3==2.2.3@2024-10-12": {
+"python": "3.11.18",
+"requires": [
+"urllib3==2.2.3"
+],
+"result": "ok"
+},
+"urllib3==2.6.1@2026-01-07": {
+"python": "3.11.18",
+"requires": [
+"urllib3==2.6.1"
+],
+"result": "ok"
+},
+"urllib3==2.8.0@2026-10-15": {
+"python": "3.11.18",
+"requires": [
+"urllib3==2.8.0"
+],
+"result": "ok"
+},
+"weaviate-client==3.24.1@2023-10-11": {
+"python": "3.11.18",
+"requires": [
+"weaviate-client==3.24.1"
+],
+"result": "ok"
+},
+"weaviate-client==3.26.1@2024-02-15": {
+"python": "3.11.18",
+"requires": [
+"weaviate-client==3.26.1"
+],
+"result": "ok"
+},
+"weaviate-client==4.24.1@2026-11-09": {
+"python": "3.12.16",
+"requires": [
+"weaviate-client==4.24.1"
+],
+"result": "ok"
+},
+"werkzeug==2.2.2@2022-09-07": {
+"python": "3.10.22",
+"requires": [
+"werkzeug==2.2.2"
+],
+"result": "ok"
+},
+"werkzeug==2.3.3@2023-05-31": {
+"python": "3.11.18",
+"requires": [
+"werkzeug==2.3.3"
+],
+"result": "ok"
+},
+"werkzeug==3.0.3@2024-06-04": {
+"python": "3.11.18",
+"requires": [
+"werkzeug==3.0.3"
+],
+"result": "ok"
+},
+"werkzeug==3.1.9@2026-10-27": {
+"python": "3.11.18",
+"requires": [
+"werkzeug==3.1.9"
+],
+"result": "ok"
+}
+}

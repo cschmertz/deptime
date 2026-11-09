@@ -1,0 +1,46 @@
+{
+ "about": "Labels changed by hand, each with the library source that shows it (bench/holdout/README.md: call breaks found by binding are checked against the source at `to`). A use overridden here is excluded.",
+ "overrides": [
+  {
+   "upgrade": "pin-tuxiangxianzhe__novelwriter_public-langchain-openai-up",
+   "key": "49e1a7caba340f82",
+   "use": "langchain_openai.AzureChatOpenAI(max_tokens=)",
+   "probe": "breaks (param_removed): the model's generated signature names the field by its alias, `max_completion_tokens`",
+   "why": "at 1.7.4 AzureChatOpenAI declares `max_tokens: int | None = Field(default=None, alias=\"max_completion_tokens\")` and BaseChatOpenAI sets `populate_by_name=True`, so `max_tokens=` still sets the field",
+   "evidence": "https://github.com/langchain-ai/langchain/blob/langchain-openai%3D%3D1.7.4/libs/partners/openai/langchain_openai/chat_models/azure.py (max_tokens field, alias max_completion_tokens) and chat_models/base.py (model_config = ConfigDict(populate_by_name=True))"
+  },
+  {
+   "upgrade": "pin-sambanova__integrations-crewai-down",
+   "key": "91bf366c75fe7353",
+   "use": "crewai.Agent(cache=)",
+   "probe": "breaks (param_not_yet_added): the model's generated signature has no `cache`",
+   "why": "at 0.1.32 Agent is a pydantic model whose model_config sets only arbitrary_types_allowed (pydantic's default extra=\"ignore\"), and its validators run after construction, so an unknown keyword is accepted and dropped, not an error",
+   "evidence": "https://github.com/crewAIInc/crewAI/blob/v0.1.32/crewai/agent.py#L30-L54"
+  },
+  {
+   "upgrade": "pin-sambanova__integrations-crewai-down",
+   "key": "dc037afc0818f99e",
+   "use": "crewai.Task(expected_output=)",
+   "probe": "breaks (param_not_yet_added): the model's generated signature has no `expected_output`",
+   "why": "at 0.1.32 Task is a pydantic model with no model_config (default extra=\"ignore\") and only an after-validator, so an unknown keyword is accepted and dropped",
+   "evidence": "https://github.com/crewAIInc/crewAI/blob/v0.1.32/crewai/task.py#L11-L40"
+  },
+  {
+   "upgrade": "pin-k-hoshihara__genai-chat-app-streamlit-up",
+   "key": "04c2a5ae8d615366",
+   "use": "streamlit.components.v1.html(_, height=)",
+   "probe": "breaks (param_now_required): missing a required argument: 'html'",
+   "why": "at 1.67.0 `html` is deprecate_func_name(streamlit._main._html, ...), a functools.wraps wrapper that calls the bound method `_main._html(html, width, height, ...)` with the caller's arguments, so one positional argument is the HTML; inspect.signature follows __wrapped__ through the bound method to the plain function and counts `self`",
+   "evidence": "https://github.com/streamlit/streamlit/blob/1.67.0/lib/streamlit/components/v1/__init__.py#L23-L31, lib/streamlit/deprecation_util.py (deprecate_func_name) and lib/streamlit/elements/iframe.py (_html)"
+  }
+ ],
+ "checked_and_kept": [
+  "pydantic_ai.Agent(result_type=) and (result_tool_description=) at 2.66.0 (four uses): a dataclass(init=False) whose own __init__ (pydantic_ai/agent/__init__.py#L672) takes output_type and has no **kwargs",
+  "polars.int_range(n) at 0.19.6: a plain function whose `end` has no default (polars/functions/range/int_range.py#L144)",
+  "gradio.Chatbot(type=) at 6.31.0: a plain class whose __init__ has no `type` and no **kwargs (gradio/components/chatbot.py)",
+  "gradio.Chatbot.like(_, _, _, like_user_message=) at 6.31.0: the event trigger takes no `like_user_message` (now a Chatbot argument) and no **kwargs (gradio/events.py#L615)",
+  "gradio.Image(show_download_button=) at 6.31.0: a plain class whose __init__ takes `buttons` instead, no **kwargs (gradio/components/image.py)",
+  "gradio.MultimodalTextbox(sources=) at 4.44.0: a plain class whose __init__ has no `sources` and no **kwargs (gradio/components/multimodal_textbox.py)",
+  "gradio.Row(scale=) at 4.44.0: a plain class whose __init__ has no `scale` and no **kwargs (gradio/layouts/row.py)"
+ ]
+}

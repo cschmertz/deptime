@@ -1,0 +1,557 @@
+{
+ "hold-openai-agents-mcputil-get-all-function-tools-agentd": {
+  "ok": true,
+  "versions": {
+   "0.0.19": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "0.1.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_now_required"
+   },
+   "0.2.4": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_now_required"
+   }
+  }
+ },
+ "hold-openai-agents-run-get-model-tracing-impl-lexsi-sdk": {
+  "ok": true,
+  "versions": {
+   "0.7.0": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "0.8.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-mcp-types-cacheableresult-openhands-automation": {
+  "ok": true,
+  "versions": {
+   "2.0.0": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.30.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-mcp-types-cacheableresult-agent-canvas": {
+  "ok": true,
+  "versions": {
+   "2.0.0": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.30.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-fastmcp-init-dependencies-core-mcp-server": {
+  "ok": true,
+  "versions": {
+   "2.13.3": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.14.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   },
+   "2.14.1": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   }
+  }
+ },
+ "hold-fastmcp-server-apps-sk-wwise-mcp": {
+  "ok": true,
+  "versions": {
+   "3.4.11": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "4.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "4.0.11": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-qdrant-client-initfrom-crewai": {
+  "ok": true,
+  "versions": {
+   "1.15.1": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.16.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "1.16.2": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-dspy-predict-langchain-langchain-community": {
+  "ok": true,
+  "versions": {
+   "2.6.5": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.6.6": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "2.6.10": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-ollama-types-parameters-oterm": {
+  "ok": true,
+  "versions": {
+   "0.3.3": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "0.4.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-pydantic-settings-clisettingssource-paperqa": {
+  "ok": true,
+  "versions": {
+   "2.3.0": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.2.1": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-mistralai-chat-response-format-json-mode": {
+  "ok": true,
+  "versions": {
+   "0.1.2": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "0.0.12": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   }
+  }
+ },
+ "hold-openai-chatcompletionmessagefunctiontoolcall-camel": {
+  "ok": true,
+  "versions": {
+   "1.99.2": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.99.1": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-openai-beta-vector-stores-file-search": {
+  "ok": true,
+  "versions": {
+   "1.65.5": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.66.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "1.93.2": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-langgraph-interrupt-resumable-langgraph-api": {
+  "ok": true,
+  "versions": {
+   "0.5.4": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "0.6.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "0.6.3": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-langgraph-command-goto-not-yet-added": {
+  "ok": true,
+  "versions": {
+   "0.2.55": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "0.2.52": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   },
+   "0.2.54": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   }
+  }
+ },
+ "hold-langgraph-compile-interrupt-before-not-yet-added": {
+  "ok": true,
+  "versions": {
+   "0.0.24": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "0.0.21": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   },
+   "0.0.23": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   }
+  }
+ },
+ "hold-langchain-core-get-relevant-documents-multiquery": {
+  "ok": true,
+  "versions": {
+   "0.3.86": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-langchain-core-runnablewithmessagehistory-jupyter-ai": {
+  "ok": true,
+  "versions": {
+   "0.2.10": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "0.1.38": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "0.2.9": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-langchain-prompts-module-removed-scrapegraphai": {
+  "ok": true,
+  "versions": {
+   "0.3.30": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "1.0.2": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-langchain-callbacks-module-removed-chainlit": {
+  "ok": true,
+  "versions": {
+   "0.3.30": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "1.0.1": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-langchain-docstore-module-removed-paddleocr": {
+  "ok": true,
+  "versions": {
+   "0.3.30": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-langchain-text-splitter-module-removed-ianvs": {
+  "ok": true,
+  "versions": {
+   "0.3.30": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "1.3.8": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-pandas-fillna-method-pypgx": {
+  "ok": true,
+  "versions": {
+   "2.3.3": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "3.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_now_required"
+   },
+   "3.0.3": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_now_required"
+   }
+  }
+ },
+ "hold-numpy-compat-parmed": {
+  "ok": true,
+  "versions": {
+   "2.2.6": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.3.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-numpy-row-stack-bayes-bay": {
+  "ok": true,
+  "versions": {
+   "2.4.6": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.5.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-scikit-learn-validate-data-gplearn": {
+  "ok": true,
+  "versions": {
+   "1.6.1": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.7.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "1.7.2": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-scikit-learn-lassocv-n-alphas-econml": {
+  "ok": true,
+  "versions": {
+   "1.8.0": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.9.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   }
+  }
+ },
+ "hold-django-cc-delim-re-drf-spectacular": {
+  "ok": true,
+  "versions": {
+   "6.0.10": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "6.1": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-sqlalchemy-scalarattributeimpl-sqlalchemy-utils": {
+  "ok": true,
+  "versions": {
+   "2.0.57": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.1.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-polars-corr-ddof-alphainspect": {
+  "ok": true,
+  "versions": {
+   "1.44.2": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   }
+  }
+ },
+ "hold-pytest-formattedexcinfo-tavern": {
+  "ok": true,
+  "versions": {
+   "9.0.3": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "9.1.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-matplotlib-plot-date-stpsf": {
+  "ok": true,
+  "versions": {
+   "3.10.9": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "3.11.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ }
+}

@@ -31,6 +31,7 @@ from deptime.ingest.replacements import (
     deprecates_argument,
     deprecates_name,
     names_argument,
+    passed_as,
     worded_deprecated,
 )
 
@@ -1411,7 +1412,10 @@ def _documented_deprecations(obj: griffe.Object) -> tuple[str | None, dict[str, 
             for n in named:
                 params.setdefault(n, top.message)
             partial = _PARTIAL_NOTE_RE.search(_LITERAL_SPAN_RE.sub("", top.text))
-            if not named and not partial and not _about_value(top.text):
+            usage = any(
+                passed_as(top.text, n) for n in names
+            )  # sqlalchemy 1.4's "a string … for the "onclause""
+            if not named and not partial and not usage and not _about_value(top.text):
                 whole = top.message
         for entry, note in under:
             documented = [n for n in entry if n in names or (open_kwargs and n not in variadic)]
@@ -1971,7 +1975,7 @@ class _BodyWarnings:
             # "`base_estimator` was renamed to `estimator`") isn't this function's deprecation.
             elsewhere = (
                 not marked and bool(worded_deprecated(text)) and not set(worded_deprecated(text)) & self.own
-            )
+            ) or any(passed_as(text, n) for n in self.named)  # a way of passing an argument (DT-CORE-40)
             if entire and not marked and not guard and not elsewhere and whole in (None, UNRECOVERABLE):
                 whole = text
         return whole, params or None

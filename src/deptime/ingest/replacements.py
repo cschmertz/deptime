@@ -295,6 +295,17 @@ def _deprecated_at(message: str, start: int, end: int) -> bool:
     return not _PASSED_AS_RE.search(message[_sentence_start(message, start) : start])
 
 
+def passed_as(message: str, name: str) -> bool:
+    """Whether the wording deprecates a way of passing `name`, quoted: "using a string relationship name for the
+    "onclause" is deprecated" is about a usage of `onclause`, so neither it nor the function is deprecated."""
+    for m in re.finditer(rf"[`'\"*]+{re.escape(name)}[`'\"*]+", message):
+        if DEPRECATED_AFTER_RE.match(message[m.end() :]) and _PASSED_AS_RE.search(
+            message[_sentence_start(message, m.start()) : m.start() + 1]
+        ):
+            return True
+    return False
+
+
 def worded_deprecated(message: str | None) -> list[str]:
     """Quoted names the wording itself deprecates: "'x' is deprecated", "instead of 'x'", in order."""
     return list(

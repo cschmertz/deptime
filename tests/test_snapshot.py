@@ -3680,3 +3680,19 @@ def test_a_loggers_deprecation_and_a_dataclass_post_init_are_read(tmp_path):
     }  # a condition on the field's absence deprecates a behaviour, not the argument
     # A dataclass that writes its own `__init__`: `__post_init__` isn't read for it.
     assert dep("Written.__init__") == (None, None)
+
+
+def test_a_note_about_a_way_of_passing_an_argument_deprecates_neither_it_nor_the_function(tmp_path):
+    # DT-CORE-40: sqlalchemy 1.4's `orm.join` docstring deprecates a string for `onclause`, not `onclause` or `join`.
+    files = {
+        "usagey/__init__.py": (
+            "def join(left, right, onclause=None, isouter=False):\n"
+            '    """Produce an inner join between left and right clauses.\n\n'
+            '    .. deprecated:: 1.4 using a string relationship name for the \\"onclause\\" is deprecated and will\n'
+            "       be removed in 2.0; the onclause may be only an ORM-mapped relationship attribute.\n"
+            '    """\n'
+        ),
+    }
+    snap = build_snapshot("usagey", "1.0", ["usagey"], _write(tmp_path, files))
+    rec = snap.symbols["usagey.join"]
+    assert (rec.deprecated, rec.deprecated_params) == (None, None)

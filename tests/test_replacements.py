@@ -649,6 +649,30 @@ def test_an_argument_to_pass_to_another_callable_instead():
     ]
 
 
+def test_a_recommended_name_and_the_library_it_comes_from():
+    # DT-CORE-40: transformers 4.42's `shard_checkpoint` warning, a name in another distribution.
+    hints = mine(
+        "Note that `shard_checkpoint` is deprecated and will be removed in v4.44. We recommend you using"
+        " split_torch_state_dict_into_shards from huggingface_hub library"
+    )
+    assert [(h.target, h.confidence) for h in hints] == [
+        ("huggingface_hub.split_torch_state_dict_into_shards", 0.75)
+    ]
+    hints = mine(
+        "KGTableRetriever is deprecated, it is recommended to use PropertyGraphIndex and associated retrievers."
+    )
+    assert [h.target for h in hints] == ["PropertyGraphIndex"]
+    assert [
+        h.target for h in mine("Please use the `WeaveTracer` from the `weave` package instead of this.")
+    ] == ["weave.WeaveTracer"]
+    # Prose after the cue isn't a name.
+    for msg in (
+        "The class `TFTrainer` is deprecated. We recommend using native Keras instead, by calling `fit()`.",
+        "The NeptuneCallback is deprecated. We recommend using other supported experiment tracking integrations.",
+    ):
+        assert mine(msg) == [], msg
+
+
 def test_refer_to_a_name_that_looks_like_code():
     # DT-CORE-40: sqlalchemy 1.4's "Please refer to Inspector.get_table_names()".
     hints = mine(

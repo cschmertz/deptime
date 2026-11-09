@@ -53,6 +53,14 @@ PATTERNS: list[tuple[re.Pattern[str], float]] = [
         0.8,
     ),
     (re.compile(rf"\bplease\s+use\s+{_THE}{IDENT}", re.I), 0.75),
+    # transformers' "We recommend you using split_torch_state_dict_into_shards from huggingface_hub library"
+    # (DT-CORE-40). "We recommend using native Keras" is prose (`_prose`).
+    (
+        re.compile(
+            rf"\brecommend(?:s|ed)?\s+(?:(?:that\s+)?you\s+)?(?:to\s+)?us(?:e|ing)\s+{_THE}{IDENT}", re.I
+        ),
+        0.75,
+    ),
     (re.compile(rf"\bcall\s+{_THE}{IDENT}\s+directly\b", re.I), 0.75),
     (re.compile(rf"\binstead,?\s+(?:use|call|access)\s+{_THE}{IDENT}", re.I), 0.75),
     (re.compile(rf"\buse\s+{_THE}{IDENT}", re.I), 0.6),
@@ -88,6 +96,10 @@ _SHORTHAND_RE = re.compile(r"[`'\"]*/[`'\"]*[A-Za-z_]\w*\.(?P<leaf>[A-Za-z_]\w*)
 PACKAGE_MOVE_RE = re.compile(
     r"\bmoved\s+to\s+the\s+[`'\"]?(?P<dist>[A-Za-z0-9][\w.-]*)[`'\"]?\s+(?:package|distribution|library)\b",
     re.I,
+)
+# "use X from huggingface_hub library": a bare name in another distribution, by its import name (DT-CORE-40).
+FROM_LIBRARY_RE = re.compile(
+    r"[`'\"]*\s+from\s+(?:the\s+)?[`'\"]?(?P<mod>[A-Za-z_]\w*)[`'\"]?\s+(?:library|package|module)\b", re.I
 )
 MAX_EVIDENCE_CHARS = 300
 QUOTED_IDENT_RE = re.compile(r"['`\"](?P<t>[A-Za-z_]\w*)['`\"]")
@@ -219,6 +231,8 @@ def _target(message: str, m: re.Match[str], skip_expressions: bool, group: str =
         return None
     if "." not in t and (shorthand := _SHORTHAND_RE.match(message, end)):
         t = f"{t}.{shorthand.group('leaf')}"
+    elif "." not in t and (library := FROM_LIBRARY_RE.match(message, end)):
+        t = f"{library.group('mod')}.{t}"
     marked = start > 0 and message[start - 1] in "`'\"~"
     if m.re.groupindex.get("the") and m.group("the") and not marked and not _CODE_SHAPED_RE.search(raw):
         return None

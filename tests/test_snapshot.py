@@ -3605,3 +3605,78 @@ def test_a_kwargs_mapping_handed_to_a_helper_takes_the_helpers_deprecations(tmp_
     assert init.deprecated_params == {
         "instrument": "`Agent(instrument=...)` is deprecated, use `capabilities=[...]` instead."
     }
+
+
+# DT-CORE-40: transformers deprecates with its logger, and `TrainingArguments` (a dataclass) in `__post_init__`.
+LOGGED = {
+    "logly/__init__.py": (
+        "import logging\nimport warnings\nfrom dataclasses import dataclass\n\n"
+        "logger = logging.getLogger(__name__)\n\n\n"
+        "def shard_checkpoint(state_dict):\n"
+        "    logger.warning(\n"
+        '        "Note that `shard_checkpoint` is deprecated and will be removed in v4.44. We recommend you using "\n'
+        '        "split_torch_state_dict_into_shards from huggingface_hub library"\n'
+        "    )\n\n\n"
+        "class HybridCache:\n"
+        "    def __init__(self, config, max_cache_len):\n"
+        '        logger.warning_once("`HybridCache` is deprecated and will be removed in version v4.59 "\n'
+        '                            "Use `StaticCache(...)` instead which will correctly infer the type of each layer.")\n\n\n'
+        "def informs():\n"
+        '    logger.warning("Loading weights; this may take a while")\n\n\n'
+        "def shows(st):\n"
+        '    st.warning("This page is deprecated")\n\n\n'
+        "@dataclass\n"
+        "class TrainingArguments:\n"
+        "    output_dir: str = None\n"
+        "    evaluation_strategy: str = None\n"
+        '    eval_strategy: str = "no"\n'
+        "    use_mps_device: bool = False\n\n"
+        "    def __post_init__(self):\n"
+        "        if self.evaluation_strategy is not None:\n"
+        "            warnings.warn(\n"
+        '                "`evaluation_strategy` is deprecated and will be removed in version 4.46 of Transformers. Use"\n'
+        '                " `eval_strategy` instead",\n'
+        "                FutureWarning,\n"
+        "            )\n"
+        "            self.eval_strategy = self.evaluation_strategy\n"
+        "        if self.use_mps_device:\n"
+        '            warnings.warn("`use_mps_device` is deprecated and will be removed in version 5.0.", FutureWarning)\n'
+        "        if self.output_dir is None:\n"
+        '            warnings.warn("The default output_dir is deprecated", FutureWarning)\n\n\n'
+        "@dataclass\n"
+        "class Written:\n"
+        "    x: int = 0\n\n"
+        "    def __init__(self, x=0):\n"
+        "        self.x = x\n\n"
+        "    def __post_init__(self):\n"
+        "        if self.x:\n"
+        '            warnings.warn("`x` is deprecated", FutureWarning)\n'
+    ),
+}
+
+
+def test_a_loggers_deprecation_and_a_dataclass_post_init_are_read(tmp_path):
+    snap = build_snapshot("logly", "1.0", ["logly"], _write(tmp_path, LOGGED))
+
+    def dep(path):
+        rec = snap.symbols[f"logly.{path}"]
+        return rec.deprecated, rec.deprecated_params
+
+    assert dep("shard_checkpoint")[0] == (
+        "Note that `shard_checkpoint` is deprecated and will be removed in v4.44. We recommend you using"
+        " split_torch_state_dict_into_shards from huggingface_hub library"
+    )
+    assert dep("HybridCache.__init__")[0].startswith(
+        "`HybridCache` is deprecated and will be removed in version v4.59"
+    )
+    # A logger's other warnings, and streamlit's `st.warning`, which shows a message in the app, aren't deprecations.
+    assert dep("informs") == (None, None) and dep("shows") == (None, None)
+    whole, params = dep("TrainingArguments.__init__")
+    assert whole is None
+    assert params == {
+        "evaluation_strategy": "`evaluation_strategy` is deprecated and will be removed in version 4.46 of"
+        " Transformers. Use `eval_strategy` instead",
+        "use_mps_device": "`use_mps_device` is deprecated and will be removed in version 5.0.",
+    }  # a condition on the field's absence deprecates a behaviour, not the argument
+    # A dataclass that writes its own `__init__`: `__post_init__` isn't read for it.
+    assert dep("Written.__init__") == (None, None)

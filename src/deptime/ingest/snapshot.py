@@ -4518,6 +4518,34 @@ def apply_served(snap: ApiSnapshot, rules: Sequence[ServedRule], root: Path) -> 
                     below = stack.pop()
                     bind(alias + below[len(path) :], names[below])
                     stack.extend(children.get(below, ()))
+        elif rule.table:
+            file, _, table_name = rule.table.partition(":")
+            table = _literal_table(root / file, table_name)
+            value = _part_pattern(rule.value)
+            by_value: dict[str, list[str]] = {}
+            for key, val in table:
+                by_value.setdefault(val, []).append(key)
+            # Each key's candidates, as `_LazyModule.__getattr__` tries them: the name `target` gives, then the
+            # other keys with the same value.
+            candidates: dict[str, list[str]] = {}
+            for key, val in table:
+                first = [rule.target.format(**found.groupdict())] if (found := value.fullmatch(val)) else []
+                candidates[key] = list(dict.fromkeys([*first, *(k for k in by_value[val] if k != key)]))
+            modules = [_part_pattern(m) for m in rule.modules]
+            for path, rec in names.items():
+                if rec.kind != "module" or not any(m.fullmatch(path) for m in modules):
+                    continue
+                top = path.partition(".")[0]
+                for key, tried in candidates.items():
+                    found_rec = next(
+                        (r for c in tried for r in (names.get(f"{path}.{c}"), names.get(f"{top}.{c}")) if r),
+                        None,
+                    )
+                    if found_rec is None or found_rec.kind == "module":
+                        continue
+                    bind(f"{path}.{key}", found_rec)
+                    if rule.add:
+                        bind(f"{path}.{key}{rule.add}", found_rec)
         else:
             modules = [_part_pattern(m) for m in rule.modules]
             for path, rec in names.items():
@@ -4526,3 +4554,33 @@ def apply_served(snap: ApiSnapshot, rules: Sequence[ServedRule], root: Path) -> 
                 for child in children.get(path, ()):
                     if child.endswith(rule.ending) and names[child].kind != "module":
                         bind(child + rule.add, names[child])
+
+
+def _literal_table(file: Path, name: str) -> list[tuple[str, str]]:
+    """(key, value) of the module-level mapping `name = {...}` in `file`, in order: string keys, and values that
+    are names (`BertConverter`, or the last part of `converters.BertConverter`) or strings. Others are skipped."""
+    try:
+        tree = ast.parse(file.read_text(encoding="utf-8", errors="replace"))
+    except (OSError, SyntaxError, ValueError):
+        return []
+    pairs: list[tuple[str, str]] = []
+    for st in tree.body:
+        if isinstance(st, ast.Assign) and len(st.targets) == 1:
+            target = st.targets[0]
+        elif isinstance(st, ast.AnnAssign):
+            target = st.target
+        else:
+            continue
+        if not (isinstance(target, ast.Name) and target.id == name and isinstance(st.value, ast.Dict)):
+            continue
+        pairs = []  # the last binding at the top level wins
+        for k, v in zip(st.value.keys, st.value.values, strict=True):
+            if not (isinstance(k, ast.Constant) and isinstance(k.value, str)):
+                continue
+            if isinstance(v, ast.Name):
+                pairs.append((k.value, v.id))
+            elif isinstance(v, ast.Attribute):
+                pairs.append((k.value, v.attr))
+            elif isinstance(v, ast.Constant) and isinstance(v.value, str):
+                pairs.append((k.value, v.value))
+    return pairs

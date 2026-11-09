@@ -112,10 +112,17 @@ class VersionPolicy:
 @dataclass(frozen=True)
 class ServedRule:
     """Names a package serves through its own import machinery rather than by binding them (DT-DATA-52), in each
-    release whose `file` (a path in the analysed artifact) matches the regular expression `when`. Either `module`,
-    importable as the module `serves` with every name that module binds, `{part}` matching one dotted part the
-    same in both; or, in each module `modules` matches, `<name><add>` as `<name>` for each name ending in `ending`
-    that the module binds. Assembly counts a served name as public only where some release has it as public API.
+    release whose `file` (a path in the analysed artifact) matches the regular expression `when`. One of:
+    - `module`, importable as the module `serves` with every name that module binds, `{part}` matching one
+      dotted part the same in both;
+    - in each module `modules` matches, `<name><add>` as `<name>` for each name ending in `ending` that the
+      module binds;
+    - in each module `modules` matches, each key of the literal mapping `table` (`<file>:<NAME>`), and the key
+      plus `add`, as the name `target` gives for the key's value matching `value` (DT-DATA-58): transformers 5
+      serves `ElectraTokenizer` as `BertTokenizer`, `SLOW_TO_FAST_CONVERTERS` mapping it to `BertConverter`.
+      That name is looked up in the module, then in the package's top-level module; failing both, another key
+      with the same value is, in the table's order.
+    Assembly counts a served name as public only where some release has it as public API.
     """
 
     file: str
@@ -125,15 +132,29 @@ class ServedRule:
     modules: tuple[str, ...] = ()
     ending: str = ""
     add: str = ""
+    table: str = ""
+    value: str = ""
+    target: str = ""
 
     def __post_init__(self) -> None:
         re.compile(self.when)
         if bool(self.module) == bool(self.modules) or bool(self.module) != bool(self.serves):
             raise ValueError(f"served rule needs `module` and `serves`, or `modules`: {self}")
-        if self.modules and not (self.ending and self.add):
-            raise ValueError(f"served rule with `modules` needs `ending` and `add`: {self}")
         if self.module and _parts(self.module) != _parts(self.serves):
             raise ValueError(f"served rule's `module` and `serves` need the same {{parts}}: {self}")
+        if self.table:
+            if not self.modules or self.ending or not re.fullmatch(r"[^:]+:[A-Za-z_]\w*", self.table):
+                raise ValueError(
+                    f"served rule with `table` needs `modules`, no `ending`, and `<file>:<NAME>`: {self}"
+                )
+            if not (self.value and self.target) or _parts(self.value) != _parts(self.target):
+                raise ValueError(
+                    f"served rule with `table` needs `value` and `target` with the same {{parts}}: {self}"
+                )
+        elif self.value or self.target:
+            raise ValueError(f"served rule's `value` and `target` go with `table`: {self}")
+        elif self.modules and not (self.ending and self.add):
+            raise ValueError(f"served rule with `modules` needs `ending` and `add`: {self}")
 
     def as_dict(self) -> dict[str, object]:
         """As a snapshot records it (JSON: lists, not tuples)."""
@@ -145,6 +166,9 @@ class ServedRule:
             "modules": list(self.modules),
             "ending": self.ending,
             "add": self.add,
+            "table": self.table,
+            "value": self.value,
+            "target": self.target,
         }
 
 

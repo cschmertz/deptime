@@ -37,6 +37,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
   `models.x.image_processing_y_fast` as their replacements. `coverage.toml` describes such names with
   `[[package.served]]` rules, each holding in the releases whose source has the code that serves them. In the
   `SNAPSHOT_FORMAT` 23 index published 2026-11-09; no upgrade needed.
+- transformers 5's tokenizer names that `_LazyModule` serves through `SLOW_TO_FAST_CONVERTERS` read present
+  (DT-DATA-58): `ElectraTokenizer`, `LayoutLMTokenizer` and `LxmertTokenizer` and their `Fast` names as
+  `BertTokenizer`, LED's, Longformer's and Mvp's as `RobertaTokenizer`, at the top level, in `transformers.models`
+  and in their model packages (which read removed in 5.18), and mt5's `T5Tokenizer`. A `[[package.served]]` rule
+  can now read a literal mapping from the package's source. In the next index; no upgrade needed.
 - `deptime index pull` reports a failed download (an HTTP error such as GitHub's 504, a network error, a checksum
   mismatch) in one line and exits 1, rather than with a traceback; as before, nothing is installed and the current
   index is kept (DT-OSS-12).

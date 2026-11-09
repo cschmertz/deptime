@@ -648,3 +648,93 @@ def test_names_a_package_serves_count_public_where_another_release_has_them_publ
     dt = DepTime(store, Coverage(POLICY, (TOK,)))
     (check,) = dt.check_symbols("tok", "5.0", [SymbolQuery(path="tok.BertTokenizerFast.encode")]).results
     assert check.status == "present"
+
+
+# DT-DATA-58: transformers 5's `_LazyModule.__getattr__` serves a tokenizer name it can't find through
+# `SLOW_TO_FAST_CONVERTERS`: `ElectraTokenizer` and `ElectraTokenizerFast` as the tokenizer named after the key's
+# converter (`BertConverter` -> `BertTokenizer`), from the module asked or the top level, else another key's.
+CONVERTING = {
+    "4.0": {
+        "tok/__init__.py": (
+            "from tok.electra import ElectraTokenizer, ElectraTokenizerFast\nfrom tok.slow import BertTokenizer\n"
+            "from tok.x import XTokenizer\nfrom tok.fnet import FNetTokenizer\n"
+        ),
+        "tok/electra.py": "class ElectraTokenizer:\n    pass\n\n\nclass ElectraTokenizerFast:\n    pass\n",
+        "tok/slow.py": "class BertTokenizer:\n    pass\n",
+        "tok/x.py": "class XTokenizer:\n    pass\n",
+        "tok/fnet.py": "class FNetTokenizer:\n    pass\n",
+        "tok/models/__init__.py": "",
+        "tok/models/electra/__init__.py": "from tok.electra import ElectraTokenizer\n",
+        "tok/lazy.py": "def __getattr__(name):\n    raise AttributeError(name)\n",
+    },
+    "5.0": {
+        "tok/__init__.py": "from tok.slow import BertTokenizer\nfrom tok.y import YTokenizer\n",
+        "tok/slow.py": "class BertTokenizer:\n    pass\n",
+        "tok/y.py": "class YTokenizer:\n    pass\n",
+        "tok/models/__init__.py": "",
+        "tok/models/electra/__init__.py": "",
+        "tok/convert.py": (
+            "SLOW_TO_FAST_CONVERTERS = {\n"
+            "    'BertTokenizer': BertConverter,\n"
+            "    'ElectraTokenizer': BertConverter,\n"
+            "    'FNetTokenizer': AlbertConverter,\n"
+            "    'XTokenizer': OddConverter,\n"
+            "    'YTokenizer': OddConverter,\n"
+            "}\n"
+        ),
+        "tok/lazy.py": (
+            "def __getattr__(name):\n"
+            "    from tok.convert import SLOW_TO_FAST_CONVERTERS\n"
+            "    raise AttributeError(name)\n"
+        ),
+    },
+}
+CONVERTER_RULE = ServedRule(
+    file="tok/lazy.py",
+    when="SLOW_TO_FAST_CONVERTERS",
+    modules=("tok", "tok.models.{model}"),
+    table="tok/convert.py:SLOW_TO_FAST_CONVERTERS",
+    value="{base}Converter",
+    target="{base}Tokenizer",
+    add="Fast",
+)
+
+
+def test_names_served_through_a_literal_table_follow_the_tokenizer_its_value_names(tmp_path):
+    old, new = _snapshots(tmp_path, CONVERTING, "tok", (CONVERTER_RULE,))
+    assert old.bound == {}  # `when` doesn't match 4.0
+    canonical = {path: rec.canonical for path, rec in new.bound.items()}
+    for path in ("tok.ElectraTokenizer", "tok.ElectraTokenizerFast", "tok.models.electra.ElectraTokenizer"):
+        assert canonical[path] == "tok.slow.BertTokenizer", path
+    # No `OddTokenizer`: the other key with the same converter.
+    assert canonical["tok.XTokenizer"] == "tok.y.YTokenizer"
+    # No `AlbertTokenizer` and no other key with `AlbertConverter`: not served.
+    assert "tok.FNetTokenizer" not in canonical
+    assert "tok.BertTokenizer" not in new.bound  # bound by the module itself
+    spec = PackageSpec(name="tok", import_names=("tok",), tier="A", served=(CONVERTER_RULE,))
+    store = IndexStore.memory()
+    store.rebuild_package(spec, [old, new])
+    for path in ("tok.ElectraTokenizer", "tok.ElectraTokenizerFast", "tok.models.electra.ElectraTokenizer"):
+        spans = store.spans("tok", path)
+        assert [o for r in spans for o in range(r["first_ordinal"], r["last_ordinal"] + 1)] == [0, 1], path
+    assert [(r["first_ordinal"], r["last_ordinal"]) for r in store.spans("tok", "tok.FNetTokenizer")] == [
+        (0, 0)
+    ]
+    # Served, but never public API there.
+    assert store.spans("tok", "tok.models.electra.ElectraTokenizerFast") == []
+    assert store.spans("tok", "tok.YTokenizerFast") == []
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"modules": ("tok",), "table": "tok/convert.py:TABLE", "value": "{base}C"},  # no target
+        {"modules": ("tok",), "table": "tok/convert.py:TABLE", "value": "{base}C", "target": "{other}T"},
+        {"modules": ("tok",), "table": "tok/convert.py", "value": "{base}C", "target": "{base}T"},  # no name
+        {"module": "tok.a", "serves": "tok.b", "table": "tok/convert.py:TABLE", "value": "C", "target": "T"},
+        {"modules": ("tok",), "ending": "T", "add": "F", "value": "{base}C", "target": "{base}T"},  # no table
+    ],
+)
+def test_a_served_rule_with_a_table_needs_its_fields(fields):
+    with pytest.raises(ValueError):
+        ServedRule(file="tok/lazy.py", when="x", **fields)

@@ -19,8 +19,10 @@
 # `[[package.served]]` = names the package serves through its own import machinery rather than by binding them
 #                  (DT-DATA-52), in each release whose `file` matches the regular expression `when`: `module` as the
 #                  module `serves`, with all its names (`{part}` matches one dotted part, the same in both), or in
-#                  each module `modules` matches, `<name><add>` as each `<name>` ending in `ending`. Such a name
-#                  counts as public only where some release of the package has it as public API.
+#                  each module `modules` matches, `<name><add>` as each `<name>` ending in `ending`, or each key
+#                  of the literal mapping `table` (`<file>:<NAME>`), and the key plus `add`, as the name `target`
+#                  makes of the key's value matching `value` (DT-DATA-58). Such a name counts as public only where
+#                  some release of the package has it as public API.
 
 [policy]
 # For every minor series (X.Y) that has a release on/after `since`, index every release: a patch-level break
@@ -163,7 +165,8 @@ tier = "A"
 # own members, 37k paths and 109k own members (DT-DATA-16).
 # transformers 5 serves 4.x names through its import machinery, written differently from one release to the next
 # (DT-DATA-52): `_LazyModule.__getattr__` falls back from `XTokenizerFast` to `XTokenizer` (5.0 on) and from
-# `XImageProcessorFast` to `XImageProcessor` (5.4 on); legacy module paths are served as their replacements, by
+# `XImageProcessorFast` to `XImageProcessor` (5.4 on), and serves a tokenizer name it doesn't find there through
+# `SLOW_TO_FAST_CONVERTERS` (5.0 on, DT-DATA-58); legacy module paths are served as their replacements, by
 # `_create_tokenization_alias` (5.0), `_create_module_alias` (5.4) and `_LegacyModuleAliasFinder` (5.21), and the
 # old `models/x/image_processing_y_fast.py` modules serve `XImageProcessorFast` too. Each `when` matches the code
 # that does it, in the releases that have it (checked on 4.57.3 to 5.22.2).
@@ -179,6 +182,16 @@ file = "transformers/utils/import_utils.py"
 when = 'name\.endswith\("ImageProcessorFast"\)'
 modules = ["transformers", "transformers.models", "transformers.models.{model}"]
 ending = "ImageProcessor"
+add = "Fast"
+
+# `ElectraTokenizer` and `ElectraTokenizerFast` as `BertTokenizer`: the mapping has `"ElectraTokenizer": BertConverter`.
+[[package.served]]
+file = "transformers/utils/import_utils.py"
+when = 'SLOW_TO_FAST_CONVERTERS'
+modules = ["transformers", "transformers.models", "transformers.models.{model}"]
+table = "transformers/convert_slow_tokenizer.py:SLOW_TO_FAST_CONVERTERS"
+value = "{base}Converter"
+target = "{base}Tokenizer"
 add = "Fast"
 
 [[package.served]]

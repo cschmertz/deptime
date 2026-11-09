@@ -50,6 +50,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
   `AutoModelForImageTextToText`). In the index published 2026-11-09. A replacement the installed release no longer has
   is followed to its own replacement, which comes first (pydantic-ai 2's `MCPServerHTTP` → `MCPToolset`); in the next
   release.
+- Deprecations a library states only in a log message are read (DT-CORE-40): transformers'
+  `logger.warning`/`warning_once` calls (`HybridCache` → `StaticCache`), and a dataclass's `__post_init__` warnings as
+  its `__init__`'s (`TrainingArguments(evaluation_strategy)` → `eval_strategy`). A note about a way of passing an
+  argument ("Passing raw bytes as `body` is deprecated") no longer marks the parameter deprecated. In the
+  `SNAPSHOT_FORMAT` 24 index; no upgrade needed.
 - `deptime index pull` reports a failed download (an HTTP error such as GitHub's 504, a network error, a checksum
   mismatch) in one line and exits 1, rather than with a traceback; as before, nothing is installed and the current
   index is kept (DT-OSS-12).

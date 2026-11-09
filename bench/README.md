@@ -74,7 +74,7 @@ The seed file (`cases/seed.jsonl`) contains well-documented, real-world breaks. 
 
 `tmb/` holds 29 cases from TimeMachine-bench, an outside benchmark, collected after the fixes designed from `cases/` and scored once under a rule fixed in advance. Its first run, 72.4% root cause + boundary, is the number to quote; see `tmb/README.md` and `tmb/results-2026-10-31.md`. `bench.yml` checks it against `tmb/baseline.json`.
 
-## Per-release holdout (DT-QA-07, DT-QA-08)
+## Per-release holdout (DT-QA-07 to DT-QA-09)
 
 `holdout/` holds a new set before each minor release, committed before DepTime runs on it and scored once: tracebacks
 like these, and code from real projects that keeps working (or breaks) after an upgrade, labelled by importing each
@@ -84,5 +84,7 @@ The first set, `holdout/2026-11/`, scored 88.6% root cause + boundary on 35 new 
 `holdout/2026-11/results-2026-11-07.md`. The second, `holdout/2026-11b/` (DT-QA-08), the first scored after the fixes
 designed from 2026-11's misses, scored 91.9% on 37 new tracebacks, and 1.5% and 0.2% false positives on 2,542 working
 uses, with 95.9% recall for both tools on 146 breaks (100% once six labels the probe got wrong are corrected); see
-`holdout/2026-11b/results-2026-11-08.md`. Both sets' tracebacks are in `cases/` now; `bench.yml` checks each set's uses
-against its `baseline.json`.
+`holdout/2026-11b/results-2026-11-08.md`. The third, `holdout/2026-11c/` (DT-QA-09), the first scored after the fixes
+designed from 2026-11b's misses, scored 88.6% on 35 new tracebacks, and 0.5% and 0.3% false positives on 1,841 working
+uses, with 99.2% recall for both tools on 128 breaks; see `holdout/2026-11c/results-2026-11-09.md`. All three sets'
+tracebacks are in `cases/` now; `bench.yml` checks each set's uses against its `baseline.json`.

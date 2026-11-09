@@ -62,10 +62,11 @@ Each check's right answers were written down before DepTime first ran on it ([be
 
 | Check | Cases | First run | Now |
 |---|---|---|---|
-| Right package, name and breaking release for a traceback from a GitHub issue, on the [holdout of 2026-11-08](https://github.com/cschmertz/deptime/blob/main/bench/holdout/2026-11b/results-2026-11-08.md) | 37, after every fix so far | 91.9% | 100% |
-| Code that still works after an upgrade, flagged as broken by `check_symbols` (lower is better) | 2,542 uses from 176 upgrades of real projects, labelled by running them | 1.5% | 0% |
-| The same, by `diff_versions(used_symbols=...)` | 2,542 | 0.2% | 0.04% |
-| Code that breaks, flagged by `check_symbols` / `diff_versions` | 146 uses (140 once six wrong labels are corrected) | 95.9% / 95.9% | 100% / 100% |
+| Right package, name and breaking release for a traceback from a GitHub issue, on the [holdout of 2026-11-09](https://github.com/cschmertz/deptime/blob/main/bench/holdout/2026-11c/results-2026-11-09.md) | 35, after every fix so far | 88.6% | 88.6% |
+| Code that still works after an upgrade, flagged as broken by `check_symbols` (lower is better) | 1,841 uses from 159 upgrades of real projects, labelled by running them | 0.5% | 0.5% |
+| The same, by `diff_versions(used_symbols=...)` | 1,841 | 0.3% | 0.3% |
+| Code that breaks, flagged by `check_symbols` / `diff_versions` | 128 uses | 99.2% / 99.2% | 99.2% / 99.2% |
+| The same four, on the [holdout of 2026-11-08](https://github.com/cschmertz/deptime/blob/main/bench/holdout/2026-11b/results-2026-11-08.md): tracebacks; working code flagged by `check_symbols` / `diff_versions`; breaks flagged | 37; 2,503 / 2,542 uses; 146 (140 once six wrong labels are corrected) | 91.9%; 1.5% / 0.2%; 95.9% / 95.9% | 100%; 0% / 0.04%; 100% / 100% |
 | The same four, on the [holdout of 2026-11-07](https://github.com/cschmertz/deptime/blob/main/bench/holdout/2026-11/results-2026-11-07.md): tracebacks; working code flagged by `check_symbols` / `diff_versions`; breaks flagged | 35; 3,600 / 2,399 uses; 130 | 88.6%; 3.8% / 0.3%; 97.7% / 76.9% | 100%; 0.1% / 0.1%; 98.4% / 98.5% |
 | Right package, name and breaking release for a traceback from a GitHub issue | 32 collected 2026-11-05 | 68.8% | 100% |
 | The same, on a holdout fixed in advance from [TimeMachine-bench](https://github.com/tohoku-nlp/timemachine-bench) | 29 | 72.4% | 96.6% |
@@ -74,9 +75,9 @@ Each check's right answers were written down before DepTime first ran on it ([be
 | Documented migrations that get a right hint at ≥ 0.75 | 50 | 11 | 42 (32 without hand-checked hints from migration guides) |
 | Names that exist at runtime but read as absent | 2,428 sampled at runtime from 10 dynamic packages | 5.1% | 1.2% |
 
-`check_symbols` answers `unknown`, with the reason, where the index can't tell (a path through an instance such as `pytest.mark`): 43 working uses of the 2026-11-08 holdout (79 working uses and 4 breaks of 2026-11-07's since that answer was added), left out of its rates above. transformers 5's `Qwen2TokenizerFast`, which its lazy module serves as `Qwen2Tokenizer`, was the 2026-11-08 holdout's last false alarm; it reads present since the 2026-11-09 index ([DT-DATA-52](https://github.com/cschmertz/deptime/blob/main/BACKLOG.md)).
+`check_symbols` answers `unknown`, with the reason, where the index can't tell (a path through an instance such as `pytest.mark`, or into a distribution it doesn't cover): 40 working uses and 4 breaks of the 2026-11-09 holdout (43 working uses of 2026-11-08's; 79 working uses and 4 breaks of 2026-11-07's since that answer was added), left out of its rates above. The 2026-11-09 holdout's misses, and the items that fix them, are in its [results](https://github.com/cschmertz/deptime/blob/main/bench/holdout/2026-11c/results-2026-11-09.md#misses).
 
-Across all 274 real tracebacks in the benchmark, including the ones fixes were designed from, DepTime names the right package, name and release for 99.6%, and a right replacement is among its first three for 65.6%. CI re-scores them and the holdouts on every code change and every published index, and fails on a drop of more than 2 points (or a false-positive rate up by more than 1).
+Across all 309 real tracebacks in the benchmark, including the ones fixes were designed from, DepTime names the right package, name and release for 98.4%, and a right replacement is among its first three for 74.4%. CI re-scores them and the holdouts on every code change and every published index, and fails on a drop of more than 2 points (or a false-positive rate up by more than 1).
 
 ## Install
 

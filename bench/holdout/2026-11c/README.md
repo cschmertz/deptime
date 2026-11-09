@@ -2,7 +2,7 @@
 
 Collected on 2026-11-09, after the 0.1.10 release, under the rules in `../README.md`, to score what was designed from
 2026-11b's misses: DT-CORE-36 to 40, DT-DATA-55 to 58, and DT-DATA-45 and DT-DATA-52's transformers rules. **This
-directory was committed before DepTime ran on any of it.** The first scoring will be `results-<date>.md`.
+directory was committed before DepTime ran on any of it.** The first scoring is `results-2026-11-09.md`.
 
 ## Uses
 

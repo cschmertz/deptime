@@ -39,8 +39,13 @@ user couldn't write (40 uses), and crewai 0.76.9 and 0.83.0 need docx2txt, a pur
 sdist, so neither installed (all three crewai exercise upgrades). The probe now runs the checker from the sandbox user's
 home and allows docx2txt to build. 11 working uses are deprecated by the probe's rule.
 
-The probe's new rule for an object built to fail when called (openai 1.x's `APIRemovedInV1Proxy`) finds none among the
-uses; it confirms the `openai.Completion` traceback's boundary.
+The probe's new rule for an object built to fail when called (openai 1.x's `APIRemovedInV1Proxy`) fires on 15 uses.
+Three are breaks: llama-index-core 0.14.25's `ServiceContext.from_defaults`, a classmethod whose body only raises,
+called twice and read once by code that calls it. Twelve are excluded: flask 2.2.3's `flask.signals` hands out stand-in
+signals whose `connect` and `disconnect` raise when the then-optional blinker isn't installed, as in the probe's
+environment, so they don't work in `from` there. It also confirms the `openai.Completion` traceback's boundary.
+(Corrected after the first scoring: this paragraph said the rule found none among the uses, from a count over the wrong
+files; the labels were right and are unchanged.)
 
 Of the 22 breaks found by binding a call, three were changed by hand (`label-overrides.json`), each a call that still
 works at `to` though its generated signature rejects it: llama-index-core 0.14.25's `Document(text=)` (its own

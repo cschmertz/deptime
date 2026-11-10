@@ -1,5 +1,5 @@
 {
-"index_built_at": "2026-11-10T08:48:38+00:00",
+"index_built_at": "2026-11-10T12:45:55+00:00",
 "tracebacks": {
 "hold-celery-database-retry-airflow": true,
 "hold-django-cc-delim-re-drf-spectacular": true,
@@ -7255,7 +7255,7 @@
 },
 "pin-phonism__genrec-polars-down|da09ac987c248542": {
 "check_symbols": true,
-"diff_versions": false,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-phonism__genrec-polars-up|0b0f1642f464c898": {
@@ -7620,7 +7620,7 @@
 },
 "pin-proneverfake__kios-langgraph-up|e09a35fd4dfb0f72": {
 "check_symbols": false,
-"diff_versions": true,
+"diff_versions": false,
 "label": "works"
 },
 "pin-proneverfake__kios-langgraph-up|f3d8a08d292b4e5c": {

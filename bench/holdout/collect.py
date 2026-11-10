@@ -20,6 +20,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sys
+import time
 import urllib.request
 from datetime import UTC, datetime
 from pathlib import Path
@@ -65,11 +66,23 @@ COV = {canonicalize_name(p.name): p for p in load_coverage().packages}
 _pypi: dict[str, dict] = {}
 
 
+def fetch(url: str, timeout: float) -> bytes:
+    """The body at `url`, retrying a network error (a DNS lookup that fails for a moment) three times."""
+    for attempt in range(4):
+        try:
+            with urllib.request.urlopen(url, timeout=timeout) as r:
+                return r.read()
+        except OSError:  # URLError, socket errors, timeouts
+            if attempt == 3:
+                raise
+            time.sleep(15 * (attempt + 1))
+    raise AssertionError("unreachable")
+
+
 def pypi_releases(name: str) -> dict[str, datetime]:
     """Final releases and their first upload time, from PyPI's JSON API."""
     if name not in _pypi:
-        with urllib.request.urlopen(f"https://pypi.org/pypi/{name}/json", timeout=60) as r:
-            doc = json.load(r)
+        doc = json.loads(fetch(f"https://pypi.org/pypi/{name}/json", 60))
         out = {}
         for v, files in doc["releases"].items():
             try:

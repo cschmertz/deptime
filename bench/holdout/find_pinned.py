@@ -30,7 +30,6 @@ import subprocess
 import sys
 import tarfile
 import time
-import urllib.request
 from datetime import UTC, timedelta
 from pathlib import Path
 
@@ -38,7 +37,7 @@ from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
 
 sys.path.insert(0, str(Path(__file__).parent))
-from collect import COV, EXERCISE, pypi_releases
+from collect import COV, EXERCISE, fetch, pypi_releases
 from uses import as_dict, uses_in_tree
 
 MIN_USES = 3
@@ -59,13 +58,25 @@ FIRST = {  # first indexed release per package (`deptime coverage`, 2026-11-07)
 CUTOFF = "2026-11-07"  # the set's cutoff (--cutoff): newest releases as of this day
 
 
+def _until_reset() -> float:
+    """Seconds until the exhausted GitHub rate limits reset (`gh api rate_limit` costs no quota), at most an hour."""
+    try:
+        doc = json.loads(subprocess.run(["gh", "api", "rate_limit"], capture_output=True, text=True).stdout)
+        resets = [r["reset"] for r in doc["resources"].values() if r.get("remaining") == 0]
+    except (ValueError, KeyError, TypeError):
+        resets = []
+    return min(3600.0, max([r - time.time() for r in resets], default=0.0)) + 5
+
+
 def gh(*args: str) -> str:
-    for attempt in range(6):
+    """A gh call; a rate limit waits for its reset (the core quota is shared with whatever else uses the token), so a
+    package is never logged as an error for it."""
+    for attempt in range(8):
         p = subprocess.run(["gh", *args], capture_output=True, text=True)
         if p.returncode == 0:
             return p.stdout
         if "rate limit" in p.stderr.lower() or "secondary" in p.stderr.lower():
-            time.sleep(30 * (attempt + 1))
+            time.sleep(max(30 * (attempt + 1), _until_reset()))
             continue
         raise RuntimeError(p.stderr.strip()[:300])
     raise RuntimeError("rate limited")
@@ -83,8 +94,7 @@ def fetch_source(repo: str, sha: str, dest: Path) -> None:
     if dest.exists():
         return
     dest.mkdir(parents=True)
-    with urllib.request.urlopen(f"https://codeload.github.com/{repo}/tar.gz/{sha}", timeout=300) as r:
-        data = r.read()
+    data = fetch(f"https://codeload.github.com/{repo}/tar.gz/{sha}", 300)
     with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tf:
         for m in tf.getmembers():
             if not m.isfile() or not m.name.endswith((".py", ".txt", ".toml", ".cfg")):

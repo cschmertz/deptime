@@ -7,6 +7,7 @@ from deptime.config import VersionPolicy, load_coverage
 from deptime.ingest.pypi import (
     Release,
     ReleaseFile,
+    exact_pins,
     parse_simple_index,
     pick_file,
     project_urls,
@@ -135,6 +136,8 @@ def test_same_version_pins_reads_unconditional_exact_pins(tmp_path):
     )
     assert same_version_pins(tmp_path, "2.0.0") == ["w-cli", "w-slim"]
     assert same_version_pins(tmp_path / "w-2.0.0.dist-info", "2.0.0") == []  # no metadata there
+    # DT-DATA-63: dspy 0.1.5 pins dspy-ai at another version, 2.4.5.
+    assert exact_pins(tmp_path) == [("w-cli", "2.0.0"), ("w-slim", "2.0"), ("w-ai", "1.5.0")]
 
 
 def test_requires_dist_keeps_every_requirement_normalized(tmp_path, monkeypatch):

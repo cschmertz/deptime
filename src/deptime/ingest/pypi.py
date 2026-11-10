@@ -217,14 +217,15 @@ def has_code(root: Path, import_names: Iterable[str]) -> bool:
     return False
 
 
-def _is_exact_pin(req: Requirement, version: Version) -> bool:
+def _pinned_version(req: Requirement) -> Version | None:
+    """The one version `req` allows (`==X`, not `==X.*`), else None."""
     specs = list(req.specifier)
     if len(specs) != 1 or specs[0].operator != "==" or specs[0].version.endswith(".*"):
-        return False
+        return None
     try:
-        return Version(specs[0].version) == version
+        return Version(specs[0].version)
     except InvalidVersion:
-        return False
+        return None
 
 
 # Metadata is untrusted. litellm 1.106 lists 109 requirements, most behind its `proxy` extras.
@@ -293,14 +294,15 @@ def project_urls(root: Path, filename: str) -> dict[str, str] | None:
     return dict(list(out.items())[:MAX_PROJECT_URLS])
 
 
-def same_version_pins(root: Path, version: str) -> list[str]:
-    """Distributions an extracted wheel always requires at exactly its own version, in metadata order.
+def exact_pins(root: Path) -> list[tuple[str, str]]:
+    """Distributions an extracted wheel always requires at exactly one version, with it, in metadata order.
 
     A wrapper release with no code of its own pins the distribution that has it: fastmcp 3.3+ requires
-    `fastmcp-slim==<same>`, pinecone 2.2.2-5.0.1 `pinecone-client (==<same>)` (DT-DATA-17). Requirements
-    behind an extra or another marker don't count; sdists aren't read.
+    `fastmcp-slim==<same>`, pinecone 2.2.2-5.0.1 `pinecone-client (==<same>)` (DT-DATA-17), and dspy 0.1.5
+    `dspy-ai (==2.4.5)` (DT-DATA-63). Requirements behind an extra or another marker don't count; sdists aren't
+    read.
     """
-    wanted, pins = Version(version), []
+    pins: list[tuple[str, str]] = []
     for metadata in sorted(root.glob("*.dist-info/METADATA")):
         headers = HeaderParser().parsestr(metadata.read_text(encoding="utf-8", errors="replace"))
         for line in headers.get_all("Requires-Dist") or []:
@@ -308,7 +310,13 @@ def same_version_pins(root: Path, version: str) -> list[str]:
                 req = Requirement(line)
             except InvalidRequirement:
                 continue
-            name = canonicalize_name(req.name)
-            if req.marker is None and _is_exact_pin(req, wanted) and name not in pins:
-                pins.append(name)
+            pinned = _pinned_version(req) if req.marker is None else None
+            if pinned is not None and (pin := (canonicalize_name(req.name), str(pinned))) not in pins:
+                pins.append(pin)
     return pins
+
+
+def same_version_pins(root: Path, version: str) -> list[str]:
+    """Distributions an extracted wheel always requires at exactly its own version, in metadata order."""
+    wanted = Version(version)
+    return list(dict.fromkeys(name for name, pinned in exact_pins(root) if Version(pinned) == wanted))

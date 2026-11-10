@@ -79,7 +79,7 @@ def _version(v: str) -> Version | None:
 def freshness_summary(reports: list[IngestReport], now: datetime) -> str:
     """One paragraph on the freshness bound (DT-DATA-04): the selected releases newer than a package's newest
     indexed one and uploaded more than FRESHNESS_HOURS before `now`, and the newest release that is indexed. An
-    older release that can't be analysed (dspy 0.1.5 has no `dspy`) is the coverage table's business."""
+    older release that can't be analysed is the coverage table's business."""
     late, newest = [], None
     for r in reports:
         done = {*r.cached, *r.built, *r.carried}
@@ -301,31 +301,35 @@ def _build(
 
     A release with no code for its import names is analysed from the first distribution it pins at the same
     version that has it: fastmcp 3.3+ (`fastmcp-slim`), pinecone 2.2.2-5.0.1 (`pinecone-client`), typer
-    0.12.0 (`typer-cli`, itself empty, then `typer-slim`) (DT-DATA-17). A distribution it pins at the same version
-    that has a module its code star-imports is analysed with it (DT-DATA-56: mcp 2.x's `mcp.types` is
+    0.12.0 (`typer-cli`, itself empty, then `typer-slim`) (DT-DATA-17); else from one it pins at another
+    version, which is what installing the release imports: dspy 0.1.5 ships only `dspy_dummy` and requires
+    `dspy-ai==2.4.5`, whose `dspy` it is analysed from (DT-DATA-63). A distribution the analysed code pins at its
+    own version that has a module the code star-imports is analysed with it (DT-DATA-56: mcp 2.x's `mcp.types` is
     `from mcp_types import *`, and mcp 2.3.0 requires `mcp-types==2.3.0`).
     """
     with ExitStack() as cleanup:
         root = _fetch(spec.name, version, file, client, cache_dir, cleanup)
+        code_version = version  # the version of the distribution whose code is analysed
         pins = pypi.same_version_pins(root, version)
         if not pypi.has_code(root, spec.import_names):
-            for dist in pins:
-                pinned_file = _pinned_file(dist, version, releases_of)
+            others = [(d, v) for d, v in pypi.exact_pins(root) if Version(v) != Version(version)]
+            for dist, pinned_version in [(d, version) for d in pins] + others:
+                pinned_file = _pinned_file(dist, pinned_version, releases_of)
                 if pinned_file is None:
                     continue
-                pinned_root = _fetch(dist, version, pinned_file, client, cache_dir, cleanup)
+                pinned_root = _fetch(dist, pinned_version, pinned_file, client, cache_dir, cleanup)
                 if pypi.has_code(pinned_root, spec.import_names):
-                    root, file = pinned_root, pinned_file
-                    pins = pypi.same_version_pins(root, version)
+                    root, file, code_version = pinned_root, pinned_file, pinned_version
+                    pins = pypi.same_version_pins(root, code_version)
                     break
         siblings: list[tuple[Path, list[str]]] = []
         sibling_files: list[str] = []
         wanted = external_star_imports(root, list(spec.import_names))
         for dist in pins if wanted else ():
-            pinned_file = _pinned_file(dist, version, releases_of)
+            pinned_file = _pinned_file(dist, code_version, releases_of)
             if pinned_file is None or pinned_file.filename == file.filename:
                 continue
-            pinned_root = _fetch(dist, version, pinned_file, client, cache_dir, cleanup)
+            pinned_root = _fetch(dist, code_version, pinned_file, client, cache_dir, cleanup)
             names = sorted(m for m in wanted if pypi.has_code(pinned_root, [m]))
             if names:
                 siblings.append((pinned_root, names))
@@ -355,8 +359,15 @@ def _build(
 def _pinned_file(
     dist: str, version: str, releases_of: Callable[[str], list[pypi.Release]]
 ) -> pypi.ReleaseFile | None:
-    """The artifact of `dist`'s release `version`, which a release pins; None when PyPI has none."""
-    pinned = next((r for r in releases_of(dist) if r.version == Version(version)), None)
+    """The artifact of `dist`'s release `version`, which a release pins; None when PyPI has none, or no such
+    project (another error is raised, so the release is retried next run)."""
+    try:
+        releases = releases_of(dist)
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 404:
+            return None
+        raise
+    pinned = next((r for r in releases if r.version == Version(version)), None)
     return pypi.pick_file(pinned) if pinned else None
 
 

@@ -12,11 +12,17 @@ import sqlite3
 import sys
 import threading
 from collections import defaultdict
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from functools import lru_cache
 from pathlib import Path
 
-from packaging.utils import canonicalize_name
+from packaging.utils import (
+    InvalidSdistFilename,
+    InvalidWheelFilename,
+    canonicalize_name,
+    parse_sdist_filename,
+    parse_wheel_filename,
+)
 from packaging.version import InvalidVersion, Version
 
 from deptime import snippet, stdlib
@@ -251,6 +257,24 @@ def _event_key(row: Mapping) -> tuple:
 
 def _and(items: list[str], word: str = "and") -> str:
     return items[0] if len(items) == 1 else f"{', '.join(items[:-1])} {word} {items[-1]}"
+
+
+def _stand_in(package: str, release: Mapping) -> tuple[str, str] | None:
+    """The distribution and version a release's code was read from, when it has no code of its own and pins another
+    distribution at another version (DT-DATA-63: dspy 0.1.5 ships only `dspy_dummy` and requires `dspy-ai==2.4.5`).
+    None for a release read from its own artifact, or from one it pins at its own version (DT-DATA-17)."""
+    file = release["source_file"]
+    if not file:
+        return None
+    try:
+        dist, version = (
+            parse_wheel_filename(file)[:2] if file.endswith(".whl") else parse_sdist_filename(file)
+        )
+        if dist == package or version == Version(release["version"]):
+            return None
+    except (InvalidSdistFilename, InvalidWheelFilename, InvalidVersion):
+        return None
+    return str(dist), str(version)
 
 
 def _params(raw: str | None) -> list[ParamInfo] | None:
@@ -548,6 +572,20 @@ class DepTime:
     def _no_index_note(self) -> str:
         return f"DepTime has no index yet: {self.index_problem}" if self.index_problem else NO_INDEX_NOTE
 
+    def _stand_in_note(self, name: str, versions: Iterable[str | None]) -> str | None:
+        """Says which of `versions` were read from another distribution's code (DT-DATA-63), else None."""
+        if self.store is None:
+            return None
+        said = []
+        for version in dict.fromkeys(v for v in versions if v):
+            release = self.store.release(name, version)
+            if release is not None and (source := _stand_in(name, release)) is not None:
+                said.append(
+                    f"{name} {version} has no code of its own: it requires {source[0]}=={source[1]}, whose code is "
+                    f"what installing it imports, and what is answered for {name} {version}."
+                )
+        return " ".join(said) or None
+
     def _not_indexed_note(self, name: str) -> str:
         if self.store is None:
             return self._no_index_note()
@@ -627,20 +665,27 @@ class DepTime:
             self._replacement(r).model_copy(update={"target": f"{r['path']} -> {r['target']}"})
             for r in self._param_hints(name, full)
         ]
+        first_seen, last_seen = (
+            self._version(name, spans[0]["first_ordinal"]),
+            self._version(name, last_ordinal),
+        )
+        stand_in = self._stand_in_note(
+            name, [first_seen, last_seen, *(v for e in events for v in (e.version, e.prev_version))]
+        )
         return SymbolHistory(
             package=name,
             path=full,
             indexed=True,
             ever_seen=True,
-            first_seen=self._version(name, spans[0]["first_ordinal"]),
-            last_seen=self._version(name, last_ordinal),
+            first_seen=first_seen,
+            last_seen=last_seen,
             latest_indexed_version=latest["version"],
             present_in_latest=last_ordinal == latest["ordinal"],
             signature_at_last_seen=_params(spans[-1]["params"]),
             events=events,
             replacements=replacements,
             suppressed=hidden,
-            note=project.note(hidden, "event"),
+            note=" ".join(n for n in (project.note(hidden, "event"), stand_in) if n) or None,
         )
 
     def _internal_history(
@@ -687,8 +732,9 @@ class DepTime:
                     read += f" Only the first {MAX_CODE_SYMBOLS} names are checked."
                     queries = queries[:MAX_CODE_SYMBOLS]
         result = self._check_symbols(name, spec, version, queries)
-        if read:
-            result.note = " ".join(n for n in (read, result.note) if n)
+        stand_in = self._stand_in_note(name, [result.resolved_version])
+        if read or stand_in:
+            result.note = " ".join(n for n in (read, result.note, stand_in) if n)
         return result
 
     def _unseen(
@@ -1164,6 +1210,7 @@ class DepTime:
             None
             if lo["version"] == from_version or DATE_RE.match(from_version)
             else f"from_version resolved to nearest indexed release {lo['version']}.",
+            self._stand_in_note(name, [lo["version"], hi["version"]]),
             project.note(hidden, "event"),
             *(
                 f"Removals under {module} aren't listed: {why}, so the import may still work; check_symbols"
@@ -1412,6 +1459,19 @@ class DepTime:
                 f"Either pin {changed} (see pin_to_restore) or use a {caller} release that supports your {changed} "
                 f"version; DepTime does not check {caller}'s side."
             )
+        by_package: dict[str, list[str | None]] = defaultdict(list)
+        for f in findings:
+            if f.package != PYTHON:
+                by_package[f.package] += [
+                    f.resolved_version,
+                    f.last_version_with,
+                    f.first_version_without,
+                    f.last_version_without,
+                    f.first_version_with,
+                ]
+        notes += [
+            n for package, versions in by_package.items() if (n := self._stand_in_note(package, versions))
+        ]
         # A distribution DepTime doesn't index (not a standard module): where to look, and where to ask (DT-OSS-11).
         unindexed = sorted({n for n in not_covered if stdlib.lookup(n) is None})
         if unindexed and not findings:

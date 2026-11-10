@@ -23,6 +23,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
 
 ## [Unreleased]
 
+### Fixed
+- A release with no code of its own that pins another distribution at another version is read from that
+  distribution's code, which is what installing it imports (DT-DATA-63): dspy 0.1.5 ships only `dspy_dummy` and
+  requires `dspy-ai==2.4.5`, so it was never indexed and code asked about it was answered at 0.1.4, an empty
+  placeholder, where every name read missing. It now reads dspy-ai 2.4.5's API, `diff_versions` shows what dspy
+  2.5 really changed from it, and each tool's `note` says whose code a version's answer comes from. The index part
+  needs no upgrade (the next nightly build); the note needs this release.
+
 ## [0.1.11] - 2026-11-10
 
 ### Fixed

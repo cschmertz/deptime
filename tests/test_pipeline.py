@@ -584,12 +584,29 @@ WRAPPED = PackageSpec(name="wrapped", import_names=("wrapped",), tier="B")
 WRAPPED_PROJECTS = {
     "wrapped": {
         "wrapped-1.0.0-py3-none-any.whl": _zip({"wrapped/__init__.py": "class Old:\n    pass\n"}),
-        # typer 0.12.0 pins typer-cli (empty too) before typer-slim (the code), both at its own version.
+        # typer 0.12.0 pins typer-cli (empty too) before typer-slim (the code), both at its own version. A pin
+        # at another version comes after them, wherever the metadata lists it.
         "wrapped-2.0.0-py3-none-any.whl": _wrapper(
-            "wrapped", "2.0.0", "wrapped-cli (==2.0.0)", "wrapped-slim[server]==2.0.0", "rich>=13"
+            "wrapped",
+            "2.0.0",
+            "wrapped-ai==1.5.0",
+            "wrapped-cli (==2.0.0)",
+            "wrapped-slim[server]==2.0.0",
+            "rich>=13",
         ),
-        # dspy 0.1.5 pins dspy-ai==2.4.5: another version's code isn't this release's API.
-        "wrapped-3.0.0-py3-none-any.whl": _wrapper("wrapped", "3.0.0", "wrapped-slim==2.0.0"),
+        # dspy 0.1.5 ships only `dspy_dummy` and pins dspy-ai==2.4.5, whose `dspy` installing it imports (DT-DATA-63).
+        "wrapped-3.0.0-py3-none-any.whl": _wrapper(
+            "wrapped", "3.0.0", "wrapped-gone==1.0.0", "wrapped-cli==2.0.0", "wrapped-ai (==1.5.0)"
+        ),
+    },
+    "wrapped-ai": {
+        "wrapped_ai-1.5.0-py3-none-any.whl": _zip(
+            {
+                "wrapped/__init__.py": "class Ai:\n    pass\n",
+                "wrapped_ai-1.5.0.dist-info/METADATA": "Metadata-Version: 2.1\nName: wrapped-ai\nVersion: 1.5.0\n"
+                "Requires-Dist: rich>=13\n",
+            }
+        )
     },
     "wrapped-cli": {
         "wrapped_cli-2.0.0-py3-none-any.whl": _wrapper("wrapped-cli", "2.0.0", "wrapped-slim==2.0.0")
@@ -620,16 +637,23 @@ def _wrapped_client() -> httpx.Client:
 
 
 def test_wrapper_release_is_analysed_from_the_distribution_it_pins(tmp_path):
-    """DT-DATA-17: fastmcp 3.3+ is an empty wheel that pins fastmcp-slim at the same version."""
+    """DT-DATA-17: fastmcp 3.3+ is an empty wheel that pins fastmcp-slim at the same version. DT-DATA-63: dspy
+    0.1.5 is one that pins dspy-ai at another version, 2.4.5."""
     store = IndexStore.memory()
     with _wrapped_client() as client:
         report = ingest_package(WRAPPED, POLICY, store, tmp_path, client=client, today=TODAY, log=_quiet)
-    assert report.built == ["1.0.0", "2.0.0"] and list(report.failed) == ["3.0.0"]
+    assert report.built == ["1.0.0", "2.0.0", "3.0.0"] and report.failed == {}
     assert "wrapped.New" in ApiSnapshot.load(snapshot_path(tmp_path, "wrapped", "2.0.0")).symbols
-    expected = {"1.0.0": "wrapped-1.0.0-py3-none-any.whl", "2.0.0": "wrapped_slim-2.0.0-py3-none-any.whl"}
+    # Not on PyPI (wrapped-gone), and without the code (wrapped-cli): the next pin is tried.
+    assert "wrapped.Ai" in ApiSnapshot.load(snapshot_path(tmp_path, "wrapped", "3.0.0")).symbols
+    expected = {
+        "1.0.0": "wrapped-1.0.0-py3-none-any.whl",
+        "2.0.0": "wrapped_slim-2.0.0-py3-none-any.whl",
+        "3.0.0": "wrapped_ai-1.5.0-py3-none-any.whl",
+    }
     assert {r["version"]: r["source_file"] for r in store.releases("wrapped")} == expected
     # The analysed code's requirements (DT-DATA-14): the pinned distribution's; 1.0.0's wheel has no metadata.
-    requires = {"1.0.0": None, "2.0.0": '["httpx>=0.27"]'}
+    requires = {"1.0.0": None, "2.0.0": '["httpx>=0.27"]', "3.0.0": '["rich>=13"]'}
     assert {r["version"]: r["requires"] for r in store.releases("wrapped")} == requires
     assert ApiSnapshot.load(snapshot_path(tmp_path, "wrapped", "2.0.0")).requires == ["httpx>=0.27"]
     assert [p for p in tmp_path.rglob("*") if p.is_file() and "snapshots" not in p.parts] == []
@@ -640,9 +664,19 @@ def test_wrapper_release_is_analysed_from_the_distribution_it_pins(tmp_path):
         again = ingest_package(
             WRAPPED, POLICY, fresh, tmp_path, client=client, today=TODAY, cached_only=True, log=_quiet
         )
-    assert again.cached == ["1.0.0", "2.0.0"]
+    assert again.cached == ["1.0.0", "2.0.0", "3.0.0"]
     assert {r["version"]: r["source_file"] for r in fresh.releases("wrapped")} == expected
     assert {r["version"]: r["requires"] for r in fresh.releases("wrapped")} == requires
+
+    # Answers for 3.0.0 say whose code they read; 2.0.0's same-version wrapper needs no word.
+    dt = DepTime(store, Coverage(POLICY, (WRAPPED,)))
+    said = "wrapped 3.0.0 has no code of its own: it requires wrapped-ai==1.5.0"
+    checked = dt.check_symbols("wrapped", "3.0.0", [SymbolQuery(path="wrapped.Ai")])
+    assert checked.results[0].status == "present" and said in checked.note
+    assert dt.check_symbols("wrapped", "2.0.0", [SymbolQuery(path="wrapped.New")]).note is None
+    assert said in dt.diff_versions("wrapped", "2.0.0", "3.0.0").note
+    assert said in dt.symbol_history("wrapped", "wrapped.Ai").note
+    assert dt.symbol_history("wrapped", "wrapped.Old").note is None
 
 
 MIRROR = PackageSpec(name="mirror", import_names=("mirror",), tier="A")

@@ -1308,9 +1308,12 @@ class DepTime:
         if signal.kind in OBJECT_SIGNALS and all(f.issue in INCONCLUSIVE_ISSUES for f in findings):
             declared = self._declared_by(raiser, installed, dropped)
             callee = self._callee_findings(signal, installed, {s.name for s in named}, declared)
+            callee = self._through_reexports(callee, installed, signal)
             if callee:
                 # A concrete change in the called package explains the error; "never existed" in the caller is noise.
                 findings = [f for f in findings if f.issue != "never_existed"] + callee
+        elif signal.kind in OBJECT_SIGNALS:
+            findings = self._through_reexports(findings, installed, signal)
         rank = {"high": 0, "medium": 1, "low": 2}
         misnamed = self._misnamed(findings, signal)
         findings.sort(
@@ -2112,6 +2115,52 @@ class DepTime:
             f"The error names `{owner}()` without its class, and {len(classes)} classes' `{owner}` changed the same way "
             f"({_and([f'`{c}`' for c in classes])}); the findings list each, with the same versions and pin."
         ]
+
+    def _through_reexports(
+        self, findings: list[Finding], installed: dict[str, str], signal: ErrorSignal
+    ) -> list[Finding]:
+        """A class member read removed where its class's path became a re-export of another covered distribution's
+        class, as that class's member there (DT-CORE-43): langchain 0.0.341 made `langchain.schema.BaseRetriever`
+        langchain-core's class, so langchain stopped recording its members, and `get_relevant_documents` read removed
+        after 0.0.340. langchain-core removed it in 1.0.0, which is what `'MultiQueryRetriever' object has no
+        attribute 'get_relevant_documents'` on langchain-core 1.0.0 is about. At the other distribution's installed
+        release, else its newest."""
+        assert self.store is not None
+        out: list[Finding] = []
+        for f in findings:
+            moved = None
+            if f.issue == "symbol_removed" and f.first_version_without and f.package != PYTHON:
+                owner, _, member = f.symbol.rpartition(".")
+                row = self.store.resolve_version(f.package, f.first_version_without)[0]
+                span = (
+                    self.store.span_at(f.package, owner, row["ordinal"])
+                    if row is not None and owner
+                    else None
+                )
+                target = span["canonical"] if span is not None and span["kind"] == "alias" else None
+                others = self.coverage.packages_for_module(target.rpartition(".")[0]) if target else []
+                other = next(
+                    (o for o in others if o.name != f.package and self.store.has_package(o.name)), None
+                )
+                if other is not None:
+                    version = installed.get(other.name)
+                    resolved, exact = (
+                        self.store.resolve_version(other.name, version) if version else (None, False)
+                    )
+                    g = self._symbol_finding(
+                        other, f"{target}.{member}", resolved, exact, version, message=signal.message
+                    )
+                    if g.issue != "never_existed":  # still there: present, and the error has another cause
+                        why = (
+                            f"{f.package}'s `{owner}` is {other.name}'s `{target}` from {f.package} "
+                            f"{f.first_version_without} on, so its `{member}` is {other.name}'s."
+                        )
+                        moved = g.model_copy(update={"explanation": f"{why} {g.explanation}"})
+            if moved is not None and all(moved.symbol != o.symbol for o in out):
+                out.append(moved)
+            elif moved is None:
+                out.append(f)
+        return out
 
     @staticmethod
     def _inferred(f: Finding, why: str) -> Finding:

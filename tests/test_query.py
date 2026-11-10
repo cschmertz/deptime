@@ -1850,6 +1850,99 @@ def _internal_store() -> DepTime:
     return DepTime(store, Coverage(POLICY, (spec,)))
 
 
+def test_a_member_of_a_class_path_that_became_a_reexport_is_the_other_distributions():
+    # DT-CORE-43: langchain 0.0.341 made `langchain.schema.BaseRetriever` langchain-core's class, so langchain's
+    # `get_relevant_documents` read removed after 0.0.340; langchain-core removed it in 1.0.0, which the error on
+    # langchain-core 1.0.0 is about (langchain-classic's `MultiQueryRetriever`, not indexed, inherits it).
+    lc = PackageSpec(name="lc", import_names=("lc",), tier="A", own_members=False)
+    core = PackageSpec(name="lc-core", import_names=("lc_core",), tier="A", own_members=False)
+
+    def rec(
+        path: str, kind: str, canonical: str | None = None, deprecated: str | None = None
+    ) -> SymbolRecord:
+        return SymbolRecord(path, kind, canonical or path, [] if kind == "function" else None, deprecated)
+
+    def snap(package: str, version: str, imports: list[str], records: list[SymbolRecord]) -> ApiSnapshot:
+        return ApiSnapshot(package, version, imports, {r.path: r for r in records})
+
+    base = "lc.schema.BaseRetriever"
+    lc_snaps = [
+        snap(
+            "lc",
+            "0.0.340",
+            ["lc"],
+            [
+                rec("lc", "module"),
+                rec(base, "class"),
+                rec(f"{base}.get_relevant_documents", "function"),
+                rec("lc.retrievers.MultiQueryRetriever", "class"),
+                rec(
+                    "lc.retrievers.MultiQueryRetriever.get_relevant_documents",
+                    "function",
+                    f"{base}.get_relevant_documents",
+                ),
+            ],
+        ),
+        snap(
+            "lc",
+            "0.0.341",
+            ["lc"],
+            [
+                rec("lc", "module"),
+                rec(base, "alias", "lc_core.retrievers.BaseRetriever"),
+                rec("lc.retrievers.MultiQueryRetriever", "class"),
+            ],
+        ),
+        snap(
+            "lc",
+            "1.0.0",
+            ["lc"],
+            [rec("lc", "module"), rec(base, "alias", "lc_core.retrievers.BaseRetriever")],
+        ),
+    ]
+    method = "lc_core.retrievers.BaseRetriever.get_relevant_documents"
+    dep = "`get_relevant_documents` is deprecated. Use `invoke` instead."
+    core_snaps = [
+        snap(
+            "lc-core",
+            "0.3.86",
+            ["lc_core"],
+            [
+                rec("lc_core", "module"),
+                rec("lc_core.retrievers.BaseRetriever", "class"),
+                rec(method, "function", deprecated=dep),
+                rec("lc_core.retrievers.BaseRetriever.invoke", "function"),
+            ],
+        ),
+        snap(
+            "lc-core",
+            "1.0.0",
+            ["lc_core"],
+            [
+                rec("lc_core", "module"),
+                rec("lc_core.retrievers.BaseRetriever", "class"),
+                rec("lc_core.retrievers.BaseRetriever.invoke", "function"),
+            ],
+        ),
+    ]
+    store = IndexStore.memory()
+    store.rebuild_package(lc, lc_snaps)
+    store.rebuild_package(core, core_snaps)
+    dt = DepTime(store, Coverage(POLICY, (lc, core)))
+    tb = "AttributeError: 'MultiQueryRetriever' object has no attribute 'get_relevant_documents'"
+    findings = dt.explain_error(tb, {"lc": "1.0.0", "lc-core": "1.0.0"}).findings
+    f = findings[0]
+    assert (f.package, f.symbol, f.issue, f.last_version_with) == (
+        "lc-core",
+        method,
+        "symbol_removed",
+        "0.3.86",
+    )
+    assert "from lc 0.0.341 on" in f.explanation
+    assert [r.target for r in f.replacements] == ["lc_core.retrievers.BaseRetriever.invoke"]
+    assert all(g.package != "lc" for g in findings)
+
+
 def test_an_import_from_a_private_import_root_maps_to_its_package():
     # DT-DATA-62: tavern 3.5's `from _pytest._code.code import FormattedExcinfo` on pytest 9.1.0; coverage.toml's
     # `internal_names` maps `_pytest` to pytest, whose snapshots record its modules as internal names.

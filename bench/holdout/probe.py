@@ -35,9 +35,9 @@ TOOLS = Path("/opt/holdout")
 INSTALL_TIMEOUT_S = 15 * 60
 CHECK_TIMEOUT_S = 15 * 60
 # Pure-Python dependencies published only as sdists, which some environments need (chromadb's pypika, gradio 3's
-# ffmpy; DT-QA-08). An environment that doesn't install from wheels alone is retried allowing just these to build.
-# Nothing else builds, and the packages under test always come from wheels.
-SOURCE_BUILDS = ["pypika", "ffmpy"]
+# ffmpy; DT-QA-08; crewai-tools' docx2txt, DT-QA-10). An environment that doesn't install from wheels alone is retried
+# allowing just these to build. Nothing else builds, and the packages under test always come from wheels.
+SOURCE_BUILDS = ["pypika", "ffmpy", "docx2txt"]
 
 # Runs inside the sandbox with the environment's interpreter: argv[1] = uses (JSON), argv[2] = results (JSON lines on
 # stdout). Every use is checked on its own, so one that hangs or crashes the import of a module loses only itself.
@@ -537,8 +537,10 @@ def probe(env: dict) -> dict:
         (PROJECT / "uses.json").write_text(json.dumps(remaining), encoding="utf-8")
         try:
             p = subprocess.run(
-                sandboxed(str(PY), "-I", "check.py", "uses.json"),
-                cwd=PROJECT,
+                # From the sandbox user's home, which it can write (dspy 0.1.5 writes a log to the working directory
+                # when imported; DT-QA-10); the project, with the venv and the checker, stays read-only to it.
+                sandboxed(str(PY), "-I", str(PROJECT / "check.py"), str(PROJECT / "uses.json")),
+                cwd=HOME,
                 capture_output=True,
                 text=True,
                 timeout=CHECK_TIMEOUT_S,

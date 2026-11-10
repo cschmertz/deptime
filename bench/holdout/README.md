@@ -60,10 +60,12 @@ Three sources (from 2026-11b on, not the first; the third from 2026-11d on):
 `.github/workflows/holdout.yml` installs each package version in a throwaway venv on a GitHub runner (wheels only; PyPI
 as of 30 days after the version's release, so its dependencies are ones it shipped with; the newest releases as of the
 set's cutoff; TimeMachine-bench's `to` as of 2025-08-01 on Python 3.12). From 2026-11b on, an environment that installs
-from wheels on none of its Pythons is tried once more allowing two pure-Python dependencies published only as sdists to
-build (`SOURCE_BUILDS` in `probe.py`: pypika for chromadb and crewai, ffmpy for gradio 3); the package under test still
-comes from a wheel, and `probe-envs.json` records which environments needed it. Then, with no network as an
-unprivileged user, it checks each use at run time (`probe.py`): does the name resolve, and does the call shape bind to `inspect.signature`?
+from wheels on none of its Pythons is tried once more allowing a few pure-Python dependencies published only as sdists
+to build (`SOURCE_BUILDS` in `probe.py`: pypika for chromadb and crewai, ffmpy for gradio 3, and from 2026-11d docx2txt
+for crewai-tools); the package under test still comes from a wheel, and `probe-envs.json` records which environments
+needed it. Then, with no network as an unprivileged user whose home is the working directory (from 2026-11d; before,
+the read-only project, so a package that writes a file there on import couldn't be checked), it checks each use at run
+time (`probe.py`): does the name resolve, and does the call shape bind to `inspect.signature`?
 A path resolves when reading attributes down from the top package works (importing a submodule where an attribute is
 missing), as `from a import b` and `a.b.c` do, or else when importing its longest module prefix and reading the rest
 works, which finds a module a package registers in `sys.modules` under a name an attribute shadows.

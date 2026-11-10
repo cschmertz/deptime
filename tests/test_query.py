@@ -2293,6 +2293,84 @@ def test_an_internal_name_moved_to_one_of_two_modules_gets_no_hint():
     )
 
 
+def test_a_private_module_whose_classes_moved_together_points_to_their_new_module():
+    """DT-CORE-48: huggingface_hub 0.25 removed the private `utils._errors`; its classes moved to
+    `huggingface_hub.errors`, `hf_raise_for_status` to `utils._http`, and `utils` still re-exports the classes."""
+    spec = PackageSpec(name="hub", import_names=("hub",), tier="B")
+
+    def rec(path: str, canonical: str | None = None, kind: str = "class") -> SymbolRecord:
+        return SymbolRecord(path, kind, canonical or path)
+
+    mods = {p: rec(p, kind="module") for p in ("hub", "hub.utils", "hub.errors")}
+    classes = ("GatedRepoError", "RevisionNotFoundError")
+    old = [
+        rec("hub.utils._errors", kind="module"),
+        rec("hub.utils._errors.hf_raise_for_status", kind="function"),
+    ]
+    old += [rec(f"hub.utils._errors.{c}") for c in classes] + [
+        rec("hub.utils._errors.Response", "requests.Response")
+    ]
+    new = {f"hub.errors.{c}": rec(f"hub.errors.{c}") for c in classes}
+    new |= {f"hub.utils.{c}": rec(f"hub.utils.{c}", f"hub.errors.{c}") for c in classes}
+    store = IndexStore.memory()
+    store.rebuild_package(
+        spec,
+        [
+            ApiSnapshot("hub", "0.24.7", ["hub"], mods, internal={r.path: r for r in old}),
+            ApiSnapshot("hub", "0.25.0", ["hub"], mods | new),
+        ],
+    )
+    hints = store.replacements("hub", "hub.utils._errors")
+    assert [(r["target"], r["confidence"], r["source"]) for r in hints] == [
+        ("hub.errors", 0.6, "moved_heuristic")
+    ]
+    f = (
+        DepTime(store, Coverage(POLICY, (spec,)))
+        .explain_error("ModuleNotFoundError: No module named 'hub.utils._errors'", {"hub": "0.25.0"})
+        .findings[0]
+    )
+    assert (f.issue, [r.target for r in f.replacements]) == ("module_removed", ["hub.errors"])
+
+
+def test_a_class_takes_its_constructors_replacements():
+    """DT-CORE-48: gradio 3.x warns "gr.Box is deprecated. Use gr.Group instead." in `Box.__init__`'s body, and 4.0
+    removes `Box`: the error is about the class."""
+    spec = PackageSpec(name="gradio", import_names=("gradio",), tier="B")
+    mod, group = (
+        SymbolRecord("gradio", "module", "gradio"),
+        SymbolRecord("gradio.Group", "class", "gradio.Group"),
+    )
+    box = SymbolRecord("gradio.Box", "class", "gradio.Box")
+    init = SymbolRecord(
+        "gradio.Box.__init__",
+        "function",
+        "gradio.Box.__init__",
+        [],
+        "gr.Box is deprecated. Use gr.Group instead.",
+    )
+    dt = _dt(
+        [
+            (
+                spec,
+                [
+                    ApiSnapshot(
+                        "gr",
+                        "3.50.2",
+                        ["gr"],
+                        {"gr": mod, "gradio.Group": group, "gradio.Box": box, init.path: init},
+                    ),
+                    ApiSnapshot("gradio", "4.0.0", ["gradio"], {"gradio": mod, "gradio.Group": group}),
+                ],
+            )
+        ]
+    )
+    f = dt.explain_error(
+        "AttributeError: module 'gradio' has no attribute 'Box'", {"gradio": "4.0.0"}
+    ).findings[0]
+    assert (f.symbol, f.issue) == ("gradio.Box", "symbol_removed")
+    assert [r.target for r in f.replacements][:1] == ["gradio.Group"]
+
+
 def test_internal_moves_and_deprecations_follow_the_rows():
     spec = PackageSpec(name="dpkg", import_names=("dpkg",), tier="B")
     mods = {p: SymbolRecord(p, "module", p) for p in ("dpkg", "dpkg.core", "dpkg.a", "dpkg.b", "dpkg.c")}

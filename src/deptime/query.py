@@ -527,8 +527,16 @@ class DepTime:
 
     # Hints mined from text that reads like instructions are dropped with the text (DT-CORE-08).
     def _hints(self, name: str, path: str) -> list[sqlite3.Row]:
+        """`path`'s replacement hints, and a class's `__init__`'s, as a constructor's deprecation is its class's
+        (DT-CORE-48: gradio 3.x's `Box.__init__` warns "gr.Box is deprecated. Use gr.Group instead.")."""
         assert self.store is not None
-        return [r for r in self.store.replacements(name, path) if not instruction_like(r["evidence"])]
+        rows = self.store.replacements(name, path)
+        if "(" not in path and not path.endswith(".__init__"):
+            seen = {r["target"] for r in rows}
+            init = [r for r in self.store.replacements(name, f"{path}.__init__") if r["target"] not in seen]
+            if init:
+                rows = sorted([*rows, *init], key=lambda r: -r["confidence"])
+        return [r for r in rows if not instruction_like(r["evidence"])]
 
     def _param_hints(self, name: str, func_path: str) -> list[sqlite3.Row]:
         assert self.store is not None

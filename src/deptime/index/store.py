@@ -276,6 +276,81 @@ def internal_moves(
     return hints
 
 
+def internal_module_moves(
+    span_rows: Sequence[tuple[str, int, int, tuple]],
+    internal_rows: Sequence[tuple[str, int, int, tuple]],
+    versions: Sequence[str],
+) -> list[tuple[str, str, float, str]]:
+    """Hints for a module that isn't public API and goes away while the names it defined all reappear in one module
+    (DT-CORE-48): huggingface_hub 0.25 removed the private `utils._errors`, whose classes moved to
+    `huggingface_hub.errors` (its `hf_raise_for_status` to `utils._http`). The two or more public-looking classes it
+    defines (not its imports), each found as a class of the same name in the other module in the release that drops
+    it; functions alone pair by accident (numpy 2.0's `array_api._sorting_functions` with `ma.core`, which defines a
+    `sort` and an `argsort` too). Of several such modules, one that
+    defines them, then a public one, then the shortest. At `MOVED_CONFIDENCE`: they are new definitions, not the
+    same objects (DT-CORE-45's `module_moves` covers public modules whose objects stayed). Rows as in
+    `internal_moves`."""
+    spans: dict[str, list[tuple[int, int, tuple]]] = {}
+    children: dict[str, list[str]] = {}
+    by_leaf: dict[str, list[str]] = {}
+    for path, first, last, state in [*span_rows, *internal_rows]:
+        if path not in spans:
+            parent, _, leaf = path.rpartition(".")
+            children.setdefault(parent, []).append(path)
+            by_leaf.setdefault(leaf, []).append(path)
+        spans.setdefault(path, []).append((first, last, state))
+
+    def at(path: str, ordinal: int) -> tuple | None:
+        return next((st for f, end, st in spans.get(path, ()) if f <= ordinal <= end), None)
+
+    hints = []
+    for path, _first, last, state in internal_rows:
+        ordinal = last + 1
+        if state[0] != "module" or ordinal >= len(versions) or at(path, ordinal) is not None:
+            continue
+        names = []
+        for child in children.get(path, ()):
+            leaf = child.rpartition(".")[2]
+            kid = at(child, last)
+            if kid is None or leaf.startswith("_") or kid[1] != child:  # gone, private, or an import
+                continue
+            if kid[0] == "module":
+                names = []
+                break  # a package: its submodules went too
+            names.append((leaf, kid[0]))
+        names = [n for n in names if n[1] == "class"]
+        if len(names) < 2:
+            continue
+        homes: set[str] | None = None
+        for leaf, kind in names:
+            here = {
+                other.rpartition(".")[0]
+                for other in by_leaf.get(leaf, ())
+                if other.rpartition(".")[0] != path
+                and (now := at(other, ordinal)) is not None
+                and now[0] == kind
+                and (owner := at(other.rpartition(".")[0], ordinal)) is not None
+                and owner[0] == "module"
+            }
+            homes = here if homes is None else homes & here
+            if not homes:
+                break
+        if not homes:
+            continue
+
+        def rank(module: str, ordinal: int = ordinal, names: list = names) -> tuple:
+            defines = all(
+                (st := at(f"{module}.{leaf}", ordinal)) and st[1] == f"{module}.{leaf}" for leaf, _ in names
+            )
+            private = any(_is_private(part) for part in module.split("."))
+            return (not defines, private, module.count("."), len(module), module)
+
+        home = min(homes, key=rank)
+        evidence = f"{path} is gone in {versions[ordinal]}, where {home} has each of the {len(names)} names it defined"
+        hints.append((path, home, MOVED_CONFIDENCE, evidence))
+    return hints
+
+
 def curated_rows(
     span_rows: Sequence[tuple[str, int, int, tuple]], hints: Sequence[CuratedHint]
 ) -> list[tuple[str, str, str]]:
@@ -750,6 +825,8 @@ class IndexStore:
         for path, target, conf, evidence in internal_moves(
             span_rows, internal_rows, versions, spec.import_names
         ):
+            add_repl(path, target, conf, "moved_heuristic", evidence)
+        for path, target, conf, evidence in internal_module_moves(span_rows, internal_rows, versions):
             add_repl(path, target, conf, "moved_heuristic", evidence)
         hints = hints_for(name) if curated is None else curated
         # With own members, a member's hints from the library's text are at its class's label (DT-DATA-16), and so

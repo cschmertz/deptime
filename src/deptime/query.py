@@ -80,6 +80,9 @@ SEVERITY = {
     "added": 10,
     "now_raises": 1,  # calling it fails from then on, as with a removed parameter (DT-DATA-67)
 }
+# "Pass `x` to `f()`" in an error about a removed argument `x` (DT-CORE-47): where it goes now.
+PASS_TO_RE = re.compile(r"\b[Pp]ass `(?P<param>\w+)` to `(?P<target>[\w.]+)\(\)`")
+PASS_TO_CONFIDENCE = 0.8
 # What check_symbols calls a prefix it can't look inside (DT-CORE-32).
 OBJECT_KINDS = {
     "attribute": "an attribute",
@@ -2232,7 +2235,7 @@ class DepTime:
                 out += [
                     self._param_finding(
                         spec,
-                        p,
+                        self._constructor(name, p),
                         param,
                         signal.kind,
                         resolved,
@@ -2583,6 +2586,15 @@ class DepTime:
         paths = dict.fromkeys(p for _, p in pairs)
         return sorted(paths, key=lambda p: (score(p), p not in prefer, len(p)))[:MAX_FINDINGS_PER_PACKAGE]
 
+    def _constructor(self, name: str, path: str) -> str:
+        """`path`'s `__init__` when `path` is a class with one: a library's own argument error can name the class
+        it was called as (fastmcp 3's "FastMCP() no longer accepts `log_level`", DT-CORE-47), where Python's names
+        `FastMCP.__init__()`. Else `path`."""
+        assert self.store is not None
+        init = f"{path}.__init__"
+        is_class = any(s["kind"] == "class" for s in self.store.spans(name, path))
+        return init if is_class and self.store.spans(name, init) else path
+
     def _takers(
         self, name: str, owner: str, param: str | None, resolved: sqlite3.Row | None
     ) -> tuple[list[tuple[str, str]], frozenset[str]]:
@@ -2666,6 +2678,16 @@ class DepTime:
             if param is not None
             else set()
         )
+        if param is not None:
+            # "Pass `log_level` to `run_http_async()`" (DT-CORE-47: fastmcp 3's removed keywords): the argument
+            # now goes to another callable of the package.
+            for m in PASS_TO_RE.finditer(message):
+                if m.group("param") != param:
+                    continue
+                for candidate in _error_hint_paths(spec, path, m.group("target")):
+                    if any(self.store.span_at(name, candidate, o) is not None for o in ordinals):
+                        keep(candidate, PASS_TO_CONFIDENCE)
+                        break
         for hint in mine(message, skip_expressions=True):
             t = hint.target
             if param is not None:

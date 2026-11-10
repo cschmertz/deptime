@@ -68,6 +68,8 @@ TYPE_ATTR_RE = re.compile(r"type object '(?P<owner>[\w.]+)' has no attribute '(?
 OBJ_ATTR_RE = re.compile(r"'(?P<owner>[\w.]+)' object has no attribute '(?P<name>\w+)'")
 UNEXPECTED_KW_RE = re.compile(r"(?P<owner>[\w.]+)\(\) got an unexpected keyword argument '(?P<kwarg>\w+)'")
 BARE_KW_RE = re.compile(r"got an unexpected keyword argument '(?P<kwarg>\w+)'")  # no callable named
+# fastmcp 3's own message for a keyword it removed: "FastMCP() no longer accepts `log_level`. Pass ..." (DT-CORE-47).
+NO_LONGER_ACCEPTS_RE = re.compile(r"(?P<owner>[\w.]+)\(\) no longer accepts [`'\"]?(?P<kwarg>\w+)[`'\"]?")
 MISSING_ARG_RE = re.compile(
     r"(?P<owner>[\w.]+)\(\) missing \d+ required (?:positional|keyword-only) arguments?: (?P<names>.+)$"
 )
@@ -474,6 +476,8 @@ def _classify(signal: ErrorSignal, msg: str) -> None:
         signal.kind, signal.owner, signal.kwarg = "unexpected_kwarg", m.group("owner"), m.group("kwarg")
     elif m := BARE_KW_RE.search(msg):
         signal.kind, signal.kwarg = "unexpected_kwarg", m.group("kwarg")
+    elif m := NO_LONGER_ACCEPTS_RE.search(msg):
+        signal.kind, signal.owner, signal.kwarg = "unexpected_kwarg", m.group("owner"), m.group("kwarg")
     elif m := MISSING_ARG_RE.search(msg):
         signal.kind, signal.owner = "missing_argument", m.group("owner")
         signal.missing_args = re.findall(r"'(\w+)'", m.group("names"))

@@ -1591,6 +1591,33 @@ def test_diff_versions_reports_changes_to_used_names_that_arent_public():
     assert dt.diff_versions("flk", "2.2.0", "3.0.0").events == []
 
 
+SRV = PackageSpec(name="srv", import_names=("srv",), tier="B")
+
+
+def test_a_library_that_no_longer_accepts_a_keyword_names_the_class():
+    """DT-CORE-47: fastmcp 3's `FastMCP.__init__(**kwargs)` rejects the keywords 3.0 removed itself, naming the class
+    as it was called and saying where the argument goes now."""
+    mod, cls = _rec("srv", "module"), _rec("srv.FastMCP", "class")
+    run = _rec("srv.FastMCP.run_http_async", "function", [{"name": "log_level", "kind": "keyword-only"}])
+    old = _rec(
+        "srv.FastMCP.__init__", "function", [{"name": "log_level", "kind": "keyword-only", "default": "None"}]
+    )
+    new = _rec("srv.FastMCP.__init__", "function", [{"name": "kwargs", "kind": "variadic keyword"}])
+    base = {"srv": mod, "srv.FastMCP": cls, run.path: run}
+    snaps = [ApiSnapshot("srv", "2.14.7", ["srv"], base | {old.path: old})]
+    snaps.append(ApiSnapshot("srv", "3.0.0", ["srv"], base | {new.path: new}))
+    dt = _dt([(SRV, snaps)])
+    tb = "TypeError: FastMCP() no longer accepts `log_level`. Pass `log_level` to `run_http_async()`, or set X."
+    f = dt.explain_error(tb, {"srv": "3.0.0"}).findings[0]
+    assert (f.symbol, f.issue, f.last_version_with, f.pin_to_restore) == (
+        "srv.FastMCP.__init__(log_level)",
+        "param_removed",
+        "2.14.7",
+        "srv<=2.14.7",
+    )
+    assert [(r.target, r.source) for r in f.replacements] == [("srv.FastMCP.run_http_async", "error_message")]
+
+
 NUMPY = PackageSpec(name="numpy", import_names=("numpy",), tier="B")
 
 

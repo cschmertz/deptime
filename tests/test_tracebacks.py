@@ -131,6 +131,17 @@ def test_pytest_long_e_prefix_and_location_line():
     assert (s.kind, s.owner, s.kwarg) == ("unexpected_kwarg", "skip", "msg")
 
 
+def test_a_callable_that_no_longer_accepts_a_keyword():
+    # DT-CORE-47: fastmcp 3 raises this from a table of removed keywords, instead of Python's own message.
+    s = parse_traceback(
+        "TypeError: FastMCP() no longer accepts `log_level`. Pass `log_level` to `run_http_async()`, or set"
+        " FASTMCP_LOG_LEVEL."
+    )
+    assert (s.kind, s.owner, s.kwarg) == ("unexpected_kwarg", "FastMCP", "log_level")
+    s = parse_traceback("TypeError: Client.__init__() no longer accepts 'proxies'")
+    assert (s.kind, s.owner, s.kwarg) == ("unexpected_kwarg", "Client.__init__", "proxies")
+
+
 def test_compose_log_prefix_and_trailing_warning():
     s = parse_traceback(
         "api-1  | AttributeError: 'QdrantClient' object has no attribute 'search'\n"

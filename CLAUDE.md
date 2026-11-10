@@ -4,6 +4,15 @@ DepTime is an open-source (MIT), **local-first** MCP server. It answers "what ch
 
 Read `README.md` first. The plan is in `BACKLOG.md`; put its IDs (e.g. `DT-CORE-05`) in commit messages.
 
+**Commit messages** (from 2026-11-10 on; don't reword or rebase older commits):
+- **Subject:** one short plain-English sentence, aiming for 72 characters or fewer, that someone who has never opened the codebase can follow: what changed and why it matters.
+  - No function names, file paths or jargon. The five tool names (`check_symbols`, `explain_error`, `diff_versions`, `symbol_history`, `coverage`) are fine.
+  - Backlog IDs go in parentheses at the end: the one or two main ones. List any others on the body's first line (`Also DT-..., DT-...`); `git log --grep` searches the body too.
+  - Example: "Point to a module's new home when a library removes it (DT-CORE-45)".
+- **Body:** the full technical detail, as before: why, numbers, checks, gaps.
+- **Numbers:** the subject never states a number the body doesn't back up. Round down, or leave it out.
+- **Scope:** this is for the maintainer's commits. Contributors don't have to follow it.
+
 ## Commands
 
 ```bash

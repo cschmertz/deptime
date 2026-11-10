@@ -18,7 +18,7 @@
 
 ---
 
-## Current state: public alpha, v0.1.10 (since 2026-11-08)
+## Current state: public alpha, v0.1.11 (since 2026-11-10)
 
 - 0.1.10 (tag on `a2b314d`) is on PyPI, the MCP Registry (latest) and GitHub (Latest), published by `release.yml`; a fresh `uvx --from deptime==0.1.10` install pulls the `SNAPSHOT_FORMAT` 22 index with `index pull --verify` and reads mcp 2.3.0's `mcp.types.Tool` as present, `mcp.types.Tool.inputSchema` as missing with `input_schema` to try, and crewai 0.41's `Agent(...)` as needing no `__pydantic_self__`. What changed since 0.1.9 is in `CHANGELOG.md`.
 

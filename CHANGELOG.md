@@ -23,6 +23,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
 
 ## [Unreleased]
 
+## [0.1.11] - 2026-11-10
+
 ### Fixed
 - Names a module still imports, but that its `__all__` (or its being a plain module) leaves out of its public names,
   count as public wherever another release of the package has them as public API (DT-DATA-45): langgraph 0.6's
@@ -282,7 +284,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
 - The prebuilt index of 52 packages, downloaded on first run and refreshed daily; `deptime index pull|status|pack`;
   offline mode (`DEPTIME_OFFLINE=1`).
 
-[Unreleased]: https://github.com/cschmertz/deptime/compare/v0.1.10...HEAD
+[Unreleased]: https://github.com/cschmertz/deptime/compare/v0.1.11...HEAD
+[0.1.11]: https://github.com/cschmertz/deptime/compare/v0.1.10...v0.1.11
 [0.1.10]: https://github.com/cschmertz/deptime/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/cschmertz/deptime/compare/v0.1.8...v0.1.9
 [0.1.8]: https://github.com/cschmertz/deptime/compare/v0.1.7...v0.1.8

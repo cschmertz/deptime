@@ -3535,7 +3535,11 @@ class _Walker:
         for name, member in list(mod.members.items()):
             if member.is_alias and member.wildcard:  # type: ignore[union-attr]  # a star import griffe couldn't expand
                 continue
-            if name in exported or self._public(mod, name, member, reexporter):
+            if (
+                name in exported
+                or self._public(mod, name, member, reexporter)
+                or self._version(mod, name, member)
+            ):
                 if (rebound := self._rebound(mod, name, member)) is not None:
                     self.member(
                         rebound, f"{public_path}.{name}", depth, walk_from
@@ -3571,6 +3575,17 @@ class _Walker:
                         rec = self.snap.symbols[path]
                         if message and rec.deprecated is None:
                             self.snap.symbols[path] = replace(rec, deprecated=message)
+
+    def _version(self, mod: griffe.Module, name: str, member: griffe.Object | griffe.Alias) -> bool:
+        """Whether `name` is a module's `__version__`, public however the module binds it (DT-DATA-65): pandas 2.x
+        imports it from the private `pandas._version_meson` in a `try`, else assigns it in the `except`, and lists it
+        in `__all__` only from 3.1. Not one the module deletes again or binds only for type checkers."""
+        if name != "__version__" or name in self._shapes(mod).deleted:
+            return False
+        try:
+            return bool(member.runtime)
+        except (griffe.AliasResolutionError, griffe.CyclicAliasError):
+            return False
 
     def _bindable(self, mod: griffe.Module, name: str, member: griffe.Object | griffe.Alias) -> bool:
         """Whether a name the public-API rules leave out is an import `from mod import name` still finds

@@ -3364,6 +3364,32 @@ def test_a_name_bound_to_a_module_level_instances_method_takes_its_signature(tmp
     assert symbols["hub.made"].kind == "attribute" and symbols["hub.other"].kind == "attribute"
 
 
+def test_a_modules_version_is_public_however_it_is_bound(tmp_path):
+    """DT-DATA-65: pandas 2.x imports `__version__` from the private `_version_meson` in a `try`, else assigns it,
+    and its `__all__` doesn't list it; `pandas.__version__` is still what every user reads."""
+    files = {
+        "pd/__init__.py": (
+            "try:\n"
+            "    from pd._version_meson import __version__\n"
+            "except ImportError:\n"
+            "    __version__ = '0+unknown'\n"
+            "def read():\n    pass\n"
+            "__all__ = ['read']\n"
+        ),
+        "pd/_version_meson.py": "__version__ = '2.1.1'\n",
+        "pd/gone.py": "__version__ = '1'\ndel __version__\nx = 1\n__all__ = ['x']\n",
+        "pd/typed.py": (
+            "from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    from pd._version_meson import __version__\n"
+            "x = 1\n__all__ = ['x']\n"
+        ),
+        "pd/plain.py": "from importlib.metadata import version\n__version__ = version('pd')\nx = 1\n__all__ = ['x']\n",
+    }
+    symbols = build_snapshot("pd", "1.0", ["pd"], _write(tmp_path, files)).symbols
+    assert symbols["pd.__version__"].kind == "attribute"
+    assert symbols["pd.plain.__version__"].kind == "attribute"
+    assert "pd.gone.__version__" not in symbols and "pd.typed.__version__" not in symbols
+
+
 def test_a_namespace_import_root_is_recorded(tmp_path):
     root = _write(tmp_path, {"nsroot/graph/__init__.py": "def g():\n    pass\n"})
     assert build_snapshot("nsroot", "1.0", ["nsroot"], root).namespaces == ["nsroot"]

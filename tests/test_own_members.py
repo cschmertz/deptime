@@ -725,6 +725,36 @@ def test_names_served_through_a_literal_table_follow_the_tokenizer_its_value_nam
     assert store.spans("tok", "tok.YTokenizerFast") == []
 
 
+def test_a_name_imported_from_the_standard_library_reads_present_and_internal(tmp_path):
+    # DT-DATA-61: pydantic's `networks` imports `IPv4Address` from `ipaddress`, and code uses it from there; a name no
+    # import explains still reads missing, and names for annotations aren't recorded.
+    releases = {
+        "2.0": {
+            "net/__init__.py": "from net.networks import IPvAnyAddress\n",
+            "net/networks.py": (
+                "import os\nfrom collections.abc import Mapping\nfrom ipaddress import IPv4Address\n"
+                "from typing import Any\nfrom typing_extensions import Literal\n\n\n"
+                "class IPvAnyAddress:\n    pass\n\n\n__all__ = ['IPvAnyAddress']\n"
+            ),
+        }
+    }
+    (snap,) = _snapshots(tmp_path, releases, "net")
+    internal = {p: (r.kind, r.canonical) for p, r in snap.internal.items() if p.startswith("net.networks.")}
+    assert internal == {"net.networks.IPv4Address": ("alias", "ipaddress.IPv4Address")}
+    spec = PackageSpec(name="net", import_names=("net",), tier="A")
+    store = IndexStore.memory()
+    store.rebuild_package(spec, [snap])
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+    queries = [
+        SymbolQuery(path="net.networks.IPv4Address", positional=1),
+        SymbolQuery(path="net.networks.Nope"),
+    ]
+    found, missing = dt.check_symbols("net", "2.0", queries).results
+    assert (found.status, found.internal) == ("present", True)
+    assert found.hint == "present, but not public API: net.networks imports it from ipaddress for its own use"
+    assert missing.status == "missing"
+
+
 # DT-DATA-60: pydantic 2 keeps v1's modules as `__getattr__ = getattr_migration(__name__)`, which serves the names
 # `pydantic/_migration.py`'s tables list as `module:name`: `MOVED_IN_V2` with a warning, `DEPRECATED_MOVED_IN_V2`
 # as the deprecated object (2.0 spreads a comprehension into it), `REDIRECT_TO_V1` from `pydantic.v1` with a warning.

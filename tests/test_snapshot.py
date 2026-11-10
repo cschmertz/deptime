@@ -3138,6 +3138,8 @@ def test_internal_names_are_recorded_apart_from_the_public_api(tmp_path):
         "inner.core.handle_response": ("function", "inner.response.handle_response"),
         "inner.core._helper": ("function", "inner._impl._helper"),
         "inner.core.escape": ("alias", "markupsafe.escape"),
+        # A name imported from the standard library by name (DT-DATA-61); not `os`, imported whole, nor `typing`'s.
+        "inner.core.OD": ("alias", "collections.OrderedDict"),
         # A private module, and everything it binds.
         "inner._impl": ("module", "inner._impl"),
         "inner._impl._helper": ("function", "inner._impl._helper"),
@@ -3153,8 +3155,8 @@ def test_internal_names_are_recorded_apart_from_the_public_api(tmp_path):
     # Public paths stay where they were, and nothing is in both.
     assert {"inner.Client", "inner.core.Client", "inner.response.handle_response"} <= set(snap.symbols)
     assert not set(snap.internal) & set(snap.symbols)
-    # Not recorded: standard-library imports, names only type checkers see, annotations without a value, dunders,
-    # deleted names, class members, and test modules.
+    # Not recorded: standard-library modules imported whole and names for annotations, names only type checkers see,
+    # annotations without a value, dunders, deleted names, class members, and test modules.
     assert not [p for p in snap.symbols if "_QUERY_OPTIONS" in p or "_impl" in p]
 
 
@@ -3453,6 +3455,34 @@ def test_an_import_of_a_name_a_package_rebinds_binds_the_object(tmp_path):
         "pl.orm.mapper",
     )
     assert snap.symbols["pl.orm.mapper"].kind == "function"
+
+
+def test_a_private_import_root_is_recorded_as_internal_names(tmp_path):
+    # DT-DATA-62: pytest's wheel installs `_pytest`, whose modules plugins import (tavern 3.5's
+    # `from _pytest._code.code import FormattedExcinfo`); `internal_names` records them, never as public API.
+    files = {
+        "pt/__init__.py": "from _pt.config import Config\n__all__ = ['Config']\n",
+        "_pt/__init__.py": "",
+        "_pt/config.py": "class Config:\n    def getini(self, name):\n        pass\n",
+        "_pt/hookspec.py": "def pytest_addoption(parser):\n    pass\n",
+        "_pt/_code/__init__.py": "",
+        "_pt/_code/code.py": "import os\n\n\nclass FormattedExcinfo:\n    pass\n\n\ndef _helper():\n    pass\n",
+    }
+    root = _write(tmp_path, files)
+    snap = build_snapshot("pt", "1.0", ["pt", "_pt.hookspec"], root, own_members=True, internal_names=["_pt"])
+    assert snap.internal_names == ["_pt"]
+    assert (snap.symbols["pt.Config"].kind, snap.symbols["pt.Config"].canonical) == (
+        "class",
+        "_pt.config.Config",
+    )
+    assert snap.symbols["_pt.hookspec.pytest_addoption"].kind == "function"
+    formatted = snap.internal["_pt._code.code.FormattedExcinfo"]
+    assert (formatted.kind, formatted.canonical) == ("class", "_pt._code.code.FormattedExcinfo")
+    assert {"_pt._code.code", "_pt._code.code._helper", "_pt.config.Config"} <= snap.internal.keys()
+    assert not any(p.startswith("_pt.") and not p.startswith("_pt.hookspec") for p in snap.symbols)
+    assert "_pt.hookspec.pytest_addoption" not in snap.internal  # public already
+    without = build_snapshot("pt", "1.0", ["pt", "_pt.hookspec"], root, own_members=True)
+    assert "_pt._code.code.FormattedExcinfo" not in without.internal
 
 
 MIRROR = {

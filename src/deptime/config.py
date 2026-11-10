@@ -213,6 +213,9 @@ class PackageSpec:
     own_members: bool = True
     # Names the package serves through its import machinery (DT-DATA-52).
     served: tuple[ServedRule, ...] = ()
+    # Private import roots the wheel also installs, recorded as internal names only, never public API (DT-DATA-62):
+    # pytest's `_pytest`, whose modules plugins import. Tracebacks from them map to the package too.
+    internal_names: tuple[str, ...] = ()
 
     def alias_version(self, installed: dict[str, str]) -> tuple[str, str] | None:
         """(distribution, version) of the first `installed_as` entry that `installed` lists in its range."""
@@ -252,7 +255,7 @@ class Coverage:
         """
         best_len, best = 0, []
         for spec in self.packages:
-            for import_name in spec.import_names:
+            for import_name in (*spec.import_names, *spec.internal_names):
                 if module == import_name or module.startswith(import_name + "."):
                     n = import_name.count(".") + 1
                     if n > best_len:
@@ -292,6 +295,7 @@ def load_coverage(path: Path | None = None) -> Coverage:
                 ServedRule(**{k: tuple(v) if k == "modules" else v for k, v in r.items()})
                 for r in p.get("served", ())
             ),
+            internal_names=tuple(p.get("internal_names", ())),
         )
         for p in raw.get("package", [])
     )

@@ -1850,6 +1850,31 @@ def _internal_store() -> DepTime:
     return DepTime(store, Coverage(POLICY, (spec,)))
 
 
+def test_an_import_from_a_private_import_root_maps_to_its_package():
+    # DT-DATA-62: tavern 3.5's `from _pytest._code.code import FormattedExcinfo` on pytest 9.1.0; coverage.toml's
+    # `internal_names` maps `_pytest` to pytest, whose snapshots record its modules as internal names.
+    spec = PackageSpec(name="pt", import_names=("pt",), tier="B", internal_names=("_pt",))
+    code = SymbolRecord("_pt._code.code", "module", "_pt._code.code")
+    formatted = SymbolRecord("_pt._code.code.FormattedExcinfo", "class", "_pt._code.code.FormattedExcinfo")
+
+    def snap(version: str, internal: list[SymbolRecord]) -> ApiSnapshot:
+        public = {"pt": SymbolRecord("pt", "module", "pt")}
+        return ApiSnapshot("pt", version, ["pt"], public, internal={r.path: r for r in internal})
+
+    store = IndexStore.memory()
+    store.rebuild_package(spec, [snap("9.0.3", [code, formatted]), snap("9.1.0", [code])])
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+    tb = "E   ImportError: cannot import name 'FormattedExcinfo' from '_pt._code.code'"
+    f = dt.explain_error(tb, {"pt": "9.1.0"}).findings[0]
+    assert (f.package, f.symbol, f.issue, f.last_version_with) == (
+        "pt",
+        "_pt._code.code.FormattedExcinfo",
+        "symbol_removed",
+        "9.0.3",
+    )
+    assert f.internal and f.pin_to_restore == "pt<=9.0.3"
+
+
 def test_a_removed_internal_name_is_removed_not_never_existed():
     # DT-DATA-22: motor 3.5.1 imports pymongo 4.8's `pymongo.cursor._QUERY_OPTIONS`; 4.9 defines it elsewhere.
     dt = _internal_store()

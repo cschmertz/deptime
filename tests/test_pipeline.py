@@ -223,6 +223,17 @@ def test_cached_snapshot_with_other_served_rules_is_rebuilt(tmp_path):
     assert ApiSnapshot.load(snapshot_path(tmp_path, "fakepkg", "1.0.0")).served == [rule.as_dict()]
 
 
+def test_cached_snapshot_with_other_internal_names_is_rebuilt(tmp_path):
+    """DT-DATA-62: coverage.toml's `internal_names` change what a snapshot records, so an edit rebuilds it."""
+    store = IndexStore.memory()
+    _full_ingest(store, tmp_path)
+    private = PackageSpec(name="fakepkg", import_names=("fakepkg",), tier="B", internal_names=("_fakepkg",))
+    with _client() as client:
+        report = ingest_package(private, POLICY, store, tmp_path, client=client, today=TODAY, log=_quiet)
+    assert report.cached == [] and report.built == ["1.0.0", "2.0.0"]
+    assert ApiSnapshot.load(snapshot_path(tmp_path, "fakepkg", "1.0.0")).internal_names == ["_fakepkg"]
+
+
 def test_switching_a_package_to_own_members_rebuilds_its_snapshots(tmp_path):
     """DT-DATA-16: `own_members` changes what a snapshot records, so a cached one of the other kind is rebuilt."""
     store = IndexStore.memory()

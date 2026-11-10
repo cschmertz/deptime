@@ -16,6 +16,8 @@
 #                  up when queried, rather than storing every member under every class that has it (DT-DATA-16,
 #                  DT-DATA-49). The answers are the same; an index with such a package has schema version 2, which
 #                  deptime 0.1.5 and older can't read. `false` stores every member under every class.
+# `internal_names` = private import roots the wheel also installs, recorded only as internal names, never as public
+#                  API; tracebacks from them map to the package (DT-DATA-62: pytest's `_pytest`).
 # `[[package.served]]` = names the package serves through its own import machinery rather than by binding them
 #                  (DT-DATA-52), in each release whose `file` matches the regular expression `when`: `module` as the
 #                  module `serves`, with all its names (`{part}` matches one dotted part, the same in both), or in
@@ -397,6 +399,9 @@ name = "pytest"
 import_names = ["pytest", "_pytest.hookspec"]
 tier = "B"
 notes = "Public API re-exported from private `_pytest`; plugin hookspecs are documented at `_pytest.hookspec`."
+# Plugins import `_pytest`'s modules (`_pytest.config`, `_pytest.nodes`, `_pytest._code`): recorded as internal names
+# (DT-DATA-62), so an import of one pytest removed reads removed at the last release with it, marked private.
+internal_names = ["_pytest"]
 
 [[package]]
 name = "typer"

@@ -64,6 +64,8 @@ PASS_DEPTH = 3
 # Builds run on the pinned interpreter (.python-version), so this list doesn't vary between index builds.
 # distutils left the stdlib in 3.12; typing_extensions is a backport of it.
 STDLIB_MODULES = frozenset(sys.stdlib_module_names) | {"distutils", "typing_extensions"}
+# Standard modules whose names code imports for annotations, never through a library's module (DT-DATA-61).
+ANNOTATION_MODULES = frozenset({"typing", "typing_extensions", "__future__"})
 
 
 @dataclass
@@ -176,6 +178,8 @@ class ApiSnapshot:
     bound: dict[str, SymbolRecord] = field(default_factory=dict)
     # The coverage.toml `served` rules it was built with, as `ServedRule.as_dict` gives them: editing them rebuilds it.
     served: list[dict[str, Any]] = field(default_factory=list)
+    # Private import roots recorded as internal names only (coverage.toml `internal_names`, DT-DATA-62).
+    internal_names: list[str] = field(default_factory=list)
 
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -3776,10 +3780,11 @@ class _Walker:
         pymongo 4.8's `pymongo.cursor._QUERY_OPTIONS`, openinference imports `handle_response_model` from
         instructor's `core.patch`, which only imported it, and fastapi-pagination imports sqlalchemy's
         `AsyncConnection` from sqlmodel's `ext.asyncio.session`. Recorded by the path they're bound at: a module's
-        private names, its imports from outside the standard library, the private names its `__getattr__`
-        serves, and every name of a module that isn't public (`pymongo._csot`), with the module itself. Not
-        recorded: dunders, names only type checkers see, annotations without a value, names the module deletes,
-        class members, test modules and modules that always raise. Kind and canonical path only: no signatures.
+        private names, its imports (from the standard library by name, and not for annotations: DT-DATA-61), the
+        private names its `__getattr__` serves, and every name of a module that isn't public (`pymongo._csot`),
+        with the module itself. Not recorded: dunders, names only type checkers see, annotations without a value,
+        names the module deletes, class members, test modules and modules that always raise. Kind and canonical
+        path only: no signatures.
         """
         stack, seen = [root], set()
         while stack:
@@ -3827,8 +3832,14 @@ class _Walker:
         if member.wildcard:  # type: ignore[union-attr]  # a star import griffe couldn't expand
             return None
         source = member.target_path  # type: ignore[union-attr]
-        if source.split(".")[0] in STDLIB_MODULES or source.startswith("__future__."):
-            return None
+        top = source.split(".")[0]
+        if top in STDLIB_MODULES:
+            # A name imported from the standard library, by name (DT-DATA-61): `pydantic.networks.IPv4Address`, from
+            # `ipaddress`, which code imports from there. Not a module imported whole (`import os`), and not what
+            # only annotations use (`typing`, `typing_extensions`, `collections.abc`, `__future__`).
+            if "." not in source or top in ANNOTATION_MODULES or source.startswith("collections.abc."):
+                return None
+            return SymbolRecord(path, "alias", source)
         target = self._target(member)
         if target is None:
             return SymbolRecord(path, "alias", source)
@@ -4490,6 +4501,7 @@ def build_snapshot(
     own_members: bool = False,
     siblings: Sequence[tuple[Path, list[str]]] = (),
     served: Sequence[ServedRule] = (),
+    internal_names: Sequence[str] = (),
 ) -> ApiSnapshot:
     """Snapshot the public API under `search_path`, a private extraction of one release: folders without
     `__init__.py` get an empty one first (see `add_namespace_inits`). `own_members` records each class's own
@@ -4499,13 +4511,15 @@ def build_snapshot(
     the release because it star-imports them (DT-DATA-56: mcp 2.x's `mcp.types` is `from mcp_types import *`,
     and each release pins `mcp-types` at its own version). Their names are recorded only where the release's own
     modules bind them. `served`: the package's coverage.toml rules for names it serves through its import
-    machinery (DT-DATA-52), applied after the walk."""
+    machinery (DT-DATA-52), applied after the walk. `internal_names`: private import roots whose modules are
+    recorded as internal names only (DT-DATA-62: pytest's `_pytest`)."""
     snap = ApiSnapshot(
         package=package,
         version=version,
         import_names=list(import_names),
         namespace_skip=list(namespace_skip),
         own_members=own_members,
+        internal_names=list(internal_names),
     )
     roots = [search_path.joinpath(*n.split(".")) for n in import_names]
     bare = [
@@ -4564,6 +4578,13 @@ def build_snapshot(
                 continue
             try:
                 walker.internal(loaded)
+            except Exception as exc:  # the public API is already recorded; don't lose it over these
+                snap.errors.append(f"internal names of {import_name}: {type(exc).__name__}: {exc}")
+        for import_name in internal_names:
+            try:
+                loaded = load(import_name, paths)
+                if isinstance(loaded, griffe.Module):
+                    walker.internal(loaded)
             except Exception as exc:  # the public API is already recorded; don't lose it over these
                 snap.errors.append(f"internal names of {import_name}: {type(exc).__name__}: {exc}")
         walker.record_member_classes()

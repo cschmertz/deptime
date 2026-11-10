@@ -3461,6 +3461,59 @@ def test_a_modules_version_is_public_however_it_is_bound(tmp_path):
     assert "pd.gone.__version__" not in symbols and "pd.typed.__version__" not in symbols
 
 
+METACLASS = {
+    "u3/__init__.py": "from u3.retry import Retry, Strict, Other\n__all__ = ['Retry', 'Strict', 'Other']\n",
+    "u3/six.py": "def add_metaclass(meta):\n    return lambda cls: cls\n",
+    "u3/retry.py": (
+        "import warnings\n"
+        "from u3 import six\n\n"
+        "class _RetryMeta(type):\n"
+        "    @property\n"
+        "    def DEFAULT_METHOD_WHITELIST(cls):\n"
+        "        warnings.warn(\"Using 'Retry.DEFAULT_METHOD_WHITELIST' is deprecated and will be removed in v2.0. \"\n"
+        "                      \"Use 'Retry.DEFAULT_ALLOWED_METHODS' instead\", DeprecationWarning)\n"
+        "        return cls.DEFAULT_ALLOWED_METHODS\n"
+        "    LIMIT = 3\n"
+        "    @property\n"
+        "    def BACKOFF_MAX(cls):\n        return 120\n"
+        "    def build(cls):\n        pass\n"
+        "    @property\n"
+        "    def _private(cls):\n        return 1\n\n"
+        "@six.add_metaclass(_RetryMeta)\n"
+        "class Retry(object):\n"
+        "    DEFAULT_ALLOWED_METHODS = frozenset(['GET'])\n"
+        "    LIMIT = 5\n"
+        "    BACKOFF_MAX = 60\n\n"
+        "class Strict(Retry):\n    pass\n\n"
+        "class Other(metaclass=_RetryMeta):\n    pass\n"
+    ),
+}
+
+
+def test_a_metaclass_property_is_an_attribute_of_its_classes(tmp_path):
+    """DT-DATA-69: urllib3 1.26 keeps `Retry.DEFAULT_METHOD_WHITELIST` as a property of the metaclass `_RetryMeta`,
+    set with six's `add_metaclass`, and warns when it is read."""
+    warned = "Using 'Retry.DEFAULT_METHOD_WHITELIST' is deprecated and will be removed in v2.0."
+    for own in (False, True):
+        snap = build_snapshot("u3", "1.26", ["u3"], _write(tmp_path / str(own), METACLASS), own_members=own)
+        if own:
+            members = snap.classes["u3.retry.Retry"].members
+            assert set(snap.classes["u3.retry.Other"].members) >= {"DEFAULT_METHOD_WHITELIST", "LIMIT"}
+            assert snap.classes["u3.retry.Strict"].mro == ["u3.retry.Retry"]  # found through Retry
+        else:
+            members = {p.rpartition(".")[2]: r for p, r in snap.symbols.items() if p.startswith("u3.Retry.")}
+            assert "u3.Strict.DEFAULT_METHOD_WHITELIST" in snap.symbols
+            assert "u3.Other.DEFAULT_METHOD_WHITELIST" in snap.symbols
+        old = members["DEFAULT_METHOD_WHITELIST"]
+        assert (old.kind, old.canonical) == ("attribute", "u3.retry._RetryMeta.DEFAULT_METHOD_WHITELIST")
+        assert old.deprecated.startswith(warned)
+        # A name the class defines keeps its own record, which its instances see too; the metaclass's methods and
+        # private names aren't the class's members.
+        assert members["LIMIT"].canonical == "u3.retry.Retry.LIMIT"
+        assert members["BACKOFF_MAX"].canonical == "u3.retry.Retry.BACKOFF_MAX"
+        assert "build" not in members and "_private" not in members
+
+
 def test_a_namespace_import_root_is_recorded(tmp_path):
     root = _write(tmp_path, {"nsroot/graph/__init__.py": "def g():\n    pass\n"})
     assert build_snapshot("nsroot", "1.0", ["nsroot"], root).namespaces == ["nsroot"]

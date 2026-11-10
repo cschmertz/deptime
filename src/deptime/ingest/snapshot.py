@@ -401,7 +401,12 @@ def _deprecations(
             for param, message in found[1].items():
                 params.setdefault(param, message)
     if isinstance(obj, griffe.Attribute):
-        return _Reading(_wrapper_deprecation(obj), None)
+        wrapped = _wrapper_deprecation(obj)
+        if wrapped is None and "property" in obj.labels:
+            # A property's getter is a function, and a warning in its body deprecates it (DT-DATA-69): urllib3 1.26's
+            # `_RetryMeta.DEFAULT_METHOD_WHITELIST` warns "Using 'Retry.DEFAULT_METHOD_WHITELIST' is deprecated …".
+            wrapped = _function_warnings(obj, obj)[0]  # type: ignore[arg-type]
+        return _Reading(wrapped, None)
     own_params: dict[str, str] = {}
     conditions: dict[str, frozenset[str]] = {}
     if isinstance(obj, griffe.Function) and not _MACHINERY_RE.match(obj.name):
@@ -4004,8 +4009,15 @@ class _Walker:
         except Exception as exc:  # griffe raises several resolution errors for external bases
             self.snap.errors.append(f"{cls.path}: inherited members unavailable ({type(exc).__name__})")
             members = cls.members
+        try:
+            declaring = [cls, *cls.mro()]
+        except Exception:  # an inheritance cycle, or bases griffe can't resolve
+            declaring = [cls]
         for name, member in members.items():
             if _is_member_name(name) and (rec := _member_record(f"{public_path}.{name}", member)):
+                self.record(rec)
+        for name, member in _metaclass_members(cls, declaring).items():
+            if name not in members and (rec := _member_record(f"{public_path}.{name}", member)):
                 self.record(rec)
 
     def _class_record(self, cls: griffe.Class, public: bool = True) -> None:
@@ -4041,6 +4053,11 @@ class _Walker:
                         self.member_classes.setdefault(inner.path, inner)
                 elif _is_member_name(name) or _is_private(name):
                     rec.internal[name] = _internal_member(path, member)
+            if public:  # its subclasses find them through it, as they inherit its metaclass
+                for name, member in _metaclass_members(cls, [cls]).items():
+                    found = _member_record(f"{cls.path}.{name}", member)
+                    if found is not None:
+                        rec.members.setdefault(name, found)
         return rec
 
     def record_member_classes(self) -> None:
@@ -4140,6 +4157,53 @@ def _bound_method(attr: griffe.Object) -> griffe.Function | None:
     except Exception:  # outside the package, not loaded, or an alias griffe can't resolve
         return None
     return found if isinstance(found, griffe.Function) else None
+
+
+def _metaclass(cls: griffe.Class) -> griffe.Class | None:
+    """The package's class `cls` declares as its metaclass: `class Retry(metaclass=_RetryMeta)`, or six's
+    `@six.add_metaclass(_RetryMeta)`, as urllib3 1.26 writes it (DT-DATA-69). None when it declares none, or one
+    this analysis didn't load (`abc.ABCMeta`)."""
+    expr = (getattr(cls, "keywords", None) or {}).get("metaclass")
+    if expr is None:
+        for dec in cls.decorators:
+            call = dec.value
+            if (
+                isinstance(call, griffe.ExprCall)
+                and len(call.arguments) == 1
+                and str(call.function).rpartition(".")[2] == "add_metaclass"
+            ):
+                expr = call.arguments[0]
+                break
+    if not isinstance(expr, (griffe.ExprName, griffe.ExprAttribute)):
+        return None
+    try:
+        found = _resolve(cls.modules_collection[expr.canonical_path])
+    except Exception:  # outside the package, or not loaded
+        return None
+    return found if found is not None and found.is_class else None  # type: ignore[return-value]
+
+
+def _metaclass_members(
+    cls: griffe.Class, declaring: list[griffe.Class]
+) -> dict[str, griffe.Object | griffe.Alias]:
+    """The public properties and attributes of the metaclass the first of `declaring` to declare one names, which
+    Python finds on the class too (DT-DATA-69): urllib3 1.26 keeps `Retry.DEFAULT_METHOD_WHITELIST` as a property of
+    `_RetryMeta`, with a deprecation warning. Not its methods. A name the class defines itself keeps its own record:
+    the index has one record for the class and its instances, and an instance doesn't see the metaclass's (a
+    property of the metaclass would win on the class itself)."""
+    meta = next((m for c in declaring if (m := _metaclass(c)) is not None), None)
+    if meta is None or meta.path == cls.path:
+        return {}
+    try:
+        members = meta.all_members
+    except Exception:  # griffe raises several resolution errors for external bases
+        members = meta.members
+    out: dict[str, griffe.Object | griffe.Alias] = {}
+    for name, member in members.items():
+        target = _resolve(member) if not name.startswith("_") else None
+        if target is not None and target.is_attribute:
+            out[name] = member
+    return out
 
 
 def _class_of(member: griffe.Object | griffe.Alias) -> griffe.Class | None:

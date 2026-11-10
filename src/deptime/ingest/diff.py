@@ -199,7 +199,8 @@ def _changed(path: str, a: SymbolRecord, b: SymbolRecord, member: bool = False) 
                     )
                 )
     # A callable whose body now only raises (DT-DATA-67): llama-index-core 0.14's `ServiceContext.from_defaults`.
-    if b.raises and b.raises != a.raises and b.kind == "function":
+    # Only where it starts: transformers 4.53 changing `AutoConfig()`'s `EnvironmentError` to `OSError` isn't one.
+    if b.raises and not a.raises and b.kind == "function":
         events.append(ChangeEvent(path, "now_raises", {"message": b.raises}))
     events.extend(_deprecation_events(path, b, a))
     return events

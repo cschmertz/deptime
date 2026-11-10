@@ -251,3 +251,19 @@ def test_a_name_renamed_in_case_or_underscores_is_paired():
         ),
         ("m.McpError", "m.MCPError", "m lost McpError and gained MCPError in the same release"),
     ]
+
+
+def test_now_raises_is_where_a_callable_starts_raising():
+    """DT-DATA-67: transformers 4.53 changed `AutoConfig.__init__`'s `EnvironmentError` to `OSError`; it raised in
+    every release, so only the first one that raises is an event."""
+
+    def snap(version: str, raises: str | None) -> ApiSnapshot:
+        rec = SymbolRecord("st.f", "function", "st.f", [], raises=raises)
+        return ApiSnapshot("st", version, ["st"], {"st.f": rec})
+
+    works, raising, reworded = snap("1", None), snap("2", "EnvironmentError: no"), snap("3", "OSError: no")
+    assert [(e.path, e.kind, e.detail) for e in diff_snapshots(works, raising)] == [
+        ("st.f", "now_raises", {"message": "EnvironmentError: no"})
+    ]
+    assert diff_snapshots(raising, reworded) == []
+    assert diff_snapshots(raising, works) == []

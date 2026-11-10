@@ -725,6 +725,134 @@ def test_names_served_through_a_literal_table_follow_the_tokenizer_its_value_nam
     assert store.spans("tok", "tok.YTokenizerFast") == []
 
 
+# DT-DATA-60: pydantic 2 keeps v1's modules as `__getattr__ = getattr_migration(__name__)`, which serves the names
+# `pydantic/_migration.py`'s tables list as `module:name`: `MOVED_IN_V2` with a warning, `DEPRECATED_MOVED_IN_V2`
+# as the deprecated object (2.0 spreads a comprehension into it), `REDIRECT_TO_V1` from `pydantic.v1` with a warning.
+MIGRATING = {
+    "1.0": {
+        "pyd/__init__.py": "from pyd.error_wrappers import ValidationError\nfrom pyd.tools import parse_obj_as\n",
+        "pyd/error_wrappers.py": "class ValidationError(ValueError):\n    pass\n",
+        "pyd/tools.py": "def parse_obj_as(type_, obj):\n    pass\n",
+        "pyd/utils.py": (
+            "def to_camel(s):\n    pass\n\n\ndef deep_update(mapping, *updates):\n    pass\n\n\n"
+            "def lenient(cls, other):\n    pass\n\n\ndef real():\n    pass\n"
+        ),
+    },
+    "2.0": {
+        "pyd/__init__.py": "from pyd.core import ValidationError\n",
+        "pyd/core.py": "class ValidationError(ValueError):\n    pass\n",
+        "pyd/alias_generators.py": "def to_pascal(snake):\n    pass\n",
+        "pyd/deprecated/__init__.py": "",
+        "pyd/deprecated/tools.py": (
+            "import warnings\n\n\ndef parse_obj_as(type_, obj):\n"
+            "    warnings.warn('parse_obj_as is deprecated. Use TypeAdapter instead.', DeprecationWarning)\n"
+        ),
+        "pyd/v1/__init__.py": "from pyd.v1 import utils\n",
+        "pyd/v1/utils.py": "def deep_update(mapping, *updates):\n    pass\n\n\ndef lenient(cls, other):\n    pass\n",
+        "pyd/error_wrappers.py": "from ._migration import getattr_migration\n\n__getattr__ = getattr_migration(__name__)\n",
+        "pyd/tools.py": "from ._migration import getattr_migration\n\n__getattr__ = getattr_migration(__name__)\n",
+        "pyd/utils.py": (
+            "from ._migration import getattr_migration\n\n\ndef real():\n    pass\n\n\n"
+            "__getattr__ = getattr_migration(__name__)\n"
+        ),
+        "pyd/_migration.py": (
+            "MOVED_IN_V2 = {\n"
+            "    'pyd.error_wrappers:ValidationError': 'pyd:ValidationError',\n"
+            "    'pyd.utils:to_camel': 'pyd.alias_generators:to_pascal',\n"
+            "    'pyd.utils:real': 'pyd.alias_generators:to_pascal',\n"
+            "    'pyd.gone:Thing': 'pyd:ValidationError',\n"
+            "    'pyd.utils:nowhere': 'pyd.alias_generators:missing',\n"
+            "}\n"
+            "DEPRECATED_MOVED_IN_V2 = {\n"
+            "    'pyd.tools:parse_obj_as': 'pyd.deprecated.tools:parse_obj_as',\n"
+            "    **{f'pyd.utils:{obj}': f'pyd.v1.utils:{obj}' for obj in ('lenient',)},\n"
+            "}\n"
+            "REDIRECT_TO_V1 = {f'pyd.utils:{obj}': f'pyd.v1.utils:{obj}' for obj in ('deep_update',)}\n"
+        ),
+    },
+}
+MIGRATION_RULES = (
+    ServedRule(
+        file="pyd/_migration.py",
+        when=r"(?m)^MOVED_IN_V2\b",
+        table="pyd/_migration.py:MOVED_IN_V2",
+        message="`{key}` has been moved to `{value}`.",
+    ),
+    ServedRule(
+        file="pyd/_migration.py",
+        when=r"(?m)^DEPRECATED_MOVED_IN_V2\b",
+        table="pyd/_migration.py:DEPRECATED_MOVED_IN_V2",
+    ),
+    ServedRule(
+        file="pyd/_migration.py",
+        when=r"(?m)^REDIRECT_TO_V1\b",
+        table="pyd/_migration.py:REDIRECT_TO_V1",
+        message="`{key}` has been removed. We are importing from `{value}` instead.",
+    ),
+)
+PYD = PackageSpec(name="pyd", import_names=("pyd",), tier="A", served=MIGRATION_RULES)
+
+
+def test_names_served_through_a_table_of_import_paths_read_present_and_deprecated(tmp_path):
+    old, new = _snapshots(tmp_path, MIGRATING, "pyd", MIGRATION_RULES)
+    assert old.bound == {}  # no `_migration.py` in 1.0
+    bound = {path: (rec.canonical, rec.deprecated) for path, rec in new.bound.items()}
+    assert bound["pyd.error_wrappers.ValidationError"] == (
+        "pyd.core.ValidationError",
+        "`pyd.error_wrappers:ValidationError` has been moved to `pyd:ValidationError`.",
+    )
+    assert bound["pyd.utils.to_camel"][0] == "pyd.alias_generators.to_pascal"
+    assert bound["pyd.tools.parse_obj_as"] == (
+        "pyd.deprecated.tools.parse_obj_as",
+        "parse_obj_as is deprecated. Use TypeAdapter instead.",
+    )
+    assert bound["pyd.utils.lenient"] == ("pyd.v1.utils.lenient", None)  # spread in, without a warning
+    assert bound["pyd.utils.deep_update"] == (
+        "pyd.v1.utils.deep_update",
+        "`pyd.utils:deep_update` has been removed. We are importing from `pyd.v1.utils:deep_update` instead.",
+    )
+    # A name the module binds never reaches `__getattr__`; no module, or nothing at the target: not served.
+    assert "pyd.utils.real" not in new.bound and new.symbols["pyd.utils.real"].canonical == "pyd.utils.real"
+    assert not {"pyd.gone.Thing", "pyd.utils.nowhere"} & new.bound.keys()
+    store = IndexStore.memory()
+    store.rebuild_package(PYD, [old, new])
+    for path in ("pyd.error_wrappers.ValidationError", "pyd.utils.to_camel", "pyd.utils.deep_update"):
+        spans = store.spans("pyd", path)
+        assert [o for r in spans for o in range(r["first_ordinal"], r["last_ordinal"] + 1)] == [0, 1], path
+    rows, _total = store.events_between("pyd", 0, 1, 100, severity=SEVERITY)
+    assert not {e["path"] for e in rows if e["kind"] == "removed"} & {
+        "pyd.error_wrappers.ValidationError",
+        "pyd.utils.to_camel",
+        "pyd.utils.deep_update",
+        "pyd.tools.parse_obj_as",
+    }
+    dt = DepTime(store, Coverage(POLICY, (PYD,)))
+    (check,) = dt.check_symbols(
+        "pyd", "2.0", [SymbolQuery(path="pyd.error_wrappers.ValidationError")]
+    ).results
+    assert check.status == "present"
+    assert check.deprecated == "`pyd.error_wrappers:ValidationError` has been moved to `pyd:ValidationError`."
+    hints = {
+        (r["path"], r["target"]) for r in store.replacements("pyd", "pyd.error_wrappers.ValidationError")
+    }
+    assert hints == {("pyd.error_wrappers.ValidationError", "pyd.ValidationError")}
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"table": "pyd/_migration.py:MOVED", "value": "{x}", "target": "{x}"},  # import paths take no others
+        {"table": "pyd/_migration.py:MOVED", "add": "Fast"},
+        {"table": "pyd/_migration.py", "message": "m"},  # no name
+        {"modules": ("tok",), "ending": "T", "add": "F", "message": "m"},  # a message without a table
+        {"modules": ("tok",), "table": "tok/c.py:T", "value": "{b}C", "target": "{b}T", "message": "m"},
+    ],
+)
+def test_a_served_rule_with_a_table_of_import_paths_takes_only_a_message(fields):
+    with pytest.raises(ValueError):
+        ServedRule(file="pyd/_migration.py", when="x", **fields)
+
+
 @pytest.mark.parametrize(
     "fields",
     [

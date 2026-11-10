@@ -20,6 +20,18 @@ def test_moved_to_and_backticks():
     assert mine("`Foo` has been moved to `pkg.core.Foo`.")[0].target == "pkg.core.Foo"
 
 
+def test_an_import_string_names_module_dot_name():
+    # DT-DATA-60: pydantic 2's `getattr_migration` warnings write paths as `module:name`, as `import_string` reads
+    # them; the module alone isn't the replacement.
+    moved = "`pydantic.utils:to_camel` has been moved to `pydantic.alias_generators:to_pascal`."
+    assert [(h.target, h.confidence) for h in mine(moved)] == [("pydantic.alias_generators.to_pascal", 0.85)]
+    redirected = "`pydantic.utils:deep_update` has been removed. We are importing from `pydantic.v1.utils:deep_update` instead."
+    assert [(h.target, h.confidence) for h in mine(redirected)] == [("pydantic.v1.utils.deep_update", 0.8)]
+    # A colon that ends a sentence or starts a URL isn't one.
+    assert mine("Use `foo.bar`: it is faster.")[0].target == "foo.bar"
+    assert mine("Moved to pkg.mod:https://example.com/x")[0].target == "pkg.mod"
+
+
 def test_now_available_as():
     # DT-DATA-37: sqlalchemy's `became_legacy_20` and `moved_20` say where the name went this way.
     hints = mine("get is deprecated. The method is now available as Session.get()")

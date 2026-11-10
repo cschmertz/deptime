@@ -121,7 +121,12 @@ class ServedRule:
       plus `add`, as the name `target` gives for the key's value matching `value` (DT-DATA-58): transformers 5
       serves `ElectraTokenizer` as `BertTokenizer`, `SLOW_TO_FAST_CONVERTERS` mapping it to `BertConverter`.
       That name is looked up in the module, then in the package's top-level module; failing both, another key
-      with the same value is, in the table's order.
+      with the same value is, in the table's order;
+    - without `modules`, each key of the literal mapping `table`, an import path written `module:name`, as the
+      path its value names (`module:name` or dotted), in a release that has the key's module, with `message` as
+      its deprecation, `{key}` and `{value}` filled in as the table writes them (DT-DATA-60): pydantic 2 serves
+      `pydantic.error_wrappers.ValidationError` as `pydantic.ValidationError`, from `MOVED_IN_V2` in
+      `pydantic/_migration.py`, with a warning that it moved.
     Assembly counts a served name as public only where some release has it as public API.
     """
 
@@ -135,15 +140,28 @@ class ServedRule:
     table: str = ""
     value: str = ""
     target: str = ""
+    message: str = ""
 
     def __post_init__(self) -> None:
         re.compile(self.when)
-        if bool(self.module) == bool(self.modules) or bool(self.module) != bool(self.serves):
-            raise ValueError(f"served rule needs `module` and `serves`, or `modules`: {self}")
+        paths_table = bool(self.table) and not self.modules and not self.module
+        if not paths_table and (
+            bool(self.module) == bool(self.modules) or bool(self.module) != bool(self.serves)
+        ):
+            raise ValueError(f"served rule needs `module` and `serves`, `modules`, or a `table`: {self}")
         if self.module and _parts(self.module) != _parts(self.serves):
             raise ValueError(f"served rule's `module` and `serves` need the same {{parts}}: {self}")
-        if self.table:
-            if not self.modules or self.ending or not re.fullmatch(r"[^:]+:[A-Za-z_]\w*", self.table):
+        if self.message and (self.modules or not self.table):
+            raise ValueError(
+                f"served rule's `message` goes with a `table` of import paths, without `modules`: {self}"
+            )
+        if self.table and not self.modules:
+            if self.module or self.ending or self.add or self.value or self.target:
+                raise ValueError(f"served rule with a `table` of import paths takes no other names: {self}")
+            if not re.fullmatch(r"[^:]+:[A-Za-z_]\w*", self.table):
+                raise ValueError(f"served rule's `table` needs `<file>:<NAME>`: {self}")
+        elif self.table:
+            if self.ending or not re.fullmatch(r"[^:]+:[A-Za-z_]\w*", self.table):
                 raise ValueError(
                     f"served rule with `table` needs `modules`, no `ending`, and `<file>:<NAME>`: {self}"
                 )
@@ -169,6 +187,7 @@ class ServedRule:
             "table": self.table,
             "value": self.value,
             "target": self.target,
+            "message": self.message,
         }
 
 

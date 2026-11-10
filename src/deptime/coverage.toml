@@ -121,6 +121,28 @@ name = "pydantic"
 import_names = ["pydantic"]
 tier = "A"
 notes = "v1 -> v2 migration is the canonical rename-map page."
+# pydantic 2 keeps v1's modules (`pydantic.error_wrappers`, `pydantic.utils`, `pydantic.tools`, ...) as
+# `__getattr__ = getattr_migration(__name__)`, which serves each name the tables in `pydantic/_migration.py` list, as
+# `module:name` (DT-DATA-60): `MOVED_IN_V2` with a warning that it moved, `DEPRECATED_MOVED_IN_V2` as the deprecated
+# function or class there (2.0-2.0.2 spread v1's `pydantic.utils` names into it, without a warning), `REDIRECT_TO_V1`
+# (2.0.3 on) from `pydantic.v1` with a warning, whose first sentence is the same in every release (the link after it
+# changed in 2.14). `REMOVED_IN_V2` names raise, as names nothing binds do.
+[[package.served]]
+file = "pydantic/_migration.py"
+when = '(?m)^MOVED_IN_V2\b'
+table = "pydantic/_migration.py:MOVED_IN_V2"
+message = "`{key}` has been moved to `{value}`."
+
+[[package.served]]
+file = "pydantic/_migration.py"
+when = '(?m)^DEPRECATED_MOVED_IN_V2\b'
+table = "pydantic/_migration.py:DEPRECATED_MOVED_IN_V2"
+
+[[package.served]]
+file = "pydantic/_migration.py"
+when = '(?m)^REDIRECT_TO_V1\b'
+table = "pydantic/_migration.py:REDIRECT_TO_V1"
+message = "`{key}` has been removed. We are importing from `{value}` instead."
 
 [[package]]
 name = "pydantic-settings"

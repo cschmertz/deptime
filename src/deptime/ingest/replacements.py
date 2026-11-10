@@ -19,7 +19,9 @@ from dataclasses import dataclass
 # leading dot for a member of the same class ("Use .items instead"), or called ("select()").
 _QUOTES = r"[`'\"]*"
 _ROLE = r"(?P<role>:[a-z]+:)?"
-_NAME = r"\.?[A-Za-z_][\w.]*(?:\(\))?"
+# An import string, `module:name` (pydantic 2's `getattr_migration`: "has been moved to `pydantic:ValidationError`",
+# DT-DATA-60), names `module.name`; not a URL's scheme ("docs:https://...").
+_NAME = r"\.?[A-Za-z_][\w.]*(?::[A-Za-z_][\w.]*(?![\w.:]))?(?:\(\))?"
 # In backticks, a name can be called or indexed, up to the closing backtick: "Use
 # `matplotlib.colormaps.register(name)` instead", "`matplotlib.colormaps[name]`" (DT-DATA-31). The name is the target.
 _CODE_ARGS = r"(?:(?:\([^`()]*(?:\([^`()]*\)[^`()]*)*\)|\[[^`\[\]]*\])(?=`))"
@@ -52,6 +54,9 @@ PATTERNS: list[tuple[re.Pattern[str], float]] = [
         re.compile(r"\bor\s+(?P<q>[`'\"]+)(?P<t>[A-Za-z_][\w.]*)(?:\([^()]*\))?(?P=q)\s+instead\b", re.I),
         0.8,
     ),
+    # pydantic 2's "`pydantic.utils:deep_update` has been removed. We are importing from
+    # `pydantic.v1.utils:deep_update` instead." (DT-DATA-60).
+    (re.compile(rf"\bimporting\s+from\s+{IDENT}\s+instead\b", re.I), 0.8),
     (re.compile(rf"\bplease\s+use\s+{_THE}{IDENT}", re.I), 0.75),
     # transformers' "We recommend you using split_torch_state_dict_into_shards from huggingface_hub library"
     # (DT-CORE-40). "We recommend using native Keras" is prose (`_prose`).
@@ -178,7 +183,7 @@ class Hint:
 
 
 def _clean(target: str) -> str:
-    return target.removesuffix("()").strip(".`'\" ")
+    return target.removesuffix("()").strip(".`'\" ").replace(":", ".", 1)
 
 
 def _private(target: str) -> bool:

@@ -3416,6 +3416,45 @@ def test_a_submodule_name_its_package_rebinds_is_the_object(tmp_path):
     assert snap.module_aliases == {"rb.patch": "rb.patch", "rb.tool": "rb.tool"}
 
 
+def test_an_import_of_a_name_a_package_rebinds_binds_the_object(tmp_path):
+    # DT-DATA-59: polars' `functions/range/__init__.py` binds `int_range` to the function its submodule `int_range`
+    # defines, and `polars.functions` and `polars` import it from there: both are the function, with its
+    # signature, and no module path. An import inside the package itself may run before it rebinds the name:
+    # sqlalchemy 2.0's `from . import mapper as mapperlib` binds the module.
+    files = {
+        "pl/__init__.py": "from pl.functions import int_range, col\nfrom pl.orm import mapperlib\n",
+        "pl/functions/__init__.py": (
+            "from pl.functions.range import int_range\nfrom pl.functions.col import col\n"
+            "__all__ = ['int_range', 'col']\n"
+        ),
+        "pl/functions/range/__init__.py": "from pl.functions.range.int_range import int_range\n",
+        "pl/functions/range/int_range.py": "def int_range(start, end, step=1):\n    pass\n",
+        "pl/functions/col.py": "class Col:\n    def __call__(self, name):\n        pass\n\n\ncol = Col()\n",
+        "pl/orm/__init__.py": "from . import mapper as mapperlib\nfrom .mapper import mapper\n",
+        "pl/orm/mapper.py": "def mapper(cls):\n    pass\n",
+    }
+    snap = build_snapshot("pl", "1.0", ["pl"], _write(tmp_path, files), own_members=True)
+    for path in ("pl.int_range", "pl.functions.int_range", "pl.functions.range.int_range"):
+        rec = snap.symbols[path]
+        assert (rec.kind, rec.canonical, [p["name"] for p in rec.params]) == (
+            "function",
+            "pl.functions.range.int_range.int_range",
+            ["start", "end", "step"],
+        ), path
+        assert path == "pl.functions.range.int_range" or path not in snap.module_aliases
+    for path in ("pl.col", "pl.functions.col"):
+        assert (snap.symbols[path].kind, snap.symbols[path].canonical) == (
+            "attribute",
+            "pl.functions.col.col",
+        )
+    assert not any(p.startswith(("pl.int_range.", "pl.col.")) for p in snap.symbols)
+    assert (snap.symbols["pl.mapperlib"].kind, snap.symbols["pl.mapperlib"].canonical) == (
+        "module",
+        "pl.orm.mapper",
+    )
+    assert snap.symbols["pl.orm.mapper"].kind == "function"
+
+
 MIRROR = {
     # mcp 2.x: `mcp.types` mirrors the `mcp-types` distribution with a star import and its `__all__`.
     "mir/__init__.py": "from mir_types import Tool as Tool\nfrom mir.types import jsonrpc\n",

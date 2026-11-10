@@ -38,7 +38,7 @@ from deptime.ingest.replacements import (
 if TYPE_CHECKING:
     from deptime.config import ServedRule
 
-SNAPSHOT_FORMAT = 24  # bump when extraction changes: cached snapshots in another format are rebuilt
+SNAPSHOT_FORMAT = 25  # bump when extraction changes: cached snapshots in another format are rebuilt
 MAX_DEPTH = 12  # guards pathological re-export cycles
 
 DEPRECATED_DECORATOR_RE = re.compile(r"^(?:[\w.]+\.)?deprecated\b(?:\(.*\))?$", re.S)
@@ -3475,6 +3475,37 @@ class _Walker:
         resolved = _resolve(found)
         return found if resolved is not None and not resolved.is_module else None
 
+    def _target(self, member: griffe.Object | griffe.Alias) -> griffe.Object | None:
+        """What `member` binds: its import's target, and for an import of a submodule's name its package rebinds,
+        the object the package binds (DT-DATA-59). `from polars.functions.range import int_range` binds the
+        function, which `polars/functions/range/__init__.py` imports from its submodule `int_range`, though griffe
+        resolves the path to the submodule; `polars.int_range` read as a module, without a signature.
+
+        Only an import from outside the package: one in the package itself may run before it rebinds the name, as
+        sqlalchemy 2.0's `from . import mapper as mapperlib` does, which binds the module."""
+        target = _resolve(member)
+        if target is None or not member.is_alias or not target.is_module:
+            return target
+        package = target.parent
+        if not isinstance(package, griffe.Module):
+            return target
+        last, seen = member, set()  # the import that reaches the module: the last one in the chain
+        while True:
+            seen.add(last.path)
+            try:
+                hop = last.target  # type: ignore[union-attr]
+            except (griffe.AliasResolutionError, griffe.CyclicAliasError):
+                return target
+            if not hop.is_alias:
+                break
+            if hop.path in seen:
+                return target
+            last = hop
+        if last.parent is None or last.parent.path == package.path:
+            return target
+        rebound = self._rebound(package, target.name, target)
+        return _resolve(rebound) if rebound is not None else target
+
     def module(self, mod: griffe.Module, public_path: str, depth: int = 0, forwarded: bool = False) -> None:
         key = (mod.path, public_path)
         if key in self.visiting or depth > MAX_DEPTH or self._shapes(mod).raises:
@@ -3556,7 +3587,7 @@ class _Walker:
         reaches the class."""
         if path in self.snap.symbols or path in self.snap.bound:
             return
-        target = _resolve(member)
+        target = self._target(member)
         if target is None:
             rec = SymbolRecord(path, "alias", getattr(member, "target_path", None))
         elif target.is_module:
@@ -3711,7 +3742,7 @@ class _Walker:
         depth: int,
         reexporter: str | None = None,
     ) -> None:
-        target = _resolve(member)
+        target = self._target(member)
         if target is None:
             self.record(SymbolRecord(public_path, "alias", getattr(member, "target_path", None)))
             return
@@ -3798,7 +3829,7 @@ class _Walker:
         source = member.target_path  # type: ignore[union-attr]
         if source.split(".")[0] in STDLIB_MODULES or source.startswith("__future__."):
             return None
-        target = _resolve(member)
+        target = self._target(member)
         if target is None:
             return SymbolRecord(path, "alias", source)
         return SymbolRecord(path, target.kind.value, target.path)
@@ -4588,6 +4619,25 @@ def apply_served(snap: ApiSnapshot, rules: Sequence[ServedRule], root: Path) -> 
                     below = stack.pop()
                     bind(alias + below[len(path) :], names[below])
                     stack.extend(children.get(below, ()))
+        elif rule.table and not rule.modules:
+            # Import paths (DT-DATA-60): pydantic 2's `getattr_migration` serves `pydantic.error_wrappers:ValidationError`
+            # as `pydantic:ValidationError`, in the modules that keep v1's names. A name the module binds stays.
+            file, _, table_name = rule.table.partition(":")
+            for key, val in _literal_table(root / file, table_name):
+                path, target = _import_path(key), _import_path(val)
+                if path is None or target is None:
+                    continue
+                module_rec = names.get(path.rpartition(".")[0])
+                found_rec = names.get(target)
+                if (
+                    module_rec is None
+                    or module_rec.kind != "module"
+                    or found_rec is None
+                    or found_rec.kind == "module"
+                ):
+                    continue
+                message = rule.message.replace("{key}", key).replace("{value}", val) or found_rec.deprecated
+                bind(path, replace(found_rec, deprecated=message))
         elif rule.table:
             file, _, table_name = rule.table.partition(":")
             table = _literal_table(root / file, table_name)
@@ -4628,7 +4678,10 @@ def apply_served(snap: ApiSnapshot, rules: Sequence[ServedRule], root: Path) -> 
 
 def _literal_table(file: Path, name: str) -> list[tuple[str, str]]:
     """(key, value) of the module-level mapping `name = {...}` in `file`, in order: string keys, and values that
-    are names (`BertConverter`, or the last part of `converters.BertConverter`) or strings. Others are skipped."""
+    are names (`BertConverter`, or the last part of `converters.BertConverter`) or strings. Others are skipped.
+    A `**{...}` inside it and a comprehension over a literal tuple of strings whose key and value are f-strings of
+    the loop variable count too (DT-DATA-60: pydantic 2.0's `DEPRECATED_MOVED_IN_V2` spreads
+    `{f'pydantic.utils:{obj}': f'pydantic.v1.utils:{obj}' for obj in (...)}`)."""
     try:
         tree = ast.parse(file.read_text(encoding="utf-8", errors="replace"))
     except (OSError, SyntaxError, ValueError):
@@ -4641,16 +4694,80 @@ def _literal_table(file: Path, name: str) -> list[tuple[str, str]]:
             target = st.target
         else:
             continue
-        if not (isinstance(target, ast.Name) and target.id == name and isinstance(st.value, ast.Dict)):
-            continue
-        pairs = []  # the last binding at the top level wins
-        for k, v in zip(st.value.keys, st.value.values, strict=True):
-            if not (isinstance(k, ast.Constant) and isinstance(k.value, str)):
-                continue
-            if isinstance(v, ast.Name):
-                pairs.append((k.value, v.id))
-            elif isinstance(v, ast.Attribute):
-                pairs.append((k.value, v.attr))
-            elif isinstance(v, ast.Constant) and isinstance(v.value, str):
-                pairs.append((k.value, v.value))
+        if (
+            isinstance(target, ast.Name)
+            and target.id == name
+            and isinstance(st.value, ast.Dict | ast.DictComp)
+        ):
+            pairs = _literal_pairs(st.value)  # the last binding at the top level wins
     return pairs
+
+
+def _literal_pairs(node: ast.expr) -> list[tuple[str, str]]:
+    if isinstance(node, ast.DictComp):
+        return _comprehension_pairs(node)
+    if not isinstance(node, ast.Dict):
+        return []
+    pairs: list[tuple[str, str]] = []
+    for k, v in zip(node.keys, node.values, strict=True):
+        if k is None:  # `**{...}`
+            pairs.extend(_literal_pairs(v))
+        elif not (isinstance(k, ast.Constant) and isinstance(k.value, str)):
+            continue
+        elif isinstance(v, ast.Name):
+            pairs.append((k.value, v.id))
+        elif isinstance(v, ast.Attribute):
+            pairs.append((k.value, v.attr))
+        elif isinstance(v, ast.Constant) and isinstance(v.value, str):
+            pairs.append((k.value, v.value))
+    return pairs
+
+
+def _comprehension_pairs(node: ast.DictComp) -> list[tuple[str, str]]:
+    """`{f'a:{x}': f'b:{x}' for x in ('one', 'two')}` as [('a:one', 'b:one'), ('a:two', 'b:two')]; [] for others."""
+    if len(node.generators) != 1:
+        return []
+    gen = node.generators[0]
+    if gen.ifs or gen.is_async or not isinstance(gen.target, ast.Name):
+        return []
+    if not isinstance(gen.iter, ast.Tuple | ast.List):
+        return []
+    items = [e.value for e in gen.iter.elts if isinstance(e, ast.Constant) and isinstance(e.value, str)]
+    if len(items) != len(gen.iter.elts):
+        return []
+    pairs = []
+    for item in items:
+        key, value = _fstring(node.key, gen.target.id, item), _fstring(node.value, gen.target.id, item)
+        if key is None or value is None:
+            return []
+        pairs.append((key, value))
+    return pairs
+
+
+def _fstring(node: ast.expr, var: str, value: str) -> str | None:
+    """A string literal, or an f-string whose only fields are `{var}`, with `value` in them."""
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    if not isinstance(node, ast.JoinedStr):
+        return None
+    out = []
+    for part in node.values:
+        if isinstance(part, ast.Constant) and isinstance(part.value, str):
+            out.append(part.value)
+        elif (
+            isinstance(part, ast.FormattedValue)
+            and isinstance(part.value, ast.Name)
+            and part.value.id == var
+            and part.conversion == -1
+            and part.format_spec is None
+        ):
+            out.append(value)
+        else:
+            return None
+    return "".join(out)
+
+
+def _import_path(text: str) -> str | None:
+    """`pydantic.error_wrappers:ValidationError` (or `pydantic.BaseModel`) as a dotted path; None if it isn't one."""
+    path = text.replace(":", ".", 1) if text.count(":") == 1 else text
+    return path if all(part.isidentifier() for part in path.split(".")) else None

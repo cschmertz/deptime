@@ -38,7 +38,7 @@ from deptime.ingest.replacements import (
 if TYPE_CHECKING:
     from deptime.config import ServedRule
 
-SNAPSHOT_FORMAT = 25  # bump when extraction changes: cached snapshots in another format are rebuilt
+SNAPSHOT_FORMAT = 26  # bump when extraction changes: cached snapshots in another format are rebuilt
 MAX_DEPTH = 12  # guards pathological re-export cycles
 
 DEPRECATED_DECORATOR_RE = re.compile(r"^(?:[\w.]+\.)?deprecated\b(?:\(.*\))?$", re.S)
@@ -3602,6 +3602,8 @@ class _Walker:
             rec = SymbolRecord(path, "function", target.path, _params(target), *deprecations(target))  # type: ignore[arg-type]
         elif (cls := _bound_class(target)) is not None:
             rec = SymbolRecord(path, "class", cls.path, None, deprecation_message(cls))
+        elif (method := _bound_method(target)) is not None:
+            rec = SymbolRecord(path, "function", target.path, _params(method), *deprecations(method))
         else:
             rec = SymbolRecord(path, target.kind.value, target.path, None, deprecation_message(target))
         self.snap.bound[path] = rec
@@ -3768,6 +3770,10 @@ class _Walker:
             )  # type: ignore[arg-type]
         elif (bound := _bound_class(target)) is not None:
             self.cls(bound, public_path)  # `masked_array = MaskedArray`: the class itself (DT-CORE-32)
+        elif (method := _bound_method(target)) is not None:  # `list_models = api.list_models` (DT-DATA-66)
+            self.record(
+                SymbolRecord(public_path, "function", target.path, _params(method), *deprecations(method))
+            )
         else:
             self.record(
                 SymbolRecord(public_path, target.kind.value, target.path, None, deprecation_message(target))
@@ -3960,6 +3966,37 @@ def _bound_class(attr: griffe.Object) -> griffe.Class | None:
         return None
     found = _resolve(found) if isinstance(found, griffe.Alias) else found
     return found if found is not None and found.is_class else None  # type: ignore[return-value]
+
+
+def _bound_method(attr: griffe.Object) -> griffe.Function | None:
+    """The method a module-level name is bound to through a module-level instance of one of the package's classes
+    (DT-DATA-66): huggingface_hub's `api = HfApi()` then `list_models = api.list_models`. Python finds the bound
+    method under the name, which takes the method's parameters but `self`. None for any other value, an instance
+    made any other way than calling the class, or a member that isn't a function (a property)."""
+    value = getattr(attr, "value", None)
+    if (
+        not isinstance(value, griffe.ExprAttribute)
+        or len(value.values) != 2
+        or not all(isinstance(v, griffe.ExprName) for v in value.values)
+        or attr.parent is None
+        or not attr.parent.is_module
+    ):
+        return None
+    instance, method = value.values
+    try:
+        holder = _resolve(attr.modules_collection[instance.canonical_path])  # type: ignore[union-attr]
+        if holder is None or not holder.is_attribute or holder.parent is None or not holder.parent.is_module:
+            return None
+        call = getattr(holder, "value", None)
+        if not isinstance(call, griffe.ExprCall) or not isinstance(
+            call.function, (griffe.ExprName, griffe.ExprAttribute)
+        ):
+            return None
+        cls = _resolve(holder.modules_collection[call.function.canonical_path])
+        found = _member(cls, method.name, inherited=True) if cls is not None and cls.is_class else None  # type: ignore[union-attr]
+    except Exception:  # outside the package, not loaded, or an alias griffe can't resolve
+        return None
+    return found if isinstance(found, griffe.Function) else None
 
 
 def _class_of(member: griffe.Object | griffe.Alias) -> griffe.Class | None:

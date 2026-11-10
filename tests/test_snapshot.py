@@ -3321,6 +3321,49 @@ def test_format_19_records_external_bases_member_classes_namespaces_and_module_a
     assert (again.namespaces, again.module_aliases) == (snap.namespaces, snap.module_aliases)
 
 
+def test_a_name_bound_to_a_module_level_instances_method_takes_its_signature(tmp_path):
+    """DT-DATA-66: huggingface_hub binds its top-level functions as `api = HfApi()` then `list_models =
+    api.list_models`; `list_models(model_name=...)` breaks where `HfApi.list_models` has no such parameter."""
+    files = {
+        "hub/__init__.py": "from hub.api import HfApi, list_models, upload, whoami, size, made, other\n",
+        "hub/base.py": ("class Base:\n    def whoami(self, token=None):\n        pass\n"),
+        "hub/api.py": (
+            "import warnings\n"
+            "from hub.base import Base\n\n"
+            "class HfApi(Base):\n"
+            "    def list_models(self, *, search=None, limit=None):\n        pass\n"
+            "    def upload(self, repo_id, folder, run_as_future=False):\n"
+            "        warnings.warn('upload is deprecated, use upload_folder', FutureWarning)\n"
+            "    @property\n"
+            "    def size(self):\n        return 1\n\n"
+            "def factory():\n    return HfApi()\n\n"
+            "api = HfApi()\n"
+            "list_models = api.list_models\n"
+            "upload = api.upload\n"
+            "whoami = api.whoami\n"
+            "size = api.size\n"
+            "made = factory().list_models\n"
+            "_made = factory()\n"
+            "other = _made.list_models\n"
+        ),
+    }
+    snap = build_snapshot("hub", "1.0", ["hub"], _write(tmp_path, files))
+    symbols = snap.symbols
+    listed = symbols["hub.list_models"]
+    assert (listed.kind, listed.canonical) == ("function", "hub.api.list_models")
+    assert [(p["name"], p["kind"]) for p in listed.params] == [
+        ("search", "keyword-only"),
+        ("limit", "keyword-only"),
+    ]
+    assert [p["name"] for p in symbols["hub.api.upload"].params] == ["repo_id", "folder", "run_as_future"]
+    assert symbols["hub.upload"].deprecated == "upload is deprecated, use upload_folder"
+    # Inherited from a base class: still the bound method's parameters.
+    assert [p["name"] for p in symbols["hub.whoami"].params] == ["token"]
+    # A property's value, and an instance not made by calling the class, stay attributes.
+    assert symbols["hub.size"].kind == "attribute"
+    assert symbols["hub.made"].kind == "attribute" and symbols["hub.other"].kind == "attribute"
+
+
 def test_a_namespace_import_root_is_recorded(tmp_path):
     root = _write(tmp_path, {"nsroot/graph/__init__.py": "def g():\n    pass\n"})
     assert build_snapshot("nsroot", "1.0", ["nsroot"], root).namespaces == ["nsroot"]

@@ -32,6 +32,22 @@ def test_an_import_string_names_module_dot_name():
     assert mine("Moved to pkg.mod:https://example.com/x")[0].target == "pkg.mod"
 
 
+def test_obj_dot_names_the_receivers_own_member():
+    # DT-CORE-44: pandas 2.1-2.3's `NDFrame.fillna(method)` warning writes the object the method is called on as `obj.`.
+    message = (
+        "{type(self).__name__}.fillna with 'method' is deprecated and will raise in a future version. "
+        "Use obj.ffill() or obj.bfill() instead."
+    )
+    alternatives = param_alternatives(message, ["method"], ["value", "method", "axis", "limit"])
+    assert [(h.target, h.confidence) for h in alternatives] == [(".ffill", 0.8), (".bfill", 0.79)]
+    assert [
+        h.target for h in mine("`obj.dict()` was deprecated, you should instead use `obj.model_dump()`.")
+    ] == [".model_dump"]
+    # A chain or a call with arguments is an expression, not a name.
+    assert param_alternatives("To group on axis=1, use obj.T.groupby(...) instead", ["axis"], []) == []
+    assert param_alternatives("Use `obj = obj.set_axis(..., copy=False)` instead", ["inplace"], []) == []
+
+
 def test_now_available_as():
     # DT-DATA-37: sqlalchemy's `became_legacy_20` and `moved_20` say where the name went this way.
     hints = mine("get is deprecated. The method is now available as Session.get()")

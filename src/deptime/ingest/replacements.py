@@ -108,6 +108,11 @@ FROM_LIBRARY_RE = re.compile(
 )
 MAX_EVIDENCE_CHARS = 300
 QUOTED_IDENT_RE = re.compile(r"['`\"](?P<t>[A-Za-z_]\w*)['`\"]")
+# pandas' "Use obj.ffill() or obj.bfill() instead": `obj.` is the object the method is called on, so the target is
+# the class's own member, written with a leading dot as other same-class targets are (DT-CORE-44).
+OBJ_RECEIVER_RE = re.compile(r"obj\.(?=[A-Za-z_]\w*$)")
+# Not a chain or a call with arguments, which are expressions: "use obj.T.groupby(...)", "`obj = obj.set_axis(...)`".
+OBJ_METHOD_RE = re.compile(r"(?<![\w.])[`'\"]?obj\.(?P<t>[A-Za-z_]\w*)(?:\(\))?(?![\w.(])[`'\"]?")
 # Not names: "use one of …", "use `from x import y`" (DT-DATA-42 made such text readable).
 STOPWORDS = {
     "the",
@@ -231,6 +236,8 @@ def _target(message: str, m: re.Match[str], skip_expressions: bool, group: str =
     if m.re.groupindex.get("role") and m.group("role"):
         raw = re.sub(r"^\.?_[a-z]+\.(?=.)", "", raw).lstrip(".")
     t = ("." if raw.startswith(".") else "") + _clean(raw)
+    if OBJ_RECEIVER_RE.match(t):  # "Use obj.ffill() instead": the object it's called on (DT-CORE-44)
+        t = t[len("obj") :]
     bare = t.lstrip(".")
     if not bare or bare.lower() in STOPWORDS or keyword.iskeyword(bare) or _private(bare):
         return None
@@ -436,7 +443,8 @@ def param_alternatives(message: str, deprecated: list[str], params: list[str]) -
     is larger…" mentions `k` in passing (DT-CORE-12). Ties keep the message's order. First, at 0.8, another callable
     to pass the same argument to ("pass 'theme' to Blocks.launch() instead" gives `Blocks.launch(theme)`)."""
     # A keyword argument written out in quotes after a cue: gradio 5.50's "use 'buttons=["copy"]' instead" advises
-    # `buttons`, a parameter of a later release, and the names in its value aren't arguments (DT-CORE-40).
+    # `buttons`, a parameter of a later release, and the names in its value aren't arguments (DT-CORE-40). A method of
+    # the object, written `obj.X` ("Use obj.ffill() or obj.bfill() instead"), is `.X`, the class's own (DT-CORE-44).
     expressions = list(KWARG_EXPR_RE.finditer(message))
     written = [
         m
@@ -455,11 +463,21 @@ def param_alternatives(message: str, deprecated: list[str], params: list[str]) -
         if m.group("t") in params
     ]
     found += [(m.start("t"), m.end("t"), m.group("t")) for m in written]
-    cued = {m.group("t") for m in written} | {
-        n
-        for at, end, n in found
-        if n in params and (CUE_BEFORE_RE.search(message[:at]) or INSTEAD_AFTER_RE.match(message, end))
-    }
+    receiver = [(m.start(), m.end(), "." + m.group("t")) for m in OBJ_METHOD_RE.finditer(message)]
+    found += receiver
+    cued = (
+        {m.group("t") for m in written}
+        | {
+            n
+            for at, end, n in receiver
+            if CUE_BEFORE_RE.search(message[:at]) or INSTEAD_AFTER_RE.match(message, end)
+        }
+        | {
+            n
+            for at, end, n in found
+            if n in params and (CUE_BEFORE_RE.search(message[:at]) or INSTEAD_AFTER_RE.match(message, end))
+        }
+    )
     names = [n for n in dict.fromkeys(n for _, _, n in sorted(found)) if n not in deprecated]
     evidence = message.strip()[:300]
     moved = [

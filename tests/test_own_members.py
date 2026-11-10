@@ -725,6 +725,31 @@ def test_names_served_through_a_literal_table_follow_the_tokenizer_its_value_nam
     assert store.spans("tok", "tok.YTokenizerFast") == []
 
 
+def test_a_parameter_hint_written_obj_dot_x_is_the_classs_method(tmp_path):
+    # DT-CORE-44: "Use obj.ffill() or obj.bfill() instead" for `NDFrame.fillna(method)` gives `NDFrame.ffill`.
+    releases = {
+        "2.2": {
+            "frm/__init__.py": "from frm.generic import NDFrame\n",
+            "frm/generic.py": (
+                "import warnings\n\n\nclass NDFrame:\n"
+                "    def fillna(self, value=None, method=None):\n"
+                "        if method is not None:\n"
+                "            warnings.warn(\n"
+                "                f\"{type(self).__name__}.fillna with 'method' is deprecated and will raise in a future \"\n"
+                '                "version. Use obj.ffill() or obj.bfill() instead.",\n'
+                "                FutureWarning,\n"
+                "            )\n\n"
+                "    def ffill(self):\n        pass\n\n    def bfill(self):\n        pass\n"
+            ),
+        },
+    }
+    spec = PackageSpec(name="frm", import_names=("frm",), tier="B")
+    store = IndexStore.memory()
+    store.rebuild_package(spec, _snapshots(tmp_path, releases, "frm"))
+    rows = [(r["target"], r["confidence"]) for r in store.replacements("frm", "frm.NDFrame.fillna(method)")]
+    assert rows == [("frm.NDFrame.ffill", 0.8), ("frm.NDFrame.bfill", 0.79)]
+
+
 def test_a_private_member_of_a_class_no_package_has_is_looked_up_in_internal_members(tmp_path):
     # DT-CORE-42: gplearn's `SymbolicRegressor.fit` calls `self._validate_data`, which scikit-learn 1.7 removed from
     # `BaseEstimator`; the error names gplearn's class, which no covered package has.

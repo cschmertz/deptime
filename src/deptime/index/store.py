@@ -30,7 +30,7 @@ from deptime.ingest.diff import (
     path_events,
     renamed_names,
 )
-from deptime.ingest.replacements import PublicNames, deprecates_class, mine
+from deptime.ingest.replacements import Hint, PublicNames, deprecates_class, mine
 from deptime.ingest.snapshot import HIDDEN, ApiSnapshot, ClassRecord, LazySnapshot, SymbolRecord
 
 SCHEMA_VERSION = "1"
@@ -628,12 +628,17 @@ class IndexStore:
                         add_repl(owner, hint.target, hint.confidence, "deprecation_message", hint.evidence)
             elif ev.kind == "param_deprecated":
                 for alt in ev.detail.get("alternatives", []):
+                    hint = Hint(alt["target"], alt["confidence"], ev.detail.get("message", ""))
+                    if hint.target.startswith(
+                        "."
+                    ):  # a method of the same class, not an argument (DT-CORE-44)
+                        hint = names.check(hint, ev.path, ordinal)
                     add_repl(
                         f"{ev.path}({ev.detail['param']})",
-                        alt["target"],
-                        alt["confidence"],
+                        hint.target,
+                        hint.confidence,
                         "deprecation_message",
-                        ev.detail.get("message", ""),
+                        hint.evidence,
                     )
             elif ev.kind == "moved":
                 to = ev.detail["to"]

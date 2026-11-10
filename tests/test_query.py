@@ -1564,6 +1564,33 @@ def test_a_callable_that_now_only_raises_is_reported(tmp_path):
     assert (check.results[0].status, check.results[0].raises) == ("present", None)
 
 
+FLK = PackageSpec(name="flk", import_names=("flk",), tier="B")
+
+
+def test_diff_versions_reports_changes_to_used_names_that_arent_public():
+    """DT-CORE-46: flask 3.0 removed `_app_ctx_stack`, which its `__getattr__` served until 2.3; check_symbols read it
+    from the internal rows, diff_versions(used_symbols=...) said nothing."""
+    mod = _rec("flk", "module")
+    stack = SymbolRecord("flk._app_ctx_stack", "getattr", "flk.__getattr__")
+    helper = _rec("flk._helper", "function", [])
+    snaps = [
+        ApiSnapshot("flk", "2.2.0", ["flk"], {"flk": mod}, internal={stack.path: stack}),
+        ApiSnapshot("flk", "2.3.0", ["flk"], {"flk": mod}, internal={stack.path: stack, helper.path: helper}),
+        ApiSnapshot("flk", "3.0.0", ["flk"], {"flk": mod}, internal={helper.path: helper}),
+    ]
+    dt = _dt([(FLK, snaps)])
+    used = ["flk._app_ctx_stack", "flk._helper"]
+    events = dt.diff_versions("flk", "2.2.0", "3.0.0", used_symbols=used, include_added=True).events
+    assert sorted((e.path, e.kind, e.version, e.detail["internal"]) for e in events) == [
+        ("flk._app_ctx_stack", "removed", "3.0.0", True),
+        ("flk._helper", "added", "2.3.0", True),
+    ]
+    # `added` only when asked for, as for public names; and nothing for names nobody said they use.
+    events = dt.diff_versions("flk", "2.2.0", "3.0.0", used_symbols=used).events
+    assert [(e.path, e.kind) for e in events] == [("flk._app_ctx_stack", "removed")]
+    assert dt.diff_versions("flk", "2.2.0", "3.0.0").events == []
+
+
 NUMPY = PackageSpec(name="numpy", import_names=("numpy",), tier="B")
 
 

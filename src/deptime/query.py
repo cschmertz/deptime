@@ -1197,6 +1197,7 @@ class DepTime:
             extra, affects = self._parent_events(
                 name, used, lo["ordinal"], hi["ordinal"], include_added, rows
             )
+            extra += self._internal_events(name, used, lo["ordinal"], hi["ordinal"], include_added, rows)
             if extra:
                 rows = sorted(
                     [*rows, *extra],
@@ -1316,6 +1317,50 @@ class DepTime:
                         extra.setdefault(key, r)
                     affects[key].append(path)
         return list(extra.values()), dict(affects)
+
+    def _internal_events(
+        self, name: str, used: list[str], after: int, upto: int, include_added: bool, rows: list
+    ) -> list[Mapping]:
+        """`added` and `removed` events in (after, upto] for used paths that aren't public API in some release
+        (DT-CORE-46), which the index's events don't record: langchain 0.0.134 added the private
+        `SQLDatabase._get_sample_rows`, and flask 3.0 removed `_app_ctx_stack`, which its `__getattr__` served until
+        2.3. Worked out from the path's public and internal spans, with `detail.internal` true; a change the events
+        already have isn't repeated, and neither is one where the path's parent is then neither a module nor a class
+        of the package (langchain 0.0.349's `sql_database.SQLDatabase` is an alias into langchain-community, whose
+        members it doesn't record)."""
+        assert self.store is not None
+        have = {(r["path"], r["ordinal"], r["kind"]) for r in rows}
+        out: list[Mapping] = []
+        for path in used:
+            internal = self.store.internal_spans(name, path)
+            if not internal:
+                continue
+            at: dict[int, str] = {}  # ordinal -> the path's kind there, between `after` and `upto`
+            for span in [*self.store.spans(name, path), *internal]:
+                for o in range(max(span["first_ordinal"], after), min(span["last_ordinal"], upto) + 1):
+                    at.setdefault(o, span["kind"])
+            for o in range(after + 1, upto + 1):
+                was, now = at.get(o - 1), at.get(o)
+                if (was is None) == (now is None):
+                    continue
+                kind = "added" if now is not None else "removed"
+                if (kind == "added" and not include_added) or (path, o, kind) in have:
+                    continue
+                parent = path.rpartition(".")[0]
+                held = self.store.span_at(name, parent, o if kind == "removed" else o - 1)
+                if held is not None and held["kind"] not in ("module", "class"):
+                    continue
+                detail = {"kind": now or was, "internal": True}
+                out.append(
+                    {
+                        "path": path,
+                        "ordinal": o,
+                        "prev_ordinal": o - 1,
+                        "kind": kind,
+                        "detail": json.dumps(detail, sort_keys=True),
+                    }
+                )
+        return out
 
     def _unsuppressed(self, name: str, events: list[HistoryEvent]) -> tuple[list[HistoryEvent], int]:
         kept = [e for e in events if not any(x.matches(name, e.path, e.kind) for x in self.suppressions)]

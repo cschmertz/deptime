@@ -915,6 +915,62 @@ def test_a_parameter_renamed_in_case_is_the_replacement():
     assert "requestedSchema" in par.replacements[0].evidence
 
 
+def test_a_removed_module_whose_names_were_all_another_modules_points_to_it():
+    # DT-CORE-45: fastmcp 4.0 removed `fastmcp.server.apps`, whose names from 3.2.0 were `fastmcp.apps`'s; a module
+    # with a name of its own, or one of two names, gets nothing; nor does a package that had public submodules.
+    spec = PackageSpec(name="fm", import_names=("fm",), tier="B")
+
+    def rec(path: str, canonical: str, kind: str = "function") -> SymbolRecord:
+        return SymbolRecord(path, kind, canonical, [] if kind == "function" else None)
+
+    def mod(path: str) -> SymbolRecord:
+        return rec(path, path, "module")
+
+    kept = {
+        p.path: p
+        for p in [
+            mod("fm"),
+            mod("fm.apps"),
+            rec("fm.apps.AppConfig", "fm.apps.config.AppConfig", "class"),
+            rec("fm.apps.to_meta", "fm.apps.config.to_meta"),
+            rec("fm.apps.helper", "fm.apps.config.helper"),
+        ]
+    }
+    gone = [
+        mod("fm.server"),
+        mod("fm.server.apps"),
+        rec("fm.server.apps.AppConfig", "fm.apps.config.AppConfig", "class"),
+        rec("fm.server.apps.to_meta", "fm.apps.config.to_meta"),
+        mod("fm.server.mixed"),
+        rec("fm.server.mixed.AppConfig", "fm.apps.config.AppConfig", "class"),
+        rec("fm.server.mixed.own", "fm.server.mixed.own"),
+        mod("fm.server.pkg"),
+        mod("fm.server.pkg.sub"),
+        rec("fm.server.pkg.AppConfig", "fm.apps.config.AppConfig", "class"),
+        rec("fm.server.pkg.to_meta", "fm.apps.config.to_meta"),
+    ]
+    store = IndexStore.memory()
+    store.rebuild_package(
+        spec,
+        [
+            ApiSnapshot("fm", "3.4", ["fm"], {**kept, **{r.path: r for r in gone}}),
+            ApiSnapshot("fm", "4.0", ["fm"], {**kept, "fm.server": mod("fm.server")}),
+        ],
+    )
+    assert [
+        (r["target"], r["confidence"], r["source"]) for r in store.replacements("fm", "fm.server.apps")
+    ] == [("fm.apps", 0.75, "moved_heuristic")]
+    assert store.replacements("fm", "fm.server.mixed") == []
+    assert store.replacements("fm", "fm.server.pkg") == []
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+    f = dt.explain_error("ModuleNotFoundError: No module named 'fm.server.apps'", {"fm": "4.0"}).findings[0]
+    assert (f.issue, f.last_version_with, [r.target for r in f.replacements]) == (
+        "module_removed",
+        "3.4",
+        ["fm.apps"],
+    )
+
+
 def test_a_removed_name_points_to_the_path_that_still_has_its_object():
     # DT-CORE-22: numpy 2.0 dropped `numpy.lib.arraysetops.union1d`, but `numpy.union1d` is the same function;
     # pydantic 2.0 dropped `pydantic.ConstrainedBytes`, which `pydantic.v1` still serves (as a copy).

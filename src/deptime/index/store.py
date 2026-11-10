@@ -149,6 +149,73 @@ def still_public(
     return hints
 
 
+def module_moves(
+    span_rows: Sequence[tuple[str, int, int, tuple]],
+    removed: Sequence[tuple[str, int]],
+    versions: Sequence[str],
+) -> list[tuple[str, str, float, str]]:
+    """Hints for a removed module whose public names, in its last release, were all another module's (DT-CORE-45):
+    fastmcp 4.0 removed `fastmcp.server.apps`, whose names from 3.2.0 were `fastmcp.apps`'s, which 4.0 keeps. That
+    other module has, in the release that removes it, each of those names with the same object; of several, the
+    shortest. Only a module with two or more public names that aren't modules, and no public submodules. At
+    `STILL_PUBLIC_CONFIDENCE`, as the same objects are still public: on the 2026-11-09 index all 40 such modules
+    (matplotlib 3.9's `axes.mcolors` -> `matplotlib.colors`, mcp 1.2's `server.types` -> `mcp.types`) read right.
+    Rows as `still_public`'s."""
+    spans: dict[str, list[tuple[int, int, tuple]]] = {}
+    children: dict[str, list[str]] = {}
+    by_leaf: dict[str, list[str]] = {}
+    for path, first, last, state in span_rows:
+        if path not in spans:
+            parent, _, leaf = path.rpartition(".")
+            children.setdefault(parent, []).append(path)
+            by_leaf.setdefault(leaf, []).append(path)
+        spans.setdefault(path, []).append((first, last, state))
+
+    def at(path: str, ordinal: int) -> tuple | None:
+        return next((st for f, last, st in spans.get(path, ()) if f <= ordinal <= last), None)
+
+    hints = []
+    for path, ordinal in removed:
+        state = at(path, ordinal - 1)
+        if state is None or state[0] != "module":
+            continue
+        names = []
+        for child in children.get(path, ()):
+            leaf = child.rpartition(".")[2]
+            kid = at(child, ordinal - 1)
+            if kid is None or leaf.startswith("_"):
+                continue
+            if kid[0] == "module":
+                names = []
+                break  # a package: its submodules went too
+            names.append((leaf, kid[1]))
+        if len(names) < 2 or any(not canonical for _leaf, canonical in names):
+            continue
+        homes: set[str] | None = None
+        for leaf, canonical in names:
+            here = {
+                other.rpartition(".")[0]
+                for other in by_leaf.get(leaf, ())
+                if other != f"{path}.{leaf}"
+                and (now := at(other, ordinal)) is not None
+                and now[1] == canonical
+                and (owner := at(other.rpartition(".")[0], ordinal)) is not None
+                and owner[0] == "module"
+            }
+            homes = here if homes is None else homes & here
+            if not homes:
+                break
+        if not homes:
+            continue
+        home = min(homes, key=lambda m: (m.count("."), len(m), m))
+        evidence = (
+            f"{path} was removed in {versions[ordinal]}; each of its {len(names)} public names was {home}'s, which"
+            " still has them"
+        )
+        hints.append((path, home, STILL_PUBLIC_CONFIDENCE, evidence))
+    return hints
+
+
 def _is_private(name: str) -> bool:
     return name.startswith("_") and not (name.startswith("__") and name.endswith("__"))
 
@@ -664,6 +731,9 @@ class IndexStore:
         versions = [row[1] for row in release_rows]
         removed = [(ev.path, ordinal) for ordinal, _prev, ev in events if ev.kind == "removed"]
         for path, target, conf, evidence in still_public(span_rows, removed, versions):
+            if path not in strong:
+                add_repl(path, target, conf, "moved_heuristic", evidence)
+        for path, target, conf, evidence in module_moves(span_rows, removed, versions):
             if path not in strong:
                 add_repl(path, target, conf, "moved_heuristic", evidence)
         for path, target, conf, evidence in internal_moves(

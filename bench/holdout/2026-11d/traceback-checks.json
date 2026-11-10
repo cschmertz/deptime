@@ -1,0 +1,447 @@
+{
+ "hold-anthropic-asyncanthropic-proxies-db-gpt": {
+  "ok": true,
+  "versions": {
+   "0.40.0": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "0.41.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   },
+   "0.42.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   }
+  }
+ },
+ "hold-anthropic-types-beta-prompt-caching-llama-index": {
+  "ok": true,
+  "versions": {
+   "0.40.0": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "0.41.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-dspy-assert-transform-module-dspy-7805": {
+  "ok": true,
+  "versions": {
+   "2.5.43": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.6.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-huggingface-hub-utils-errors-chat-with-mlx": {
+  "ok": true,
+  "versions": {
+   "0.24.7": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "0.25.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "0.25.2": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-huggingface-hub-utils-errors-mlx-examples": {
+  "ok": true,
+  "versions": {
+   "0.24.7": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "0.25.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-langchain-agents-initialize-agent-auto-generate-test-cases": {
+  "ok": true,
+  "versions": {
+   "0.3.30": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "1.0.2": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-langchain-chains-module-removed-langchain": {
+  "ok": true,
+  "versions": {
+   "0.3.30": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "1.0.5": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-langchain-middleware-toolcallrequest-langchain": {
+  "ok": true,
+  "versions": {
+   "1.0.3": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.0.2": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-langgraph-runtime-executioninfo-copilotkit": {
+  "ok": true,
+  "versions": {
+   "1.1.3": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.0.10": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "1.1.2": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-mistralai-models-module-removed-agno": {
+  "ok": true,
+  "versions": {
+   "1.12.4": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "2.0.1": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-openai-completion-apiremovedinv1-openai-python": {
+  "ok": true,
+  "versions": {
+   "0.28.1": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.47.1": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-pydantic-main-modelmetaclass-pydantic-6381": {
+  "ok": true,
+  "versions": {
+   "1.10.27": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-pydantic-main-modelmetaclass-pytorch-lightning": {
+  "ok": true,
+  "versions": {
+   "1.10.27": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "2.0.2": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-gradio-box-gradio-6815": {
+  "ok": true,
+  "versions": {
+   "3.50.2": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "4.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "4.10.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-matplotlib-rcsetup-all-backends-pyinstaller": {
+  "ok": true,
+  "versions": {
+   "3.10.9": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "3.11.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-numpy-chararray-pyflextrkr": {
+  "ok": true,
+  "versions": {
+   "2.4.6": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.5.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "2.5.2": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-numpy-percentile-interpolation-plotly": {
+  "ok": true,
+  "versions": {
+   "2.3.5": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.4.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   }
+  }
+ },
+ "hold-pandas-read-csv-date-parser-simfin": {
+  "ok": true,
+  "versions": {
+   "2.3.3": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "3.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   },
+   "3.0.2": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   }
+  }
+ },
+ "hold-pandas-series-ravel-linearsolve": {
+  "ok": true,
+  "versions": {
+   "2.3.3": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "3.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-polars-dataframe-from-arrow-rechunk-vortex": {
+  "ok": true,
+  "versions": {
+   "1.44.2": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   }
+  }
+ },
+ "hold-scikit-learn-logisticregression-multi-class-evcouplings": {
+  "ok": true,
+  "versions": {
+   "1.7.2": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.8.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   }
+  }
+ },
+ "hold-sqlalchemy-scalarobjectattributeimpl-starlette-admin": {
+  "ok": true,
+  "versions": {
+   "2.0.57": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.1.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "2.1.1": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-starlette-fileresponse-method-nixpkgs-spoolman": {
+  "ok": true,
+  "versions": {
+   "0.52.1": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   },
+   "1.1.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   }
+  }
+ },
+ "hold-streamlit-experimental-data-editor-streamlit-jupyter": {
+  "ok": true,
+  "versions": {
+   "1.36.0": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.37.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "1.38.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-urllib3-retry-default-method-whitelist-requests": {
+  "ok": true,
+  "versions": {
+   "1.26.20": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "2.0.2": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ }
+}

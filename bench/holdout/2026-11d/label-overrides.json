@@ -1,0 +1,47 @@
+{
+ "about": "Labels changed by hand, each with the library source that shows it (bench/holdout/README.md: call breaks found by binding are checked against the source at `to`, here read from the release's wheel). A use overridden here is excluded.",
+ "overrides": [
+  {
+   "upgrade": "pin-vishwasg217__fin-sight-llama-index-core-up",
+   "key": "dd3d5eb98b0402a4",
+   "use": "llama_index.core.schema.Document(text=)",
+   "probe": "breaks (param_removed): the model's generated signature has no `text` field",
+   "why": "at 0.14.25 Document declares its own `__init__(self, **data)`, which keeps backward compatibility: a `text` keyword is moved into `text_resource` (and `doc_id`, `extra_info` likewise), so `Document(text=...)` still works; the generated pydantic signature lists only the fields",
+   "evidence": "llama_index_core-0.14.25 wheel, llama_index/core/schema.py line 1104 (Document.__init__: \"If 'text' was passed, store it in 'text_resource'.\")"
+  },
+  {
+   "upgrade": "pin-googlecloudplatform__nl2sql-studio-langchain-down",
+   "key": "59261edb3003e7ec",
+   "use": "langchain.agents.agent_toolkits.SQLDatabaseToolkit(db=, llm=)",
+   "probe": "breaks (param_not_yet_added): the model's generated signature has no `llm`",
+   "why": "at 0.0.109 SQLDatabaseToolkit is a pydantic v1 model (BaseToolkit(BaseModel)) whose Config sets only arbitrary_types_allowed, so pydantic v1's default Extra.ignore drops an unknown keyword: `llm=` is accepted and ignored, not an error",
+   "evidence": "langchain-0.0.109 wheel, langchain/agents/agent_toolkits/sql/toolkit.py (class Config: arbitrary_types_allowed = True) and agent_toolkits/base.py (class BaseToolkit(BaseModel), no Config)"
+  },
+  {
+   "upgrade": "ex-kspviswa__local-packet-whisperer-crewai-down",
+   "key": "dc037afc0818f99e",
+   "use": "crewai.Task(agent=, description=, expected_output=)",
+   "probe": "breaks (param_not_yet_added): the model's generated signature has no `expected_output`",
+   "why": "at 0.1.2 Task is a pydantic.v1 BaseModel with no Config (Extra.ignore), so `expected_output=` is accepted and dropped, not an error; as 2026-11c's crewai 0.1.32 Task",
+   "evidence": "crewai-0.1.2 wheel, crewai/task.py (class Task(BaseModel) from pydantic.v1, fields description, agent, tools; no Config)"
+  }
+ ],
+ "checked_and_kept": [
+  "langchain.prompts.prompt.PromptTemplate.from_template(template=, template_format=) at 0.0.109: a classmethod `from_template(cls, template: str)` with no **kwargs (langchain/prompts/prompt.py#L124)",
+  "langchain.sql_database.SQLDatabase(engine=, ignore_tables=, view_support=) at 0.0.109: a plain class whose __init__ has no `view_support` and no **kwargs (langchain/sql_database.py#L15)",
+  "llama_index.core.query_engine.SubQuestionQueryEngine.from_defaults(service_context=) at 0.14.25: a classmethod with no `service_context` and no **kwargs (query_engine/sub_question_query_engine.py#L86)",
+  "pydantic_ai.Tool(_, args_validator=, prepare=) at 1.0.13: Tool.__init__ has no `args_validator` and no **kwargs (pydantic_ai/tools.py#L266)",
+  "pydantic_ai.messages.ToolReturnPart(_, _, _, outcome=) at 1.0.13: a dataclass with no `outcome` field (pydantic_ai/messages.py#L737)",
+  "pydantic_ai.Agent(result_type=, ...) at 2.66.0: Agent.__init__ (pydantic_ai/agent/__init__.py#L672) takes output_type and has no **kwargs",
+  "agents.ModelSettings(extra_headers=, store=) at 0.0.9: a dataclass with no `extra_headers` (agents/model_settings.py)",
+  "agents.RunConfig(call_model_input_filter=, ...) at 0.0.9: a dataclass with no `call_model_input_filter` (agents/run.py)",
+  "huggingface_hub.file_download.http_get(_, _, proxies=) at 2.4.0: no `proxies` and no **kwargs (huggingface_hub/file_download.py#L334)",
+  "huggingface_hub.hf_hub_download(force_filename=, local_dir_use_symlinks=, ...) at 2.4.0: the implementation (file_download.py#L857) has neither and no **kwargs",
+  "huggingface_hub.upload_folder(run_as_future=, ...) at 0.12.1: HfApi.upload_folder has no `run_as_future` and no **kwargs",
+  "huggingface_hub.list_models(model_name=) at 2.4.0 and at 0.14.1: HfApi.list_models has no `model_name` and no **kwargs in either",
+  "sklearn.manifold.TSNE(n_iter=, ...) at 1.9.1: __init__ takes max_iter, no `n_iter` and no **kwargs (sklearn/manifold/_t_sne.py#L807)",
+  "gradio.Button.click(show_api=, ...) and gradio.Dropdown.change(show_api=, ...) at 6.31.0: the event trigger takes api_visibility, no `show_api` and no **kwargs (gradio/events.py#L615)",
+  "polars.read_csv(_, sep=, ...) and polars.scan_csv(_, parse_dates=, ...) at 2.1.0: no `sep` / `parse_dates` and no **kwargs; @removed_parameters raises for the parameters it lists and passes the rest to the function (polars/io/csv/functions.py, polars/_utils/expired.py)",
+  "polars.testing.assert_frame_equal(_, _, check_dtype=) at 2.1.0: @removed_parameters lists check_dtype as renamed to check_dtypes in 2.0 and raises ArgumentRemovedError (polars/testing/asserts/frame.py#L44)"
+ ]
+}

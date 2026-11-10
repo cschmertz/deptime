@@ -1,4 +1,4 @@
-"""Text mined from library source is untrusted data (invariant 8 in CLAUDE.md, DT-CORE-08).
+"""Text mined from library source is untrusted data (invariant 10 in AGENTS.md, DT-CORE-08).
 
 DepTime's answers are read by coding agents, so text from library source reaches an agent's context:
 deprecation messages, replacement evidence, signature defaults and annotations. The covered packages are well

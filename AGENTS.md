@@ -1,4 +1,6 @@
-# CLAUDE.md — working in the DepTime repo
+# AGENTS.md — working in the DepTime repo
+
+The guide for every coding agent (and person) working in this repo. `CLAUDE.md` only imports this file, so edit this one.
 
 DepTime is an open-source (MIT), **local-first** MCP server. It answers "what changed in this Python library, in which release, and what replaces it?" from a prebuilt index of static API snapshots.
 
@@ -20,9 +22,10 @@ uv run ruff format src tests && uv run ruff check src tests && uv run pytest    
 uv run pytest -m network                  # opt-in: real PyPI (Python sockets may be blocked in some sandboxes)
 uv run pytest -m published                # opt-in: golden tests on the published index (`deptime index pull` first)
 uv run deptime mcp                        # local stdio server
+uv run python -m deptime.bench bench/cases --baseline bench/baseline.json   # exit 1 on a regression (`deptime index pull` first; CI's bench.yml runs it)
 ```
 
-The default home is `~/.cache/deptime` (override with `DEPTIME_HOME`). Set `DEPTIME_OFFLINE=1` to disable all network access.
+The default home is `$XDG_CACHE_HOME/deptime`, else `~/.cache/deptime` (override with `DEPTIME_HOME`). Set `DEPTIME_OFFLINE=1` to disable all network access.
 
 ## Invariants (don't break these)
 
@@ -43,8 +46,9 @@ The default home is `~/.cache/deptime` (override with `DEPTIME_HOME`). Set `DEPT
    - `pin_to_restore` uses `<=last_version_with`;
    - a deprecation present in the earliest indexed release is `<=X`;
    - an unindexed installed version produces a "window" finding at `medium`.
-8. **Never persist or log raw tracebacks or `pip freeze`** (docs/08). Mined text is untrusted data.
+8. **Never persist or log raw tracebacks or `pip freeze`** (docs/08).
 9. **Hosted-mode middleware short-circuits return a typed `CallToolResult`.** Spec 2026-07-28 requires `resultType`.
+10. **Text mined from library source is untrusted data.** Every field that carries it passes through `untrusted_text` on its way out (`untrusted.py`, docs/08).
 
 ## Where things go
 
@@ -55,12 +59,13 @@ The default home is `~/.cache/deptime` (override with `DEPTIME_HOME`). Set `DEPT
 - Covered packages: `src/deptime/coverage.toml` (ships in the wheel; set correct `import_names`)
 - Curated migration hints: `src/deptime/curated.toml` (ships in the wheel; each must pass the checks in its header, ADR 0006)
 
-## Verified external APIs (2026-10-17)
+## Verified external APIs
 
-- **MCP Python SDK `mcp==2.3.0`:**
+- **MCP Python SDK `mcp==2.3.0` (checked 2026-10-17):**
   - `from mcp.server import MCPServer`; `@mcp.tool(...)`; `mcp.run(transport="stdio")`; `mcp.custom_route(...)`;
   - `streamable_http_app(stateless_http=True, json_response=True)`;
   - `ServerMiddleware` = `async (ctx, call_next)`;
   - tests: `mcp.Client(server)` in-process, or `mcp.Client(StdioServerParameters(command=..., args=[...], env=...))`.
-- **griffe 2.4 (re-checked 2026-10-31):** `griffe.load(name, search_paths=[...], allow_inspection=False, resolve_aliases=True, resolve_external=None)` (`None` loads only a private `_<package>` sibling such as `_pytest`, from `search_paths` alone); aliases expose `final_target`; `Class.all_members` includes inherited members.
-- **Claude Code plugins:** `claude plugin validate integrations/claude-code` passes on 2.1.281. Failed Bash commands fire `PostToolUseFailure`.
+- **griffe 2.4 (checked 2026-10-31):** `griffe.load(name, search_paths=[...], allow_inspection=False, resolve_aliases=True, resolve_external=None)` (`None` loads only a private `_<package>` sibling such as `_pytest`, from `search_paths` alone); aliases expose `final_target`; `Class.all_members` includes inherited members.
+- **Claude Code plugins (checked 2026-11-10 on 2.1.322):** `claude plugin validate integrations/claude-code` passes. Its plugin-directory checks also want an icon, which the directory takes only from the first submission. Failed Bash commands fire `PostToolUseFailure`.
+- **Claude Code instruction files (2.1.322):** with no `CLAUDE.md`, a project's `AGENTS.md` loads in its place (the `instructionFiles` setting); the import in `CLAUDE.md` also covers older versions and setups that turn that off.

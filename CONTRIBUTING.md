@@ -28,7 +28,7 @@ uv run ruff format src tests && uv run ruff check src tests && uv run pytest
 
 ## Ground rules
 
-These are explained in [CLAUDE.md](CLAUDE.md), which also serves as the guide for AI coding agents working in this repo:
+These are explained in [AGENTS.md](AGENTS.md), which also serves as the guide for AI coding agents working in this repo (`CLAUDE.md` imports it):
 
 - **Never import or execute indexed packages** at index time. Static analysis only (ADR 0002).
 - **No LLM calls when answering.** Answers are deterministic and carry evidence and confidence (ADR 0006).

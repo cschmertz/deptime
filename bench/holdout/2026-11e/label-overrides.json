@@ -1,0 +1,37 @@
+{
+ "about": "Labels changed by hand, each with the library source that shows it (bench/holdout/README.md: call breaks found by binding are checked against the source at `to`, here read from the release's wheel). A use overridden here is excluded.",
+ "overrides": [
+  {
+   "upgrade": "pin-itamarzimm__unifiedimplicitattnrepr-huggingface-hub-up",
+   "key": "f04c018d22feefbd",
+   "use": "huggingface_hub.hf_hub_download(cache_dir=, force_download=, local_files_only=, proxies=, repo_type=, resume_download=, revision=, subfolder=, token=, user_agent=)",
+   "probe": "breaks (param_removed): the signature has no `proxies`",
+   "why": "at 2.4.0 `hf_hub_download` is wrapped by `validate_hf_hub_args`, whose `_inner_fn(*args, **kwargs)` passes the keywords through `smoothly_deprecate_legacy_arguments`, which pops `proxies` and `resume_download` with a warning (\"The `proxies` argument is ignored ...\") before calling the function, so the call still works; the signature the probe reads is the wrapped function's, which lists neither",
+   "evidence": "huggingface_hub-2.4.0 wheel, huggingface_hub/utils/_validators.py lines 177-190 (`proxies = new_kwargs.pop(\"proxies\", None)`, `resume_download = new_kwargs.pop(\"resume_download\", None)`) and file_download.py (`@validate_hf_hub_args` on `def hf_hub_download`)"
+  },
+  {
+   "upgrade": "ex-psp3dcg__tdfold-huggingface-hub-up",
+   "key": "6ef6adc50d2e7da7",
+   "use": "huggingface_hub.hf_hub_download(cache_dir=, filename=, force_download=, local_files_only=, proxies=, resume_download=, revision=, subfolder=, token=, user_agent=)",
+   "probe": "breaks (param_removed): the signature has no `proxies`",
+   "why": "at 2.4.0 `hf_hub_download` is wrapped by `validate_hf_hub_args`, whose `_inner_fn(*args, **kwargs)` passes the keywords through `smoothly_deprecate_legacy_arguments`, which pops `proxies` and `resume_download` with a warning (\"The `proxies` argument is ignored ...\") before calling the function, so the call still works; the signature the probe reads is the wrapped function's, which lists neither",
+   "evidence": "huggingface_hub-2.4.0 wheel, huggingface_hub/utils/_validators.py lines 177-190 (`proxies = new_kwargs.pop(\"proxies\", None)`, `resume_download = new_kwargs.pop(\"resume_download\", None)`) and file_download.py (`@validate_hf_hub_args` on `def hf_hub_download`)"
+  },
+  {
+   "upgrade": "ex-psp3dcg__tdfold-huggingface-hub-up",
+   "key": "accf959c7b74b997",
+   "use": "huggingface_hub.hf_hub_download(cache_dir=, force_download=, proxies=, resume_download=, revision=, token=)",
+   "probe": "breaks (param_removed): the signature has no `proxies`",
+   "why": "at 2.4.0 `hf_hub_download` is wrapped by `validate_hf_hub_args`, whose `_inner_fn(*args, **kwargs)` passes the keywords through `smoothly_deprecate_legacy_arguments`, which pops `proxies` and `resume_download` with a warning (\"The `proxies` argument is ignored ...\") before calling the function, so the call still works; the signature the probe reads is the wrapped function's, which lists neither",
+   "evidence": "huggingface_hub-2.4.0 wheel, huggingface_hub/utils/_validators.py lines 177-190 (`proxies = new_kwargs.pop(\"proxies\", None)`, `resume_download = new_kwargs.pop(\"resume_download\", None)`) and file_download.py (`@validate_hf_hub_args` on `def hf_hub_download`)"
+  }
+ ],
+ "checked_and_kept": [
+  "pydantic.fields.FieldInfo(_) at 2.14.3: `FieldInfo.__init__(self, *, ...)` takes keywords only, no **kwargs (pydantic/fields.py), so one positional argument is a TypeError",
+  "pydantic_ai.exceptions.ModelHTTPError(_, _, body=, headers=) at 1.1.0: `__init__(self, status_code, model_name, body=None)`, no headers and no **kwargs (pydantic_ai/exceptions.py line 153)",
+  "pydantic_ai.models.infer_model(_, provider_factory=) at 1.1.0: `def infer_model(model)` (pydantic_ai/models/__init__.py line 635)",
+  "transformers.TrainingArguments(evaluation_strategy=, ...) at 5.22.2: a plain @dataclass with no `evaluation_strategy` field and no __init__ of its own (transformers/training_args.py line 179)",
+  "ollama.AsyncClient.chat(tools=, ...) at 0.2.0 (three calls): `async def chat(self, model, messages, stream, format, options, keep_alive)`, no tools and no **kwargs (ollama/_client.py)",
+  "marshmallow.fields.Str(missing=, required=, validate=) at 4.4.0: Str = String, whose Field.__init__(self, *, load_default, dump_default, ...) has no `missing` and no **kwargs (marshmallow/fields.py)"
+ ]
+}

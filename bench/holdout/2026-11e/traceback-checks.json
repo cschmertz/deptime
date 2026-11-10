@@ -1,0 +1,467 @@
+{
+ "hold-dspy-databricks-dspy-7626": {
+  "ok": true,
+  "versions": {
+   "2.5.43": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.6.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-anthropic-types-beta-tools-claudette": {
+  "ok": true,
+  "versions": {
+   "0.26.1": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "0.27.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "0.29.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-openai-types-beta-vector-store-nearai": {
+  "ok": true,
+  "versions": {
+   "1.65.5": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.66.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "1.66.2": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-openai-types-beta-vector-store-autogen": {
+  "ok": true,
+  "versions": {
+   "1.65.5": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.66.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "1.66.3": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-pydantic-ai-slim-tool-manager-module-mlflow": {
+  "ok": true,
+  "versions": {
+   "1.77.0": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.78.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-pydantic-ai-slim-tool-manager-not-yet-added-sentry-python": {
+  "ok": true,
+  "versions": {
+   "0.4.4": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "0.4.3": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "0.0.22": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-anthropic-rawcontentblockdeltaevent-logfire": {
+  "ok": true,
+  "versions": {
+   "0.27.0": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "0.25.9": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "0.26.1": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-langchain-document-loaders-module-removed-open-webui": {
+  "ok": true,
+  "versions": {
+   "0.3.30": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "1.2.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-langchain-core-is-basemodel-instance-not-yet-added-langchain": {
+  "ok": true,
+  "versions": {
+   "0.2.22": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "0.2.21": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "0.2.11": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-langchain-core-messages-content-not-yet-added-langchain-mcp-adapters": {
+  "ok": true,
+  "versions": {
+   "1.0.0": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "0.3.86": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "0.3.75": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-qdrant-client-upload-records-opentelemetry-python-contrib": {
+  "ok": true,
+  "versions": {
+   "1.15.1": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.16.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-pinecone-init-removed-python-sdk-286": {
+  "ok": true,
+  "versions": {
+   "2.2.4": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "3.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-huggingface-hub-configure-http-backend-itksnap": {
+  "ok": true,
+  "versions": {
+   "0.36.0": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "1.0.1": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-pydantic-nonestr-gnome-extensions-cli": {
+  "ok": false,
+  "versions": {
+   "1.10.27": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.0": {
+    "expected": "fails",
+    "got": null,
+    "why": "probe can't tell: PydanticImportError: `pydantic:NoneStr` has been removed in V2.\n\nFor further information visit https://errors.pydantic.d"
+   },
+   "2.3.0": {
+    "expected": "fails",
+    "got": null,
+    "why": "probe can't tell: PydanticImportError: `pydantic:NoneStr` has been removed in V2.\n\nFor further information visit https://errors.pydantic.d"
+   }
+  }
+ },
+ "hold-gradio-launch-show-api-hivisionidphotos": {
+  "ok": true,
+  "versions": {
+   "5.50.0": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "6.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   },
+   "6.4.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   }
+  }
+ },
+ "hold-flask-scaffold-module-flask-restx": {
+  "ok": true,
+  "versions": {
+   "2.3.3": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "3.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-flask-markup-import-markdown-on-kitty": {
+  "ok": true,
+  "versions": {
+   "2.3.3": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "3.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "3.1.3": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-werkzeug-urls-url-parse-feedsearch": {
+  "ok": true,
+  "versions": {
+   "2.3.8": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "3.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "3.1.3": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-werkzeug-urls-url-encode-webgrid": {
+  "ok": true,
+  "versions": {
+   "2.3.8": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "3.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-numpy-sctypes-imgaug": {
+  "ok": true,
+  "versions": {
+   "1.26.4": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "2.0.1": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-numpy-cast-tensorflow-onnx": {
+  "ok": true,
+  "versions": {
+   "1.26.4": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "2.0.2": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-urllib3-retry-backoff-max-octolapse": {
+  "ok": true,
+  "versions": {
+   "1.26.20": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "2.0.3": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-selenium-chrome-init-chrome-options-pytest-invenio": {
+  "ok": true,
+  "versions": {
+   "4.9.1": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "4.10.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   },
+   "4.36.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   }
+  }
+ },
+ "hold-pandas-to-datetime-infer-datetime-format-viadot": {
+  "ok": true,
+  "versions": {
+   "2.3.3": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "3.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   },
+   "3.0.3": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   }
+  }
+ },
+ "hold-scikit-learn-if-delegate-has-method-eli5": {
+  "ok": true,
+  "versions": {
+   "1.2.2": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.3.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ }
+}

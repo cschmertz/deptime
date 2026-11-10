@@ -53,7 +53,10 @@ Three sources (from 2026-11b on, not the first; the third from 2026-11d on):
    aren't in an earlier set or the main stratum, whose pin is below the rule's bound and whose code has the use the rule
    needs, and the cap keeps those uses first. For 2026-11d: a name under `mcp.types` with mcp pinned before 2.0.0
    (DT-DATA-56), a call to crewai's `Agent` or `Task` with keywords (DT-CORE-39), and a module dunder of numpy,
-   pandas, polars or pydantic (`numpy.__version__`; DT-CORE-38). It is reported apart as well as in the totals.
+   pandas, polars or pydantic (`numpy.__version__`; DT-CORE-38). For 2026-11e: a call with keywords to one of the
+   functions huggingface_hub binds at its top level to a method of its `HfApi()` instance (`list_models`,
+   `upload_folder`; DT-DATA-66), and a polars top-level exception or warning (`polars.ComputeError`) with polars pinned
+   before 2.0.0 (DT-DATA-64). It is reported apart as well as in the totals.
 
 ### Labels: the probe, never DepTime
 

@@ -15,7 +15,7 @@ on:
 permissions: {}
 
 env:
-  SET: bench/holdout/2026-11d
+  SET: bench/holdout/2026-11e
 
 jobs:
   probe:

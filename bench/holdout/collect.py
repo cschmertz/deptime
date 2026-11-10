@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sys
 import time
 import urllib.request
@@ -36,31 +37,69 @@ from deptime.config import load_coverage
 MAX_USES = 40
 
 
-def _module_dunder(u: dict) -> bool:
-    parts = u["path"].split(".")
-    return len(parts) == 2 and parts[1].startswith("__") and parts[1].endswith("__") and "via" not in u
+# The names huggingface_hub binds at its top level to a method of its module-level `HfApi()` (`list_models =
+# api.list_models` in `hf_api.py`), read from the wheels of 0.12.0, 0.17.0, 0.20.0, 0.26.0, 0.30.0, 0.36.0, 1.0.0 and
+# 2.4.0 (DT-DATA-66).
+_HF_BOUND = """
+    accept_access_request add_collection_item add_space_secret add_space_variable auth_check batch_bucket_files
+    bucket_info cancel_access_request cancel_job change_discussion_status comment_discussion copy_files
+    create_branch create_bucket create_collection create_commit create_commits_on_pr create_discussion
+    create_inference_endpoint create_inference_endpoint_from_catalog create_pull_request create_repo
+    create_scheduled_job create_scheduled_uv_job create_tag create_webhook dataset_info delete_branch
+    delete_bucket delete_collection delete_collection_item delete_file delete_files delete_folder
+    delete_inference_endpoint delete_repo delete_scheduled_job delete_space_secret delete_space_storage
+    delete_space_variable delete_space_volumes delete_tag delete_webhook disable_space_dev_mode disable_webhook
+    download_bucket_files duplicate_repo duplicate_space edit_discussion_comment enable_space_dev_mode
+    enable_webhook fetch_job_logs fetch_job_metrics fetch_space_logs file_exists get_bucket_file_metadata
+    get_bucket_paths_info get_collection get_dataset_leaderboard get_dataset_tags get_discussion_details
+    get_full_repo_name get_inference_endpoint get_model_tags get_organization_overview get_paths_info
+    get_repo_discussions get_safetensors_metadata get_sharded_safetensors_metadata get_space_runtime
+    get_space_secrets get_space_variables get_token_permission get_user_overview get_webhook get_zero_gpu_quota
+    grant_access inspect_job inspect_scheduled_job kernel_info like list_accepted_access_requests
+    list_bucket_tree list_buckets list_collections list_daily_papers list_dataset_parquet_files list_datasets
+    list_files_info list_inference_catalog list_inference_endpoints list_inference_endpoints_hardware list_jobs
+    list_jobs_hardware list_lfs_files list_liked_repos list_metrics list_models list_organization_followers
+    list_organization_members list_papers list_pending_access_requests list_rejected_access_requests
+    list_repo_commits list_repo_files list_repo_likers list_repo_refs list_repo_tree list_scheduled_jobs
+    list_space_templates list_spaces list_spaces_hardware list_user_followers list_user_following
+    list_user_repos list_webhooks merge_pull_request model_info move_bucket move_repo paper_info
+    parse_safetensors_file_metadata pause_inference_endpoint pause_space permanently_delete_lfs_files
+    preupload_lfs_files read_paper reject_access_request rename_discussion repo_exists repo_info
+    request_space_hardware request_space_storage rerun_job resolve_revision restart_space
+    resume_inference_endpoint resume_scheduled_job revision_exists run_as_future run_job run_uv_job
+    scale_to_zero_inference_endpoint search_spaces set_access_token set_space_sleep_time set_space_volumes
+    space_info super_squash_history suspend_scheduled_job sync_bucket sync_job_volume trigger_scheduled_job
+    unlike unset_access_token update_bucket_settings update_collection_item update_collection_metadata
+    update_collection_resource_group update_inference_endpoint update_job_expose update_job_labels
+    update_repo_settings update_repo_visibility update_scheduled_job_labels update_scheduled_job_schedule
+    update_webhook upload_attachment upload_file upload_folder upload_large_folder verify_repo_checksums
+    wait_for_job wait_for_space whoami
+"""
+HF_BOUND = frozenset(_HF_BOUND.split())
+POLARS_ERROR = re.compile(r"polars\.[A-Z]\w*(Error|Warning)")
 
 
-# DT-QA-10: uses of fixes the set before didn't exercise. For each package here, `find_pinned.py --exercise` picks up
-# to `--per` more repositories (none of the main stratum's) whose code has such a use and whose pin is below the bound,
-# and `capped` keeps those uses. Each entry: (what it exercises, pin bound or None, the use it needs).
+# Uses of fixes the set before didn't exercise (from 2026-11d, DT-QA-10). For each package here, `find_pinned.py
+# --exercise` picks up to `--per` more repositories (none of the main stratum's) whose code has such a use and whose pin
+# is below the bound, and `capped` keeps those uses. Each entry: (what it exercises, pin bound or None, the use it
+# needs). 2026-11d's rules were mcp.types before 2.0.0, crewai's `Agent` and `Task` with keywords, and a module dunder
+# of numpy, pandas, polars or pydantic; 2026-11e's (DT-QA-11) are below.
 EXERCISE = {
-    "mcp": (
-        "a name under mcp.types, pinned before 2.0.0 (DT-DATA-56)",
-        "2.0.0",
-        lambda u: u["path"].startswith("mcp.types."),
-    ),
-    "crewai": (
-        "a call to crewai.Agent or crewai.Task with keywords (DT-CORE-39)",
+    "huggingface-hub": (
+        "a call with keywords to a top-level function bound to an HfApi method, such as list_models (DT-DATA-66)",
         None,
         lambda u: (
-            u["kind"] == "call" and u["path"] in ("crewai.Agent", "crewai.Task") and bool(u.get("kwargs"))
+            u["kind"] == "call"
+            and u["path"].startswith("huggingface_hub.")
+            and u["path"].removeprefix("huggingface_hub.") in HF_BOUND
+            and bool(u.get("kwargs"))
         ),
     ),
-    **{
-        p: ("a module dunder of the package, such as __version__ (DT-CORE-38)", None, _module_dunder)
-        for p in ("numpy", "pandas", "polars", "pydantic")
-    },
+    "polars": (
+        "a top-level exception or warning, such as polars.ComputeError, pinned before 2.0.0 (DT-DATA-64)",
+        "2.0.0",
+        lambda u: POLARS_ERROR.fullmatch(u["path"]) is not None and "via" not in u,
+    ),
 }
 COV = {canonicalize_name(p.name): p for p in load_coverage().packages}
 _pypi: dict[str, dict] = {}

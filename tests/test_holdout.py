@@ -408,17 +408,21 @@ def test_regressions_on_shared_uses() -> None:
 
 
 def test_exercise_rules_keep_their_uses() -> None:
-    """DT-QA-10's exercise stratum: each rule's use survives the cap, and the rules read the uses they name."""
+    """The exercise stratum (DT-QA-10): each rule's use survives the cap, and the rules read the uses they name
+    (2026-11e's, DT-QA-11: huggingface_hub's bound top-level functions and polars 1.x's top-level exceptions)."""
     import collect
 
-    uses = [{"kind": "name", "path": f"numpy.f{i}"} for i in range(100)] + [
-        {"kind": "name", "path": "numpy.__version__"}
-    ]
-    kept, total = collect.capped(uses, "ex-x-numpy-up", collect.EXERCISE["numpy"][2])
-    assert total == 101 and len(kept) == collect.MAX_USES
-    assert {"kind": "name", "path": "numpy.__version__"} in kept
-    assert not collect.EXERCISE["numpy"][2]({"kind": "name", "path": "numpy.linalg.__name__"})
-    assert collect.EXERCISE["mcp"][2]({"kind": "name", "path": "mcp.types.Tool"})
-    crew = collect.EXERCISE["crewai"][2]
-    assert crew({"kind": "call", "path": "crewai.Agent", "npos": 0, "kwargs": ["role"]})
-    assert not crew({"kind": "call", "path": "crewai.Agent", "npos": 0, "kwargs": []})
+    hub = collect.EXERCISE["huggingface-hub"][2]
+    call = {"kind": "call", "path": "huggingface_hub.list_models", "npos": 0, "kwargs": ["search"]}
+    uses = [{"kind": "name", "path": f"huggingface_hub.f{i}"} for i in range(100)] + [call]
+    kept, total = collect.capped(uses, "ex-x-huggingface-hub-up", hub)
+    assert total == 101 and len(kept) == collect.MAX_USES and call in kept
+    assert not hub({**call, "kwargs": []})
+    assert not hub({**call, "path": "huggingface_hub.hf_hub_download"})  # a function of its own
+    assert not hub({**call, "path": "huggingface_hub.HfApi.list_models"})
+    pl = collect.EXERCISE["polars"][2]
+    assert collect.EXERCISE["polars"][1] == "2.0.0"
+    assert pl({"kind": "name", "path": "polars.ComputeError"})
+    assert pl({"kind": "name", "path": "polars.PolarsInefficientMapWarning"})
+    assert not pl({"kind": "name", "path": "polars.exceptions.ComputeError"})
+    assert not pl({"kind": "name", "path": "polars.col"})

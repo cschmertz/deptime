@@ -15,8 +15,8 @@ is new code.
 
 `--exercise` (DT-QA-10) picks the exercise stratum, for the packages in collect.EXERCISE: by the same search and rules,
 the first `--per` repositories that aren't in an earlier set or the main stratum (its pinned.json in `--exclude`),
-whose pin is below the rule's bound and whose code has the use the rule needs (a name under `mcp.types`, a call to
-crewai's `Agent` or `Task`, a module dunder). Their ids start `ex-`.
+whose pin is below the rule's bound and whose code has the use the rule needs (for 2026-11e: a call to one of
+huggingface_hub's bound top-level functions, a polars top-level exception). Their ids start `ex-`.
 """
 
 from __future__ import annotations

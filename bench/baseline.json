@@ -1,14 +1,14 @@
 {
-  "index_built_at": "2026-11-09T21:18:35+00:00",
+  "index_built_at": "2026-11-10T08:48:38+00:00",
   "summary": {
     "cases": 317,
-    "known_gap_share": 1.9,
+    "known_gap_share": 0.9,
     "overall": {
-      "root_cause": 98.1,
-      "root_cause_and_boundary": 98.1,
-      "boundary": 98.1,
-      "replacement": 75.4,
-      "replacement_uncurated": 64.5
+      "root_cause": 99.1,
+      "root_cause_and_boundary": 99.1,
+      "boundary": 99.0,
+      "replacement": 78.3,
+      "replacement_uncurated": 67.4
     },
     "by_tier": {
       "-": {
@@ -21,19 +21,19 @@
       },
       "A": {
         "cases": 165,
-        "root_cause": 98.8,
-        "root_cause_and_boundary": 98.8,
-        "boundary": 98.8,
-        "replacement": 58.6,
-        "replacement_uncurated": 50.0
+        "root_cause": 99.4,
+        "root_cause_and_boundary": 99.4,
+        "boundary": 99.4,
+        "replacement": 63.8,
+        "replacement_uncurated": 55.2
       },
       "B": {
         "cases": 141,
-        "root_cause": 97.2,
-        "root_cause_and_boundary": 97.2,
-        "boundary": 97.2,
-        "replacement": 87.3,
-        "replacement_uncurated": 74.7
+        "root_cause": 98.6,
+        "root_cause_and_boundary": 98.6,
+        "boundary": 98.6,
+        "replacement": 88.6,
+        "replacement_uncurated": 75.9
       }
     },
     "by_origin": {
@@ -47,11 +47,11 @@
       },
       "reported": {
         "cases": 309,
-        "root_cause": 98.4,
-        "root_cause_and_boundary": 98.4,
-        "boundary": 98.4,
-        "replacement": 74.4,
-        "replacement_uncurated": 63.2
+        "root_cause": 99.4,
+        "root_cause_and_boundary": 99.4,
+        "boundary": 99.3,
+        "replacement": 77.4,
+        "replacement_uncurated": 66.2
       }
     }
   },
@@ -323,8 +323,8 @@
     "fastmcp-server-proxy-module-removed-iac-server": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false,
-      "replacement_uncurated": false
+      "replacement": true,
+      "replacement_uncurated": true
     },
     "fastmcp-bearerauthprovider-removed-rabbitmq": {
       "root_cause": true,
@@ -365,8 +365,8 @@
     "hold-fastmcp-server-apps-sk-wwise-mcp": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false,
-      "replacement_uncurated": false
+      "replacement": true,
+      "replacement_uncurated": true
     },
     "flask-before-first-request-ddtrace": {
       "root_cause": true,
@@ -621,10 +621,10 @@
       "replacement_uncurated": null
     },
     "hold-langchain-core-get-relevant-documents-multiquery": {
-      "root_cause": false,
-      "boundary": false,
-      "replacement": false,
-      "replacement_uncurated": false
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true,
+      "replacement_uncurated": true
     },
     "hold-langchain-core-runnablewithmessagehistory-jupyter-ai": {
       "root_cause": true,
@@ -1223,8 +1223,8 @@
     "hold-pandas-fillna-method-pypgx": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false,
-      "replacement_uncurated": false
+      "replacement": true,
+      "replacement_uncurated": true
     },
     "pinecone-db-data-not-yet-added-microservice-utils": {
       "root_cause": true,
@@ -1443,8 +1443,8 @@
       "replacement_uncurated": false
     },
     "hold-pytest-formattedexcinfo-tavern": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": null,
       "replacement_uncurated": null
     },
@@ -1623,8 +1623,8 @@
       "replacement_uncurated": true
     },
     "hold-scikit-learn-validate-data-gplearn": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": false,
       "replacement_uncurated": false
     },

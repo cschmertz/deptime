@@ -1,5 +1,5 @@
 {
-"index_built_at": "2026-11-09T21:18:35+00:00",
+"index_built_at": "2026-11-10T08:48:38+00:00",
 "tracebacks": {
 "hold-celery-database-retry-airflow": true,
 "hold-django-cc-delim-re-drf-spectacular": true,
@@ -7,7 +7,7 @@
 "hold-fastmcp-init-dependencies-core-mcp-server": true,
 "hold-fastmcp-server-apps-sk-wwise-mcp": true,
 "hold-langchain-callbacks-module-removed-chainlit": true,
-"hold-langchain-core-get-relevant-documents-multiquery": false,
+"hold-langchain-core-get-relevant-documents-multiquery": true,
 "hold-langchain-core-runnablewithmessagehistory-jupyter-ai": true,
 "hold-langchain-docstore-module-removed-paddleocr": true,
 "hold-langchain-prompts-module-removed-scrapegraphai": true,
@@ -31,10 +31,10 @@
 "hold-pandas-fillna-method-pypgx": true,
 "hold-polars-corr-ddof-alphainspect": true,
 "hold-pydantic-settings-clisettingssource-paperqa": true,
-"hold-pytest-formattedexcinfo-tavern": false,
+"hold-pytest-formattedexcinfo-tavern": true,
 "hold-qdrant-client-initfrom-crewai": true,
 "hold-scikit-learn-lassocv-n-alphas-econml": true,
-"hold-scikit-learn-validate-data-gplearn": false,
+"hold-scikit-learn-validate-data-gplearn": true,
 "hold-sqlalchemy-scalarattributeimpl-sqlalchemy-utils": true
 },
 "uses": {
@@ -1604,8 +1604,8 @@
 "label": "works"
 },
 "pin-canonical__github-runner-operator-pydantic-down|2a2f26e87fa2a37c": {
-"check_symbols": true,
-"diff_versions": true,
+"check_symbols": false,
+"diff_versions": false,
 "label": "works"
 },
 "pin-canonical__github-runner-operator-pydantic-down|2eaa64c9fc706c26": {
@@ -1614,8 +1614,8 @@
 "label": "works"
 },
 "pin-canonical__github-runner-operator-pydantic-down|393757c1bd04fe90": {
-"check_symbols": true,
-"diff_versions": true,
+"check_symbols": false,
+"diff_versions": false,
 "label": "works"
 },
 "pin-canonical__github-runner-operator-pydantic-down|4de52f3bd0767635": {
@@ -1689,7 +1689,7 @@
 "label": "works"
 },
 "pin-canonical__github-runner-operator-pydantic-down|cb6bd43bf4847935": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -1704,7 +1704,7 @@
 "label": "works"
 },
 "pin-canonical__github-runner-operator-pydantic-down|f7566805d6558e63": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -1729,8 +1729,8 @@
 "label": "works"
 },
 "pin-canonical__github-runner-operator-pydantic-up|2a2f26e87fa2a37c": {
-"check_symbols": true,
-"diff_versions": true,
+"check_symbols": false,
+"diff_versions": false,
 "label": "works"
 },
 "pin-canonical__github-runner-operator-pydantic-up|2eaa64c9fc706c26": {
@@ -1739,8 +1739,8 @@
 "label": "works"
 },
 "pin-canonical__github-runner-operator-pydantic-up|393757c1bd04fe90": {
-"check_symbols": true,
-"diff_versions": true,
+"check_symbols": false,
+"diff_versions": false,
 "label": "works"
 },
 "pin-canonical__github-runner-operator-pydantic-up|4de52f3bd0767635": {
@@ -1814,7 +1814,7 @@
 "label": "works"
 },
 "pin-canonical__github-runner-operator-pydantic-up|cb6bd43bf4847935": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -1829,7 +1829,7 @@
 "label": "works"
 },
 "pin-canonical__github-runner-operator-pydantic-up|f7566805d6558e63": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -7254,7 +7254,7 @@
 "label": "works"
 },
 "pin-phonism__genrec-polars-down|da09ac987c248542": {
-"check_symbols": false,
+"check_symbols": true,
 "diff_versions": false,
 "label": "breaks"
 },
@@ -7555,7 +7555,7 @@
 },
 "pin-proneverfake__kios-langgraph-up|02a9336e8de32e8f": {
 "check_symbols": null,
-"diff_versions": true,
+"diff_versions": false,
 "label": "breaks"
 },
 "pin-proneverfake__kios-langgraph-up|1c8649e720f2125a": {
@@ -7585,7 +7585,7 @@
 },
 "pin-proneverfake__kios-langgraph-up|4088cb3997870794": {
 "check_symbols": null,
-"diff_versions": true,
+"diff_versions": false,
 "label": "breaks"
 },
 "pin-proneverfake__kios-langgraph-up|410c485c683bc08e": {
@@ -7605,7 +7605,7 @@
 },
 "pin-proneverfake__kios-langgraph-up|a2fa45851c7f76d6": {
 "check_symbols": null,
-"diff_versions": true,
+"diff_versions": false,
 "label": "works"
 },
 "pin-proneverfake__kios-langgraph-up|b74c8b5878ead844": {

@@ -59,6 +59,41 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
 - `deptime index pull` reports a failed download (an HTTP error such as GitHub's 504, a network error, a checksum
   mismatch) in one line and exits 1, rather than with a traceback; as before, nothing is installed and the current
   index is kept (DT-OSS-12).
+- A name a package imports from a submodule whose name it rebinds reads as the object the package binds, not the
+  module (DT-DATA-59): polars' `int_range`, `lit`, `len`, `repeat`, `date_range` and the rest have their
+  signatures, so `check_symbols` reads polars 0.19.6's `pl.int_range(n)` as missing `end`; numpy's `memmap` and
+  `printoptions` read as the class and the function. In the `SNAPSHOT_FORMAT` 25 index published 2026-11-10; no
+  upgrade needed.
+- pydantic 2's v1 paths that `pydantic/_migration.py` still serves read present and deprecated, with pydantic's
+  message and its target as the replacement (DT-DATA-60): `pydantic.error_wrappers.ValidationError` →
+  `pydantic.ValidationError`, `pydantic.generics.GenericModel` → `pydantic.BaseModel`, rather than missing or
+  removed in 2.0. A `[[package.served]]` rule can read a table of `module:name` import paths, and the replacement
+  miner reads `module:name` and "importing from X instead". In the `SNAPSHOT_FORMAT` 25 index; no upgrade needed.
+- A name a module imports by name from the standard library reads present and not public API, with where it comes
+  from (DT-DATA-61): `pydantic.networks.IPv4Address` ("pydantic.networks imports it from ipaddress for its own
+  use"), not "never seen". `typing`, `typing_extensions`, `collections.abc` and `__future__` names are left out. In
+  the `SNAPSHOT_FORMAT` 25 index; no upgrade needed.
+- pytest's `_pytest` modules, which plugins import, are indexed as names that aren't public API (DT-DATA-62):
+  tavern's `from _pytest._code.code import FormattedExcinfo` reads removed after 9.0.3. `coverage.toml`'s new
+  `internal_names` lists such private import roots. Needs the next release and the `SNAPSHOT_FORMAT` 25 index.
+- `explain_error` on an attribute of a class DepTime doesn't cover (DT-CORE-43): a member whose class path became
+  another covered distribution's class is read as that class's member, at that distribution's installed release.
+  langchain-classic's `MultiQueryRetriever.get_relevant_documents` reads langchain-core's
+  `BaseRetriever.get_relevant_documents`, removed after 0.3.86, with `invoke`, not a langchain path dropped after
+  0.0.340. In the next release.
+- `explain_error` on a private attribute of a class no covered package has (DT-CORE-42) looks it up among the
+  installed covered packages' members that aren't public API: gplearn's `self._validate_data` reads scikit-learn's
+  `BaseEstimator._validate_data`, removed after 1.6.1 (inferred, at most `medium`). In the next release.
+- `diff_versions` leaves out removals under a module of a namespace package that a distribution the `to` release
+  requires can install, and says so in its note (DT-CORE-41): langgraph 1.x's `langgraph.prebuilt` comes from
+  `langgraph-prebuilt`. `check_symbols` already answered `unknown` there. In the next release.
+- "Use obj.ffill() or obj.bfill() instead" names the receiver's own methods (DT-CORE-44): pandas'
+  `NDFrame.fillna(method)` → `NDFrame.ffill` and `NDFrame.bfill`, sqlmodel's `obj.dict()` → `.model_dump`. In the
+  index published 2026-11-10; no upgrade needed.
+- A removed module whose public names were all another module's gets that module as its replacement, at 0.75
+  (DT-CORE-45): fastmcp 4.0's `fastmcp.server.apps` → `fastmcp.apps`, mcp 1.2's `mcp.server.types` → `mcp.types`,
+  matplotlib 3.9's `matplotlib.axes.mcolors` → `matplotlib.colors`. In the index published 2026-11-10; no upgrade
+  needed.
 
 ## [0.1.10] - 2026-11-08
 

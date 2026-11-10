@@ -3169,6 +3169,77 @@ def test_a_getattr_serves_private_names_as_internal(tmp_path):
     assert "shimmy._private" not in snap.symbols
 
 
+MEMBERSHIP = {
+    "pl/__init__.py": (
+        "from pl import exceptions\n"
+        "from pl.frame import DataFrame\n"
+        "from pl.exceptions import ShapeError\n"
+        "__all__ = ['DataFrame', 'exceptions', 'ShapeError']\n\n"
+        "def __getattr__(name):\n"
+        "    if name in dir(exceptions):\n"
+        "        from pl._utils import issue_deprecation_warning\n"
+        "        issue_deprecation_warning(\n"
+        "            message=f'Accessing `{name}` from the top-level `pl` module is deprecated.',\n"
+        "            version='1.0.0',\n"
+        "        )\n"
+        "        return getattr(exceptions, name)\n"
+        "    import pl.group as dtgroup\n"
+        "    if hasattr(dtgroup, name):\n"
+        "        return getattr(dtgroup, name)\n"
+        "    raise AttributeError(name)\n"
+    ),
+    "pl/_utils.py": (
+        "import warnings\n"
+        "def issue_deprecation_warning(message, *, version):\n    warnings.warn(message, DeprecationWarning)\n"
+    ),
+    "pl/exceptions.py": "class ComputeError(Exception):\n    pass\nclass ShapeError(Exception):\n    pass\n",
+    "pl/group.py": "NUMERIC_DTYPES = frozenset()\n",
+    "pl/frame.py": "class DataFrame:\n    pass\n",
+}
+
+LAZY_ATTACH = {
+    "hub/__init__.py": (
+        "from typing import TYPE_CHECKING\n"
+        "_SUBMOD_ATTRS = {\n"
+        "    'file_download': ['_CACHED_NO_EXIST', 'hf_hub_download'],\n"
+        "    'hf_api': ['HfApi'],\n"
+        "}\n\n"
+        "def _attach(package_name, submodules=None, submod_attrs=None):\n"
+        "    def __getattr__(name):\n        pass\n"
+        "    return __getattr__, None, list(submod_attrs)\n\n"
+        "__getattr__, __dir__, __all__ = _attach(__name__, submodules=[], submod_attrs=_SUBMOD_ATTRS)\n\n"
+        "if TYPE_CHECKING:\n"
+        "    from .file_download import _CACHED_NO_EXIST, hf_hub_download\n"
+        "    from .hf_api import HfApi\n"
+    ),
+    "hub/file_download.py": "_CACHED_NO_EXIST = object()\ndef hf_hub_download(repo_id):\n    pass\n",
+    "hub/hf_api.py": "class HfApi:\n    pass\n",
+}
+
+
+def test_a_getattr_serves_the_names_of_a_module_it_tests_membership_in(tmp_path):
+    """DT-DATA-64: polars 1.x serves every exception at the top level through `if name in dir(exceptions):`, with a
+    warning, until 2.0 removes it; and the data type groups through another module the same way."""
+    snap = build_snapshot("pl", "1.6", ["pl"], _write(tmp_path, MEMBERSHIP))
+    served = snap.symbols["pl.ComputeError"]
+    assert (served.kind, served.canonical) == ("class", "pl.exceptions.ComputeError")
+    assert served.deprecated == "Accessing `ComputeError` from the top-level `pl` module is deprecated."
+    # A name the module imports itself never reaches `__getattr__`; another module's names come with no warning.
+    assert snap.symbols["pl.ShapeError"].deprecated is None
+    group = snap.symbols["pl.NUMERIC_DTYPES"]
+    assert (group.canonical, group.deprecated) == ("pl.group.NUMERIC_DTYPES", None)
+
+
+def test_a_lazy_loaders_private_names_are_internal(tmp_path):
+    """DT-DATA-64: huggingface_hub 0.12-0.27 serve `_CACHED_NO_EXIST` from the lazy-import table `_SUBMOD_ATTRS`,
+    through a `__getattr__` that `_attach(...)` makes, and import it only for type checkers."""
+    snap = build_snapshot("hub", "0.14", ["hub"], _write(tmp_path, LAZY_ATTACH), own_members=True)
+    assert snap.internal["hub._CACHED_NO_EXIST"].kind == "getattr"
+    assert "hub._CACHED_NO_EXIST" not in snap.symbols
+    assert snap.symbols["hub.hf_hub_download"].canonical == "hub.file_download.hf_hub_download"
+    assert snap.symbols["hub.HfApi"].kind == "class"
+
+
 def test_snapshot_roundtrip_keeps_internal_names(tmp_path):
     snap = build_snapshot("inner", "1.0", ["inner"], _write(tmp_path / "src", INTERNALS))
     out = tmp_path / "s.json.gz"

@@ -2442,6 +2442,40 @@ def _forwarded(value: ast.expr, trail: list[ast.stmt], shim: _Shim) -> str | Non
     return _bindings(trail, shim).get(value.args[0].id)
 
 
+def _membership(test: ast.expr, shim: _Shim) -> str | None:
+    """The variable naming the module a test checks the attribute name against: `name in dir(exceptions)`,
+    `hasattr(exceptions, name)` or `name in exceptions.__all__` (DT-DATA-64); None for any other test."""
+    if isinstance(test, ast.Call):
+        args = test.args
+        if (
+            isinstance(test.func, ast.Name)
+            and test.func.id == "hasattr"
+            and len(args) == 2
+            and not test.keywords
+            and isinstance(args[0], ast.Name)
+            and isinstance(args[1], ast.Name)
+            and args[1].id == shim.param
+        ):
+            return args[0].id
+        return None
+    if not (isinstance(test, ast.Compare) and len(test.ops) == 1 and isinstance(test.ops[0], ast.In)):
+        return None
+    left, right = test.left, test.comparators[0]
+    if not (isinstance(left, ast.Name) and left.id == shim.param):
+        return None
+    if (
+        isinstance(right, ast.Call)
+        and isinstance(right.func, ast.Name)
+        and right.func.id == "dir"
+        and len(right.args) == 1
+        and isinstance(right.args[0], ast.Name)
+    ):
+        return right.args[0].id
+    if isinstance(right, ast.Attribute) and right.attr == "__all__" and isinstance(right.value, ast.Name):
+        return right.value.id
+    return None
+
+
 def _tested(test: ast.expr, shim: _Shim) -> tuple[frozenset[str], bool] | None:
     """The names `test` compares the attribute name with, and whether it holds for them (`==`, `in`) or for
     every other name (`!=`, `not in`). None when the test is about something else."""
@@ -2556,6 +2590,22 @@ def _reach(
             return None
         if isinstance(st, ast.Raise):
             return None
+        if isinstance(st, ast.If) and live.exclude and (held := _membership(st.test, shim)) is not None:
+            # `if name in dir(exceptions): <warn>; return getattr(exceptions, name)` serves that module's names, as a
+            # catch-all does, with the branch's warning (DT-DATA-64: polars 1.x's top-level exceptions). Other names
+            # go on past it.
+            on_way = [*trail, *st.body[:-1]]
+            last = st.body[-1]
+            if isinstance(last, ast.Return) and last.value is not None:
+                target = _forwarded(last.value, on_way, shim)
+                if target is not None and target == _bindings(on_way, shim).get(held):
+                    served.forwards.append((target, live.names, on_way))
+            if st.orelse:
+                after = _reach(st.orelse, live, trail, shim, served)
+                if after is None:
+                    return None
+                live = after
+            continue
         if isinstance(st, ast.If):
             tested = _tested(st.test, shim)
             if tested is None:  # a condition we can't read: names may get past it, but none is surely served
@@ -2641,24 +2691,31 @@ def _warning_text(
 
 
 def _warn_call(st: ast.stmt) -> ast.Call | None:
-    """A `warn(...)` statement, also inside the conditions `_reach` couldn't read (not in nested functions)."""
+    """A `warn(...)` statement, or a call of a deprecation helper named as one (`WARNING_HELPER_RE`: polars'
+    `issue_deprecation_warning(message=..., version=...)`, DT-DATA-64), also inside the conditions `_reach` couldn't
+    read (not in nested functions)."""
     if isinstance(st, ast.If):
         return next(filter(None, map(_warn_call, st.body + st.orelse)), None)
     call = st.value if isinstance(st, ast.Expr) else None
-    if not (isinstance(call, ast.Call) and call.args):
+    if not (isinstance(call, ast.Call) and _warned_text(call) is not None):
         return None
-    func = call.func
-    named = (isinstance(func, ast.Name) and func.id == "warn") or (
-        isinstance(func, ast.Attribute) and func.attr == "warn"
-    )
-    return call if named else None
+    name = _callee(call)
+    return call if name == "warn" or (name and WARNING_HELPER_RE.match(name)) else None
+
+
+def _warned_text(call: ast.Call) -> ast.expr | None:
+    """The message a warning call passes: its first argument, or `message=`."""
+    if call.args:
+        return call.args[0]
+    return next((k.value for k in call.keywords if k.arg == "message"), None)
 
 
 def _deprecation_text(
     call: ast.Call, env: dict[str, str], lookup: Callable[[ast.expr], str | None] | None = None
 ) -> str | None:
     """A `warn(...)` call's message, when the text or the category says it is a deprecation."""
-    text = _warning_text(call.args[0], env, lookup)
+    node = _warned_text(call)
+    text = _warning_text(node, env, lookup) if node is not None else None
     category = (
         call.args[1]
         if len(call.args) > 1
@@ -2916,7 +2973,7 @@ def getattr_served(mod: griffe.Module) -> _GetattrShim:
         return _GetattrShim()
     found = _find_getattr(tree.body)
     if found is None:
-        return _class_getattr(tree.body, mod)
+        return _lazy_attach(tree.body, mod) or _class_getattr(tree.body, mod)
     func, scope = found
     args = func.args.posonlyargs + func.args.args
     if not args:
@@ -2969,6 +3026,59 @@ def getattr_served(mod: griffe.Module) -> _GetattrShim:
     return _GetattrShim(names, forwards, own, copied, frozenset(deleted), private, sources)
 
 
+def _lazy_attach(body: list[ast.stmt], mod: griffe.Module) -> _GetattrShim | None:
+    """A `__getattr__` a lazy loader makes: `__getattr__, __dir__, __all__ = _attach(__name__, submodules=[...],
+    submod_attrs=_SUBMOD_ATTRS)`, scientific-python's `lazy_loader.attach`, which huggingface_hub 0.12-0.27 copies
+    (DT-DATA-64). Each name the module-level literal table lists under a submodule is served from it: the private
+    ones (`_CACHED_NO_EXIST`) are recorded as internal names. None for any other module."""
+    tables: dict[str, dict[str, list[str]]] = {}
+    for st in body:
+        if not (isinstance(st, ast.Assign) and len(st.targets) == 1):
+            continue
+        target, value = st.targets[0], st.value
+        if isinstance(target, ast.Name) and isinstance(value, ast.Dict):
+            rows: dict[str, list[str]] = {}
+            for key, names in zip(value.keys, value.values, strict=True):
+                if not (isinstance(key, ast.Constant) and isinstance(key.value, str)):
+                    break
+                if not isinstance(names, (ast.List, ast.Tuple)):
+                    break
+                rows[key.value] = [
+                    n.value for n in names.elts if isinstance(n, ast.Constant) and isinstance(n.value, str)
+                ]
+            else:
+                tables[target.id] = rows
+            continue
+        bound = [
+            n.id
+            for n in (target.elts if isinstance(target, ast.Tuple) else [target])
+            if isinstance(n, ast.Name)
+        ]
+        func = value.func if isinstance(value, ast.Call) else None
+        called = (
+            func.attr if isinstance(func, ast.Attribute) else func.id if isinstance(func, ast.Name) else ""
+        )
+        if "__getattr__" not in bound or not called.endswith("attach"):
+            continue
+        assert isinstance(value, ast.Call)
+        given = next((k.value for k in value.keywords if k.arg == "submod_attrs"), None)
+        if given is None and len(value.args) >= 3:
+            given = value.args[2]
+        table = tables.get(given.id) if isinstance(given, ast.Name) else None
+        if table is None:
+            return None
+        names: dict[str, str | None] = {}
+        private: dict[str, str | None] = {}
+        sources: dict[str, str] = {}
+        for submodule, attrs in table.items():
+            for name in attrs:
+                if name.isidentifier() and not (name.startswith("__") and name.endswith("__")):
+                    (private if _is_private(name) else names)[name] = None
+                    sources.setdefault(name, f"{mod.path}.{submodule}")
+        return _GetattrShim(names, private=private, sources=sources)
+    return None
+
+
 def _class_getattr(body: list[ast.stmt], mod: griffe.Module) -> _GetattrShim:
     """A module-level `class __getattr__`, which matplotlib turns into the module's `__getattr__` with
     `@_api.caching_module_getattr`: each public property it defines is a name the module serves, with the
@@ -2998,6 +3108,9 @@ class _Imports:
     stars: tuple[str, ...] = ()  # the modules `from x import *` statements name, absolute, in order
     raises: bool = False  # a top-level `raise`: importing the module always fails (mcp 2.x's `fastmcp.py`)
     deleted: frozenset[str] = frozenset()  # names the module `del`s and doesn't bind again (pandas' `del v`)
+    # `__getattr__, __dir__, __all__ = _attach(...)`: a `__getattr__` bound by unpacking, which griffe doesn't list
+    # (DT-DATA-64: huggingface_hub 0.12-0.27's lazy loader).
+    unpacks_getattr: bool = False
 
 
 def _is_docstring(st: ast.stmt) -> bool:
@@ -3038,8 +3151,23 @@ def module_imports(mod: griffe.Module) -> _Imports:
         isinstance(st, (ast.Import, ast.ImportFrom)) or _is_docstring(st) for st in body
     )
     raises = any(isinstance(st, ast.Raise) for st in body)
+    unpacks_getattr = any(
+        isinstance(st, ast.Assign)
+        and any(
+            isinstance(t, ast.Tuple)
+            and any(isinstance(e, ast.Name) and e.id == "__getattr__" for e in t.elts)
+            for t in st.targets
+        )
+        for st in body
+    )
     return _Imports(
-        frozenset(redundant), frozenset(plain), imports_only, tuple(stars), raises, _deleted_names(body)
+        frozenset(redundant),
+        frozenset(plain),
+        imports_only,
+        tuple(stars),
+        raises,
+        _deleted_names(body),
+        unpacks_getattr,
     )
 
 
@@ -3555,7 +3683,7 @@ class _Walker:
             elif found is not None:
                 self.member(found, f"{public_path}.{name}", depth, walk_from)
         hook = mod.members.get("__getattr__")
-        if hook is not None and not hook.is_alias:
+        if (hook is not None and not hook.is_alias) or self._shapes(mod).unpacks_getattr:
             if mod.path not in self.shims:
                 self.shims[mod.path] = getattr_served(mod)
             shim = self.shims[mod.path]
@@ -3833,7 +3961,7 @@ class _Walker:
                         if isinstance(target, griffe.Class):
                             self.private_classes.setdefault(target.path, target)
             hook = mod.members.get("__getattr__")
-            if hook is not None and not hook.is_alias:
+            if (hook is not None and not hook.is_alias) or self._shapes(mod).unpacks_getattr:
                 if mod.path not in self.shims:
                     self.shims[mod.path] = getattr_served(mod)
                 shim = self.shims[mod.path]

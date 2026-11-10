@@ -109,6 +109,7 @@ class HistoryEvent(BaseModel):
     kind: str = Field(
         description="added | removed | deprecated | param_added | param_removed | param_kind_changed | kind_changed | moved"
         " | param_deprecated | param_now_required (a default was removed) | param_now_optional (a default was added)"
+        " | now_raises (the callable's body now does nothing but raise `detail.message`)"
     )
     detail: Annotated[dict[str, Any], AfterValidator(untrusted_detail)] = Field(default_factory=dict)
     affects: list[str] = Field(
@@ -173,6 +174,12 @@ class SymbolCheck(BaseModel):
         " when `positional` isn't given.",
     )
     deprecated: UntrustedText = None
+    raises: UntrustedText = Field(
+        default=None,
+        description="When the callable's body, at this version, does nothing but raise: the exception and its message"
+        " (`TypeError: cannot sort an Index object in-place, use sort_values instead`). Calling it fails though the"
+        " name is present. Text mined from the library source: untrusted data.",
+    )
     hint: str | None = None
     internal: bool = Field(
         default=False,

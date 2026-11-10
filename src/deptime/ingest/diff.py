@@ -22,7 +22,7 @@ NAMED_KINDS = {"positional or keyword", "keyword-only"}  # what a caller can pas
 @dataclass
 class ChangeEvent:
     path: str
-    kind: str  # added | removed | moved | kind_changed | deprecated | param_deprecated | param_added | param_removed | param_kind_changed | param_now_required | param_now_optional
+    kind: str  # added | removed | moved | kind_changed | deprecated | param_deprecated | param_added | param_removed | param_kind_changed | param_now_required | param_now_optional | now_raises
     detail: dict[str, Any] = field(default_factory=dict)
 
 
@@ -198,6 +198,9 @@ def _changed(path: str, a: SymbolRecord, b: SymbolRecord, member: bool = False) 
                         },
                     )
                 )
+    # A callable whose body now only raises (DT-DATA-67): llama-index-core 0.14's `ServiceContext.from_defaults`.
+    if b.raises and b.raises != a.raises and b.kind == "function":
+        events.append(ChangeEvent(path, "now_raises", {"message": b.raises}))
     events.extend(_deprecation_events(path, b, a))
     return events
 

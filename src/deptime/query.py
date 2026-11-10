@@ -78,6 +78,7 @@ SEVERITY = {
     "moved": 8,
     "param_now_optional": 9,
     "added": 10,
+    "now_raises": 1,  # calling it fails from then on, as with a removed parameter (DT-DATA-67)
 }
 # What check_symbols calls a prefix it can't look inside (DT-CORE-32).
 OBJECT_KINDS = {
@@ -285,6 +286,11 @@ def _params(raw: str | None) -> list[ParamInfo] | None:
 def _parsed_params(raw: str) -> tuple[ParamInfo, ...]:
     """A signature's parameters, validated once: transformers' configs take a hundred."""
     return tuple(ParamInfo(**p) for p in json.loads(raw))
+
+
+def _raises(span: Mapping | None) -> str | None:
+    """What a callable whose body only raises raises at a release (DT-DATA-67); None in an index from before it."""
+    return span["raises"] if span is not None and "raises" in span.keys() else None  # noqa: SIM118
 
 
 def _deprecated_params(span: sqlite3.Row | None) -> dict[str, str]:
@@ -1120,6 +1126,7 @@ class DepTime:
                     rejected_kwargs=rejected,
                     missing_args=_missing_args(params_raw, q),
                     deprecated=deprecated,
+                    raises=_raises(callable_span),
                 )
             )
         return CheckSymbolsResult(

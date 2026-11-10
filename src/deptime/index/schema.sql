@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS spans (
   params        TEXT,                      -- JSON [{name, kind, default, annotation}] for callables
   deprecated    TEXT,                      -- the whole symbol's deprecation text, if detected
   deprecated_params TEXT,                  -- JSON {argument: text} for arguments a warning deprecates (DT-DATA-42)
+  raises        TEXT,                      -- 'Type: message' a function whose body only raises raises (DT-DATA-67)
   PRIMARY KEY (package, path, first_ordinal)
 );
 CREATE INDEX IF NOT EXISTS spans_by_tail ON spans(tail, package);
@@ -87,6 +88,7 @@ CREATE TABLE IF NOT EXISTS members (
   params        TEXT,
   deprecated    TEXT,
   deprecated_params TEXT,
+  raises        TEXT,                      -- as in spans (DT-DATA-67)
   PRIMARY KEY (package, name, cls, first_ordinal)
 ) WITHOUT ROWID;
 

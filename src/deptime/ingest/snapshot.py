@@ -61,6 +61,9 @@ WARN_CONSTANT_RE = re.compile(r"\bwarn\(\s*[A-Z][A-Z0-9_]+\b")
 # How many calls down an argument's deprecation is followed (DT-DATA-39): httpx's `Client.__init__` passes `cert` to
 # `_init_transport`, which passes it to `HTTPTransport`, which passes it to `create_ssl_context`, which warns.
 PASS_DEPTH = 3
+RAISE_RE = re.compile(r"\braise\b")
+# Errors a method raises to say a subclass must implement it, not that calling it is wrong (DT-DATA-67).
+ABSTRACT_ERROR_RE = re.compile(r"NotImplemented|Abstract")
 # Builds run on the pinned interpreter (.python-version), so this list doesn't vary between index builds.
 # distutils left the stdlib in 3.12; typing_extensions is a backport of it.
 STDLIB_MODULES = frozenset(sys.stdlib_module_names) | {"distutils", "typing_extensions"}
@@ -77,6 +80,8 @@ class SymbolRecord:
     deprecated: str | None = None  # the whole symbol's deprecation
     # Arguments a warning deprecates, with its text (DT-DATA-42): named parameters, or names taken out of **kwargs.
     deprecated_params: dict[str, str] | None = None
+    # What a function whose body only raises raises, `Type: message` (DT-DATA-67): calling it fails.
+    raises: str | None = None
 
 
 # The kind of a class's own member that hides the same name in its bases but isn't recorded: an alias griffe can't
@@ -3747,11 +3752,11 @@ class _Walker:
         elif target.is_class:
             rec = SymbolRecord(path, "class", target.path, None, deprecation_message(target))
         elif target.is_function:
-            rec = SymbolRecord(path, "function", target.path, _params(target), *deprecations(target))  # type: ignore[arg-type]
+            rec = _function_record(path, target.path, target)  # type: ignore[arg-type]
         elif (cls := _bound_class(target)) is not None:
             rec = SymbolRecord(path, "class", cls.path, None, deprecation_message(cls))
         elif (method := _bound_method(target)) is not None:
-            rec = SymbolRecord(path, "function", target.path, _params(method), *deprecations(method))
+            rec = _function_record(path, target.path, method)
         else:
             rec = SymbolRecord(path, target.kind.value, target.path, None, deprecation_message(target))
         self.snap.bound[path] = rec
@@ -3913,15 +3918,11 @@ class _Walker:
         elif target.is_class:
             self.cls(target, public_path)  # type: ignore[arg-type]
         elif target.is_function:
-            self.record(
-                SymbolRecord(public_path, "function", target.path, _params(target), *deprecations(target))
-            )  # type: ignore[arg-type]
+            self.record(_function_record(public_path, target.path, target))  # type: ignore[arg-type]
         elif (bound := _bound_class(target)) is not None:
             self.cls(bound, public_path)  # `masked_array = MaskedArray`: the class itself (DT-CORE-32)
         elif (method := _bound_method(target)) is not None:  # `list_models = api.list_models` (DT-DATA-66)
-            self.record(
-                SymbolRecord(public_path, "function", target.path, _params(method), *deprecations(method))
-            )
+            self.record(_function_record(public_path, target.path, method))
         else:
             self.record(
                 SymbolRecord(public_path, target.kind.value, target.path, None, deprecation_message(target))
@@ -4097,13 +4098,51 @@ def _internal_member(path: str, member: griffe.Object | griffe.Alias) -> SymbolR
     return SymbolRecord(path, target.kind.value, target.path)
 
 
+def _function_record(path: str, canonical: str, func: griffe.Function) -> SymbolRecord:
+    """A function's record at `path`: what a caller passes, its deprecations, and what it raises if that is all its
+    body does."""
+    return SymbolRecord(path, "function", canonical, _params(func), *deprecations(func), _raises(func))
+
+
+def _raises(func: griffe.Function) -> str | None:
+    """What a function raises when its body, after its docstring, is a single `raise` (DT-DATA-67): llama-index-core
+    0.14's `ServiceContext.from_defaults(**kwargs)` only raises "ServiceContext is deprecated. …", so calling it
+    fails though the name is there. `Type: message`, or the type alone when the message isn't a literal. None for
+    any other body, a bare re-raise, a method left to subclasses (`NotImplementedError`, pandas'
+    `AbstractMethodError`) and an abstract method."""
+    if any(str(d.value).rpartition(".")[2] in ("abstractmethod", "overload") for d in func.decorators):
+        return None
+    try:
+        source = func.source
+    except (OSError, ValueError, AttributeError):
+        return None
+    if len(RAISE_RE.findall(source)) != 1:  # most functions: parsed only when this can be the whole body
+        return None
+    found = _function_node(func, source)
+    if found is None or found[0] is None:
+        return None
+    body = found[0].body
+    if body and _is_docstring(body[0]):
+        body = body[1:]
+    if len(body) != 1 or not isinstance(body[0], ast.Raise) or body[0].exc is None:
+        return None
+    exc = body[0].exc
+    call = exc if isinstance(exc, ast.Call) else None
+    kind = _callee(call) if call is not None else (ast.unparse(exc).rpartition(".")[2] or None)
+    if not kind or ABSTRACT_ERROR_RE.search(kind):
+        return None
+    first = call.args[0] if call is not None and call.args else None
+    message = _warning_text(first, {}) if first is not None else None
+    return f"{kind}: {' '.join(message.split())[:400]}" if message else kind
+
+
 def _member_record(path: str, member: griffe.Object | griffe.Alias) -> SymbolRecord | None:
     """A class member's record at `path`; None for an alias griffe can't resolve and for other kinds of object."""
     target = _resolve(member)
     if target is None:
         return None
     if target.is_function:
-        return SymbolRecord(path, "function", target.path, _params(target), *deprecations(target))  # type: ignore[arg-type]
+        return _function_record(path, target.path, target)  # type: ignore[arg-type]
     if target.is_attribute and (bound := _bound_class(target)) is not None:
         return SymbolRecord(path, "class", bound.path, None, deprecation_message(target))
     if target.is_attribute:

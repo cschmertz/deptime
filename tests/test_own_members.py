@@ -379,7 +379,9 @@ def test_an_index_with_members_keyed_by_class_first_is_rekeyed_by_name(built, tm
             " params TEXT, deprecated TEXT, deprecated_params TEXT,"
             " PRIMARY KEY (package, cls, name, first_ordinal)) WITHOUT ROWID"
         )
-        store.conn.execute("INSERT INTO members SELECT * FROM new_members")
+        columns = "package, cls, name, first_ordinal, last_ordinal, kind, canonical, params, deprecated"
+        columns += ", deprecated_params"  # `raises` came after DT-DATA-49 (DT-DATA-67)
+        store.conn.execute(f"INSERT INTO members SELECT {columns} FROM new_members")
         store.conn.execute("DROP TABLE new_members")
     store.close()
     reader = IndexStore.open(path)  # a reader leaves the file as it is

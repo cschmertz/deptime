@@ -52,7 +52,7 @@ RENAMED_PARAM_CONFIDENCE = 0.8
 RENAMED_NAME_CONFIDENCE = 0.8
 
 
-_STATE_COLUMNS = ("kind", "canonical", "params", "deprecated", "deprecated_params")
+_STATE_COLUMNS = ("kind", "canonical", "params", "deprecated", "deprecated_params", "raises")
 
 
 def _schema_sql() -> str:
@@ -306,18 +306,19 @@ def curated_rows(
 
 
 def _state(rec: SymbolRecord) -> tuple:
-    """A record as a span's columns: `(kind, canonical, params, deprecated, deprecated_params)`."""
+    """A record as a span's columns: `(kind, canonical, params, deprecated, deprecated_params, raises)`."""
     return (
         rec.kind,
         rec.canonical,
         None if rec.params is None else json.dumps(rec.params),
         rec.deprecated,
         None if rec.deprecated_params is None else json.dumps(rec.deprecated_params, sort_keys=True),
+        rec.raises,
     )
 
 
 def _record(path: str, row: Mapping) -> SymbolRecord:
-    """A span's columns as a record of `path`."""
+    """A span's columns as a record of `path`; `raises` is NULL in an index from before DT-DATA-67."""
     return SymbolRecord(
         path,
         row["kind"],
@@ -325,6 +326,7 @@ def _record(path: str, row: Mapping) -> SymbolRecord:
         None if row["params"] is None else json.loads(row["params"]),
         row["deprecated"],
         None if row["deprecated_params"] is None else json.loads(row["deprecated_params"]),
+        row["raises"] if "raises" in row.keys() else None,  # noqa: SIM118
     )
 
 
@@ -486,6 +488,7 @@ class IndexStore:
         self.conn.row_factory = sqlite3.Row
         self._internal: bool | None = None  # whether the index has internal_spans (DT-DATA-22)
         self._internal_members: bool | None = None  # whether it has internal_members (DT-DATA-46)
+        self._raises: dict[str, bool] = {}  # whether spans, members have `raises` (DT-DATA-67)
         self._own: frozenset[str] | None = None  # packages stored with own members (DT-DATA-16)
         self._members: OrderedDict[tuple[str, str], tuple[list[dict], list[tuple[int, int, str]]]] = (
             OrderedDict()
@@ -519,6 +522,8 @@ class IndexStore:
             spans = {r[1] for r in self.conn.execute("PRAGMA table_info(spans)")}
             if "deprecated_params" not in spans:
                 self.conn.execute("ALTER TABLE spans ADD COLUMN deprecated_params TEXT")
+            if "raises" not in spans:  # DT-DATA-67
+                self.conn.execute("ALTER TABLE spans ADD COLUMN raises TEXT")
             releases = {r[1] for r in self.conn.execute("PRAGMA table_info(releases)")}
             if "requires" not in releases:
                 self.conn.execute("ALTER TABLE releases ADD COLUMN requires TEXT")
@@ -541,8 +546,14 @@ class IndexStore:
             if key == ["package", "cls", "name", "first_ordinal"]:  # keyed by class first, before DT-DATA-49
                 self.conn.execute("ALTER TABLE members RENAME TO members_by_class")
                 self.conn.executescript(_schema_sql())
-                self.conn.execute("INSERT INTO members SELECT * FROM members_by_class")
+                columns = (
+                    "package, cls, name, first_ordinal, last_ordinal, kind, canonical, params, deprecated"
+                )
+                columns += ", deprecated_params"
+                self.conn.execute(f"INSERT INTO members({columns}) SELECT {columns} FROM members_by_class")
                 self.conn.execute("DROP TABLE members_by_class")
+            if "raises" not in {r[1] for r in self.conn.execute("PRAGMA table_info(members)")}:  # DT-DATA-67
+                self.conn.execute("ALTER TABLE members ADD COLUMN raises TEXT")
             self._stamp_schema()
 
     def _stamp_schema(self) -> None:
@@ -792,7 +803,8 @@ class IndexStore:
                 release_rows,
             )
             self.conn.executemany(
-                "INSERT INTO spans(package, path, tail, first_ordinal, last_ordinal, kind, canonical, params, deprecated, deprecated_params) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO spans(package, path, tail, first_ordinal, last_ordinal, kind, canonical, params, deprecated,"
+                " deprecated_params, raises) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [
                     (name, path, path.rsplit(".", 1)[-1], first, last, *state)
                     for path, first, last, state in span_rows
@@ -810,7 +822,7 @@ class IndexStore:
             )
             self.conn.executemany(
                 "INSERT INTO members(package, cls, name, first_ordinal, last_ordinal, kind, canonical, params,"
-                " deprecated, deprecated_params) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                " deprecated, deprecated_params, raises) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [
                     (name, cls, member, first, last, *state)
                     for (cls, member), first, last, state in member_rows
@@ -843,6 +855,7 @@ class IndexStore:
         with self._lock:
             self._own = None
             self._internal = self._internal_members = None
+            self._raises = {}
             self._members.clear()
         return RebuildStats(
             name,
@@ -907,21 +920,11 @@ class IndexStore:
         if rel is None:
             return None
         rows = self.conn.execute(
-            "SELECT path, kind, canonical, params, deprecated, deprecated_params FROM spans "
+            f"SELECT path, kind, canonical, params, deprecated, deprecated_params, {self._raises_column('spans')} FROM spans "
             "WHERE package = ? AND first_ordinal <= ? AND last_ordinal >= ?",
             (spec.name, rel["ordinal"], rel["ordinal"]),
         ).fetchall()
-        symbols = {
-            r["path"]: SymbolRecord(
-                r["path"],
-                r["kind"],
-                r["canonical"],
-                None if r["params"] is None else json.loads(r["params"]),
-                r["deprecated"],
-                None if r["deprecated_params"] is None else json.loads(r["deprecated_params"]),
-            )
-            for r in rows
-        }
+        symbols = {r["path"]: _record(r["path"], r) for r in rows}
         internal = {}
         if self.has_internal():
             rows = self.conn.execute(
@@ -1167,8 +1170,9 @@ class IndexStore:
             )
             members: dict[str, list[tuple[int, int, tuple | None]]] = defaultdict(list)
             for r in self.conn.execute(
-                "SELECT cls, first_ordinal, last_ordinal, kind, canonical, params, deprecated, deprecated_params"
-                f" FROM members WHERE package = ? AND name = ? AND cls IN ({','.join('?' * len(candidates))})",
+                "SELECT cls, first_ordinal, last_ordinal, kind, canonical, params, deprecated, deprecated_params,"
+                f" {self._raises_column('members')} FROM members WHERE package = ? AND name = ?"
+                f" AND cls IN ({','.join('?' * len(candidates))})",
                 (name, leaf, *candidates),
             ):
                 state = None if r["kind"] == HIDDEN else tuple(r)[3:]
@@ -1222,6 +1226,13 @@ class IndexStore:
             spans = self._resolved(name, path)[0]
             row = next((r for r in spans if r["first_ordinal"] <= ordinal <= r["last_ordinal"]), None)
         return row
+
+    def _raises_column(self, table: str) -> str:
+        """`raises` in a SELECT of `table`'s state (spans or members): NULL in an index from before DT-DATA-67, opened
+        read-only and so never given the column."""
+        if table not in self._raises:
+            self._raises[table] = "raises" in {r[1] for r in self.conn.execute(f"PRAGMA table_info({table})")}
+        return "raises" if self._raises[table] else "NULL AS raises"
 
     def has_internal(self) -> bool:
         """Whether the index records internal names (DT-DATA-22); older ones don't have the table."""

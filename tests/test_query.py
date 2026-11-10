@@ -1467,6 +1467,7 @@ def test_lookups_by_path_and_suffix_use_their_indexes(store):
     # for an error's owner took up to a second. Without ANALYZE statistics, SQLite's choice follows the query text.
     real = store.conn
     store.stores_own_members("httpx")  # read once per store (DT-DATA-16), not per lookup
+    store._raises_column("members")  # so is whether the index has `raises` (DT-DATA-67)
     rec = store.conn = _Recorder(real)
     try:
         # httpx is stored with own members (DT-DATA-49): a member's events come from its class's rows, each read
@@ -1511,6 +1512,56 @@ def _dt(specs_and_snaps: list[tuple[PackageSpec, list[ApiSnapshot]]], extra=()) 
     for spec, snaps in specs_and_snaps:
         store.rebuild_package(spec, snaps)
     return DepTime(store, Coverage(POLICY, tuple(s for s, _ in specs_and_snaps) + tuple(extra)))
+
+
+STUB = PackageSpec(name="stub", import_names=("stub",), tier="B")
+
+
+def _stub(tmp_path=None) -> DepTime:
+    """DT-DATA-67: llama-index-core 0.14 turned `ServiceContext.from_defaults` into a body that only raises."""
+    mod, cls = _rec("stub", "module"), _rec("stub.ServiceContext", "class")
+    works = _rec("stub.ServiceContext.from_defaults", "function", [])
+    stub = SymbolRecord(
+        works.path, "function", works.canonical, [], raises="ValueError: ServiceContext is deprecated."
+    )
+    snaps = [
+        ApiSnapshot("stub", v, ["stub"], {"stub": mod, "stub.ServiceContext": cls, works.path: rec})
+        for v, rec in (("0.10.0", works), ("0.14.0", stub))
+    ]
+    if tmp_path is None:
+        return _dt([(STUB, snaps)])
+    store = IndexStore.open(tmp_path / "index.sqlite", readonly=False)
+    store.rebuild_package(STUB, snaps)
+    with store.conn:
+        for table in ("spans", "members"):  # an index from before DT-DATA-67
+            store.conn.execute(f"ALTER TABLE {table} DROP COLUMN raises")
+    store.close()
+    return DepTime(IndexStore.open(tmp_path / "index.sqlite"), Coverage(POLICY, (STUB,)))
+
+
+def test_a_callable_that_now_only_raises_is_reported(tmp_path):
+    dt = _stub()
+    check = dt.check_symbols("stub", "0.14.0", [SymbolQuery(path="stub.ServiceContext.from_defaults")])
+    assert check.results[0].status == "present"
+    assert check.results[0].raises == "ValueError: ServiceContext is deprecated."
+    assert (
+        dt.check_symbols("stub", "0.10.0", [SymbolQuery(path="stub.ServiceContext.from_defaults")])
+        .results[0]
+        .raises
+        is None
+    )
+    events = dt.diff_versions("stub", "0.10.0", "0.14.0").events
+    assert [(e.path, e.kind, e.detail) for e in events] == [
+        (
+            "stub.ServiceContext.from_defaults",
+            "now_raises",
+            {"message": "ValueError: ServiceContext is deprecated."},
+        )
+    ]
+    # An index from before DT-DATA-67, opened read-only, has no `raises` to read.
+    old = _stub(tmp_path)
+    check = old.check_symbols("stub", "0.14.0", [SymbolQuery(path="stub.ServiceContext.from_defaults")])
+    assert (check.results[0].status, check.results[0].raises) == ("present", None)
 
 
 NUMPY = PackageSpec(name="numpy", import_names=("numpy",), tier="B")

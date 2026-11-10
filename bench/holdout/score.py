@@ -81,14 +81,17 @@ def ask_check_symbols(dt: DepTime, row: dict, items: list[dict]) -> list[dict]:
             out.append({"answered": False, "why": r.hint or res.note or r.status})
             continue
         rejected = [k for k in i.get("kwargs", []) if k in r.rejected_kwargs] if i["kind"] == "call" else []
+        # A call to a callable whose body only raises fails (DT-DATA-67).
+        raises = getattr(r, "raises", None) if i["kind"] == "call" else None
         out.append(
             {
                 "answered": True,
-                "flagged": r.status == "missing" or bool(rejected) or bool(r.missing_args),
+                "flagged": r.status == "missing" or bool(rejected) or bool(r.missing_args) or bool(raises),
                 "deprecated": bool(r.deprecated),
                 "said": f"{r.status}"
                 + (f" rejected={rejected}" if rejected else "")
                 + (f" missing_args={r.missing_args}" if r.missing_args else "")
+                + (f" raises={raises}" if raises else "")
                 + (f" ({r.hint})" if r.hint else ""),
             }
         )
@@ -172,6 +175,9 @@ def ask_diff_versions(dt: DepTime, row: dict, item: dict) -> dict:
         reasons.append("removed" if up else "added after to")
     if item["kind"] == "call":
         targets = (path, path + ".__init__")
+        # Upgrading across a release from which the callable only raises (DT-DATA-67).
+        if up and any(e.kind == "now_raises" and e.path in targets for e in events):
+            reasons.append("now raises")
         for k in item.get("kwargs", []):
             for t in targets:
                 if _state_at_to(events, t, up, "param_added", "param_removed", param=k):

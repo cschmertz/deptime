@@ -3514,6 +3514,62 @@ def test_a_metaclass_property_is_an_attribute_of_its_classes(tmp_path):
         assert "build" not in members and "_private" not in members
 
 
+RAISING = {
+    "stub/__init__.py": "from stub.ctx import ServiceContext, legacy, works, abstract, todo, rethrow, Index\n",
+    "stub/ctx.py": (
+        "import abc\n\n"
+        "class AbstractMethodError(NotImplementedError):\n    pass\n\n"
+        "class ServiceContext:\n"
+        "    @classmethod\n"
+        "    def from_defaults(cls, **kwargs):\n"
+        '        """Deprecated."""\n'
+        "        raise ValueError(\n"
+        "            'ServiceContext is deprecated. Use llama_index.settings.Settings instead, '\n"
+        "            'or pass in modules to local functions/methods/interfaces.'\n"
+        "        )\n"
+        "    @abc.abstractmethod\n"
+        "    def build(self):\n        raise RuntimeError('subclass')\n"
+        "    def helper(self):\n        raise AbstractMethodError(self)\n\n"
+        "class Index:\n"
+        "    def sort(self, *args, **kwargs):\n"
+        "        raise TypeError('cannot sort an Index object in-place, use sort_values instead')\n\n"
+        "def legacy(name):\n    raise ImportError(f'{name} moved to stub.new')\n"
+        "def works(x):\n    if x:\n        raise ValueError('bad')\n    return x\n"
+        "def abstract():\n    raise NotImplementedError\n"
+        "def todo():\n    raise errors.Gone\n"
+        "def rethrow():\n    raise\n"
+    ),
+}
+
+
+def test_a_function_whose_body_only_raises_is_recorded_as_raising(tmp_path):
+    """DT-DATA-67: llama-index-core 0.14's `ServiceContext.from_defaults` only raises "ServiceContext is deprecated":
+    calling it fails, though the name is there."""
+    for own in (False, True):
+        snap = build_snapshot("stub", "0.14", ["stub"], _write(tmp_path / str(own), RAISING), own_members=own)
+        if own:
+            members = {
+                **snap.classes["stub.ctx.ServiceContext"].members,
+                **snap.classes["stub.ctx.Index"].members,
+            }
+        else:
+            members = {p.rpartition(".")[2]: r for p, r in snap.symbols.items() if p.count(".") == 2}
+        assert members["from_defaults"].raises == (
+            "ValueError: ServiceContext is deprecated. Use llama_index.settings.Settings instead, or pass in modules"
+            " to local functions/methods/interfaces."
+        )
+        assert (
+            members["sort"].raises
+            == "TypeError: cannot sort an Index object in-place, use sort_values instead"
+        )
+        # An abstract method, and one left to subclasses, raise to say so: calling them isn't the mistake.
+        assert members["build"].raises is None and members["helper"].raises is None
+    symbols = snap.symbols
+    assert symbols["stub.legacy"].raises == "ImportError: … moved to stub.new"
+    assert symbols["stub.todo"].raises == "Gone"
+    assert {symbols[f"stub.{n}"].raises for n in ("works", "abstract", "rethrow")} == {None}
+
+
 def test_a_namespace_import_root_is_recorded(tmp_path):
     root = _write(tmp_path, {"nsroot/graph/__init__.py": "def g():\n    pass\n"})
     assert build_snapshot("nsroot", "1.0", ["nsroot"], root).namespaces == ["nsroot"]

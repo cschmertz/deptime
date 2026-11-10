@@ -32,7 +32,7 @@ shares no code with DepTime's own reader): a name it imports or reads (`numpy.li
 Calls that splat (`*args`, `**kw`) count as names only. At most 40 uses per upgrade, picked by hash, so one large project
 can't dominate.
 
-Two sources (from 2026-11b on, only the second):
+Three sources (from 2026-11b on, not the first; the third from 2026-11d on):
 
 1. **TimeMachine-bench** (its verified subset, dataset commit `9928dbf`; see `bench/tmb/README.md`): 100 repositories
    whose tests pass under their original dependencies and, after the gold fix, under PyPI as of 2025-07-31. Each covered
@@ -48,6 +48,12 @@ Two sources (from 2026-11b on, only the second):
    least three times. The first two qualifying repositories are kept.
    Each gives two upgrades from the pin: to the newest release (`up`), and to the newest release at least a year older
    than the pin when that is indexed (`down`: code written for a newer release than the one installed).
+3. **The exercise stratum** (from 2026-11d on, `find_pinned.py --exercise`): uses of fixes the set before didn't
+   exercise. For each package `collect.EXERCISE` names, by the same search and rules, the first two repositories that
+   aren't in an earlier set or the main stratum, whose pin is below the rule's bound and whose code has the use the rule
+   needs, and the cap keeps those uses first. For 2026-11d: a name under `mcp.types` with mcp pinned before 2.0.0
+   (DT-DATA-56), a call to crewai's `Agent` or `Task` with keywords (DT-CORE-39), and a module dunder of numpy,
+   pandas, polars or pydantic (`numpy.__version__`; DT-CORE-38). It is reported apart as well as in the totals.
 
 ### Labels: the probe, never DepTime
 
@@ -61,6 +67,11 @@ unprivileged user, it checks each use at run time (`probe.py`): does the name re
 A path resolves when reading attributes down from the top package works (importing a submodule where an attribute is
 missing), as `from a import b` and `a.b.c` do, or else when importing its longest module prefix and reading the rest
 works, which finds a module a package registers in `sys.modules` under a name an attribute shadows.
+
+A name that resolves to an object built to fail when called (from 2026-11d on: a function, or an instance's class's
+`__call__`, whose body is a single `raise` of anything but `NotImplementedError`, such as openai 1.x's
+`APIRemovedInV1Proxy` for `openai.ChatCompletion`, whose attributes are the proxy again) doesn't work for a call, nor
+for the name when the project also calls it; a name the project only reads still works.
 
 `labels.py` turns that into one label per use and upgrade:
 
@@ -113,6 +124,9 @@ Before that, each set is built and committed with:
 uv run python bench/holdout/collect.py tmb <verified.jsonl> <sources> <tmb.jsonl>          # TimeMachine-bench upgrades
 uv run python bench/holdout/find_pinned.py <packages> <sources> <pinned.json>               # pinned repositories
 uv run python bench/holdout/collect.py pinned <pinned.json> <sources> <pinned.jsonl>
+uv run python bench/holdout/find_pinned.py <EXERCISE packages> <sources> <exercise.json> --exercise \
+    --exclude <earlier sets>,<pinned.json>                                                   # from 2026-11d on
+uv run python bench/holdout/collect.py pinned <exercise.json> <sources> <exercise.jsonl>
 cat <tmb.jsonl> <pinned.jsonl> > bench/holdout/<set>/upgrades.jsonl                          # plus tracebacks.jsonl
 uv run python bench/holdout/envs.py bench/holdout/<set>                                      # then push spike/holdout
 uv run python bench/holdout/labels.py bench/holdout/<set> <artifacts>
@@ -128,10 +142,14 @@ Each labelled use is asked two ways, as an agent would ask it:
 - `diff_versions(package, from, to, used_symbols=[path], include_added=True)` (`down`: from `to` up to `from`):
   **flagged** when the events say `to` lacks what the use needs: the path's last membership event before `to` is
   `removed` (for `down`, its first one after `to` is `added`); for a call, the same for each keyword it passes on the
-  path or its `__init__` (`param_removed`/`param_added`), and, upgrading, a parameter that became required and isn't
-  passed by keyword. An event on a parent that lists the path in `affects` (a removed module or class, DT-CORE-33)
-  counts as one on the path; sets scored before it (2026-11) didn't have the field. An unresolvable range (a `from`
-  older than the index) is an abstention.
+  path or its `__init__` (`param_removed`/`param_added`), and a parameter required at `to` that the call doesn't
+  pass. Upgrading, that is one whose last change before `to` made it required (a default removed, or, from 2026-11d
+  on, added without one); going down (from 2026-11d on), one whose first change after `to` made it optional. Up to
+  2026-11c a parameter counted as passed only by keyword; from 2026-11d on also by position, where the signature
+  DepTime has at `to` places the call's positional arguments (`StateGraph(State)` passes `state_schema`). An event on
+  a parent that lists the path in `affects` (a removed module or class, DT-CORE-33) counts as one on the path; sets
+  scored before it (2026-11) didn't have the field. An unresolvable range (a `from` older than the index) is an
+  abstention.
 
 Then, for each tool: **precision** (flagged uses that break), **recall** (breaking uses flagged) and **false-positive
 rate** (working uses flagged), each with a 95% Wilson interval, overall and by change type (recall), tier, package,

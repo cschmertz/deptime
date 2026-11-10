@@ -113,6 +113,46 @@ def _state_at_to(events: list, path: str, up: bool, present: str, absent: str, p
     return evs[0].kind == present  # going back to `to`: the first change after it says what `to` had
 
 
+REQUIREDNESS = ("param_added", "param_removed", "param_now_required", "param_now_optional")
+
+
+def _required_at_to(events: list, path: str, param: str, up: bool) -> bool:
+    """Whether the events say `param` of `path` is required at `to` and wasn't on the other side: upgrading, the last
+    change to it before `to` is `param_now_required` or a required `param_added`; going down, the first change after
+    `to` is `param_now_optional`."""
+    evs = sorted(
+        (
+            e
+            for e in events
+            if e.path == path and e.kind in REQUIREDNESS and (e.detail or {}).get("param") == param
+        ),
+        key=lambda e: _v(e.version),
+    )
+    if not evs:
+        return False
+    if up:
+        last = evs[-1]
+        return last.kind == "param_now_required" or (
+            last.kind == "param_added" and bool((last.detail or {}).get("required"))
+        )
+    return evs[0].kind == "param_now_optional"
+
+
+def _by_position(params: list | None, npos: int | None) -> set[str]:
+    """The parameters a call with `npos` positional arguments fills, from a signature (a method's `self` or `cls`
+    comes bound); none when either is unknown."""
+    if not params or not npos:
+        return set()
+    if params[0].name in ("self", "cls") and params[0].kind != "keyword-only":
+        params = params[1:]
+    filled: set[str] = set()
+    for p in params:
+        if len(filled) >= npos or p.kind not in ("positional-only", "positional or keyword"):
+            break
+        filled.add(p.name)
+    return filled
+
+
 def ask_diff_versions(dt: DepTime, row: dict, item: dict) -> dict:
     up = _v(row["to"]) >= _v(row["from"] or "0")
     lo, hi = (row["from"], row["to"]) if up else (row["to"], row["from"])
@@ -136,18 +176,17 @@ def ask_diff_versions(dt: DepTime, row: dict, item: dict) -> dict:
             for t in targets:
                 if _state_at_to(events, t, up, "param_added", "param_removed", param=k):
                     reasons.append(f"param {k} {'removed' if up else 'added after to'}")
-        if up:
-            passed = set(item.get("kwargs", []))
-            for t in targets:
-                for e in events:
-                    p = (e.detail or {}).get("param")
-                    if (
-                        e.path == t
-                        and e.kind == "param_now_required"
-                        and p not in passed
-                        and _state_at_to(events, t, True, "param_now_optional", "param_now_required", param=p)
-                    ):
-                        reasons.append(f"param {p} now required")
+        # A parameter required at `to` that the call passes neither by keyword nor by position, where the signature
+        # DepTime has at `to` places the call's positional arguments (DT-QA-10: `StateGraph(State)` passes
+        # `state_schema`). Upgrading, the last change to it before `to` made it required (a default removed, or added
+        # without one); going down, the first change after `to` made it optional (polars 0.19.6's `int_range(n)`).
+        passed = set(item.get("kwargs", [])) | _by_position(
+            dt._signature(row["package"], path, row["to"]), item.get("npos")
+        )
+        for t in targets:
+            for p in sorted({(e.detail or {}).get("param") for e in events if e.path == t} - {None} - passed):
+                if _required_at_to(events, t, p, up):
+                    reasons.append(f"param {p} {'now required' if up else 'required at to'}")
     dep = any(
         (e.path == path and e.kind == "deprecated")
         or (
@@ -252,6 +291,7 @@ def main(argv: list[str] | None = None) -> int:
                     "tier": row["tier"],
                     "source": row["source"],
                     "direction": direction,
+                    "stratum": row.get("stratum") or "main",
                     "from": row["from"],
                     "to": row["to"],
                     "check_symbols": cs,
@@ -296,6 +336,8 @@ def main(argv: list[str] | None = None) -> int:
             out.append(f"| {ct} | {len(rows)} | {rate(c['tp'], c['tp'] + c['fn'])} |")
         out += ["", "**By tier:**", "", *table(grouped(lambda r: r["tier"]), tool)]
         out += ["", "**By source:**", "", *table(grouped(lambda r: r["direction"]), tool)]
+        if any(r["stratum"] != "main" for r in scored):  # DT-QA-10's exercise stratum
+            out += ["", "**By stratum:**", "", *table(grouped(lambda r: r["stratum"]), tool)]
         out += [
             "",
             "**By kind of use:**",

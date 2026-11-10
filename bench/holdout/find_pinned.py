@@ -2,7 +2,7 @@
 runs DepTime or any project's code; sources are downloaded as tarballs and only parsed.
 
     uv run python bench/holdout/find_pinned.py <packages, comma-separated> <sources dir> <pinned.json> [--per 2]
-        [--cutoff YYYY-MM-DD] [--exclude <earlier set dir>,...]
+        [--cutoff YYYY-MM-DD] [--exclude <earlier set dir>,...] [--exercise]
 
 For each package, in GitHub code search's order for `<package>== filename:requirements.txt`, a repository qualifies
 when it isn't a fork and isn't the package itself, its requirements file pins a final release at or after the
@@ -12,6 +12,11 @@ each asked about two moves: an upgrade from the pin to the newest release (`from
 newest release at least a year older than the pin, when that is indexed (`from` = pin, `to` = older: the
 "not yet added" direction). A repository an earlier set already asked about (`--exclude`) doesn't qualify, so each set
 is new code.
+
+`--exercise` (DT-QA-10) picks the exercise stratum, for the packages in collect.EXERCISE: by the same search and rules,
+the first `--per` repositories that aren't in an earlier set or the main stratum (its pinned.json in `--exclude`),
+whose pin is below the rule's bound and whose code has the use the rule needs (a name under `mcp.types`, a call to
+crewai's `Agent` or `Task`, a module dunder). Their ids start `ex-`.
 """
 
 from __future__ import annotations
@@ -33,8 +38,8 @@ from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
 
 sys.path.insert(0, str(Path(__file__).parent))
-from collect import COV, pypi_releases
-from uses import uses_in_tree
+from collect import COV, EXERCISE, pypi_releases
+from uses import as_dict, uses_in_tree
 
 MIN_USES = 3
 FIRST = {  # first indexed release per package (`deptime coverage`, 2026-11-07)
@@ -110,12 +115,16 @@ def newest(package: str) -> str:
 
 
 def earlier_repos(sets: list[Path]) -> set[str]:
-    """Repositories an earlier set asked about, as owner/name in lower case."""
+    """Repositories an earlier set asked about (a set dir), or a pinned.json picked (this set's main stratum, for
+    `--exercise`), as owner/name in lower case."""
     found = set()
     for d in sets:
-        for line in (d / "upgrades.jsonl").read_text(encoding="utf-8").splitlines():
-            if line.strip():
-                found.add(json.loads(line)["repo"].removeprefix("https://github.com/").lower())
+        if d.suffix == ".json":
+            repos = [r["repo"] for r in json.loads(d.read_text(encoding="utf-8"))["repos"]]
+        else:
+            lines = (d / "upgrades.jsonl").read_text(encoding="utf-8").splitlines()
+            repos = [json.loads(line)["repo"] for line in lines if line.strip()]
+        found.update(r.removeprefix("https://github.com/").lower() for r in repos)
     return found
 
 
@@ -146,8 +155,13 @@ def _hits(package: str):
         done = len(hits)
 
 
-def candidates(package: str, sources: Path, per: int, log: list, skip: set[str] = frozenset()) -> list[dict]:
+def candidates(
+    package: str, sources: Path, per: int, log: list, skip: set[str] = frozenset(), exercise: bool = False
+) -> list[dict]:
+    """The first `per` qualifying repositories; with `exercise`, only those that also have the use EXERCISE names
+    for the package, pinned below its bound (DT-QA-10)."""
     spec = COV[package]
+    rule = EXERCISE[package] if exercise else None
     roots = tuple(spec.import_names)
     latest = newest(package)
     kept: list[dict] = []
@@ -175,24 +189,29 @@ def candidates(package: str, sources: Path, per: int, log: list, skip: set[str] 
             try:
                 ok = pin is not None and Version(FIRST[package]) <= Version(pin) < Version(latest)
                 ok = ok and not Version(pin).is_prerelease and pin in pypi_releases(package)
+                ok = ok and (rule is None or rule[1] is None or Version(pin) < Version(rule[1]))
             except InvalidVersion:
                 ok = False
             if not ok:
-                why = f"pin {pin!r} not in [{FIRST[package]}, {latest})"
+                upper = latest if rule is None or rule[1] is None else min(latest, rule[1], key=Version)
+                why = f"pin {pin!r} not in [{FIRST[package]}, {upper})"
         if why is None:
             src = sources / repo.replace("/", "__")
             fetch_source(repo, sha, src)
             own = any(
                 (src / p / r.replace(".", "/") / "__init__.py").exists() for p in ("", "src") for r in roots
             )
-            n = sum(
-                not any(r == u.path or r.startswith(u.path + ".") for r in roots)
+            found = [
+                as_dict(u)
                 for u in uses_in_tree(src, roots)
-            )
+                if not any(r == u.path or r.startswith(u.path + ".") for r in roots)
+            ]
             if own:
                 why = "the package's own source"
-            elif n < MIN_USES:
-                why = f"{n} uses"
+            elif len(found) < MIN_USES:
+                why = f"{len(found)} uses"
+            elif rule is not None and not any(rule[2](u) for u in found):
+                why = f"no use for the exercise: {rule[0]}"
         log.append({"package": package, "repo": repo, "path": h["path"], "skipped": why})
         if why is not None:
             continue
@@ -203,9 +222,13 @@ def candidates(package: str, sources: Path, per: int, log: list, skip: set[str] 
             "pinned_in": h["path"],
             "package": package,
         }
-        kept.append({**base, "id": f"pin-{slug}-{package}-up", "from": pin, "to": latest})
+        prefix = "pin"
+        if rule is not None:
+            base.update(stratum="exercise", exercise=rule[0])
+            prefix = "ex"
+        kept.append({**base, "id": f"{prefix}-{slug}-{package}-up", "from": pin, "to": latest})
         if (older := older_target(package, pin)) is not None:
-            kept.append({**base, "id": f"pin-{slug}-{package}-down", "from": pin, "to": older})
+            kept.append({**base, "id": f"{prefix}-{slug}-{package}-down", "from": pin, "to": older})
         if len({k["repo"] for k in kept}) >= per:
             break
     return kept
@@ -218,7 +241,12 @@ def main() -> None:
     ap.add_argument("out", type=Path)
     ap.add_argument("--per", type=int, default=2)
     ap.add_argument("--cutoff", default=CUTOFF)
-    ap.add_argument("--exclude", default="", help="earlier set dirs, comma-separated")
+    ap.add_argument(
+        "--exclude", default="", help="earlier set dirs (or this set's pinned.json), comma-separated"
+    )
+    ap.add_argument(
+        "--exercise", action="store_true", help="the exercise stratum: collect.EXERCISE's rule per package"
+    )
     a = ap.parse_args()
     globals()["CUTOFF"] = a.cutoff
     skip = earlier_repos([Path(x) for x in a.exclude.split(",") if x])
@@ -229,7 +257,7 @@ def main() -> None:
             continue
         log: list = []
         try:
-            doc["repos"].extend(candidates(package, a.sources, a.per, log, skip))
+            doc["repos"].extend(candidates(package, a.sources, a.per, log, skip, a.exercise))
         except RuntimeError as e:
             log.append({"package": package, "error": str(e)})
         doc["log"].extend(log)

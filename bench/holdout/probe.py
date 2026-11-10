@@ -42,7 +42,7 @@ SOURCE_BUILDS = ["pypika", "ffmpy"]
 # Runs inside the sandbox with the environment's interpreter: argv[1] = uses (JSON), argv[2] = results (JSON lines on
 # stdout). Every use is checked on its own, so one that hangs or crashes the import of a module loses only itself.
 CHECK = r'''
-import importlib, inspect, itertools, json, re, sys, types, warnings
+import ast, importlib, inspect, itertools, json, re, sys, textwrap, types, warnings
 
 MAX = 300
 
@@ -264,6 +264,40 @@ def resolve(path):
             raise first from None
 
 
+def _raises_only(f):
+    """Whether a function's body, after its docstring, is one `raise` of something other than NotImplementedError
+    (an abstract method's)."""
+    try:
+        tree = ast.parse(textwrap.dedent(inspect.getsource(f)))
+    except Exception:
+        return False
+    fn = tree.body[0] if tree.body else None
+    if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        return False
+    body = fn.body
+    if body and isinstance(body[0], ast.Expr) and isinstance(body[0].value, ast.Constant) and isinstance(body[0].value.value, str):
+        body = body[1:]
+    if len(body) != 1 or not isinstance(body[0], ast.Raise) or body[0].exc is None:
+        return False
+    exc = body[0].exc.func if isinstance(body[0].exc, ast.Call) else body[0].exc
+    name = exc.attr if isinstance(exc, ast.Attribute) else getattr(exc, "id", "")
+    return name != "NotImplementedError"
+
+
+def built_to_fail(obj):
+    """Whether calling the object can only raise: a function whose body is one `raise`, or an instance whose class's
+    `__call__` is (openai 1.x keeps `openai.ChatCompletion` as an `APIRemovedInV1Proxy`, whose attributes are the proxy
+    again and whose `__call__` raises `APIRemovedInV1`; DT-QA-10). `type()`, not `__class__`, which a proxy fakes."""
+    if isinstance(obj, (type, types.ModuleType)):
+        return False
+    if inspect.ismethod(obj):
+        obj = obj.__func__
+    if inspect.isfunction(obj):
+        return _raises_only(obj)
+    call = getattr(type(obj), "__call__", None)
+    return inspect.isfunction(call) and _raises_only(call)
+
+
 def kind_of(obj):
     if isinstance(obj, types.ModuleType):
         return "module"
@@ -312,6 +346,11 @@ def check(use):
         return r
     found, other = deprecation_evidence(obj, caught, path)
     r.update(resolved=True, objkind=kind_of(obj), deprecation=found)
+    try:
+        if built_to_fail(obj):
+            r["raises_when_called"] = True
+    except Exception:
+        pass
     if other:
         r["deprecation_other"] = other
     if use.get("via") == "instance":

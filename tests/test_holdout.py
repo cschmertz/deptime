@@ -92,6 +92,16 @@ def test_instance_member_needs_a_class_builder() -> None:
     assert labels.works({"resolved": True, "builder_is_class": True}, use) == (True, "")
 
 
+def test_a_call_to_an_object_built_to_fail_breaks() -> None:
+    """openai 1.x's `ChatCompletion` proxy resolves, and calling it raises (DT-QA-10): a call doesn't work, nor a name
+    the project also calls; a name it only reads still works."""
+    proxy = {"resolved": True, "raises_when_called": True, "binds": None, "bind_error": "unexpected object"}
+    assert labels.works(proxy, CALL) == (False, "removed")
+    name = {"kind": "name", "path": "p.f"}
+    assert labels.works(proxy, name) == (True, "")
+    assert labels.works(proxy, name, called=True) == (False, "removed")
+
+
 def _ev(kind: str, version: str, path: str = "p.f", **detail) -> HistoryEvent:
     return HistoryEvent(path=path, version=version, kind=kind, detail=detail)
 
@@ -117,6 +127,47 @@ def test_state_at_to_reads_one_parameter() -> None:
     assert score._state_at_to(evs, "p.f", True, "param_added", "param_removed", param="a") is True
     assert score._state_at_to(evs, "p.f", True, "param_added", "param_removed", param="b") is False
     assert score._state_at_to(evs, "p.f", True, "param_added", "param_removed", param="c") is None
+
+
+def test_required_at_to_upgrading_and_going_down() -> None:
+    """Upgrading: the last change before `to` made it required (a default removed, or added without one). Going down:
+    the first change after `to` made it optional (polars 0.19.6's `int_range(start, end)`, DT-QA-10)."""
+    assert score._required_at_to([_ev("param_now_required", "2.0", param="a")], "p.f", "a", True)
+    assert not score._required_at_to(
+        [_ev("param_now_required", "2.0", param="a"), _ev("param_now_optional", "2.1", param="a")],
+        "p.f",
+        "a",
+        True,
+    )
+    assert score._required_at_to([_ev("param_added", "2.0", param="a", required=True)], "p.f", "a", True)
+    assert not score._required_at_to([_ev("param_added", "2.0", param="a", required=False)], "p.f", "a", True)
+    assert score._required_at_to([_ev("param_now_optional", "1.3", param="end")], "p.f", "end", False)
+    assert not score._required_at_to([_ev("param_now_required", "1.3", param="end")], "p.f", "end", False)
+    # Added after `to`: not there at all, so not required (the keyword check covers a call that passes it).
+    assert not score._required_at_to(
+        [
+            _ev("param_added", "1.2", param="end", required=True),
+            _ev("param_now_optional", "1.3", param="end"),
+        ],
+        "p.f",
+        "end",
+        False,
+    )
+
+
+def test_by_position_places_positional_arguments() -> None:
+    from deptime.models import ParamInfo
+
+    def sig(*params: tuple[str, str]) -> list[ParamInfo]:
+        return [ParamInfo(name=n, kind=k) for n, k in params]
+
+    pk = "positional or keyword"
+    graph = sig(("self", pk), ("state_schema", pk), ("config_schema", pk))
+    assert score._by_position(graph, 1) == {"state_schema"}  # `StateGraph(State)` passes state_schema
+    assert score._by_position(graph, 0) == set()
+    assert score._by_position(None, 2) == set()
+    star = sig(("a", "positional-only"), ("args", "variadic positional"), ("b", "keyword-only"))
+    assert score._by_position(star, 3) == {"a"}
 
 
 def test_wilson_interval() -> None:
@@ -159,6 +210,54 @@ def test_probe_resolves_like_python_imports(tmp_path: Path) -> None:
     assert got["alias"]["resolved"] is True and got["alias"]["objkind"] == "class"
     assert got["dual"]["binds"] is False and "client" in got["dual"]["bind_error"]
     assert got["gone"]["resolved"] is False
+
+
+def test_probe_sees_objects_built_to_fail(tmp_path: Path) -> None:
+    """DT-QA-10: a proxy whose attributes are the proxy and whose __call__ only raises (openai 1.x's
+    `APIRemovedInV1Proxy`), and a stub function that only raises; not an abstract method's NotImplementedError, nor a
+    real function. Runs the probe's checker on a local package only."""
+    import json
+    import subprocess
+
+    import probe
+
+    (tmp_path / "gonepkg").mkdir()
+    (tmp_path / "gonepkg" / "__init__.py").write_text(
+        "class Removed(Exception):\n    pass\n\n\n"
+        "class Proxy:\n"
+        "    @property\n    def __class__(self):\n        return dict\n\n"
+        "    def __getattr__(self, name):\n        return self\n\n"
+        "    def __call__(self, *args, **kwargs):\n        raise Removed('gone in 1.0')\n\n\n"
+        "ChatCompletion = Proxy()\n\n\n"
+        "def old(x):\n    '''Removed.'''\n    raise Removed('use new')\n\n\n"
+        "def new(x):\n    return x\n\n\n"
+        "class Base:\n    def run(self):\n        raise NotImplementedError\n",
+        encoding="utf-8",
+    )
+    uses = [
+        {
+            "key": "proxy",
+            "kind": "call",
+            "path": "gonepkg.ChatCompletion.create",
+            "npos": 0,
+            "kwargs": ["model"],
+        },
+        {"key": "proxyname", "kind": "name", "path": "gonepkg.ChatCompletion"},
+        {"key": "stub", "kind": "call", "path": "gonepkg.old", "npos": 1, "kwargs": []},
+        {"key": "real", "kind": "call", "path": "gonepkg.new", "npos": 1, "kwargs": []},
+        {"key": "abstract", "kind": "name", "path": "gonepkg.Base.run"},
+    ]
+    (tmp_path / "check.py").write_text(probe.CHECK, encoding="utf-8")
+    (tmp_path / "uses.json").write_text(json.dumps(uses), encoding="utf-8")
+    out = subprocess.run(
+        [sys.executable, "check.py", "uses.json"], cwd=tmp_path, capture_output=True, text=True, check=True
+    ).stdout
+    got = {r["key"]: r for r in map(json.loads, out.splitlines())}
+    assert got["proxy"]["resolved"] is True and got["proxy"].get("raises_when_called") is True
+    assert got["proxyname"].get("raises_when_called") is True
+    assert got["stub"].get("raises_when_called") is True and got["stub"]["binds"] is True
+    assert "raises_when_called" not in got["real"]
+    assert "raises_when_called" not in got["abstract"]
 
 
 def test_probe_deprecation_is_about_the_name(tmp_path: Path) -> None:
@@ -306,3 +405,20 @@ def test_regressions_on_shared_uses() -> None:
     assert any(f.startswith("check_symbols false-positive rate") for f in failed)
     assert any(f.startswith("explain_error") for f in failed)
     assert not any(f.startswith("diff_versions") for f in failed)
+
+
+def test_exercise_rules_keep_their_uses() -> None:
+    """DT-QA-10's exercise stratum: each rule's use survives the cap, and the rules read the uses they name."""
+    import collect
+
+    uses = [{"kind": "name", "path": f"numpy.f{i}"} for i in range(100)] + [
+        {"kind": "name", "path": "numpy.__version__"}
+    ]
+    kept, total = collect.capped(uses, "ex-x-numpy-up", collect.EXERCISE["numpy"][2])
+    assert total == 101 and len(kept) == collect.MAX_USES
+    assert {"kind": "name", "path": "numpy.__version__"} in kept
+    assert not collect.EXERCISE["numpy"][2]({"kind": "name", "path": "numpy.linalg.__name__"})
+    assert collect.EXERCISE["mcp"][2]({"kind": "name", "path": "mcp.types.Tool"})
+    crew = collect.EXERCISE["crewai"][2]
+    assert crew({"kind": "call", "path": "crewai.Agent", "npos": 0, "kwargs": ["role"]})
+    assert not crew({"kind": "call", "path": "crewai.Agent", "npos": 0, "kwargs": []})

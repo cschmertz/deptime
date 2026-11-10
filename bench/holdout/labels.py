@@ -16,6 +16,9 @@ Reads <set dir>/upgrades.jsonl and envs.json and every <shard>.jsonl under the a
 
 Uses listed in <set dir>/label-overrides.json (checked by hand against the library's source) are excluded.
 
+A name that resolves to an object built to fail when called (probe.py's `built_to_fail`: a function, or an instance's
+`__call__`, whose body is one `raise`) doesn't work for a call, nor for a name the project also calls (DT-QA-10).
+
 `deprecated` is true when the probe found evidence in `to` that the name itself is deprecated (probe.py's
 `deprecation_evidence`): reading it raises a deprecation warning that names it, the object carries its own
 `__deprecated__`, a deprecation wrapper sits on it (the package's own `@deprecated`), or its docstring has a
@@ -38,8 +41,10 @@ def env_id(package: str, version: str, tmb: bool) -> str:
     return f"{package}=={version}@{TMB_DATE if tmb else exclude_newer(package, version)}"
 
 
-def works(r: dict, use: dict) -> tuple[bool | None, str]:
-    """(works?, why) for one probe result; None when the probe can't tell."""
+def works(r: dict, use: dict, called: bool = False) -> tuple[bool | None, str]:
+    """(works?, why) for one probe result; None when the probe can't tell. `called`: the project also calls the name,
+    so a name that resolves to an object built to fail when called (openai 1.x's `ChatCompletion` proxy) doesn't
+    work for it (DT-QA-10)."""
     if r is None:
         return None, "no probe result"
     if r.get("resolved") is None:
@@ -47,6 +52,8 @@ def works(r: dict, use: dict) -> tuple[bool | None, str]:
     if use.get("via") == "instance" and r.get("resolved") and not r.get("builder_is_class"):
         return None, "built by a call that isn't a class"
     if r["resolved"] is False:
+        return False, "removed"
+    if r.get("raises_when_called") and (use["kind"] == "call" or called):
         return False, "removed"
     if use["kind"] != "call":
         return True, ""
@@ -75,6 +82,9 @@ def deprecated(r: dict | None) -> bool:
 def label(row: dict, use: dict, res: dict[str, dict[str, dict]]) -> dict:
     k = use_key(use)
     tmb = row["source"] == "tmb"
+    called = use["kind"] == "name" and any(
+        u["kind"] == "call" and u["path"] == use["path"] for u in row["uses"]
+    )
     to = res.get(env_id(row["package"], row["to"], tmb), {}).get(k)
     out = {"key": k, "kind": use["kind"], "path": use["path"]}
     for f in ("npos", "kwargs", "via"):
@@ -84,7 +94,7 @@ def label(row: dict, use: dict, res: dict[str, dict[str, dict]]) -> dict:
         leaf = use["path"].rsplit(".", 1)[-1]
         if any(re.search(rf"\b{re.escape(leaf)}\b", line) for line in row.get("gold_patch_removed", [])):
             return {**out, "label": "excluded", "why": "named in the gold patch"}
-        ok, why = works(to, use)
+        ok, why = works(to, use, called)
         if ok is None:
             return {**out, "label": "excluded", "why": why}
         if not ok:
@@ -97,14 +107,14 @@ def label(row: dict, use: dict, res: dict[str, dict[str, dict]]) -> dict:
             return {**out, "label": "excluded", "why": "a keyword only **kwargs takes"}
         return {**out, "label": "works", "deprecated": deprecated(to)}
     fr = res.get(env_id(row["package"], row["from"], False), {}).get(k)
-    ok, why = works(fr, use)
+    ok, why = works(fr, use, called)
     if ok is None:
         return {**out, "label": "excluded", "why": f"from: {why}"}
     if not ok:
         return {**out, "label": "excluded", "why": f"doesn't work in from ({why})"}
     if use["kind"] == "call" and var_keyword_only(fr):
         return {**out, "label": "excluded", "why": "from: a keyword only **kwargs takes"}
-    ok, why = works(to, use)
+    ok, why = works(to, use, called)
     if ok is None:
         return {**out, "label": "excluded", "why": f"to: {why}"}
     if ok:

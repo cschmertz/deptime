@@ -33,6 +33,34 @@ from uses import as_dict, uses_in_tree
 from deptime.config import load_coverage
 
 MAX_USES = 40
+
+
+def _module_dunder(u: dict) -> bool:
+    parts = u["path"].split(".")
+    return len(parts) == 2 and parts[1].startswith("__") and parts[1].endswith("__") and "via" not in u
+
+
+# DT-QA-10: uses of fixes the set before didn't exercise. For each package here, `find_pinned.py --exercise` picks up
+# to `--per` more repositories (none of the main stratum's) whose code has such a use and whose pin is below the bound,
+# and `capped` keeps those uses. Each entry: (what it exercises, pin bound or None, the use it needs).
+EXERCISE = {
+    "mcp": (
+        "a name under mcp.types, pinned before 2.0.0 (DT-DATA-56)",
+        "2.0.0",
+        lambda u: u["path"].startswith("mcp.types."),
+    ),
+    "crewai": (
+        "a call to crewai.Agent or crewai.Task with keywords (DT-CORE-39)",
+        None,
+        lambda u: (
+            u["kind"] == "call" and u["path"] in ("crewai.Agent", "crewai.Task") and bool(u.get("kwargs"))
+        ),
+    ),
+    **{
+        p: ("a module dunder of the package, such as __version__ (DT-CORE-38)", None, _module_dunder)
+        for p in ("numpy", "pandas", "polars", "pydantic")
+    },
+}
 COV = {canonicalize_name(p.name): p for p in load_coverage().packages}
 _pypi: dict[str, dict] = {}
 
@@ -63,14 +91,17 @@ def newest_on_or_before(name: str, day: str) -> str | None:
     return max(rels)[1] if rels else None
 
 
-def capped(uses: list[dict], upgrade_id: str) -> tuple[list[dict], int]:
+def capped(uses: list[dict], upgrade_id: str, first=None) -> tuple[list[dict], int]:
+    """At most MAX_USES uses, by hash; `first` (an exercise rule's use test) picks uses kept before the others."""
+
     def h(u: dict) -> str:
         key = json.dumps([upgrade_id, u["kind"], u["path"], u.get("npos"), u.get("kwargs"), u.get("via")])
         return hashlib.sha256(key.encode()).hexdigest()
 
     if len(uses) <= MAX_USES:
         return uses, len(uses)
-    keep = set(sorted(range(len(uses)), key=lambda i: h(uses[i]))[:MAX_USES])
+    order = sorted(range(len(uses)), key=lambda i: (not (first and first(uses[i])), h(uses[i])))
+    keep = set(order[:MAX_USES])
     return [u for i, u in enumerate(uses) if i in keep], len(uses)
 
 
@@ -86,7 +117,8 @@ def upgrade(src: Path, base: dict, package: str) -> dict | None:
     if not uses:
         return None
     uid = base["id"]
-    kept, total = capped(uses, uid)
+    first = EXERCISE[package][2] if base.get("stratum") == "exercise" else None
+    kept, total = capped(uses, uid, first)
     return {**base, "package": package, "tier": spec.tier, "uses_found": total, "uses": kept}
 
 
@@ -139,6 +171,8 @@ def pinned(doc: Path, sources: Path) -> list[dict]:
             "to": p["to"],
             "python": p.get("python", "3.11"),
         }
+        if p.get("stratum"):
+            base.update(stratum=p["stratum"], exercise=p["exercise"])
         if (
             u := upgrade(sources / slug(p["repo"].removeprefix("https://github.com/")), base, package)
         ) is not None:

@@ -1153,6 +1153,10 @@ class DepTime:
             kept = [r for r in rows if not self._still_inherited(name, r, set(used))]
             total -= len(rows) - len(kept)
             rows = kept
+        filled: dict[str, str] = {}
+        kept = [r for r in rows if not self._namespace_filled(name, r, hi, filled)]
+        total -= len(rows) - len(kept)
+        rows = kept
         events, hidden = self._unsuppressed(
             name, [self._event(name, r, affects.get(_event_key(r))) for r in rows]
         )
@@ -1161,6 +1165,11 @@ class DepTime:
             if lo["version"] == from_version or DATE_RE.match(from_version)
             else f"from_version resolved to nearest indexed release {lo['version']}.",
             project.note(hidden, "event"),
+            *(
+                f"Removals under {module} aren't listed: {why}, so the import may still work; check_symbols"
+                " answers `unknown` there."
+                for module, why in sorted(filled.items())
+            ),
         ]
         return DiffResult(
             package=name,
@@ -1171,6 +1180,31 @@ class DepTime:
             note=" ".join(n for n in notes if n) or None,
             suppressed=hidden,
         )
+
+    def _namespace_filled(self, name: str, row: Mapping, hi: sqlite3.Row, filled: dict[str, str]) -> bool:
+        """A `removed` event under a module directly in a namespace package that the `to` release no longer has,
+        when that release requires a distribution that can install modules into the namespace (DT-CORE-41), as
+        check_symbols reads it: langgraph 0.3.1 moved `langgraph.prebuilt` to langgraph-prebuilt, which langgraph
+        requires and which installs it into `langgraph`. Records the module and the reason in `filled`."""
+        assert self.store is not None
+        if row["kind"] != "removed":
+            return False
+        namespaces = self.store.namespaces(name, hi["ordinal"])
+        parts = row["path"].split(".")
+        module = next(
+            (".".join(parts[: k + 1]) for k in range(1, len(parts)) if ".".join(parts[:k]) in namespaces),
+            None,
+        )
+        if module is None:
+            return False
+        if module not in filled:
+            if self.store.span_at(name, module, hi["ordinal"]) is not None:
+                return False
+            shared = self._namespace(name, hi, module, module.rpartition(".")[0])
+            if shared is None:
+                return False
+            filled[module] = shared.hint or ""
+        return True
 
     def _still_inherited(self, name: str, row: Mapping, used: set[str]) -> bool:
         """A used class member's `removed` event where the class still has the name through a base from another

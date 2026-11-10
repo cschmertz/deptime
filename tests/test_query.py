@@ -1943,6 +1943,39 @@ def test_a_member_of_a_class_path_that_became_a_reexport_is_the_other_distributi
     assert all(g.package != "lc" for g in findings)
 
 
+def test_diff_leaves_out_removals_a_required_distribution_can_fill_in_a_namespace_package():
+    # DT-CORE-41: langgraph 0.3.1 moved `langgraph.prebuilt` to langgraph-prebuilt, which langgraph requires and which
+    # installs it into the `langgraph` namespace package: not a break, as check_symbols reads it (`unknown`).
+    def snap(version: str, records: list[str], requires: list[str]) -> ApiSnapshot:
+        kinds = {
+            p: "function" if p.rpartition(".")[2].islower() and p.count(".") > 1 else "module"
+            for p in records
+        }
+        symbols = {p: SymbolRecord(p, kinds[p], p, [] if kinds[p] == "function" else None) for p in records}
+        return ApiSnapshot("ng", version, ["ng"], symbols, requires=requires, namespaces=["ng"])
+
+    def store_for(requires: list[str]) -> DepTime:
+        spec = PackageSpec(name="ng", import_names=("ng",), tier="A")
+        store = IndexStore.memory()
+        old = snap(
+            "0.2.0", ["ng", "ng.graph", "ng.graph.compile", "ng.prebuilt", "ng.prebuilt.make_agent"], []
+        )
+        new = snap("1.0.0", ["ng", "ng.graph", "ng.graph.compile"], requires)
+        store.rebuild_package(spec, [old, new])
+        return DepTime(store, Coverage(POLICY, (spec,)))
+
+    dt = store_for(["ng-prebuilt", "ng-checkpoint"])
+    res = dt.diff_versions("ng", "0.2.0", "1.0.0", used_symbols=["ng.prebuilt.make_agent"])
+    assert [e for e in res.events if e.kind == "removed"] == []
+    assert "Removals under ng.prebuilt aren't listed" in (res.note or "")
+    assert "requires ng-checkpoint and ng-prebuilt" in (res.note or "")
+    (check,) = dt.check_symbols("ng", "1.0.0", [SymbolQuery(path="ng.prebuilt.make_agent")]).results
+    assert check.status == "unknown"
+    # Nothing it requires can install into the namespace: the removal stands.
+    res = store_for([]).diff_versions("ng", "0.2.0", "1.0.0", used_symbols=["ng.prebuilt.make_agent"])
+    assert {e.path for e in res.events if e.kind == "removed"} >= {"ng.prebuilt.make_agent"}
+
+
 def test_an_import_from_a_private_import_root_maps_to_its_package():
     # DT-DATA-62: tavern 3.5's `from _pytest._code.code import FormattedExcinfo` on pytest 9.1.0; coverage.toml's
     # `internal_names` maps `_pytest` to pytest, whose snapshots record its modules as internal names.

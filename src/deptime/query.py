@@ -1959,7 +1959,57 @@ class DepTime:
                 found.extend(f for f in out if f.issue not in INCONCLUSIVE_ISSUES)
             if found:
                 return found
+        if not packages and signal.kind in {"object_attribute", "class_attribute"}:
+            return self._private_member_findings(signal, installed, tried)
         return []
+
+    def _private_member_findings(
+        self, signal: ErrorSignal, installed: dict[str, str], tried: set[str]
+    ) -> list[Finding]:
+        """`_private_member_finding` in each installed covered package not searched yet (DT-CORE-42)."""
+        assert self.store is not None
+        out: list[Finding] = []
+        for name, version in installed.items():
+            if name in tried or self.coverage.get(name) is None or not self.store.has_package(name):
+                continue
+            resolved, exact = self.store.resolve_version(name, version)
+            out += self._private_member_finding(self._spec(name), signal, resolved, exact, version)
+        return out
+
+    def _private_member_finding(
+        self,
+        spec: PackageSpec,
+        signal: ErrorSignal,
+        resolved: sqlite3.Row | None,
+        exact: bool,
+        installed: str | None,
+    ) -> list[Finding]:
+        """A private attribute missing from a class no covered package has, found among the package's members that
+        aren't public API (DT-CORE-42): gplearn's `SymbolicRegressor.fit` calls `self._validate_data`, which
+        scikit-learn 1.7 removed from `BaseEstimator`. Only at a known installed release, when exactly one class of
+        the package had the name until before it and no class has it there; inferred, so at most medium."""
+        assert self.store is not None
+        member, owner = signal.name or "", (signal.owner or "").rsplit(".", 1)[-1]
+        if resolved is None or not _is_private(member):
+            return []
+        rows = self.store.internal_member_owners(spec.name, member)
+        ordinal = resolved["ordinal"]
+        if not rows or any(r["first_ordinal"] <= ordinal <= r["last_ordinal"] for r in rows):
+            return []  # never a member, or some class still has it: the error has another cause
+        gone = {r["cls"]: r for r in rows if r["last_ordinal"] < ordinal}
+        if len(gone) != 1:
+            return []
+        (row,) = gone.values()
+        f = self._symbol_finding(
+            spec, f"{row['label']}.{member}", resolved, exact, installed, message=signal.message
+        )
+        if f.issue != "symbol_removed":
+            return []
+        why = (
+            f"`{owner}` isn't a class of a package DepTime covers; of {spec.name}'s classes, only "
+            f"`{row['label']}` had `{member}`, which subclasses inherit."
+        )
+        return [self._inferred(f, why)]
 
     def _findings_for(
         self, spec: PackageSpec, signal: ErrorSignal, installed_version: str | None
@@ -2024,6 +2074,7 @@ class DepTime:
                 ]
                 if owners
                 else self._subclass_member_findings(spec, signal, resolved, exact, installed_version)
+                or self._private_member_finding(spec, signal, resolved, exact, installed_version)
             )
         if signal.kind in {"unexpected_kwarg", "missing_argument"} and signal.owner:
             param = signal.kwarg if signal.kind == "unexpected_kwarg" else (signal.missing_args or [None])[0]

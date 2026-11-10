@@ -1206,6 +1206,21 @@ class IndexStore:
             for cls in classes
         )
 
+    def internal_member_owners(self, name: str, member: str) -> list[sqlite3.Row]:
+        """(cls, label, first_ordinal, last_ordinal) of each class of the package that defines `member` as a member
+        that isn't public API (DT-CORE-42), with the class's shortest public path at the member's last release, else
+        its canonical path. Names that only end a lookup ('hidden') are left out."""
+        if not self.has_internal_members() or not self.stores_own_members(name):
+            return []
+        return self.conn.execute(
+            "SELECT m.cls, m.first_ordinal, m.last_ordinal, COALESCE("
+            " (SELECT c.label FROM classes c WHERE c.package = m.package AND c.cls = m.cls"
+            "  AND c.first_ordinal <= m.last_ordinal AND m.last_ordinal <= c.last_ordinal LIMIT 1), m.cls) AS label"
+            " FROM internal_members m WHERE m.package = ? AND m.name = ? AND m.kind != ?"
+            " ORDER BY m.cls, m.first_ordinal",
+            (name, member, HIDDEN),
+        ).fetchall()
+
     def find_internal_classes(self, name: str, suffix: str, limit: int = 20) -> list[tuple[str, str]]:
         """(package, path) of the classes that aren't public API whose path is or ends with `.suffix` (DT-DATA-46).
         It reads every internal name of the package, so it's for a private class name, which public paths rarely

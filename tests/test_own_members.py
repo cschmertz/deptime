@@ -725,6 +725,49 @@ def test_names_served_through_a_literal_table_follow_the_tokenizer_its_value_nam
     assert store.spans("tok", "tok.YTokenizerFast") == []
 
 
+def test_a_private_member_of_a_class_no_package_has_is_looked_up_in_internal_members(tmp_path):
+    # DT-CORE-42: gplearn's `SymbolicRegressor.fit` calls `self._validate_data`, which scikit-learn 1.7 removed from
+    # `BaseEstimator`; the error names gplearn's class, which no covered package has.
+    releases = {
+        "1.6": {
+            "est/__init__.py": "from est.base import BaseEstimator, Other\n",
+            "est/base.py": (
+                "class BaseEstimator:\n    def _validate_data(self, X, y=None):\n        pass\n\n"
+                "    def _more_tags(self):\n        pass\n\n\n"
+                "class Other:\n    def _more_tags(self):\n        pass\n\n    def _check(self):\n        pass\n"
+            ),
+        },
+        "1.7": {
+            "est/__init__.py": "from est.base import BaseEstimator, Other\n",
+            "est/base.py": "class BaseEstimator:\n    pass\n\n\nclass Other:\n    def _check(self):\n        pass\n",
+        },
+    }
+    spec = PackageSpec(name="est", import_names=("est",), tier="B")
+    store = IndexStore.memory()
+    store.rebuild_package(spec, _snapshots(tmp_path, releases, "est"))
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+
+    def explain(member: str, installed: dict[str, str]) -> list:
+        tb = f"AttributeError: 'SymbolicRegressor' object has no attribute '{member}'"
+        return dt.explain_error(tb, installed).findings
+
+    (f,) = explain("_validate_data", {"est": "1.7"})
+    assert (f.package, f.symbol, f.issue, f.last_version_with) == (
+        "est",
+        "est.BaseEstimator._validate_data",
+        "symbol_removed",
+        "1.6",
+    )
+    assert (
+        f.internal
+        and f.confidence == "medium"
+        and "only `est.BaseEstimator` had `_validate_data`" in f.explanation
+    )
+    assert explain("_more_tags", {"est": "1.7"}) == []  # two classes had it: which one is a guess
+    assert explain("_check", {"est": "1.7"}) == []  # still there
+    assert explain("_validate_data", {}) == []  # no installed release to compare with
+
+
 def test_a_name_imported_from_the_standard_library_reads_present_and_internal(tmp_path):
     # DT-DATA-61: pydantic's `networks` imports `IPv4Address` from `ipaddress`, and code uses it from there; a name no
     # import explains still reads missing, and names for annotations aren't recorded.

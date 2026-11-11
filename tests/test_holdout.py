@@ -129,6 +129,19 @@ def test_state_at_to_reads_one_parameter() -> None:
     assert score._state_at_to(evs, "p.f", True, "param_added", "param_removed", param="c") is None
 
 
+def test_state_at_to_keyword_absorbed_by_var_keyword() -> None:
+    """DT-QA-12: a parameter removed into `**kwargs` still takes the keyword upgrading, while the signature at `to`
+    still has `**kwargs` (litellm 1.103's `completion`); not once that went too (pydantic-ai's `Agent(result_type=)`)."""
+    evs = [_ev("param_removed", "1.103", param="model", absorbed_by_var_keyword=True)]
+    args = (evs, "p.f", True, "param_added", "param_removed")
+    assert score._state_at_to(*args, param="model", kwargs_at_to=True) is False
+    assert score._state_at_to(*args, param="model", kwargs_at_to=False) is True
+    plain = [_ev("param_removed", "1.103", param="model", absorbed_by_var_keyword=False)]
+    assert score._state_at_to(
+        plain, "p.f", True, "param_added", "param_removed", param="model", kwargs_at_to=True
+    )
+
+
 def test_required_at_to_upgrading_and_going_down() -> None:
     """Upgrading: the last change before `to` made it required (a default removed, or added without one). Going down:
     the first change after `to` made it optional (polars 0.19.6's `int_range(start, end)`, DT-QA-10)."""
@@ -385,6 +398,56 @@ class Child(Old):
     pass
 
 
+def warn_deprecated(since, message="", removal=""):
+    warnings.warn(message, DeprecationWarning)
+
+
+class Base:
+    def __init__(self, *a, **k):
+        pass
+
+
+class WarnsInInit(Base):
+    def __init__(self, *args, **kwargs):
+        warnings.warn(
+            "The class WarnsInInit is deprecated and will be removed in version 5."
+            " Use Base instead.",
+            FutureWarning,
+        )
+        super().__init__(*args, **kwargs)
+
+
+class HelperInInit(Base):
+    @deprecate_kwarg("unused")
+    def __init__(self, runnable=None, **kwargs):
+        """Initialize.
+
+        Args: runnable
+        """
+        warn_deprecated(since="1.3.3", message=("HelperInInit is deprecated. " "Use Base instead."), removal="2.0")
+        self.r = runnable
+
+
+class InheritsInit(WarnsInInit):
+    pass
+
+
+class WarnsWhen(Base):
+    def __init__(self, a=None):
+        if a is not None:
+            warnings.warn("WarnsWhen is deprecated", DeprecationWarning)
+
+
+class WarnsAboutArg(Base):
+    def __init__(self, a=None):
+        warnings.warn("The `a` argument of WarnsAboutArg is deprecated", DeprecationWarning)
+
+
+class WarnsOther(Base):
+    def __init__(self):
+        warnings.warn("Something else is deprecated", DeprecationWarning)
+
+
 def __getattr__(name):
     if name == "legacy":
         warnings.warn("`legacy` is deprecated", DeprecationWarning, stacklevel=2)
@@ -414,6 +477,7 @@ def __getattr__(name):
         "Old",
         "Child",
     ]
+    names += ["WarnsInInit", "HelperInInit", "InheritsInit", "WarnsWhen", "WarnsAboutArg", "WarnsOther"]
     names += ["legacy", "noisy", "deprecation.helper"]
     uses = [{"key": n, "kind": "name", "path": f"deppkg.{n}"} for n in names]
     (tmp_path / "check.py").write_text(probe.CHECK, encoding="utf-8")
@@ -423,8 +487,12 @@ def __getattr__(name):
     ).stdout
     got = {r["key"]: r for r in map(json.loads, out.splitlines())}
     flagged = {k for k, r in got.items() if r["deprecation"]}
-    want = {"top_note", "Old", "legacy"} | ({"wrapped"} if sys.version_info >= (3, 11) else set())
+    want = {"top_note", "Old", "legacy", "WarnsInInit", "HelperInInit"}
+    want |= {"wrapped"} if sys.version_info >= (3, 11) else set()
     assert flagged == want
+    assert got["HelperInInit"]["deprecation"] == [
+        "__init__ warns: warn_deprecated: 1.3.3 HelperInInit is deprecated. Use Base instead. 2.0"
+    ]
     assert got["param_note"]["deprecation_other"] and got["noisy"]["deprecation_other"]
 
 
@@ -454,20 +522,22 @@ def test_regressions_on_shared_uses() -> None:
 
 def test_exercise_rules_keep_their_uses() -> None:
     """The exercise stratum (DT-QA-10): each rule's use survives the cap, and the rules read the uses they name
-    (2026-11e's, DT-QA-11: huggingface_hub's bound top-level functions and polars 1.x's top-level exceptions)."""
+    (2026-11f's, DT-QA-12: classes deprecated on their own __init__, huggingface_hub's `Repository` before 1.0.0 and
+    langchain-core's `RunnableWithMessageHistory`)."""
     import collect
 
     hub = collect.EXERCISE["huggingface-hub"][2]
-    call = {"kind": "call", "path": "huggingface_hub.list_models", "npos": 0, "kwargs": ["search"]}
+    assert collect.EXERCISE["huggingface-hub"][1] == "1.0.0"
+    call = {"kind": "call", "path": "huggingface_hub.Repository", "npos": 0, "kwargs": ["local_dir"]}
     uses = [{"kind": "name", "path": f"huggingface_hub.f{i}"} for i in range(100)] + [call]
     kept, total = collect.capped(uses, "ex-x-huggingface-hub-up", hub)
     assert total == 101 and len(kept) == collect.MAX_USES and call in kept
-    assert not hub({**call, "kwargs": []})
-    assert not hub({**call, "path": "huggingface_hub.hf_hub_download"})  # a function of its own
-    assert not hub({**call, "path": "huggingface_hub.HfApi.list_models"})
-    pl = collect.EXERCISE["polars"][2]
-    assert collect.EXERCISE["polars"][1] == "2.0.0"
-    assert pl({"kind": "name", "path": "polars.ComputeError"})
-    assert pl({"kind": "name", "path": "polars.PolarsInefficientMapWarning"})
-    assert not pl({"kind": "name", "path": "polars.exceptions.ComputeError"})
-    assert not pl({"kind": "name", "path": "polars.col"})
+    assert hub({"kind": "name", "path": "huggingface_hub.repository.Repository"})
+    assert not hub({"kind": "name", "path": "huggingface_hub.Repository.git_pull"})
+    assert not hub({**call, "via": "instance"})
+    lc = collect.EXERCISE["langchain-core"][2]
+    assert collect.EXERCISE["langchain-core"][1] is None
+    assert lc({"kind": "name", "path": "langchain_core.runnables.history.RunnableWithMessageHistory"})
+    assert lc({"kind": "call", "path": "langchain_core.runnables.RunnableWithMessageHistory", "npos": 2})
+    assert not lc({"kind": "name", "path": "langchain_core.runnables.RunnableWithMessageHistory.invoke"})
+    assert not lc({"kind": "name", "path": "langchain.schema.runnable.RunnableWithMessageHistory"})

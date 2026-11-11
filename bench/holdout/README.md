@@ -56,7 +56,10 @@ Three sources (from 2026-11b on, not the first; the third from 2026-11d on):
    pandas, polars or pydantic (`numpy.__version__`; DT-CORE-38). For 2026-11e: a call with keywords to one of the
    functions huggingface_hub binds at its top level to a method of its `HfApi()` instance (`list_models`,
    `upload_folder`; DT-DATA-66), and a polars top-level exception or warning (`polars.ComputeError`) with polars pinned
-   before 2.0.0 (DT-DATA-64). It is reported apart as well as in the totals.
+   before 2.0.0 (DT-DATA-64). For 2026-11f: classes whose deprecation sits on their own `__init__` (DT-CORE-53), a use
+   of huggingface_hub's `Repository` with huggingface_hub pinned before 1.0.0 (deprecated on its `__init__` from 0.20,
+   removed in 1.0.0), and of langchain-core's `RunnableWithMessageHistory` (its `__init__` warns from 1.3.3). It is
+   reported apart as well as in the totals.
 
 ### Labels: the probe, never DepTime
 
@@ -100,7 +103,12 @@ reading it raises a deprecation warning whose message names it; the object carri
 class's own, not a base's); a deprecation wrapper sits on the function, a property's getter or a class's own `__init__`
 or `__new__` (a wrapper defined in a function or module whose name says `deprecat`, read from the code object on Python
 3.11+, and not one whose qualified name is about a parameter: `deprecate_kwarg`, `_deprecate_positional_args`,
-matplotlib's `make_keyword_only`); or its docstring has a `.. deprecated::` directive at its own indentation before the
+matplotlib's `make_keyword_only`); from 2026-11f on (DT-QA-12), a class's own `__init__` always warns: read from its
+source with `ast`, without calling it, a statement of the body itself (not under an `if`, a loop, a `try` or a `with`)
+calls a function whose name says `warn` or `deprecat` (and not a parameter), with string arguments that say deprecated,
+name the class and speak of no argument or parameter (transformers' `warnings.warn("The class ViTFeatureExtractor is
+deprecated ...", FutureWarning)`, langchain-core's `warn_deprecated(message="RunnableWithMessageHistory is deprecated.
+...")`); or its docstring has a `.. deprecated::` directive at its own indentation before the
 first section, or a first paragraph that says deprecated and starts with it, says "this function" (class, method, ...)
 or names the object, and neither speaks of arguments, parameters or keywords (sqlalchemy's `and_()` deprecates calling
 it with none). Warnings that don't name it and
@@ -142,8 +150,10 @@ Each labelled use is asked two ways, as an agent would ask it:
 
 - `check_symbols(package, version=to, symbols=[{path, kwargs, positional}])`: **flagged** when the status is `missing`,
   a keyword the call passes is in `rejected_kwargs`, or a required argument is in `missing_args` (from the call's
-  positional count, DT-CORE-34; sets scored before it, 2026-11, didn't have it). `not_indexed` is an abstention, and so is `unknown` (DT-CORE-32; sets
-  scored before it, 2026-11, didn't have it).
+  positional count, DT-CORE-34; sets scored before it, 2026-11, didn't have it); from 2026-11e on, when it says the
+  callable only raises (`raises`, DT-DATA-67), and from 2026-11f on, when the call passes more arguments by position
+  than the signature at `to` takes (`max_positional`, DT-CORE-50). `not_indexed` is an abstention, and so is `unknown`
+  (DT-CORE-32; sets scored before it, 2026-11, didn't have it).
 - `diff_versions(package, from, to, used_symbols=[path], include_added=True)` (`down`: from `to` up to `from`):
   **flagged** when the events say `to` lacks what the use needs: the path's last membership event before `to` is
   `removed` (for `down`, its first one after `to` is `added`); for a call, the same for each keyword it passes on the
@@ -153,8 +163,18 @@ Each labelled use is asked two ways, as an agent would ask it:
   2026-11c a parameter counted as passed only by keyword; from 2026-11d on also by position, where the signature
   DepTime has at `to` places the call's positional arguments (`StateGraph(State)` passes `state_schema`). An event on
   a parent that lists the path in `affects` (a removed module or class, DT-CORE-33) counts as one on the path; sets
-  scored before it (2026-11) didn't have the field. An unresolvable range (a `from` older than the index) is an
-  abstention.
+  scored before it (2026-11) didn't have the field. From 2026-11e on, a call is also flagged, upgrading, when the
+  callable or its `__init__` only raises from a release in the range (`now_raises`, DT-DATA-67). From 2026-11f on
+  (DT-QA-12, after 2026-11e's misses):
+  - upgrading, a keyword whose parameter was removed into `**kwargs` (`absorbed_by_var_keyword`) still binds, so it
+    isn't lacking at `to` (litellm 1.103's `completion(*args, **kwargs)`; earlier sets counted it as removed);
+  - a path `diff_versions` lists in `never_seen` as missing at `to` (in no indexed release, DT-CORE-54) is flagged;
+  - a call is flagged when the signature DepTime has at `to` places fewer of its positional arguments than it passes
+    (one fewer allowed for a method reached through its class, as `check_symbols` allows), has no `*args`, and an
+    event in the range removes, makes keyword-only or (going down) adds a parameter the call fills by position in
+    the signature at `from` (DT-CORE-50: pydantic 2's keyword-only `FieldInfo(default)`).
+
+  An unresolvable range (a `from` older than the index) is an abstention.
 
 Then, for each tool: **precision** (flagged uses that break), **recall** (breaking uses flagged) and **false-positive
 rate** (working uses flagged), each with a 95% Wilson interval, overall and by change type (recall), tier, package,

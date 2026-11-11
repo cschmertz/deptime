@@ -153,6 +153,47 @@ def _doc_note(obj, leaf):
     return None
 
 
+def _init_warning(obj, leaf):
+    """A deprecation warning a class's own __init__ always raises, read from its source with ast, not by calling it
+    (DT-QA-12): a call that is a statement of the body itself (not under an if, a loop, a try or a with), to a
+    function whose name says warn or deprecat but not a parameter (warnings.warn, langchain-core's warn_deprecated),
+    whose string arguments say deprecated and name the class, and speak of no argument or parameter."""
+    if not isinstance(obj, type):
+        return None
+    f = vars(obj).get("__init__")
+    if not inspect.isfunction(f):
+        return None
+    try:
+        tree = ast.parse(textwrap.dedent(inspect.getsource(inspect.unwrap(f))))
+    except Exception:
+        return None
+    fn = tree.body[0] if tree.body else None
+    if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        return None
+    names = {leaf, getattr(obj, "__name__", leaf)}
+    for st in fn.body:
+        if not (isinstance(st, ast.Expr) and isinstance(st.value, ast.Call)):
+            continue
+        call = st.value
+        callee = call.func.attr if isinstance(call.func, ast.Attribute) else getattr(call.func, "id", "")
+        low = callee.lower()
+        if not ("warn" in low or "deprecat" in low) or any(p in low for p in PARAM_LEVEL):
+            continue
+        text = " ".join(
+            n.value
+            for a in [*call.args, *(k.value for k in call.keywords)]
+            for n in ast.walk(a)
+            if isinstance(n, ast.Constant) and isinstance(n.value, str)
+        )
+        if (
+            "deprecat" in text.lower()
+            and not ARG_LEVEL.search(text)
+            and any(re.search(rf"\b{re.escape(n)}\b", text) for n in names)
+        ):
+            return f"{callee}: {text}"
+    return None
+
+
 def deprecation_evidence(obj, caught, path):
     """(evidence that the name itself is deprecated, other deprecation notes seen on the way). A warning counts when
     reading the name raises it and it names the name; the others are kept apart (a parameter's note, an unrelated
@@ -169,6 +210,11 @@ def deprecation_evidence(obj, caught, path):
     try:
         if (dec := _decorator(obj)):
             found.append(f"decorator: {dec[:MAX]}")
+    except Exception:
+        pass
+    try:
+        if (w := _init_warning(obj, leaf)):
+            found.append(f"__init__ warns: {w[:MAX]}")
     except Exception:
         pass
     try:

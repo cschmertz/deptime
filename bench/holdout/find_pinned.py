@@ -15,8 +15,8 @@ is new code.
 
 `--exercise` (DT-QA-10) picks the exercise stratum, for the packages in collect.EXERCISE: by the same search and rules,
 the first `--per` repositories that aren't in an earlier set or the main stratum (its pinned.json in `--exclude`),
-whose pin is below the rule's bound and whose code has the use the rule needs (for 2026-11e: a call to one of
-huggingface_hub's bound top-level functions, a polars top-level exception). Their ids start `ex-`.
+whose pin is below the rule's bound and whose code has the use the rule needs (for 2026-11f: huggingface_hub's
+`Repository` before 1.0.0, langchain-core's `RunnableWithMessageHistory`). Their ids start `ex-`.
 """
 
 from __future__ import annotations
@@ -93,8 +93,10 @@ def pin_in(text: str, package: str) -> str | None:
 def fetch_source(repo: str, sha: str, dest: Path) -> None:
     if dest.exists():
         return
-    dest.mkdir(parents=True)
     data = fetch(f"https://codeload.github.com/{repo}/tar.gz/{sha}", 300)
+    dest.mkdir(
+        parents=True
+    )  # after the download, so one that fails leaves nothing to read as an empty project
     with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tf:
         for m in tf.getmembers():
             if not m.isfile() or not m.name.endswith((".py", ".txt", ".toml", ".cfg")):

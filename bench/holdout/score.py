@@ -105,9 +105,21 @@ def ask_check_symbols(dt: DepTime, row: dict, items: list[dict]) -> list[dict]:
     return out
 
 
-def _state_at_to(events: list, path: str, up: bool, present: str, absent: str, param: str | None = None):
+def _state_at_to(
+    events: list,
+    path: str,
+    up: bool,
+    present: str,
+    absent: str,
+    param: str | None = None,
+    kwargs_at_to: bool = False,
+):
     """Whether `to` lacks the path (or the parameter), from the membership events on it: None when no event says.
-    A parent's event that lists the path in `affects` (DT-CORE-33) counts as one on the path."""
+    A parent's event that lists the path in `affects` (DT-CORE-33) counts as one on the path. Upgrading, a parameter
+    removed into `**kwargs` (`absorbed_by_var_keyword`) still takes the keyword when the signature DepTime has at `to`
+    still has `**kwargs` (`kwargs_at_to`; DT-QA-12: litellm 1.103's `completion(*args, **kwargs)`, but not
+    pydantic-ai's `Agent(result_type=)`, whose `**_deprecated_kwargs` went later); sets scored before it, to 2026-11e,
+    counted it as lacking."""
     evs = [
         e
         for e in events
@@ -118,8 +130,11 @@ def _state_at_to(events: list, path: str, up: bool, present: str, absent: str, p
     if not evs:
         return None
     evs.sort(key=lambda e: _v(e.version))
-    if up:
-        return evs[-1].kind == absent  # the last change before `to`
+    if up:  # the last change before `to`
+        last = evs[-1]
+        return last.kind == absent and not (
+            param is not None and kwargs_at_to and (last.detail or {}).get("absorbed_by_var_keyword")
+        )
     return evs[0].kind == present  # going back to `to`: the first change after it says what `to` had
 
 
@@ -220,17 +235,19 @@ def ask_diff_versions(dt: DepTime, row: dict, item: dict) -> dict:
         # Upgrading across a release from which the callable only raises (DT-DATA-67).
         if up and any(e.kind == "now_raises" and e.path in targets for e in events):
             reasons.append("now raises")
+        sig_to = dt._signature(row["package"], path, row["to"])
+        kwargs_at_to = any(p.kind == "variadic keyword" for p in sig_to or ())
         for k in item.get("kwargs", []):
             for t in targets:
-                if _state_at_to(events, t, up, "param_added", "param_removed", param=k):
+                if _state_at_to(
+                    events, t, up, "param_added", "param_removed", param=k, kwargs_at_to=kwargs_at_to
+                ):
                     reasons.append(f"param {k} {'removed' if up else 'added after to'}")
         # A parameter required at `to` that the call passes neither by keyword nor by position, where the signature
         # DepTime has at `to` places the call's positional arguments (DT-QA-10: `StateGraph(State)` passes
         # `state_schema`). Upgrading, the last change to it before `to` made it required (a default removed, or added
         # without one); going down, the first change after `to` made it optional (polars 0.19.6's `int_range(n)`).
-        passed = set(item.get("kwargs", [])) | _by_position(
-            dt._signature(row["package"], path, row["to"]), item.get("npos")
-        )
+        passed = set(item.get("kwargs", [])) | _by_position(sig_to, item.get("npos"))
         for t in targets:
             for p in sorted({(e.detail or {}).get("param") for e in events if e.path == t} - {None} - passed):
                 if _required_at_to(events, t, p, up):

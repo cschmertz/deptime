@@ -3,6 +3,7 @@ from deptime.ingest.replacements import (
     PublicNames,
     clean_evidence,
     deprecates_argument,
+    init_deprecates_class,
     mine,
     moved_to_package,
     param_alternatives,
@@ -769,3 +770,59 @@ def test_a_name_something_is_passed_as_is_not_what_is_deprecated():
     # Its subject: "Use of `x`", "Support for `x`", "Passing `x`".
     for msg in ("Use of `x` is deprecated.", "Support for `x` is deprecated.", "Passing `x` is deprecated."):
         assert list(param_deprecations(msg, ["x"])) == ["x"], msg
+
+
+def test_a_constructors_deprecation_is_its_classs_only_when_it_is_about_the_class():
+    # DT-CORE-53: the texts of the index's classes whose own `__init__` is deprecated and the class isn't.
+    for msg, name, params in (
+        (
+            "Repository is deprecated. Please prefer the http-based alternatives instead.",
+            "Repository",
+            ["clone_from"],
+        ),
+        ("gr.Box is deprecated. Use gr.Group instead.", "Box", ["label"]),
+        (
+            "The class `ModelCard` is deprecated and will be removed in version 5 of Transformers",
+            "ModelCard",
+            [],
+        ),
+        (
+            "'DatasetFilter' is deprecated and will be removed in huggingface_hub>=0.24. Please pass the filter"
+            " parameters as keyword arguments directly to the `list_datasets` method.",
+            "DatasetFilter",
+            ["author", "dataset_name"],
+        ),
+        ("Creating a LegacyVersion has been deprecated and will be removed.", "LegacyVersion", ["version"]),
+    ):
+        assert init_deprecates_class(msg, {name}, params), msg
+    for msg, name, params in (
+        # About an argument, a setting, a way of passing something, or the constructor alone.
+        (
+            "The opclasses argument is deprecated in favor of using OpClass in ExclusionConstraint.expressions.",
+            "ExclusionConstraint",
+            ["opclasses", "expressions"],
+        ),
+        ("The PASSWORD_RESET_TIMEOUT_DAYS setting is deprecated.", "Settings", ["settings_module"]),
+        (
+            "The 'charset' attribute is deprecated and will not be used in Werkzeug 2.4.",
+            "Request",
+            ["environ"],
+        ),
+        (
+            "Passing ContinuousBatchingConfig through GenerationConfig is deprecated and will be removed in v5.19.",
+            "GenerationConfig",
+            ["kwargs"],
+        ),
+        (
+            "The __init__() method on Inspector is deprecated. Please use the inspect() function.",
+            "Inspector",
+            ["bind"],
+        ),
+        ("{type(self).__name__}.__init__ is deprecated. Use pd.array instead.", "TimelikeOps", ["values"]),
+    ):
+        assert not init_deprecates_class(msg, {name}, params), msg
+    # Naming `__init__` isn't saying it is what's deprecated.
+    falcon = (
+        "`FalconLinearScaling` is deprecated. Please use `FalconRotary` (pass the model config to __init__)."
+    )
+    assert init_deprecates_class(falcon, {"FalconLinearScaling"}, ["dim"])

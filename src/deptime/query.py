@@ -32,7 +32,14 @@ from deptime.index.location import active_index
 from deptime.index.store import IndexStore
 from deptime.ingest.curated import CURATED_CONFIDENCE, hints_for
 from deptime.ingest.diff import is_required
-from deptime.ingest.replacements import clean_evidence, expand_alias, mine, moved_to_package, same_class
+from deptime.ingest.replacements import (
+    clean_evidence,
+    expand_alias,
+    init_deprecates_class,
+    mine,
+    moved_to_package,
+    same_class,
+)
 from deptime.models import (
     CheckSymbolsResult,
     Confidence,
@@ -691,8 +698,10 @@ class DepTime:
                 ),
             )
         last_ordinal = max(s["last_ordinal"] for s in spans)
+        rows = self.store.events(name, full)
+        rows = [*rows, *self._init_deprecation_rows(name, full, self.store.events(name, f"{full}.__init__"))]
         events, hidden = self._unsuppressed(
-            name, [self._event(name, r) for r in self.store.events(name, full)]
+            name, [self._event(name, r) for r in sorted(rows, key=lambda r: (r["ordinal"], r["kind"]))]
         )
         replacements = [self._replacement(r) for r in self._hints(name, full)]
         replacements += [
@@ -1146,7 +1155,15 @@ class DepTime:
                 for k in q.kwargs
                 if params_raw is not None and not _accepts_kwarg(params_raw, k) and k not in by_param
             ]
-            deprecated = span["deprecated"] or next((by_param[k] for k in q.kwargs if k in by_param), None)
+            deprecated = (
+                span["deprecated"]
+                or (
+                    self._init_deprecation(name, full, row["ordinal"], span)
+                    if span["kind"] == "class"
+                    else None
+                )
+                or next((by_param[k] for k in q.kwargs if k in by_param), None)
+            )
             slots, hint = _positional_slots(params_raw), None
             # A method reached through its class's path may be passed its instance explicitly (`Base.__init__(self,
             # x)`), and the index doesn't record which methods are static, so one argument more isn't flagged there.
@@ -1247,6 +1264,7 @@ class DepTime:
                 name, used, lo["ordinal"], hi["ordinal"], include_added, rows
             )
             extra += self._internal_events(name, used, lo["ordinal"], hi["ordinal"], include_added, rows)
+            extra += [d for u in used for d in self._init_deprecation_rows(name, u, rows)]
             if extra:
                 rows = sorted(
                     [*rows, *extra],
@@ -2869,7 +2887,13 @@ class DepTime:
         reported as "<=X" rather than claiming it began in X.
         """
         assert self.store is not None
-        for row in self.store.events(name, path):
+        rows = self.store.events(name, path)
+        if param is None and not path.endswith(
+            ".__init__"
+        ):  # its own __init__'s, from the first (DT-CORE-53)
+            init = self._init_deprecation_rows(name, path, self.store.events(name, f"{path}.__init__"))
+            rows = sorted([*rows, *init], key=lambda r: r["ordinal"])
+        for row in rows:
             detail = json.loads(row["detail"])
             wanted = (param is None and row["kind"] == "deprecated") or (
                 param is not None and row["kind"] == "param_deprecated" and detail.get("param") == param
@@ -2879,6 +2903,49 @@ class DepTime:
                 message = untrusted_text(detail.get("message"))  # it is quoted in explanations too
                 return (f"<={version}" if row["prev_ordinal"] is None else version), message
         return None, None
+
+    def _init_deprecation(self, name: str, path: str, ordinal: int, cls: Mapping | None = None) -> str | None:
+        """The deprecation of class `path`'s own `__init__` at a release, when the class has none and the text is
+        about it (DT-CORE-53): huggingface_hub 0.20 to 0.36 put `Repository`'s on its `__init__`, which 0.19 had on the
+        class. Not an `__init__` it inherits: a base's deprecation names the base. `cls`: `path`'s span there."""
+        assert self.store is not None
+        cls = cls if cls is not None else self.store.span_at(name, path, ordinal)
+        if cls is None or cls["kind"] != "class" or cls["deprecated"] or not cls["canonical"]:
+            return None
+        init = self.store.span_at(name, f"{path}.__init__", ordinal)
+        if init is None or not init["deprecated"] or init["canonical"] != f"{cls['canonical']}.__init__":
+            return None
+        names = {path.rpartition(".")[2], cls["canonical"].rpartition(".")[2]}
+        params = (_param_names(init["params"]) | set(_deprecated_params(init))) - {"self"}
+        return init["deprecated"] if init_deprecates_class(init["deprecated"], names, params) else None
+
+    def _init_deprecation_rows(self, name: str, path: str, rows: Iterable[Mapping]) -> list[dict]:
+        """Class `path`'s `deprecated` events from those of its own `__init__` among `rows` (DT-CORE-53), as a
+        constructor's deprecation is its class's, each with `detail.via` `__init__`. None where the class itself said
+        the same in the release before: huggingface_hub 0.20 moved `Repository`'s from the class to its `__init__`."""
+        assert self.store is not None
+        out = []
+        for r in rows:
+            if r["path"] != f"{path}.__init__" or r["kind"] != "deprecated":
+                continue
+            message = json.loads(r["detail"]).get("message")
+            if not message or self._init_deprecation(name, path, r["ordinal"]) != message:
+                continue
+            before = r["prev_ordinal"]
+            prev = self.store.span_at(name, path, before) if before is not None else None
+            if prev is not None and prev["deprecated"] == message:
+                continue
+            detail = json.dumps({"message": message, "via": "__init__"}, sort_keys=True)
+            out.append(
+                {
+                    "path": path,
+                    "ordinal": r["ordinal"],
+                    "prev_ordinal": before,
+                    "kind": "deprecated",
+                    "detail": detail,
+                }
+            )
+        return out
 
     def _unplaced_import_findings(
         self,

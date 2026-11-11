@@ -39,6 +39,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
   'anthropic.types.beta'", and 0.34 brought `types.beta` back without `tools`. The finding is now about
   `anthropic.types.beta.tools`, with a sentence on `types.beta`. IPython's frames now carry the code line their arrow
   marks (`---> 15 from x import y`) (DT-CORE-51)
+- A class reads deprecated where its own `__init__` is and the warning names the class: huggingface_hub 0.20 to 0.36
+  put `Repository`'s deprecation on its `__init__`, and `check_symbols` read the class as not deprecated.
+  `diff_versions` and `symbol_history` give the class a `deprecated` event of its own (`detail.via` `__init__`), and
+  `explain_error`'s `deprecated_in` counts it. Not an `__init__` a class inherits, and not a warning about one of its
+  arguments or settings (DT-CORE-53)
 
 ## [0.1.12] - 2026-11-10
 

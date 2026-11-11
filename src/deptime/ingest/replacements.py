@@ -382,6 +382,29 @@ def _sentence_start(message: str, at: int) -> int:
     return ends[-1] if ends else 0
 
 
+_INIT_DEPRECATED_RE = re.compile(
+    r"__init__(?:\(\))?`?\s+(?:method\s+)?(?:(?:on|of)\s+\S+\s+)?(?:is|was|has\s+been|will\s+be)\b", re.I
+)
+_USAGE_START_RE = re.compile(r"^\W*(?:using|passing|setting|providing|specifying|giving)\b", re.I)
+
+
+def init_deprecates_class(message: str, names: Iterable[str], params: Iterable[str]) -> bool:
+    """Whether the deprecation text of a class's own `__init__` is about the class (DT-CORE-53): it names the class
+    ("Repository is deprecated", "gr.Box is deprecated"), outside a sentence about a way of passing something
+    ("Passing ContinuousBatchingConfig through GenerationConfig is deprecated"). Not when it deprecates one of the
+    `__init__`'s parameters ("The opclasses argument is deprecated in favor of ... in ExclusionConstraint"), or says
+    the constructor alone is ("The __init__() method on Inspector is deprecated": `inspect()` makes one). A text that
+    names neither is mostly a warning about one way of calling it: django's `Settings` on a setting, werkzeug's
+    `Request` on its `charset`."""
+    if _INIT_DEPRECATED_RE.search(message) or any(deprecates_name(message, p) for p in params):
+        return False
+    return any(
+        not _USAGE_START_RE.match(message[_sentence_start(message, m.start()) : m.start()])
+        for n in names
+        for m in re.finditer(rf"\b{re.escape(n)}\b", message)
+    )
+
+
 _QUOTE = r"[)\]`'\"*]*"
 _OTHER_NAMES = (
     r"(?:[`'\"*]*\w+[`'\"*]*\s*(?:,|\band\b|\bor\b)\s*)*"  # "The on_startup and on_shutdown parameters"

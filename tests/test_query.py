@@ -3195,3 +3195,27 @@ def test_a_name_under_a_module_that_star_imports_unread_code_is_asked_there():
     f = dt.explain_error(tb, {"plot": "1.0"}).findings[0]
     assert (f.issue, f.confidence) == ("never_existed", "low")
     assert "At 1.0, plot.protos star-imports `faraway.types`, another distribution's code" in f.explanation
+
+
+def test_a_class_deprecation_moved_to_its_init_isnt_new():
+    """DT-CORE-53: huggingface_hub 0.19 deprecated `Repository` on the class, 0.20 moved the same text to its own
+    `__init__`: still deprecated, with no new event; a new text there is one, said on the class."""
+    spec = PackageSpec(name="hp", import_names=("hp",), tier="B")
+    mod = SymbolRecord("hp", "module", "hp")
+    old, new = "Repo is deprecated.", "Repo is deprecated and goes in 1.0."
+
+    def snap(version: str, on_class: str | None, on_init: str | None) -> ApiSnapshot:
+        cls = SymbolRecord("hp.Repo", "class", "hp.Repo", None, on_class)
+        init = SymbolRecord("hp.Repo.__init__", "function", "hp.Repo.__init__", [], on_init)
+        return ApiSnapshot("hp", version, ["hp"], {"hp": mod, cls.path: cls, init.path: init})
+
+    dt = _dt([(spec, [snap("0.19", old, None), snap("0.20", None, old), snap("0.21", None, new)])])
+    (check,) = dt.check_symbols("hp", "0.20", [SymbolQuery(path="hp.Repo")]).results
+    assert check.deprecated == old
+    events = dt.diff_versions("hp", "0.19", "0.21", used_symbols=["hp.Repo"]).events
+    assert [(e.path, e.version, e.detail.get("via")) for e in events if e.kind == "deprecated"] == [
+        ("hp.Repo", "0.21", "__init__"),
+        ("hp.Repo.__init__", "0.20", None),
+        ("hp.Repo.__init__", "0.21", None),
+    ]
+    assert dt._deprecation("hp", "hp.Repo") == ("<=0.19", old)

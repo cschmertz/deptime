@@ -1019,3 +1019,61 @@ def test_a_class_deprecated_in_its_members_words_gets_their_replacement_and_a_go
     # 2.0 still has `SSEServer`: nothing to follow.
     (check,) = dt.check_symbols("tp", "3.0", [SymbolQuery(path="tp.HTTPServer")]).results
     assert check.status == "missing" and check.hint.endswith("; try tp.Toolset")
+
+
+# DT-CORE-53: huggingface_hub 0.20 put `Repository`'s deprecation on its `__init__`. `compat.Repo` is a subclass that
+# inherits it (the base's text names it too), and `Conf.__init__` warns about a setting.
+OWN_INIT = {
+    "1.0": {
+        "dc/__init__.py": "from dc.models import Conf, Repo\n",
+        "dc/compat.py": "from dc import models\n\n\nclass Repo(models.Repo):\n    pass\n",
+        "dc/models.py": (
+            "class Repo:\n    def __init__(self, path):\n        pass\n\n\n"
+            "class Conf:\n    def __init__(self, module):\n        pass\n"
+        ),
+    },
+    "2.0": {
+        "dc/__init__.py": "from dc.models import Conf, Repo\n",
+        "dc/compat.py": "from dc import models\n\n\nclass Repo(models.Repo):\n    pass\n",
+        "dc/models.py": (
+            "import warnings\n\n\n"
+            "class Repo:\n    def __init__(self, path):\n"
+            "        warnings.warn('Repo is deprecated. Use Client instead.', DeprecationWarning)\n\n\n"
+            "class Conf:\n    def __init__(self, module):\n"
+            "        warnings.warn('The OLD_TIMEOUT setting is deprecated.', DeprecationWarning)\n"
+        ),
+    },
+}
+
+
+@pytest.mark.parametrize("spec", [CLASSIC, OWN], ids=["classic", "own"])
+def test_a_class_whose_own_init_is_deprecated_reads_deprecated(tmp_path, spec):
+    spec = PackageSpec(name="dc", import_names=("dc",), tier="A", own_members=spec.own_members)
+    snaps = []
+    for version, files in OWN_INIT.items():
+        root = tmp_path / version
+        for rel, text in files.items():
+            (root / rel).parent.mkdir(parents=True, exist_ok=True)
+            (root / rel).write_text(text)
+        snaps.append(build_snapshot("dc", version, ["dc"], root, own_members=spec.own_members))
+    store = IndexStore.memory()
+    store.rebuild_package(spec, snaps)
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+    paths = ["dc.Repo", "dc.compat.Repo", "dc.Conf"]
+
+    def deprecated(version: str) -> list[str | None]:
+        return [
+            r.deprecated
+            for r in dt.check_symbols("dc", version, [SymbolQuery(path=p) for p in paths]).results
+        ]
+
+    message = "Repo is deprecated. Use Client instead."
+    assert deprecated("1.0") == [None, None, None]
+    assert deprecated("2.0") == [message, None, None]
+    events = dt.diff_versions("dc", "1.0", "2.0", used_symbols=paths).events
+    on_classes = [(e.path, e.detail) for e in events if e.kind == "deprecated" and e.path in paths]
+    assert on_classes == [("dc.Repo", {"message": message, "via": "__init__"})]
+    history = dt.symbol_history("dc", "dc.Repo").events
+    assert [(e.kind, e.version, e.detail.get("via")) for e in history] == [("deprecated", "2.0", "__init__")]
+    assert dt._deprecation("dc", "dc.Repo") == ("2.0", message)
+    assert dt._deprecation("dc", "dc.compat.Repo") == (None, None)

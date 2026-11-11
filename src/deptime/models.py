@@ -156,7 +156,8 @@ class SymbolQuery(BaseModel):
         default=None,
         ge=0,
         description="How many arguments the call passes by position, if you know (DT-CORE-34): then a required"
-        " parameter it passes neither way is listed in `missing_args`.",
+        " parameter it passes neither way is listed in `missing_args`, and passing more than the signature takes sets"
+        " `max_positional` (DT-CORE-50).",
     )
 
 
@@ -172,6 +173,14 @@ class SymbolCheck(BaseModel):
         default_factory=list,
         description="Required parameters the call doesn't pass, from `positional` and `kwargs` (DT-CORE-34); empty"
         " when `positional` isn't given.",
+    )
+    max_positional: int | None = Field(
+        default=None,
+        description="Set when the call passes more arguments by position (`positional`) than the callable takes at"
+        " this version, which has no `*args` (DT-CORE-50): the most it takes, a method's instance not counted. The"
+        " call fails with TypeError; `hint` names the last indexed release that took them all. A method reached"
+        " through its class (`Base.__init__(self, x)`) may be passed its instance explicitly, so one argument more"
+        " isn't flagged there.",
     )
     deprecated: UntrustedText = None
     raises: UntrustedText = Field(

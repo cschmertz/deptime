@@ -170,6 +170,33 @@ def test_by_position_places_positional_arguments() -> None:
     assert score._by_position(star, 3) == {"a"}
 
 
+def test_positional_lost_counts_slots_after_an_event() -> None:
+    """DT-CORE-50: pydantic 2.0 took `FieldInfo.__init__(default)` into `**kwargs`, which takes it only by keyword."""
+    from deptime.models import ParamInfo
+
+    def sig(*params: tuple[str, str]) -> list[ParamInfo]:
+        return [ParamInfo(name=n, kind=k) for n, k in params]
+
+    pk, kw = "positional or keyword", "variadic keyword"
+    targets = ("p.F", "p.F.__init__")
+    removed = [
+        _ev("param_removed", "2.0", path="p.F.__init__", param="default", absorbed_by_var_keyword=True)
+    ]
+    v1, v2 = sig(("default", pk), ("kwargs", kw)), sig(("kwargs", kw))
+    assert score._positional_lost(v1, v2, 1, 0, removed, targets) == "default"
+    assert score._positional_lost(v1, v2, 1, 0, [], targets) is None  # no event says so
+    assert score._positional_lost(v1, v2, 1, 1, removed, targets) is None  # the one may be an instance
+    assert (
+        score._positional_lost(v1, sig(("value", pk)), 1, 0, removed, targets) is None
+    )  # renamed: a slot still
+    assert score._positional_lost(v1, sig(("args", "variadic positional")), 1, 0, removed, targets) is None
+    assert score._positional_lost(v1, None, 1, 0, removed, targets) is None
+    keyword_only = [_ev("param_kind_changed", "2.0", path="p.F", param="default", to="keyword-only")]
+    assert (
+        score._positional_lost(v1, sig(("default", "keyword-only")), 1, 0, keyword_only, targets) == "default"
+    )
+
+
 def test_wilson_interval() -> None:
     lo, hi = score.wilson(0, 100)  # type: ignore[misc]
     assert lo == 0.0 and 0.03 < hi < 0.04

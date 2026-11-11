@@ -23,6 +23,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
 
 ## [Unreleased]
 
+### Added
+- `check_symbols` says when a call passes more arguments by position than the callable takes at that version
+  (`SymbolCheck.max_positional`, given the call's `positional` count), naming the last release that took them:
+  pydantic 2's keyword-only `FieldInfo(default)` (DT-CORE-50)
+
 ## [0.1.12] - 2026-11-10
 
 ### Added

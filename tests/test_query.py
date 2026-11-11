@@ -745,6 +745,82 @@ def test_check_symbols_lists_required_arguments_a_call_doesnt_pass():
     assert got == {"req": [], "req.plot": ["fig"], "req.Kit": [], "req.only": []}
 
 
+def test_check_symbols_flags_more_positional_arguments_than_the_signature_takes():
+    # DT-CORE-50: pydantic 2's `FieldInfo.__init__` takes keywords only (`**kwargs` to 2.13, keyword-only parameters
+    # from 2.14), so pydantic 1 code's `FieldInfo(default)` fails; DT-CORE-34 read only required parameters.
+    spec = PackageSpec(name="pos", import_names=("pos",), tier="B", own_members=False)
+
+    def p(name: str, kind: str = "positional or keyword", default: str | None = None) -> dict:
+        return {"name": name, "kind": kind, "default": default}
+
+    def snap(version: str, init: list[dict], f: list[dict]) -> ApiSnapshot:
+        return ApiSnapshot(
+            "pos",
+            version,
+            ["pos"],
+            {
+                "pos": SymbolRecord("pos", "module", "pos"),
+                "pos.Field": SymbolRecord("pos.Field", "class", "pos.Field"),
+                "pos.Field.__init__": SymbolRecord(
+                    "pos.Field.__init__", "function", "pos.Field.__init__", init
+                ),
+                "pos.f": SymbolRecord("pos.f", "function", "pos.f", f),
+                "pos.g": SymbolRecord("pos.g", "function", "pos.g", []),
+                "pos.Box": SymbolRecord("pos.Box", "attribute", "pos.Box"),
+                "pos.Field.merge": SymbolRecord(
+                    "pos.Field.merge", "function", "pos.Field.merge", [p("other")]
+                ),
+            },
+        )
+
+    kw = p("kwargs", "variadic keyword")
+    store = IndexStore.memory()
+    store.rebuild_package(
+        spec,
+        [
+            snap(
+                "1.0", [p("self"), p("default"), kw], [p("a"), p("b")]
+            ),  # `self` comes bound, as DT-CORE-34 counts
+            snap("1.1", [p("default"), kw], [p("a"), p("b")]),
+            snap("2.0", [kw], [p("a"), p("b", "keyword-only")]),
+            snap("3.0", [p("default", "keyword-only", "None")], [p("a"), p("rest", "variadic positional")]),
+        ],
+    )
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+
+    def check(path: str, version: str, positional: int | None):
+        return dt.check_symbols("pos", version, [SymbolQuery(path=path, positional=positional)]).results[0]
+
+    assert check("pos.Field", "1.0", 1).max_positional is None
+    assert check("pos.Field", "1.1", 1).max_positional is None
+    for version in ("2.0", "3.0"):
+        got = check("pos.Field", version, 1)
+        assert (got.status, got.max_positional, got.missing_args) == ("present", 0, [])
+        assert "1.1" in got.hint and version in got.hint  # the last release that took it, and this one
+    assert check("pos.Field", "3.0", None).max_positional is None  # no count, no verdict
+    assert check("pos.Field", "3.0", 0).max_positional is None
+    got = check("pos.f", "2.0", 2)
+    assert got.max_positional == 1 and "1.1" in got.hint
+    assert check("pos.f", "3.0", 5).max_positional is None  # *args takes any number
+    got = check("pos.g", "1.0", 1)
+    assert got.max_positional == 0 and "no earlier indexed release" in got.hint
+    assert check("pos.Box", "1.0", 3).max_positional is None  # no signature, no verdict
+    # Through its class, a method may be passed its instance (2026-11d: `dspy.Adapter.__call__(self, lm, ...)`), and
+    # the index doesn't say which methods are static: one argument more isn't flagged there.
+    assert check("pos.Field.merge", "1.0", 2).max_positional is None
+    assert check("pos.Field.__init__", "1.1", 2).max_positional is None  # `Field.__init__(self, default)`
+    got = check("pos.Field.merge", "1.0", 3)
+    assert got.max_positional == 1 and "instance" in got.hint
+    got = check("pos.Field.__init__", "2.0", 2)
+    assert got.max_positional == 0 and "1.1" in got.hint
+    # From code: the most positional arguments any call passes.
+    got = {
+        r.path: r.max_positional
+        for r in dt.check_symbols("pos", "2.0", code="import pos\npos.Field(1)\n").results
+    }
+    assert got == {"pos": None, "pos.Field": 0}
+
+
 def test_an_argument_error_ranks_the_class_python_would_name_first():
     # S3 on the format-20 index: anthropic's `Client` became the class `Anthropic` it is bound to, so its `__init__`
     # lost `proxies` too; but `Client.__init__() got an unexpected keyword argument` names the defining class, so

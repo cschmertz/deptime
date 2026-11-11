@@ -83,14 +83,21 @@ def ask_check_symbols(dt: DepTime, row: dict, items: list[dict]) -> list[dict]:
         rejected = [k for k in i.get("kwargs", []) if k in r.rejected_kwargs] if i["kind"] == "call" else []
         # A call to a callable whose body only raises fails (DT-DATA-67).
         raises = getattr(r, "raises", None) if i["kind"] == "call" else None
+        # More arguments by position than the signature at `to` takes, with no `*args` (DT-CORE-50).
+        most = getattr(r, "max_positional", None) if i["kind"] == "call" else None
         out.append(
             {
                 "answered": True,
-                "flagged": r.status == "missing" or bool(rejected) or bool(r.missing_args) or bool(raises),
+                "flagged": r.status == "missing"
+                or bool(rejected)
+                or bool(r.missing_args)
+                or bool(raises)
+                or most is not None,
                 "deprecated": bool(r.deprecated),
                 "said": f"{r.status}"
                 + (f" rejected={rejected}" if rejected else "")
                 + (f" missing_args={r.missing_args}" if r.missing_args else "")
+                + (f" max_positional={most}" if most is not None else "")
                 + (f" raises={raises}" if raises else "")
                 + (f" ({r.hint})" if r.hint else ""),
             }
@@ -156,6 +163,31 @@ def _by_position(params: list | None, npos: int | None) -> set[str]:
     return filled
 
 
+SLOT_EVENTS = ("param_removed", "param_added", "param_kind_changed")
+
+
+def _positional_lost(
+    at_from: list | None, at_to: list | None, npos: int, spare: int, events: list, targets: tuple[str, ...]
+) -> str | None:
+    """The parameter whose slot a call's positional arguments lose, or None (DT-CORE-50): DepTime's signature at `to`
+    has room for fewer than `npos - spare` of them, and no `*args`, and an event changes a parameter the call fills by
+    position in its signature at `from` (removed, even into `**kwargs`, which takes it only by keyword; made
+    keyword-only; or, going down, added after `to`). pydantic 2.0's `FieldInfo(default)`. Slots are counted, not
+    names: a renamed parameter still takes its positional argument."""
+    if at_to is None or any(p.kind == "variadic positional" for p in at_to):
+        return None
+    if len(_by_position(at_to, npos)) >= npos - spare:
+        return None
+    lost = sorted(
+        p
+        for p in _by_position(at_from, npos)
+        if any(
+            e.path in targets and e.kind in SLOT_EVENTS and (e.detail or {}).get("param") == p for e in events
+        )
+    )
+    return lost[0] if lost else None
+
+
 def ask_diff_versions(dt: DepTime, row: dict, item: dict) -> dict:
     up = _v(row["to"]) >= _v(row["from"] or "0")
     lo, hi = (row["from"], row["to"]) if up else (row["to"], row["from"])
@@ -193,6 +225,19 @@ def ask_diff_versions(dt: DepTime, row: dict, item: dict) -> dict:
             for p in sorted({(e.detail or {}).get("param") for e in events if e.path == t} - {None} - passed):
                 if _required_at_to(events, t, p, up):
                     reasons.append(f"param {p} {'now required' if up else 'required at to'}")
+        # A positional argument whose slot an event in the range takes away (DT-CORE-50). A method called through
+        # its class (not `via: instance`) may be passed its instance, which the probe counts in `npos`, as
+        # check_symbols allows.
+        if npos := item.get("npos"):
+            rel = dt._release(row["package"], row["to"])
+            spare = int(
+                rel is not None
+                and item.get("via") != "instance"
+                and dt._through_class(row["package"], path, rel["ordinal"])
+            )
+            at_from, at_to = (dt._signature(row["package"], path, row[v]) for v in ("from", "to"))
+            if lost := _positional_lost(at_from, at_to, npos, spare, events, targets):
+                reasons.append(f"positional {lost} {'taken away' if up else 'not yet taken at to'}")
     dep = any(
         (e.path == path and e.kind == "deprecated")
         or (

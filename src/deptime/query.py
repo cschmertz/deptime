@@ -374,11 +374,8 @@ def _missing_args(raw: str | None, q: SymbolQuery) -> list[str]:
     every extra positional argument. Empty without a positional count or a signature."""
     if q.positional is None or raw is None:
         return []
-    params = json.loads(raw)
-    if params and params[0]["name"] in ("self", "cls") and params[0]["kind"] != "keyword-only":
-        params = params[1:]
     left, missing = q.positional, []
-    for p in params:
+    for p in _unbound(json.loads(raw)):
         by_position = p["kind"] in ("positional-only", "positional or keyword") and left > 0
         if by_position:
             left -= 1
@@ -386,6 +383,24 @@ def _missing_args(raw: str | None, q: SymbolQuery) -> list[str]:
         if is_required(p) and (p["kind"] == "positional-only" or p["name"] not in q.kwargs):
             missing.append(p["name"])
     return missing
+
+
+def _unbound(params: list[dict]) -> list[dict]:
+    """A signature without the `self` or `cls` a method's call comes with (DT-CORE-34)."""
+    if params and params[0]["name"] in ("self", "cls") and params[0]["kind"] != "keyword-only":
+        return params[1:]
+    return params
+
+
+def _positional_slots(raw: str | None) -> int | None:
+    """How many arguments a signature takes by position, a method's instance not counted; None when that's any
+    number (`*args`) or there's no signature."""
+    if raw is None:
+        return None
+    params = _unbound(json.loads(raw))
+    if any(p["kind"] == "variadic positional" for p in params):
+        return None
+    return sum(p["kind"] in POSITIONAL_KINDS for p in params)
 
 
 def _accepts_kwarg(raw: str | None, kwarg: str) -> bool:
@@ -1130,14 +1145,35 @@ class DepTime:
                 if params_raw is not None and not _accepts_kwarg(params_raw, k) and k not in by_param
             ]
             deprecated = span["deprecated"] or next((by_param[k] for k in q.kwargs if k in by_param), None)
+            slots, hint = _positional_slots(params_raw), None
+            # A method reached through its class's path may be passed its instance explicitly (`Base.__init__(self,
+            # x)`), and the index doesn't record which methods are static, so one argument more isn't flagged there.
+            spare = int(self._through_class(name, full, row["ordinal"]))
+            if q.positional is not None and slots is not None and q.positional > slots + spare:
+                n = q.positional
+                last = self._last_taking(name, full, row["ordinal"], n - spare)
+                hint = (
+                    f"takes {slots} argument{'' if slots == 1 else 's'} by position in {row['version']}"
+                    + (", besides an instance passed through the class," if spare else ",")
+                    + f" and the call passes {n}; "
+                    + (
+                        f"{last} is the last indexed release that took {n}"
+                        if last
+                        else f"no earlier indexed release took {n}"
+                    )
+                )
+            else:
+                slots = None
             results.append(
                 SymbolCheck(
                     path=full,
                     status="present",
                     rejected_kwargs=rejected,
                     missing_args=_missing_args(params_raw, q),
+                    max_positional=slots,
                     deprecated=deprecated,
                     raises=_raises(callable_span),
+                    hint=hint,
                 )
             )
         return CheckSymbolsResult(
@@ -1659,6 +1695,42 @@ class DepTime:
             init = self.store.span_at(name, f"{path}.__init__", ordinal)
             return init["params"] if init else None
         return span["params"]
+
+    def _through_class(self, name: str, path: str, ordinal: int) -> bool:
+        """Whether `path` is a class's method at a release, not a class: a call through the path may pass the
+        instance itself (DT-CORE-50)."""
+        assert self.store is not None
+        span, parent = self.store.span_at(name, path, ordinal), path.rpartition(".")[0]
+        if span is None or span["kind"] == "class" or not parent:
+            return False
+        owner = self.store.span_at(name, parent, ordinal)
+        return owner is not None and owner["kind"] == "class"
+
+    def _last_taking(self, name: str, path: str, before: int, count: int) -> str | None:
+        """The last release before ordinal `before` whose signature of `path` (a class's `__init__`'s) takes `count`
+        arguments by position (DT-CORE-50); None when none does."""
+        assert self.store is not None
+
+        def takes(raw: str | None) -> bool:
+            slots = _positional_slots(raw)
+            return raw is not None and (slots is None or slots >= count)
+
+        inits: list[sqlite3.Row] | None = None
+        for span in sorted(self.store.spans(name, path), key=lambda s: -s["last_ordinal"]):
+            hi = min(span["last_ordinal"], before - 1)
+            if hi < span["first_ordinal"]:
+                continue
+            if span["params"] is not None or span["kind"] != "class":
+                if takes(span["params"]):
+                    return self._version(name, hi)
+                continue
+            if inits is None:
+                inits = sorted(self.store.spans(name, f"{path}.__init__"), key=lambda s: -s["last_ordinal"])
+            for init in inits:
+                top = min(init["last_ordinal"], hi)
+                if top >= max(init["first_ordinal"], span["first_ordinal"]) and takes(init["params"]):
+                    return self._version(name, top)
+        return None
 
     def _signature(self, name: str, path: str, version: str | None) -> list[ParamInfo] | None:
         rel = self._release(name, version) if version else None

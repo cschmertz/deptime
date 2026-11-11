@@ -52,6 +52,7 @@ from deptime.models import (
     Fix,
     HistoryEvent,
     Link,
+    NeverSeenUse,
     ParamInfo,
     Replacement,
     SymbolCheck,
@@ -270,6 +271,30 @@ def _event_key(row: Mapping) -> tuple:
 
 def _and(items: list[str], word: str = "and") -> str:
     return items[0] if len(items) == 1 else f"{', '.join(items[:-1])} {word} {items[-1]}"
+
+
+def _never_seen_note(package: str, unseen: list[NeverSeenUse], lo: str, hi: str) -> str | None:
+    """diff_versions' sentence on the used paths no indexed release has (DT-CORE-54)."""
+    if not unseen:
+        return None
+    if len(unseen) == 1:
+        (u,) = unseen
+        lacks = (
+            f"{u.missing_in[0]} doesn't have it"
+            if len(u.missing_in) == 1
+            else f"neither {lo} nor {hi} has it"
+        )
+        return (
+            f"`{u.path}` is in no indexed release of {package}, so no event can name it, and {lacks}, as"
+            " check_symbols reads it (`never_seen`)."
+        )
+    shown = [f"`{u.path}`" for u in unseen[:3]]
+    if len(unseen) > 3:
+        shown.append(f"{len(unseen) - 3} more")
+    return (
+        f"{len(unseen)} used paths are in no indexed release of {package}, so no event can name them, and"
+        f" check_symbols reads them missing at an end of the range: {_and(shown)}; `never_seen` says which end."
+    )
 
 
 def _stand_in(package: str, release: Mapping) -> tuple[str, str] | None:
@@ -1278,15 +1303,20 @@ class DepTime:
         kept = [r for r in rows if not self._namespace_filled(name, r, hi, filled)]
         total -= len(rows) - len(kept)
         rows = kept
-        events, hidden = self._unsuppressed(
-            name, [self._event(name, r, affects.get(_event_key(r))) for r in rows]
-        )
+        built = [self._event(name, r, affects.get(_event_key(r))) for r in rows]
+        events, hidden = self._unsuppressed(name, built)
+        unseen = self._never_seen(name, spec, used, lo, hi, {p for e in built for p in e.affects})
+        never_seen = [
+            u for u in unseen if not any(x.matches(name, u.path, "never_existed") for x in self.suppressions)
+        ]
         notes = [
             None
             if lo["version"] == from_version or DATE_RE.match(from_version)
             else f"from_version resolved to nearest indexed release {lo['version']}.",
             self._stand_in_note(name, [lo["version"], hi["version"]]),
             project.note(hidden, "event"),
+            project.note(len(unseen) - len(never_seen), "never-seen path"),
+            _never_seen_note(name, never_seen, lo["version"], hi["version"]),
             *(
                 f"Removals under {module} aren't listed: {why}, so the import may still work; check_symbols"
                 " answers `unknown` there."
@@ -1300,8 +1330,38 @@ class DepTime:
             events=events[:limit],
             truncated=total > len(rows) or len(events) > limit,
             note=" ".join(n for n in notes if n) or None,
-            suppressed=hidden,
+            suppressed=hidden + len(unseen) - len(never_seen),
+            never_seen=never_seen,
         )
+
+    def _never_seen(
+        self,
+        name: str,
+        spec: PackageSpec,
+        used: list[str],
+        lo: sqlite3.Row,
+        hi: sqlite3.Row,
+        taken: set[str],
+    ) -> list[NeverSeenUse]:
+        """Used paths that no indexed release has, public or not, so no event can name them, and that check_symbols
+        reads `missing` at one end of the range or both (DT-CORE-54): langgraph 0.0.37's own `checkpoint.memory` has
+        no `InMemorySaver`, which langgraph 0.3's comes from langgraph-checkpoint (`unknown` there). A path the
+        index reaches another way (a base from another distribution, a module imported under another name, a
+        namespace package) reads as check_symbols reads it; one a listed event's `affects` takes is left out."""
+        assert self.store is not None
+        ends = list(dict.fromkeys([lo["version"], hi["version"]]))
+        out: list[NeverSeenUse] = []
+        for path in used:
+            if path in taken or self.store.spans(name, path) or self.store.internal_spans(name, path):
+                continue
+            missing = [
+                v
+                for v in ends
+                if self._check_symbols(name, spec, v, [SymbolQuery(path=path)]).results[0].status == "missing"
+            ]
+            if missing:
+                out.append(NeverSeenUse(path=path, missing_in=missing))
+        return out
 
     def _namespace_filled(self, name: str, row: Mapping, hi: sqlite3.Row, filled: dict[str, str]) -> bool:
         """A `removed` event under a module directly in a namespace package that the `to` release no longer has,

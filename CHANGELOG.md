@@ -27,6 +27,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
 - `check_symbols` says when a call passes more arguments by position than the callable takes at that version
   (`SymbolCheck.max_positional`, given the call's `positional` count), naming the last release that took them:
   pydantic 2's keyword-only `FieldInfo(default)` (DT-CORE-50)
+- `diff_versions(used_symbols=...)` lists a used name that no indexed release has, which `check_symbols` reads
+  missing at one end of the range or both, in a new field, `never_seen` (with the ends in `missing_in`), and says so
+  in `note`: no event can name it. Going from langgraph 0.3.31 down to 0.0.37, `checkpoint.memory.InMemorySaver` comes
+  from langgraph-checkpoint at 0.3 and isn't in langgraph 0.0.37's own module (DT-CORE-54)
 
 ### Fixed
 - `explain_error` reads a traceback flattened onto one line (`File "...", line 77, in f code AttributeError: ...`),

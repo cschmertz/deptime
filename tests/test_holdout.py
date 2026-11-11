@@ -197,6 +197,24 @@ def test_positional_lost_counts_slots_after_an_event() -> None:
     )
 
 
+def test_never_seen_at_to_reads_the_end_the_use_lands_on() -> None:
+    """DT-CORE-54: langgraph 0.3.31 -> 0.0.37's `checkpoint.memory.InMemorySaver`, in no indexed release, is missing
+    at 0.0.37 (and `unknown` at 0.3.31, from langgraph-checkpoint)."""
+    from deptime.models import DiffResult, NeverSeenUse
+
+    path = "lg.checkpoint.memory.InMemorySaver"
+    res = DiffResult(
+        package="lg",
+        from_version="0.0.37",
+        to_version="0.3.31",
+        events=[],
+        never_seen=[NeverSeenUse(path=path, missing_in=["0.0.37"])],
+    )
+    assert score._never_seen_at_to(res, path, up=False)  # going down to 0.0.37
+    assert not score._never_seen_at_to(res, path, up=True)  # going up to 0.3.31: not missing there
+    assert not score._never_seen_at_to(res, "lg.other", up=False)
+
+
 def test_wilson_interval() -> None:
     lo, hi = score.wilson(0, 100)  # type: ignore[misc]
     assert lo == 0.0 and 0.03 < hi < 0.04

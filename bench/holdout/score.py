@@ -23,7 +23,7 @@ from packaging.version import InvalidVersion, Version
 from deptime.bench import load_cases, metrics, run
 from deptime.config import Settings, load_coverage
 from deptime.index.location import open_index
-from deptime.models import SymbolQuery
+from deptime.models import DiffResult, SymbolQuery
 from deptime.query import MAX_DIFF_EVENTS, DepTime
 
 Z = 1.96
@@ -188,6 +188,14 @@ def _positional_lost(
     return lost[0] if lost else None
 
 
+def _never_seen_at_to(res: DiffResult, path: str, up: bool) -> bool:
+    """Whether diff_versions lists the path in `never_seen` as missing at `to` (DT-CORE-54): no indexed release has it,
+    so no event can say so (langgraph 0.3.31 -> 0.0.37's `checkpoint.memory.InMemorySaver`). Going down, `to` is the
+    range's `from_version`."""
+    end = res.to_version if up else res.from_version
+    return any(u.path == path and end in u.missing_in for u in res.never_seen)
+
+
 def ask_diff_versions(dt: DepTime, row: dict, item: dict) -> dict:
     up = _v(row["to"]) >= _v(row["from"] or "0")
     lo, hi = (row["from"], row["to"]) if up else (row["to"], row["from"])
@@ -205,6 +213,8 @@ def ask_diff_versions(dt: DepTime, row: dict, item: dict) -> dict:
     reasons = []
     if _state_at_to(events, path, up, "added", "removed"):
         reasons.append("removed" if up else "added after to")
+    if _never_seen_at_to(res, path, up):
+        reasons.append("in no indexed release, missing at to")
     if item["kind"] == "call":
         targets = (path, path + ".__init__")
         # Upgrading across a release from which the callable only raises (DT-DATA-67).

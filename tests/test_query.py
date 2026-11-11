@@ -2287,6 +2287,55 @@ def test_diff_leaves_out_removals_a_required_distribution_can_fill_in_a_namespac
     assert {e.path for e in res.events if e.kind == "removed"} >= {"ng.prebuilt.make_agent"}
 
 
+def test_diff_lists_a_used_path_no_indexed_release_has_where_check_symbols_reads_it_missing():
+    # DT-CORE-54: langgraph 0.0.37's own `checkpoint.memory` has no `InMemorySaver`; in 0.3 the module comes from
+    # langgraph-checkpoint, which installs into the `langgraph` namespace package (`unknown` there). No release has
+    # the path, so no event can name it.
+    from deptime import suppressions
+
+    def snap(version: str, records: list[str], requires: list[str]) -> ApiSnapshot:
+        symbols = {p: SymbolRecord(p, "module", p) for p in records}
+        return ApiSnapshot("ng", version, ["ng"], symbols, requires=requires, namespaces=["ng"])
+
+    spec = PackageSpec(name="ng", import_names=("ng",), tier="A")
+
+    def store_for(requires: list[str], quiet: tuple = ()) -> DepTime:
+        store = IndexStore.memory()
+        old = snap("0.0.37", ["ng", "ng.graph", "ng.checkpoint", "ng.checkpoint.memory"], [])
+        new = snap("0.3.31", ["ng", "ng.graph"], requires)
+        store.rebuild_package(spec, [old, new])
+        return DepTime(store, Coverage(POLICY, (spec,)), suppressions=quiet)
+
+    saver, nothing = "ng.checkpoint.memory.InMemorySaver", "ng.graph.nothing"
+    dt = store_for(["ng-checkpoint"])
+    res = dt.diff_versions("ng", "0.0.37", "0.3.31", used_symbols=[saver, nothing, "ng.graph"])
+    assert [(u.path, u.missing_in) for u in res.never_seen] == [
+        (saver, ["0.0.37"]),
+        (nothing, ["0.0.37", "0.3.31"]),
+    ]
+    assert "2 used paths are in no indexed release of ng" in (res.note or "")
+    assert "`never_seen` says which end" in (res.note or "")
+    ask = lambda v, p: dt.check_symbols("ng", v, [SymbolQuery(path=p)]).results[0].status  # noqa: E731
+    assert (ask("0.0.37", saver), ask("0.3.31", saver)) == ("missing", "unknown")
+    one = dt.diff_versions("ng", "0.0.37", "0.3.31", used_symbols=[saver])
+    assert (
+        "`ng.checkpoint.memory.InMemorySaver` is in no indexed release of ng, so no event can name it, and 0.0.37"
+        " doesn't have it" in (one.note or "")
+    )
+    # Without used_symbols, nothing to list.
+    assert dt.diff_versions("ng", "0.0.37", "0.3.31").never_seen == []
+    # Nothing it requires installs into the namespace: `ng.checkpoint`'s removal takes the path (`affects`), and
+    # that event says it.
+    plain = store_for([]).diff_versions("ng", "0.0.37", "0.3.31", used_symbols=[saver])
+    assert plain.never_seen == []
+    assert any(saver in e.affects for e in plain.events)
+    # A project's suppression of the path (or of `never_existed`) leaves it out, counted.
+    quiet = store_for(["ng-checkpoint"], (suppressions.Suppression("ng", saver),))
+    hushed = quiet.diff_versions("ng", "0.0.37", "0.3.31", used_symbols=[saver])
+    assert (hushed.never_seen, hushed.suppressed) == ([], 1)
+    assert "1 never-seen path left out" in (hushed.note or "")
+
+
 def test_an_import_from_a_private_import_root_maps_to_its_package():
     # DT-DATA-62: tavern 3.5's `from _pytest._code.code import FormattedExcinfo` on pytest 9.1.0; coverage.toml's
     # `internal_names` maps `_pytest` to pytest, whose snapshots record its modules as internal names.

@@ -207,6 +207,13 @@ class CheckSymbolsResult(BaseModel):
     note: str | None = None
 
 
+class NeverSeenUse(BaseModel):
+    path: str
+    missing_in: list[str] = Field(
+        description="The ends of the range (`from_version`, `to_version`) where check_symbols reads the path `missing`."
+    )
+
+
 class DiffResult(BaseModel):
     package: str
     from_version: str | None
@@ -216,7 +223,15 @@ class DiffResult(BaseModel):
     note: str | None = None
     suppressed: int = Field(
         default=0,
-        description="Events left out by the project's suppressions; `note` says so whenever it isn't 0.",
+        description="Events and `never_seen` entries left out by the project's suppressions; `note` says so whenever"
+        " it isn't 0.",
+    )
+    never_seen: list[NeverSeenUse] = Field(
+        default_factory=list,
+        description="With used_symbols: used paths that no indexed release has, so no event can name them, that"
+        " check_symbols reads `missing` at one end of the range or both (DT-CORE-54). langgraph 0.0.37's own"
+        " `checkpoint.memory` has no `InMemorySaver`, which 0.3's comes from langgraph-checkpoint. Not one a listed"
+        " event's `affects` already takes.",
     )
 
 

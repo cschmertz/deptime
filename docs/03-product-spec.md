@@ -111,6 +111,7 @@ All tools are read-only and idempotent, and return structured output (pydantic m
 - Events in `(from, to]`, most severe first.
 - `from_version` can be a date (`YYYY-MM-DD`), which covers "everything since my training cutoff."
 - `used_symbols` filters the results to your own usage: changes on those paths and below, a class member's at the path given (not at the class that defines it), and a parent module or class removed, moved or retyped in the range (or added there, for code written against `to`), with the used paths it takes in `affects` (DT-CORE-33). A used class whose own `__init__` becomes deprecated, as `check_symbols` reads it, gets a `deprecated` event of its own with `detail.via` `__init__`, unless the class said the same in the release before (DT-CORE-53); `symbol_history` lists it too.
+- A used path that no indexed release has, so no event can name it, is listed in `never_seen` when `check_symbols` reads it `missing` at one end of the range or both, with those ends in `missing_in`, and `note` says so (DT-CORE-54): langgraph 0.0.37's own `checkpoint.memory` has no `InMemorySaver`, which 0.3's comes from langgraph-checkpoint (`unknown` there). Not one a listed event's `affects` already takes; a project's suppression of the path, or of `never_existed`, leaves it out.
 
 ### `coverage() → CoverageResult` (never rate-limited)
 

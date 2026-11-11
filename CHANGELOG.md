@@ -23,6 +23,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
 
 ## [Unreleased]
 
+## [0.1.13] - 2026-11-11
+
 ### Added
 - `check_symbols` says when a call passes more arguments by position than the callable takes at that version
   (`SymbolCheck.max_positional`, given the call's `positional` count), naming the last release that took them:
@@ -355,7 +357,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
 - The prebuilt index of 52 packages, downloaded on first run and refreshed daily; `deptime index pull|status|pack`;
   offline mode (`DEPTIME_OFFLINE=1`).
 
-[Unreleased]: https://github.com/cschmertz/deptime/compare/v0.1.12...HEAD
+[Unreleased]: https://github.com/cschmertz/deptime/compare/v0.1.13...HEAD
+[0.1.13]: https://github.com/cschmertz/deptime/compare/v0.1.12...v0.1.13
 [0.1.12]: https://github.com/cschmertz/deptime/compare/v0.1.11...v0.1.12
 [0.1.11]: https://github.com/cschmertz/deptime/compare/v0.1.10...v0.1.11
 [0.1.10]: https://github.com/cschmertz/deptime/compare/v0.1.9...v0.1.10

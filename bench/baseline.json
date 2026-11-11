@@ -1,14 +1,14 @@
 {
-  "index_built_at": "2026-11-10T12:45:55+00:00",
+  "index_built_at": "2026-11-11T00:29:07+00:00",
   "summary": {
     "cases": 347,
-    "known_gap_share": 2.0,
+    "known_gap_share": 1.4,
     "overall": {
-      "root_cause": 98.0,
-      "root_cause_and_boundary": 98.0,
-      "boundary": 98.0,
-      "replacement": 74.8,
-      "replacement_uncurated": 64.5
+      "root_cause": 98.6,
+      "root_cause_and_boundary": 98.6,
+      "boundary": 98.5,
+      "replacement": 78.1,
+      "replacement_uncurated": 67.7
     },
     "by_tier": {
       "-": {
@@ -21,19 +21,19 @@
       },
       "A": {
         "cases": 182,
-        "root_cause": 98.9,
-        "root_cause_and_boundary": 98.9,
-        "boundary": 98.9,
-        "replacement": 61.8,
-        "replacement_uncurated": 54.4
+        "root_cause": 99.5,
+        "root_cause_and_boundary": 99.5,
+        "boundary": 99.4,
+        "replacement": 66.2,
+        "replacement_uncurated": 58.8
       },
       "B": {
         "cases": 154,
-        "root_cause": 96.8,
-        "root_cause_and_boundary": 96.8,
-        "boundary": 96.8,
-        "replacement": 84.9,
-        "replacement_uncurated": 72.1
+        "root_cause": 97.4,
+        "root_cause_and_boundary": 97.4,
+        "boundary": 97.4,
+        "replacement": 87.2,
+        "replacement_uncurated": 74.4
       }
     },
     "by_origin": {
@@ -47,11 +47,11 @@
       },
       "reported": {
         "cases": 339,
-        "root_cause": 98.2,
-        "root_cause_and_boundary": 98.2,
-        "boundary": 98.2,
-        "replacement": 74.0,
-        "replacement_uncurated": 63.3
+        "root_cause": 98.8,
+        "root_cause_and_boundary": 98.8,
+        "boundary": 98.8,
+        "replacement": 77.3,
+        "replacement_uncurated": 66.7
       }
     }
   },
@@ -387,10 +387,10 @@
       "replacement_uncurated": true
     },
     "hold-fastmcp-init-log-level-imagesorcery-mcp": {
-      "root_cause": false,
-      "boundary": false,
-      "replacement": false,
-      "replacement_uncurated": false
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true,
+      "replacement_uncurated": true
     },
     "flask-before-first-request-ddtrace": {
       "root_cause": true,
@@ -497,8 +497,8 @@
     "hold-gradio-box-gradio-6815": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false,
-      "replacement_uncurated": false
+      "replacement": true,
+      "replacement_uncurated": true
     },
     "httpx-asyncclient-app-kwarg-datasette": {
       "root_cause": true,
@@ -575,14 +575,14 @@
     "hold-huggingface-hub-utils-errors-chat-with-mlx": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false,
-      "replacement_uncurated": false
+      "replacement": true,
+      "replacement_uncurated": true
     },
     "hold-huggingface-hub-utils-errors-mlx-examples": {
       "root_cause": true,
       "boundary": true,
-      "replacement": false,
-      "replacement_uncurated": false
+      "replacement": true,
+      "replacement_uncurated": true
     },
     "instructor-from-anthropic-not-yet-added": {
       "root_cause": true,
@@ -2085,10 +2085,10 @@
       "replacement_uncurated": null
     },
     "hold-urllib3-retry-default-method-whitelist-requests": {
-      "root_cause": false,
-      "boundary": false,
-      "replacement": false,
-      "replacement_uncurated": false
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true,
+      "replacement_uncurated": true
     },
     "weaviate-client-schema-module-removed-openllmetry": {
       "root_cause": true,

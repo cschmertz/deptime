@@ -1,10 +1,10 @@
 {
-"index_built_at": "2026-11-10T12:45:55+00:00",
+"index_built_at": "2026-11-11T00:29:07+00:00",
 "tracebacks": {
 "hold-anthropic-asyncanthropic-proxies-db-gpt": true,
 "hold-anthropic-types-beta-prompt-caching-llama-index": true,
 "hold-dspy-assert-transform-module-dspy-7805": true,
-"hold-fastmcp-init-log-level-imagesorcery-mcp": false,
+"hold-fastmcp-init-log-level-imagesorcery-mcp": true,
 "hold-gradio-box-gradio-6815": true,
 "hold-huggingface-hub-utils-errors-chat-with-mlx": true,
 "hold-huggingface-hub-utils-errors-mlx-examples": true,
@@ -30,7 +30,7 @@
 "hold-streamlit-experimental-data-editor-streamlit-jupyter": true,
 "hold-transformers-top-k-top-p-filtering-histogpt": true,
 "hold-transformers-top-k-top-p-filtering-ipex-llm": true,
-"hold-urllib3-retry-default-method-whitelist-requests": false
+"hold-urllib3-retry-default-method-whitelist-requests": true
 },
 "uses": {
 "ex-gesad-lab__benchmark-artifacts-pydantic-up|05730d57f8d675d7": {
@@ -144,7 +144,7 @@
 "label": "works"
 },
 "ex-illinoisdata__deepola-polars-up|15a253b31ccc2fb8": {
-"check_symbols": null,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -294,7 +294,7 @@
 "label": "works"
 },
 "ex-jenilv-07__slips-sdk-pandas-down|9d4335881f5bb6e3": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -1249,7 +1249,7 @@
 "label": "works"
 },
 "ex-samgu-nrx__cs2-stats-polars-down|15a253b31ccc2fb8": {
-"check_symbols": null,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -1349,7 +1349,7 @@
 "label": "works"
 },
 "ex-samgu-nrx__cs2-stats-polars-up|15a253b31ccc2fb8": {
-"check_symbols": null,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -3354,8 +3354,8 @@
 "label": "works"
 },
 "pin-aws__nova-prompt-optimizer-dspy-down|058377dec081efa0": {
-"check_symbols": true,
-"diff_versions": true,
+"check_symbols": false,
+"diff_versions": false,
 "label": "works"
 },
 "pin-aws__nova-prompt-optimizer-dspy-down|17ed334cc8dfa164": {
@@ -3364,8 +3364,8 @@
 "label": "breaks"
 },
 "pin-aws__nova-prompt-optimizer-dspy-down|1ecaad3962f1ff2a": {
-"check_symbols": true,
-"diff_versions": true,
+"check_symbols": false,
+"diff_versions": false,
 "label": "works"
 },
 "pin-aws__nova-prompt-optimizer-dspy-down|24c47b2474252067": {
@@ -3374,18 +3374,18 @@
 "label": "breaks"
 },
 "pin-aws__nova-prompt-optimizer-dspy-down|271fe9b49c9edc78": {
-"check_symbols": true,
-"diff_versions": true,
+"check_symbols": false,
+"diff_versions": false,
 "label": "works"
 },
 "pin-aws__nova-prompt-optimizer-dspy-down|3818f2be22cfa868": {
-"check_symbols": true,
-"diff_versions": true,
+"check_symbols": false,
+"diff_versions": false,
 "label": "works"
 },
 "pin-aws__nova-prompt-optimizer-dspy-down|422cf20c72f5de40": {
-"check_symbols": true,
-"diff_versions": true,
+"check_symbols": false,
+"diff_versions": false,
 "label": "works"
 },
 "pin-aws__nova-prompt-optimizer-dspy-down|43c21c573d9fbc2c": {
@@ -3404,8 +3404,8 @@
 "label": "breaks"
 },
 "pin-aws__nova-prompt-optimizer-dspy-down|4aac20e1499db89b": {
-"check_symbols": true,
-"diff_versions": true,
+"check_symbols": false,
+"diff_versions": false,
 "label": "works"
 },
 "pin-aws__nova-prompt-optimizer-dspy-down|563fa58930aa66cb": {
@@ -3414,8 +3414,8 @@
 "label": "breaks"
 },
 "pin-aws__nova-prompt-optimizer-dspy-down|597365850bfc9ef9": {
-"check_symbols": true,
-"diff_versions": true,
+"check_symbols": false,
+"diff_versions": false,
 "label": "works"
 },
 "pin-aws__nova-prompt-optimizer-dspy-down|5ec64ab560945574": {
@@ -3434,8 +3434,8 @@
 "label": "breaks"
 },
 "pin-aws__nova-prompt-optimizer-dspy-down|73dfc3b0c28e7698": {
-"check_symbols": true,
-"diff_versions": true,
+"check_symbols": false,
+"diff_versions": false,
 "label": "works"
 },
 "pin-aws__nova-prompt-optimizer-dspy-down|7bff744cd825e9cd": {
@@ -3444,8 +3444,8 @@
 "label": "breaks"
 },
 "pin-aws__nova-prompt-optimizer-dspy-down|835c57ed2ac99ace": {
-"check_symbols": true,
-"diff_versions": true,
+"check_symbols": false,
+"diff_versions": false,
 "label": "works"
 },
 "pin-aws__nova-prompt-optimizer-dspy-down|856e3a7f9163cc2c": {
@@ -3459,8 +3459,8 @@
 "label": "breaks"
 },
 "pin-aws__nova-prompt-optimizer-dspy-down|a326de40c0fb20d9": {
-"check_symbols": true,
-"diff_versions": true,
+"check_symbols": false,
+"diff_versions": false,
 "label": "works"
 },
 "pin-aws__nova-prompt-optimizer-dspy-down|aaa02d538e90574d": {
@@ -3469,8 +3469,8 @@
 "label": "breaks"
 },
 "pin-aws__nova-prompt-optimizer-dspy-down|acf23f5ce99bfea6": {
-"check_symbols": true,
-"diff_versions": true,
+"check_symbols": false,
+"diff_versions": false,
 "label": "works"
 },
 "pin-aws__nova-prompt-optimizer-dspy-down|b9eefdd3c1b609c3": {
@@ -3494,18 +3494,18 @@
 "label": "breaks"
 },
 "pin-aws__nova-prompt-optimizer-dspy-down|c304bd32248bda42": {
-"check_symbols": true,
-"diff_versions": true,
+"check_symbols": false,
+"diff_versions": false,
 "label": "works"
 },
 "pin-aws__nova-prompt-optimizer-dspy-down|c650e08f8af9ee2f": {
-"check_symbols": true,
-"diff_versions": true,
+"check_symbols": null,
+"diff_versions": false,
 "label": "works"
 },
 "pin-aws__nova-prompt-optimizer-dspy-down|c9b60eb5c57d67bb": {
-"check_symbols": true,
-"diff_versions": true,
+"check_symbols": false,
+"diff_versions": false,
 "label": "works"
 },
 "pin-aws__nova-prompt-optimizer-dspy-down|ca4bcd3ccd02779c": {
@@ -3524,8 +3524,8 @@
 "label": "breaks"
 },
 "pin-aws__nova-prompt-optimizer-dspy-down|cf50dca38d53fce4": {
-"check_symbols": true,
-"diff_versions": true,
+"check_symbols": false,
+"diff_versions": false,
 "label": "works"
 },
 "pin-aws__nova-prompt-optimizer-dspy-down|d3952f789be34fb8": {
@@ -5019,7 +5019,7 @@
 "label": "works"
 },
 "pin-clchrislombardo__churn-prediction-bank-polars-down|26ba21c1132d621f": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -5115,7 +5115,7 @@
 },
 "pin-clchrislombardo__churn-prediction-bank-polars-up|26ba21c1132d621f": {
 "check_symbols": true,
-"diff_versions": false,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-clchrislombardo__churn-prediction-bank-polars-up|278617fb88ce6a1a": {
@@ -5459,7 +5459,7 @@
 "label": "works"
 },
 "pin-easonxiao-888__mambatree-huggingface-hub-down|376e1c5a13b947ed": {
-"check_symbols": true,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -5534,8 +5534,8 @@
 "label": "works"
 },
 "pin-easonxiao-888__mambatree-huggingface-hub-down|98446da996d6f76d": {
-"check_symbols": false,
-"diff_versions": false,
+"check_symbols": true,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-easonxiao-888__mambatree-huggingface-hub-down|98eee2360485fbd8": {
@@ -5789,8 +5789,8 @@
 "label": "breaks"
 },
 "pin-fedirz__parler-tts-server-huggingface-hub-down|5f027475e24745a5": {
-"check_symbols": false,
-"diff_versions": false,
+"check_symbols": true,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-fedirz__parler-tts-server-huggingface-hub-down|6a7764d1d89ccef6": {
@@ -5809,8 +5809,8 @@
 "label": "works"
 },
 "pin-fedirz__parler-tts-server-huggingface-hub-up|5f027475e24745a5": {
-"check_symbols": false,
-"diff_versions": false,
+"check_symbols": true,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-fedirz__parler-tts-server-huggingface-hub-up|6a7764d1d89ccef6": {
@@ -6410,7 +6410,7 @@
 },
 "pin-googlecloudplatform__nl2sql-studio-langchain-down|f51b016e3674cbd9": {
 "check_symbols": true,
-"diff_versions": false,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-googlecloudplatform__nl2sql-studio-langchain-down|feca7b2cf39542f1": {
@@ -7125,7 +7125,7 @@
 },
 "pin-level12__flask-webtest-flask-up|5d05d69a1fa7df46": {
 "check_symbols": true,
-"diff_versions": false,
+"diff_versions": true,
 "label": "breaks"
 },
 "pin-level12__flask-webtest-flask-up|7e2d425f5b142fde": {
@@ -11524,7 +11524,7 @@
 "label": "works"
 },
 "pin-vishwasg217__fin-sight-llama-index-core-up|33afeba54de815aa": {
-"check_symbols": false,
+"check_symbols": true,
 "diff_versions": true,
 "label": "breaks"
 },
@@ -11604,7 +11604,7 @@
 "label": "breaks"
 },
 "pin-vishwasg217__fin-sight-llama-index-core-up|ebbe261bb879167d": {
-"check_symbols": false,
+"check_symbols": true,
 "diff_versions": true,
 "label": "breaks"
 },

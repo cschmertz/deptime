@@ -1,5 +1,5 @@
 {
-"index_built_at": "2026-11-10T12:45:55+00:00",
+"index_built_at": "2026-11-11T00:29:07+00:00",
 "tracebacks": {
 "hold-anthropic-beta-userlocation-airflow-pydantic-ai": true,
 "hold-chromadb-includeenum-autogen": true,
@@ -11721,7 +11721,7 @@
 "label": "works"
 },
 "pin-tomburdge__polari-polars-down|15a253b31ccc2fb8": {
-"check_symbols": null,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -11881,7 +11881,7 @@
 "label": "works"
 },
 "pin-tomburdge__polari-polars-up|15a253b31ccc2fb8": {
-"check_symbols": null,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },

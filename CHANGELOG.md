@@ -23,13 +23,44 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
 
 ## [Unreleased]
 
+### Added
+- `check_symbols` says when a callable's body does nothing but raise (`SymbolCheck.raises`, the exception and its
+  message), and `diff_versions` reports the release where it started with a new event kind, `now_raises`
+  (DT-DATA-67): llama-index-core 0.14's `ServiceContext.from_defaults` only raises "ServiceContext is deprecated. …",
+  so calls to it fail though the name is there. New nullable `raises` columns in the index; older releases ignore
+  them. The events are in the `SNAPSHOT_FORMAT` 26 index published 2026-11-10, so `diff_versions` reports them
+  without an upgrade; `SymbolCheck.raises` needs this release.
+- `diff_versions(used_symbols=...)` reports `added` and `removed` for used names that aren't public API, with
+  `detail.internal` (DT-CORE-46): flask 3.0 removed `_app_ctx_stack`.
+
 ### Fixed
 - A release with no code of its own that pins another distribution at another version is read from that
   distribution's code, which is what installing it imports (DT-DATA-63): dspy 0.1.5 ships only `dspy_dummy` and
   requires `dspy-ai==2.4.5`, so it was never indexed and code asked about it was answered at 0.1.4, an empty
   placeholder, where every name read missing. It now reads dspy-ai 2.4.5's API, `diff_versions` shows what dspy
   2.5 really changed from it, and each tool's `note` says whose code a version's answer comes from. The index part
-  needs no upgrade (the next nightly build); the note needs this release.
+  is live without an upgrade (2026-11-10); the note needs this release.
+- huggingface_hub's top-level functions (`list_models`, `upload_folder` and the rest, bound as `api.list_models`)
+  have `HfApi`'s signatures, so a keyword they reject reads as a break (DT-DATA-66); so do streamlit 1.17-1.32's
+  `st.line_chart`, `st.dataframe` and the other names bound to `_main`'s methods, ollama's top-level `chat` and
+  `generate`, and django's `core.checks.register`. In the `SNAPSHOT_FORMAT` 26 index published
+  2026-11-10; no upgrade needed.
+- `pandas.__version__` reads present in every release, however a module binds its `__version__` (DT-DATA-65). In the `SNAPSHOT_FORMAT` 26 index published
+  2026-11-10; no upgrade needed.
+- Names a module `__getattr__` serves by testing `name in dir(module)` read present with their warning: polars 1.x's
+  top-level exceptions (`polars.ComputeError`) until 2.0 removes them (DT-DATA-64). huggingface_hub 0.12-0.27's lazy
+  loader's private names (`_CACHED_NO_EXIST`) are recorded as internal names. In the `SNAPSHOT_FORMAT` 26 index published
+  2026-11-10; no upgrade needed.
+- A class gets the properties and attributes its metaclass defines, and a property's deprecation is read from its
+  getter (DT-DATA-69): urllib3 1.26's `Retry.DEFAULT_METHOD_WHITELIST` reads removed in 2.0, not never existed;
+  pandas' `GroupBy.grouper` (2.2) and `DatetimeIndex.dayofweek` (3.1) read deprecated. Protobuf enums in
+  streamlit and qdrant-client get their values (`Alert.Format.ERROR`). In the `SNAPSHOT_FORMAT` 26 index published
+  2026-11-10; no upgrade needed.
+- `explain_error` reads fastmcp 3's "FastMCP() no longer accepts `log_level`. Pass `log_level` to
+  `run_http_async()`" as the removed argument it is, with `run_http_async` as the replacement (DT-CORE-47).
+- Replacements for a removed class from its constructor's warning (gradio's `Box` → `Group`), and for a removed
+  private module whose classes moved together (huggingface_hub's `utils._errors` → `errors`) (DT-CORE-48). The
+  module hints are in the index published 2026-11-10; the class hints need this release.
 
 ## [0.1.11] - 2026-11-10
 

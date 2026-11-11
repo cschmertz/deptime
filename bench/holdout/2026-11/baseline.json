@@ -1,5 +1,5 @@
 {
-"index_built_at": "2026-11-10T12:45:55+00:00",
+"index_built_at": "2026-11-11T00:29:07+00:00",
 "tracebacks": {
 "hold-anthropic-beta-prompt-caching-gptcmd": true,
 "hold-django-checkconstraint-check-drf-toolkit": true,
@@ -1859,7 +1859,7 @@
 "label": "works"
 },
 "pin-crabbuild__crab-polars-down|15a253b31ccc2fb8": {
-"check_symbols": null,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },
@@ -1894,7 +1894,7 @@
 "label": "works"
 },
 "pin-crabbuild__crab-polars-up|15a253b31ccc2fb8": {
-"check_symbols": null,
+"check_symbols": false,
 "diff_versions": false,
 "label": "works"
 },

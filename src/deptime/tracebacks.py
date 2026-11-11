@@ -26,13 +26,24 @@ CHAIN_MARKERS = {
     "The above exception was the direct cause of the following exception:",
     "During handling of the above exception, another exception occurred:",
 }
+FLAT_BREAK_RE = re.compile(
+    "(" + "|".join(re.escape(m) for m in sorted({TRACEBACK_HEADER, *CHAIN_MARKERS})) + ")"
+)
 FRAME_RE = re.compile(r'^\s*File "(?P<file>[^"]+)", line (?P<line>\d+)(?:, in (?P<func>.+?))?\s*$')
 EXC_LINE_RE = re.compile(  # openai's APIRemovedInV1 is the one supported exception without the usual suffix
     r"^(?P<type>(?:[A-Za-z_]\w*\.)*(?:[A-Za-z_]\w*)?(?:Error|Exception|APIRemovedInV1))(?::\s?(?P<msg>.*))?$"
 )
 MAX_MESSAGE_LINES = 10  # lines after the exception line that may continue a multi-line message
 CARET_RE = re.compile(r"^\s*[~^]+\s*$")
-SITE_RE = re.compile(r"[\\/](?:site|dist)-packages[\\/](?P<rel>.+?)\.pyi?$")
+# A traceback flattened onto one line (DT-CORE-52): where a frame starts, and an exception class in the middle of a
+# line. A bare `Error` or `Exception` mid-line is a logger's word ("ERROR - Error: ..."), not a class.
+FLAT_FRAME_RE = re.compile(r'File "[^"]+", line \d+(?:, in (?:<[\w-]+>|[A-Za-z_][\w.]*))?')
+MID_EXC_RE = re.compile(
+    r"(?<![\w.])(?P<type>(?:[A-Za-z_]\w*\.)*(?:[A-Za-z_]\w*(?:Error|Exception)|APIRemovedInV1)):(?:\s|$)"
+)
+FLAT_CARETS_RE = re.compile(r"(?:\s+[~^]+)+\s*$")
+# A path cut to start at site-packages, as pasted tracebacks often shorten it, is a library's too.
+SITE_RE = re.compile(r"(?:^|[\\/])(?:site|dist)-packages[\\/](?P<rel>.+?)\.pyi?$")
 # The interpreter's version in a frame's path: `lib/python3.12/` (and `python3.13t`, free-threaded), Windows'
 # `Python312\`, the Microsoft Store's `PythonSoftwareFoundation.Python.3.12_` (DT-DATA-06).
 # Frame lines with no `File "..."`: IPython 8's `File <path>:<line>` and JupyterLab's link to each file.
@@ -76,11 +87,12 @@ MISSING_ARG_RE = re.compile(
 TOO_MANY_POS_RE = re.compile(
     r"(?P<owner>[\w.]+)\(\) takes .+? positional arguments? but \d+ (?:were|was) given"
 )
-# Libraries that name a removed API in their own words (DT-CORE-05); templates copied from their wheels.
-NUMPY_EXPIRED_RE = re.compile(r"`np\.(?P<name>\w+)` was removed in the NumPy 2\.0 release")
+# Libraries that name a removed API in their own words (DT-CORE-05); templates copied from their wheels. numpy's
+# backticks are optional: Markdown drops them from a message pasted outside a code block (DT-CORE-52).
+NUMPY_EXPIRED_RE = re.compile(r"(?<![\w.])`?np\.(?P<name>\w+)`? was removed in the NumPy 2\.0 release")
 # numpy 2.0.0-2.3.5 only; 2.4.0 raises the standard "'numpy.ndarray' object has no attribute" message (DT-CORE-21).
 NUMPY_MEMBER_REMOVED_RE = re.compile(
-    r"`(?P<name>\w+)` was removed from (?P<owner>the ndarray class|scalar types) in NumPy 2\.0"
+    r"(?<![\w.])`?(?P<name>\w+)`? was removed from (?P<owner>the ndarray class|scalar types) in NumPy 2\.0"
 )
 NUMPY_MEMBER_OWNERS = {"the ndarray class": "numpy.ndarray", "scalar types": "numpy.generic"}
 PYDANTIC_REMOVED_RE = re.compile(r"`(?P<module>[\w.]+):(?P<name>\w+)` has been removed in V2")
@@ -97,6 +109,14 @@ HOOK_ARG_RE = re.compile(
 )
 BUILTIN_EXCEPTIONS = frozenset(
     n for n, v in vars(builtins).items() if isinstance(v, type) and issubclass(v, BaseException)
+)
+# Libraries' own messages, each raised with one exception class only: quoted without it, they read as it (DT-CORE-52).
+QUOTED_LIBRARY_MESSAGES = (
+    (NUMPY_EXPIRED_RE, "AttributeError"),
+    (NUMPY_MEMBER_REMOVED_RE, "AttributeError"),
+    (PYDANTIC_REMOVED_RE, "PydanticImportError"),
+    (PYDANTIC_MOVED_RE, "PydanticImportError"),
+    (OPENAI_V1_RE, "APIRemovedInV1"),
 )
 # The exception type a message implies, for errors logged or quoted without their exception line.
 INFERRED_TYPE = {
@@ -218,24 +238,71 @@ def parse_traceback(text: str) -> ErrorSignal | None:
     and isn't a shape DepTime analyses itself, the nearest exception down the chain that is one is returned
     instead, with `wrapped_in` naming the last one."""
     lines = _clean_lines(text)
+    found = _exception_lines(lines)
+    if found:
+        return _python_version_of(lines, _signal_in_chain(lines, found))
 
-    found = [
+    # No line starts with an exception class. One in the middle of a line counts (a traceback flattened onto one
+    # line, a test runner's summary) unless it's a shape DepTime doesn't analyse and a known message is quoted.
+    unflattened = [part for line in lines for part in _unflattened(line)]
+    found = _exception_lines(unflattened)
+    mid = _python_version_of(unflattened, _signal_in_chain(unflattened, found)) if found else None
+    if mid is not None and mid.kind != "unknown":
+        return mid
+    return _quoted_message_signal(lines) or mid
+
+
+def _exception_lines(lines: list[str]) -> list[tuple[int, str, str]]:
+    """Each line that starts with an exception class: its index, the class and the message."""
+    return [
         (i, m.group("type"), (m.group("msg") or "").strip())
         for i, line in enumerate(lines)
         if (m := EXC_LINE_RE.match(_exception_text(line)))
     ]
-    if not found:
-        # Logged, quoted or JSON-wrapped errors lose their exception line: use the last known message.
-        for i in range(len(lines) - 1, -1, -1):
+
+
+def _quoted_message_signal(lines: list[str]) -> ErrorSignal | None:
+    """Logged, quoted or JSON-wrapped errors lose their exception line: the last known message, with the class it
+    implies (a library's own message, or one of Python's)."""
+    for i in range(len(lines) - 1, -1, -1):
+        exc_type = next((t for rx, t in QUOTED_LIBRARY_MESSAGES if rx.search(lines[i])), None)
+        if exc_type is None:
             probe = ErrorSignal(kind="unknown", exception_type="", message="")
             _classify(probe, lines[i])
-            if probe.kind != "unknown":
-                return _python_version_of(
-                    lines, _signal_at(lines, i, INFERRED_TYPE[probe.kind], lines[i].strip())
-                )
-        return None
+            exc_type = INFERRED_TYPE.get(probe.kind)
+        if exc_type is not None:
+            return _python_version_of(lines, _signal_at(lines, i, exc_type, lines[i].strip()))
+    return None
 
-    return _python_version_of(lines, _signal_in_chain(lines, found))
+
+def _unflattened(line: str) -> list[str]:
+    """A line with an exception class in its middle, as the lines Python prints (DT-CORE-52): an issue title or a
+    one-line log may run a whole traceback together, `Traceback (most recent call last): File "a.py", line 3, in f
+    g() TypeError: ...`. Split at the header and the chain markers, then each part's frames: a frame's code runs to
+    the next frame, the last one's to the first exception class after it. Any other line stays as it is."""
+    if not any(MID_EXC_RE.finditer(line, 1)):
+        return [line]
+    out: list[str] = []
+    for part in FLAT_BREAK_RE.split(line):
+        part = part.strip()
+        if not part:
+            continue
+        frames = list(FLAT_FRAME_RE.finditer(part))
+        tail = frames[-1].end() if frames else 0
+        exc = next(MID_EXC_RE.finditer(part, tail), None)
+        if frames:
+            out.append(part[: frames[0].start()].strip())
+        elif exc is not None:
+            out.append(part[: exc.start()].strip())
+        else:
+            out.append(part)
+        for k, fm in enumerate(frames):
+            end = frames[k + 1].start() if k + 1 < len(frames) else (exc.start() if exc else len(part))
+            out.append("  " + fm.group(0))
+            out.append("    " + FLAT_CARETS_RE.sub("", part[fm.end() : end]).strip())
+        if exc is not None:
+            out.append(part[exc.start() :].strip())
+    return [o for o in out if o.strip()]
 
 
 def _python_version_of(lines: list[str], signal: ErrorSignal) -> ErrorSignal:

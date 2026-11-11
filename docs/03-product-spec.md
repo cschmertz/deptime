@@ -51,7 +51,7 @@ All tools are read-only and idempotent, and return structured output (pydantic m
 ### `explain_error(traceback, installed_versions?, pip_freeze?) → ExplainResult` (main tool)
 
 - **Input:**
-  - `traceback`: the full traceback, or just the final exception line. Max 20,000 chars.
+  - `traceback`: the full traceback, or just the final exception line. Max 20,000 chars. A traceback flattened onto one line, an exception class in the middle of a line (a test runner's summary) and a library's own message quoted without its class (numpy 2's "`np.X` was removed in the NumPy 2.0 release") also work (DT-CORE-52).
   - Versions: `installed_versions` as a dict, or `pip_freeze` as `pip freeze`/`pip list` text.
   - The Python version, for a missing standard-library module or name: `"python"` in `installed_versions`, else the version the traceback's paths name (`lib/python3.12/`, and the file an `ImportError` names, `(/usr/lib/python3.10/collections/__init__.py)`), reported as `signal.python_version`.
   - A covered package listed under another distribution that installs the same code (`pinecone-client` 3.2.2 is pinecone 3.2.2) counts as that package. When another distribution installs other code under a covered import name (`agents`: TensorFlow Agents, ai-agents), the versions decide which one raised: a rival installed instead of the covered package, or a whole `pip_freeze` without it, puts the error in `not_covered` (DT-CORE-03).

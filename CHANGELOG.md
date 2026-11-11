@@ -28,6 +28,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
   (`SymbolCheck.max_positional`, given the call's `positional` count), naming the last release that took them:
   pydantic 2's keyword-only `FieldInfo(default)` (DT-CORE-50)
 
+### Fixed
+- `explain_error` reads a traceback flattened onto one line (`File "...", line 77, in f code AttributeError: ...`),
+  an exception class in the middle of a line, and a library's own message quoted without its class, such as numpy
+  2's "`np.sctypes` was removed in the NumPy 2.0 release", with or without the backticks (DT-CORE-52)
+
 ## [0.1.12] - 2026-11-10
 
 ### Added

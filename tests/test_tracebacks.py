@@ -643,3 +643,107 @@ def test_pytest_and_ipython_location_lines_are_frames():
         assert s.python_version == "3.12"
     assert parse_traceback(PYTEST_TB).frames[1].function == "_write_opts"
     assert parse_traceback(IPYTHON_TB).frames[1].function == "Parameter.make_metavar"  # without the arguments
+
+
+# DT-CORE-52: two shapes from the 2026-11e holdout (numpy 2): a message quoted without its exception class, and a
+# traceback flattened onto one line.
+
+
+def test_a_library_message_quoted_without_its_exception_class():
+    cases = {  # imgaug's issue quotes only numpy's message
+        "`np.sctypes` was removed in the NumPy 2.0 release. Access dtypes explicitly instead.. "
+        "Did you mean: 'dtypes'?": ("module_attribute", "AttributeError", "numpy", None, "sctypes"),
+        "imgaug failed: `itemset` was removed from the ndarray class in NumPy 2.0. Use `arr[index] = value` instead.": (
+            "object_attribute",
+            "AttributeError",
+            None,
+            "numpy.ndarray",
+            "itemset",
+        ),
+        "`pydantic:ConstrainedInt` has been removed in V2.": (
+            "import_name",
+            "PydanticImportError",
+            "pydantic",
+            None,
+            "ConstrainedInt",
+        ),
+        "failed: You tried to access openai.Completion, but this is no longer supported in openai>=1.0.0": (
+            "module_attribute",
+            "APIRemovedInV1",
+            "openai",
+            None,
+            "Completion",
+        ),
+    }
+    for text, expected in cases.items():
+        s = parse_traceback(text)
+        assert s is not None, text
+        assert (s.kind, s.exception_type, s.module, s.owner, s.name) == expected, text
+    assert parse_traceback(next(iter(cases))).suggestion == "dtypes"
+
+
+def test_numpy_s_message_without_its_backticks():
+    # Markdown drops the backticks when an issue pastes the message outside a code block.
+    s = parse_traceback(
+        "AttributeError: np.cast was removed in the NumPy 2.0 release. Use np.asarray(arr, dtype=dtype) instead."
+    )
+    assert (s.kind, s.module, s.name) == ("module_attribute", "numpy", "cast")
+
+
+def test_a_traceback_flattened_onto_one_line():
+    # tensorflow-onnx's issue: the frame, its code and the exception line run together.
+    s = parse_traceback(
+        'File "site-packages/tf2onnx/tfonnx.py", line 77, in rewrite_constant_fold "Cast": np.cast, '
+        "AttributeError: np.cast was removed in the NumPy 2.0 release. Use np.asarray(arr, dtype=dtype) instead."
+    )
+    assert (s.kind, s.exception_type, s.module, s.name) == (
+        "module_attribute",
+        "AttributeError",
+        "numpy",
+        "cast",
+    )
+    assert [(f.file, f.line, f.function, f.code) for f in s.frames] == [
+        ("site-packages/tf2onnx/tfonnx.py", 77, "rewrite_constant_fold", '"Cast": np.cast,')
+    ]
+    assert s.frames[0].module == "tf2onnx.tfonnx"
+    assert s.message.startswith("np.cast was removed")
+
+    s = parse_traceback(
+        'Traceback (most recent call last): File "/app/main.py", line 3, in <module> from langchain.chains import '
+        'LLMChain File "/venv/lib/python3.11/site-packages/langchain/chains/__init__.py", line 1, in <module> '
+        "import x ImportError: cannot import name 'LLMChain' from 'langchain.chains'"
+    )
+    assert (s.kind, s.module, s.name) == ("import_name", "langchain.chains", "LLMChain")
+    assert [(f.function, f.module, f.code) for f in s.frames] == [
+        ("<module>", None, "from langchain.chains import LLMChain"),
+        ("<module>", "langchain.chains", "import x"),
+    ]
+    assert "langchain.chains.LLMChain" in s.referenced_names
+    assert s.python_version == "3.11"
+
+
+def test_a_flattened_chain_reads_the_cause():
+    s = parse_traceback(
+        'Traceback (most recent call last): File "/venv/lib/python3.12/site-packages/numpy/__init__.py", line 400, '
+        "in __getattr__ raise AttributeError(msg) ^^^^^ AttributeError: module 'numpy' has no attribute 'float' "
+        "The above exception was the direct cause of the following exception: Traceback (most recent call last): "
+        'File "/app/main.py", line 5, in <module> main() RuntimeError: could not start the service'
+    )
+    assert (s.kind, s.module, s.name, s.wrapped_in) == ("module_attribute", "numpy", "float", "RuntimeError")
+    assert [(f.module, f.code) for f in s.frames] == [("numpy", "raise AttributeError(msg)")]
+
+
+def test_an_exception_class_in_the_middle_of_a_line():
+    s = parse_traceback("FAILED tests/test_io.py::test_read - polars.exceptions.ColumnNotFoundError: b")
+    assert (s.kind, s.exception_type, s.message) == ("unknown", "ColumnNotFoundError", "b")
+    # A bare "Error:" is a logger's word, not a class: the message's own type is inferred, as before.
+    s = parse_traceback("ERROR - Error: 'FastMCP' object has no attribute 'get_tools'")
+    assert (s.kind, s.exception_type) == ("object_attribute", "AttributeError")
+    # An unclassified class mid-line doesn't hide a known message on another line.
+    s = parse_traceback(
+        "the job failed with RuntimeError: see below\nClient.chat() got an unexpected keyword argument 'tools'"
+    )
+    assert (s.kind, s.owner, s.kwarg) == ("unexpected_kwarg", "Client.chat", "tools")
+    # A line that starts with an exception still wins over one with a class mid-line.
+    s = parse_traceback("log: KeyError: 'x'\nAttributeError: module 'numpy' has no attribute 'float'")
+    assert (s.kind, s.name) == ("module_attribute", "float")

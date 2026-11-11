@@ -57,7 +57,7 @@ Deprecation messages come from third-party source. A malicious or compromised pa
 
 - **No outbound requests per call,** so there's no SSRF surface.
 - **Input caps:**
-  - traceback: 20K chars;
+  - traceback: 20K chars, parsed in time linear in its length (DT-CORE-56; `tests/test_tracebacks.py` times adversarial inputs);
   - freeze: 100K chars, 5K lines;
   - symbols: 100;
   - `used_symbols`: 500;

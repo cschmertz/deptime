@@ -747,3 +747,35 @@ def test_an_exception_class_in_the_middle_of_a_line():
     # A line that starts with an exception still wins over one with a class mid-line.
     s = parse_traceback("log: KeyError: 'x'\nAttributeError: module 'numpy' has no attribute 'float'")
     assert (s.kind, s.name) == ("module_attribute", "float")
+
+
+def test_adversarial_input_parses_in_linear_time():
+    # DT-CORE-56: the parser runs on untrusted text on every call. Patterns that started with an unanchored repeat
+    # (`[\w.]+\(\) got an unexpected ...`), or ended a lazy repeat with `\s*$`, took seconds on one long word or a
+    # long run of spaces. Each input below took from a quarter of a second to 12 seconds before; now at most tens of
+    # milliseconds (the best of three runs, so a busy machine doesn't fail it).
+    import time
+
+    n = MAX_INPUT_CHARS - 1000
+    inputs = {
+        "one long word": "q " + "A" * n + "Errox: y",
+        "a dotted chain": "x " + ".".join(["a"] * (n // 2)),
+        "a long word before a bare keyword error": "A" * n
+        + "\nTypeError: got an unexpected keyword argument 'x'",
+        "spaces after a frame": 'File "a.py", line 1, in f' + " " * n + "y\nValueError: v",
+        "spaces after a location line": "a.py:1: in f" + " " * n + "y\nValueError: v",
+        "spaces after an IPython frame": "File a.py:1, in f" + " " * n + "y\nValueError: v",
+        "spaces before a suggestion": "AttributeError: ." + " " * n + "x",
+        "carets in a flattened frame": 'File "a.py", line 1, in f' + " ^" * (n // 2) + "y KeyError: k",
+        "spaces in a flattened frame": 'File "a.py", line 1, in f' + " " * n + "y KeyError: k",
+        "a repeated positional-count prefix": "TypeError: " + "f() takes " * (n // 10),
+        "repeated site-packages": 'File "' + "/site-packages/" * (n // 15) + '", line 1, in f\nValueError: v',
+        "a repeated hook prefix": "pluggy.PluginValidationError: " + "for hook 'a' " * (n // 13),
+    }
+    for name, text in inputs.items():
+        best = float("inf")
+        for _ in range(3):
+            start = time.perf_counter()
+            parse_traceback(text)
+            best = min(best, time.perf_counter() - start)
+        assert best < 0.25, name

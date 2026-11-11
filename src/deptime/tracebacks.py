@@ -29,7 +29,10 @@ CHAIN_MARKERS = {
 FLAT_BREAK_RE = re.compile(
     "(" + "|".join(re.escape(m) for m in sorted({TRACEBACK_HEADER, *CHAIN_MARKERS})) + ")"
 )
-FRAME_RE = re.compile(r'^\s*File "(?P<file>[^"]+)", line (?P<line>\d+)(?:, in (?P<func>.+?))?\s*$')
+# Patterns run on untrusted text, so each stays linear (DT-CORE-56): a repeat that can start anywhere has a
+# lookbehind that lets it start only at the beginning of a name, and a trailing name ends at a non-space character
+# rather than being a lazy `.+?` before `\s*$`.
+FRAME_RE = re.compile(r'^\s*File "(?P<file>[^"]+)", line (?P<line>\d+)(?:, in (?P<func>.*\S))?\s*$')
 EXC_LINE_RE = re.compile(  # openai's APIRemovedInV1 is the one supported exception without the usual suffix
     r"^(?P<type>(?:[A-Za-z_]\w*\.)*(?:[A-Za-z_]\w*)?(?:Error|Exception|APIRemovedInV1))(?::\s?(?P<msg>.*))?$"
 )
@@ -41,9 +44,8 @@ FLAT_FRAME_RE = re.compile(r'File "[^"]+", line \d+(?:, in (?:<[\w-]+>|[A-Za-z_]
 MID_EXC_RE = re.compile(
     r"(?<![\w.])(?P<type>(?:[A-Za-z_]\w*\.)*(?:[A-Za-z_]\w*(?:Error|Exception)|APIRemovedInV1)):(?:\s|$)"
 )
-FLAT_CARETS_RE = re.compile(r"(?:\s+[~^]+)+\s*$")
 # A path cut to start at site-packages, as pasted tracebacks often shorten it, is a library's too.
-SITE_RE = re.compile(r"(?:^|[\\/])(?:site|dist)-packages[\\/](?P<rel>.+?)\.pyi?$")
+SITE_RE = re.compile(r"(?:^|[\\/])(?:site|dist)-packages[\\/]")
 # The interpreter's version in a frame's path: `lib/python3.12/` (and `python3.13t`, free-threaded), Windows'
 # `Python312\`, the Microsoft Store's `PythonSoftwareFoundation.Python.3.12_` (DT-DATA-06).
 # Frame lines with no `File "..."`: IPython 8's `File <path>:<line>` and JupyterLab's link to each file.
@@ -54,15 +56,15 @@ IPYTHON_FRAME_RES = (
 # Frames in outputs with no `File "..."` lines (DT-CORE-02): pytest's `path:line: in func` (and, after the `E` lines,
 # `path:line: ExcType` for the innermost frame), and IPython's `File path:line, in func`.
 PYTEST_FRAME_RE = re.compile(
-    r"^(?P<file>[^\s:>][^:]*?\.pyi?):(?P<line>\d+):(?: in (?P<func>\S.*?)| (?P<exc>[A-Za-z_][\w.]*))?\s*$"
+    r"^(?P<file>[^\s:>][^:]*?\.pyi?):(?P<line>\d+):(?: in (?P<func>\S(?:.*\S)?)| (?P<exc>[A-Za-z_][\w.]*))?\s*$"
 )
-IPYTHON_LOCATION_RE = re.compile(r"^\s*File (?P<file>\S+?\.pyi?):(?P<line>\d+)(?:, in (?P<func>.+?))?\s*$")
+IPYTHON_LOCATION_RE = re.compile(r"^\s*File (?P<file>\S+?\.pyi?):(?P<line>\d+)(?:, in (?P<func>.*\S))?\s*$")
 PYTHON_PATH_RES = (
     re.compile(r"[\\/]python3\.(?P<minor>\d{1,2})t?[\\/]"),
     re.compile(r"[\\/]Python3(?P<minor>\d{1,2})(?:-32|-arm64)?[\\/]", re.IGNORECASE),
     re.compile(r"[\\/]PythonSoftwareFoundation\.Python\.3\.(?P<minor>\d{1,2})_"),
 )
-SUGGESTION_RE = re.compile(r"\.?\s*Did you mean:? '(?P<s>[\w.]+)'\??\s*$")
+SUGGESTION_RE = re.compile(r"Did you mean:? '(?P<s>[\w.]+)'\??\s*$")
 DOTTED_RE = re.compile(r"(?<![\w.])([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+)")
 CALL_RE = re.compile(r"(?<![\w.])([A-Za-z_][\w.]*)\s*\(")
 FROM_IMPORT_RE = re.compile(r"^\s*from\s+(?P<mod>[\w.]+)\s+import\s+(?P<names>[\w\s,()]+)")
@@ -77,15 +79,19 @@ NO_MODULE_RE = re.compile(r"No module named '(?P<module>[\w.]+)'")
 MODULE_ATTR_RE = re.compile(r"module '?(?P<module>[\w.]+)'? has no attribute '?(?P<name>\w+)'?")
 TYPE_ATTR_RE = re.compile(r"type object '(?P<owner>[\w.]+)' has no attribute '(?P<name>\w+)'")
 OBJ_ATTR_RE = re.compile(r"'(?P<owner>[\w.]+)' object has no attribute '(?P<name>\w+)'")
-UNEXPECTED_KW_RE = re.compile(r"(?P<owner>[\w.]+)\(\) got an unexpected keyword argument '(?P<kwarg>\w+)'")
+UNEXPECTED_KW_RE = re.compile(
+    r"(?<![\w.])(?P<owner>[\w.]+)\(\) got an unexpected keyword argument '(?P<kwarg>\w+)'"
+)
 BARE_KW_RE = re.compile(r"got an unexpected keyword argument '(?P<kwarg>\w+)'")  # no callable named
 # fastmcp 3's own message for a keyword it removed: "FastMCP() no longer accepts `log_level`. Pass ..." (DT-CORE-47).
-NO_LONGER_ACCEPTS_RE = re.compile(r"(?P<owner>[\w.]+)\(\) no longer accepts [`'\"]?(?P<kwarg>\w+)[`'\"]?")
+NO_LONGER_ACCEPTS_RE = re.compile(
+    r"(?<![\w.])(?P<owner>[\w.]+)\(\) no longer accepts [`'\"]?(?P<kwarg>\w+)[`'\"]?"
+)
 MISSING_ARG_RE = re.compile(
-    r"(?P<owner>[\w.]+)\(\) missing \d+ required (?:positional|keyword-only) arguments?: (?P<names>.+)$"
+    r"(?<![\w.])(?P<owner>[\w.]+)\(\) missing \d+ required (?:positional|keyword-only) arguments?: (?P<names>.+)$"
 )
 TOO_MANY_POS_RE = re.compile(
-    r"(?P<owner>[\w.]+)\(\) takes .+? positional arguments? but \d+ (?:were|was) given"
+    r"(?<![\w.])(?P<owner>[\w.]+)\(\) takes [^()]{1,80}? positional arguments? but \d+ (?:were|was) given"
 )
 # Libraries that name a removed API in their own words (DT-CORE-05); templates copied from their wheels. numpy's
 # backticks are optional: Markdown drops them from a message pasted outside a code block (DT-CORE-52).
@@ -105,7 +111,8 @@ LAZY_ATTR_RE = re.compile(r"^No (?P<module>[A-Za-z_][\w.]*) attribute (?P<name>\
 # was removed in version 2.0; use `scan_csv` instead". A dotted name is a class member.
 LIBRARY_REMOVED_RE = re.compile(r"^`(?P<name>[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)?)` (?:was|has been) removed\b")
 HOOK_ARG_RE = re.compile(
-    r"for hook '(?P<hook>\w+)'.*?Argument\(s\) \{'(?P<arg>\w+)'.*? are declared in the hookimpl", re.S
+    r"for hook '(?P<hook>\w+)'.{0,2000}?Argument\(s\) \{'(?P<arg>\w+)'.{0,500}? are declared in the hookimpl",
+    re.S,
 )
 BUILTIN_EXCEPTIONS = frozenset(
     n for n, v in vars(builtins).items() if isinstance(v, type) and issubclass(v, BaseException)
@@ -210,10 +217,11 @@ def _exception_text(line: str) -> str:
 
 
 def _module_from_path(path: str) -> str | None:
-    m = SITE_RE.search(path)
-    if not m:
+    stem, dot, ext = path.rpartition(".")
+    m = SITE_RE.search(stem) if dot and ext in ("py", "pyi") else None
+    if not m or m.end() == len(stem):
         return None
-    parts = re.split(r"[\\/]", m.group("rel"))
+    parts = re.split(r"[\\/]", stem[m.end() :])
     if parts and parts[-1] == "__init__":
         parts = parts[:-1]
     return ".".join(parts) or None
@@ -299,7 +307,7 @@ def _unflattened(line: str) -> list[str]:
         for k, fm in enumerate(frames):
             end = frames[k + 1].start() if k + 1 < len(frames) else (exc.start() if exc else len(part))
             out.append("  " + fm.group(0))
-            out.append("    " + FLAT_CARETS_RE.sub("", part[fm.end() : end]).strip())
+            out.append("    " + part[fm.end() : end].strip().rstrip("~^ \t"))  # no code line ends in ~ or ^
         if exc is not None:
             out.append(part[exc.start() :].strip())
     return [o for o in out if o.strip()]
@@ -464,7 +472,7 @@ def _owner_from_constructor_call(signal: ErrorSignal) -> None:
 
 def _owner_from_call_site(signal: ErrorSignal, lines: list[str]) -> None:
     """`got an unexpected keyword argument 'x'` with no callable (scikit-learn): take the call that passes x=."""
-    call = re.compile(rf"(?P<callee>[A-Za-z_][\w.]*)\([^()]*\b{re.escape(signal.kwarg or '')}\s*=")
+    call = re.compile(rf"(?<![\w.])(?P<callee>[A-Za-z_][\w.]*)\([^()]*\b{re.escape(signal.kwarg or '')}\s*=")
     for line in reversed(lines):
         if m := call.search(line):
             callee = m.group("callee")

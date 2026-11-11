@@ -32,6 +32,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
 - `explain_error` reads a traceback flattened onto one line (`File "...", line 77, in f code AttributeError: ...`),
   an exception class in the middle of a line, and a library's own message quoted without its class, such as numpy
   2's "`np.sctypes` was removed in the NumPy 2.0 release", with or without the backticks (DT-CORE-52)
+- The traceback parser no longer takes seconds on some inputs within the 20,000-character limit (one long word, a
+  long run of spaces after a frame line): every pattern it runs is linear in the input (DT-CORE-56)
 
 ## [0.1.12] - 2026-11-10
 

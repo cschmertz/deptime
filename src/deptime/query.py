@@ -1744,6 +1744,10 @@ class DepTime:
         before = f.last_version_without if not_yet else f.last_version_with
         after = (f.first_version_with if not_yet else f.first_version_without) or f.resolved_version
         update: dict = {}
+        if (
+            where := self._defined_at(name, path, (after, before) if not_yet else (before, after))
+        ) is not None:
+            update["defined_at"] = where + (f"({param})" if param else "")
         if f.issue not in {"never_existed", "module_removed"}:
             update["signature_before"] = self._signature(name, path, before)
             update["signature_after"] = self._signature(name, path, after)
@@ -1810,6 +1814,22 @@ class DepTime:
                 top = min(init["last_ordinal"], hi)
                 if top >= max(init["first_ordinal"], span["first_ordinal"]) and takes(init["params"]):
                     return self._version(name, top)
+        return None
+
+    def _defined_at(self, name: str, path: str, versions: tuple[str | None, ...]) -> str | None:
+        """Where the object at `path` is defined, when that's another path (DT-CORE-55): its canonical path at the
+        first of `versions` (the side of the change that has it first) where the index has it, public or not. None
+        when it's `path` itself, or the index has it at neither."""
+        assert self.store is not None
+        for v in versions:
+            rel = self._release(name, v) if v else None
+            if rel is None:
+                continue
+            span = self.store.span_at(name, path, rel["ordinal"]) or self.store.internal_span_at(
+                name, path, rel["ordinal"]
+            )
+            if span is not None:
+                return span["canonical"] if span["canonical"] and span["canonical"] != path else None
         return None
 
     def _signature(self, name: str, path: str, version: str | None) -> list[ParamInfo] | None:

@@ -31,6 +31,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
   missing at one end of the range or both, in a new field, `never_seen` (with the ends in `missing_in`), and says so
   in `note`: no event can name it. Going from langgraph 0.3.31 down to 0.0.37, `checkpoint.memory.InMemorySaver` comes
   from langgraph-checkpoint at 0.3 and isn't in langgraph 0.0.37's own module (DT-CORE-54)
+- `explain_error`'s findings say where the object they name is defined, when that's another path (`defined_at`,
+  in the same form as `symbol`): selenium's `webdriver.Chrome.__init__(chrome_options)` is
+  `selenium.webdriver.chrome.webdriver.WebDriver.__init__(chrome_options)`, the path in selenium's source. The
+  benchmark accepts either path (DT-CORE-55)
 
 ### Fixed
 - `explain_error` reads a traceback flattened onto one line (`File "...", line 77, in f code AttributeError: ...`),

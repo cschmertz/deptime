@@ -22,6 +22,7 @@ def test_explain_removed_kwarg_with_exact_installed_version(dt):
     assert res.signal.kind == "unexpected_kwarg"
     top = res.findings[0]
     assert top.symbol == "httpx.Client.__init__(proxies)"
+    assert top.defined_at == "httpx._client.Client.__init__(proxies)"  # DT-CORE-55
     assert top.issue == "param_removed"
     # 0.26.0 is the earliest indexed release, so the deprecation's true start is unknown: "<=0.26.0".
     assert (top.last_version_with, top.first_version_without, top.deprecated_in) == (
@@ -33,6 +34,27 @@ def test_explain_removed_kwarg_with_exact_installed_version(dt):
     assert top.pin_to_restore == "httpx<=0.27.2"
     assert {r.target for r in top.replacements} == {"proxy", "mounts"}
     assert top.confidence == "high"
+
+
+def test_a_finding_says_where_its_object_is_defined(dt):
+    # DT-CORE-55: a removed class is read where the index last has it, one not yet added where it first does, and a
+    # path that is its own definition (or that the index never had) has none.
+    old = dt.explain_error(
+        "ImportError: cannot import name 'OldThing' from 'httpx' (/app/x.py)", {"httpx": "0.28.1"}
+    ).findings[0]
+    assert (old.symbol, old.issue, old.defined_at) == (
+        "httpx.OldThing",
+        "symbol_removed",
+        "httpx._old.OldThing",
+    )
+    new = dt.explain_error(
+        "ImportError: cannot import name 'NewThing' from 'httpx' (/app/x.py)", {"httpx": "0.26.0"}
+    ).findings[0]
+    assert (new.issue, new.defined_at) == ("symbol_not_yet_added", "httpx._new.NewThing")
+    never = dt.explain_error(
+        "ImportError: cannot import name 'Nothing' from 'httpx' (/app/x.py)", {"httpx": "0.28.1"}
+    ).findings
+    assert all(f.defined_at is None for f in never)
 
 
 def test_explain_a_wrapped_error_explains_the_cause_and_says_so(dt):

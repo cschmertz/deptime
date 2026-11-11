@@ -47,6 +47,14 @@ def test_boundary_and_replacement_require_the_root_cause(dt):
     assert (r.root_cause, r.boundary, r.replacement) == (False, False, False)
 
 
+def test_root_cause_matches_the_path_the_object_is_defined_at(dt):
+    # DT-CORE-55: selenium's `webdriver.Chrome` is `webdriver.chrome.webdriver.WebDriver`; a case may name either.
+    [r] = run(dt, [_case("defined", symbol_suffix="_client.Client.__init__(proxies)")])
+    assert r.root_cause
+    [r] = run(dt, [_case("elsewhere", symbol_suffix="_other.Client.__init__(proxies)")])
+    assert not r.root_cause
+
+
 def test_no_finding_is_a_miss(dt):
     case = _case("nothing") | {"traceback": "not a traceback"}
     [r] = run(dt, [case])

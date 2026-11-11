@@ -12,7 +12,7 @@
 | `traceback` | Verbatim text, trimmed of secrets and personal paths |
 | `installed` | `{package: version}` the reporter was running |
 | `expected.package` | Distribution that changed |
-| `expected.symbol_suffix` | End of the expected `finding.symbol`, e.g. `Client.__init__(proxies)` |
+| `expected.symbol_suffix` | End of the expected `finding.symbol`, or of `finding.defined_at` (where the object is defined, DT-CORE-55), e.g. `Client.__init__(proxies)` |
 | `expected.issue` | `symbol_removed` / `param_removed` / `module_removed` / … |
 | `expected.last_version_with` | Optional; checked as a prefix (`"1.5"` matches `1.5.3`) |
 | `expected.first_version_with` | Optional, for `*_not_yet_added`; checked as a prefix against DepTime's `first_version_with` |

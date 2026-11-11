@@ -68,7 +68,9 @@ def score_case(case: dict, result: ExplainResult, coverage: Coverage) -> CaseRes
     root_cause = (
         top is not None
         and canonicalize_name(top.package) == canonicalize_name(exp["package"])
-        and top.symbol.endswith(exp["symbol_suffix"])
+        # The public path or the one the object is defined at (DT-CORE-55): selenium's `webdriver.Chrome` is
+        # `webdriver.chrome.webdriver.WebDriver`.
+        and any(s.endswith(exp["symbol_suffix"]) for s in (top.symbol, top.defined_at or ""))
         and top.issue == exp["issue"]
     )
     # The boundary and replacement of a wrong finding mean nothing, so both require the root cause.

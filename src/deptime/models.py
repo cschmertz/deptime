@@ -263,6 +263,13 @@ class ErrorSignalOut(BaseModel):
 class Finding(BaseModel):
     package: str
     symbol: str = Field(description="Public path; parameter-level findings use 'func.path(param)'.")
+    defined_at: str | None = Field(
+        default=None,
+        description="Where the object `symbol` names is defined, when that's another path (DT-CORE-55): selenium's"
+        " `webdriver.Chrome` is `selenium.webdriver.chrome.webdriver.WebDriver`, httpx's `Client` is"
+        " `httpx._client.Client`. Same form as `symbol`. Write code against `symbol`; this is the path in the"
+        " library's source and its tracebacks. None when they're the same, or the index doesn't have it.",
+    )
     issue: Literal[
         "symbol_removed",
         "symbol_not_yet_added",

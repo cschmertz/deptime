@@ -1,0 +1,1144 @@
+{
+"envs": [
+{
+"id": "aiohttp==3.10.0@2024-08-29",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2024-08-29",
+"requires": [
+"aiohttp==3.10.0"
+],
+"uses": [
+{
+"key": "3eef479b7cae9f91",
+"kind": "name",
+"path": "aiohttp.helpers.get_running_loop"
+}
+]
+},
+{
+"id": "aiohttp==3.9.5@2024-05-16",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2024-05-16",
+"requires": [
+"aiohttp==3.9.5"
+],
+"uses": [
+{
+"key": "3eef479b7cae9f91",
+"kind": "name",
+"path": "aiohttp.helpers.get_running_loop"
+}
+]
+},
+{
+"id": "django==3.2.25@2024-04-03",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2024-04-03",
+"requires": [
+"django==3.2.25"
+],
+"uses": [
+{
+"key": "bb2069442a5bca14",
+"kind": "name",
+"path": "django.utils.encoding.smart_text"
+}
+]
+},
+{
+"id": "django==4.0.2@2022-03-03",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2022-03-03",
+"requires": [
+"django==4.0.2"
+],
+"uses": [
+{
+"key": "bb2069442a5bca14",
+"kind": "name",
+"path": "django.utils.encoding.smart_text"
+}
+]
+},
+{
+"id": "django==4.0@2022-01-06",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2022-01-06",
+"requires": [
+"django==4.0"
+],
+"uses": [
+{
+"key": "bb2069442a5bca14",
+"kind": "name",
+"path": "django.utils.encoding.smart_text"
+}
+]
+},
+{
+"id": "fastapi==0.100.0@2023-08-06",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-08-06",
+"requires": [
+"fastapi==0.100.0"
+],
+"uses": [
+{
+"key": "79a8c10d46327838",
+"kind": "name",
+"path": "fastapi.openapi.utils.get_model_definitions"
+}
+]
+},
+{
+"id": "fastapi==0.100.1@2023-08-26",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-08-26",
+"requires": [
+"fastapi==0.100.1"
+],
+"uses": [
+{
+"key": "79a8c10d46327838",
+"kind": "name",
+"path": "fastapi.openapi.utils.get_model_definitions"
+}
+]
+},
+{
+"id": "fastapi==0.99.1@2023-08-01",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-08-01",
+"requires": [
+"fastapi==0.99.1"
+],
+"uses": [
+{
+"key": "79a8c10d46327838",
+"kind": "name",
+"path": "fastapi.openapi.utils.get_model_definitions"
+}
+]
+},
+{
+"id": "gradio==3.23.0@2023-04-20",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-04-20",
+"requires": [
+"gradio==3.23.0"
+],
+"uses": [
+{
+"key": "b07d0d4b2e083f15",
+"kind": "name",
+"path": "gradio.processing_utils.encode_url_or_file_to_base64"
+}
+]
+},
+{
+"id": "gradio==3.24.0@2023-04-29",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-04-29",
+"requires": [
+"gradio==3.24.0"
+],
+"uses": [
+{
+"key": "b07d0d4b2e083f15",
+"kind": "name",
+"path": "gradio.processing_utils.encode_url_or_file_to_base64"
+}
+]
+},
+{
+"id": "gradio==3.36.1@2023-08-06",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-08-06",
+"requires": [
+"gradio==3.36.1"
+],
+"uses": [
+{
+"key": "b07d0d4b2e083f15",
+"kind": "name",
+"path": "gradio.processing_utils.encode_url_or_file_to_base64"
+}
+]
+},
+{
+"id": "gradio==3.50.2@2023-11-18",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-11-18",
+"requires": [
+"gradio==3.50.2"
+],
+"uses": [
+{
+"key": "cf017831a09a5920",
+"kind": "name",
+"path": "gradio.components.Chatbot.style"
+}
+]
+},
+{
+"id": "gradio==4.0.0@2023-11-30",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-11-30",
+"requires": [
+"gradio==4.0.0"
+],
+"uses": [
+{
+"key": "cf017831a09a5920",
+"kind": "name",
+"path": "gradio.components.Chatbot.style"
+}
+]
+},
+{
+"id": "httpx==0.27.2@2024-09-26",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2024-09-26",
+"requires": [
+"httpx==0.27.2"
+],
+"uses": [
+{
+"key": "9e03d4390accd4c4",
+"kind": "name",
+"path": "httpx._types.ProxiesTypes"
+}
+]
+},
+{
+"id": "httpx==0.28.0@2024-12-28",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2024-12-28",
+"requires": [
+"httpx==0.28.0"
+],
+"uses": [
+{
+"key": "9e03d4390accd4c4",
+"kind": "name",
+"path": "httpx._types.ProxiesTypes"
+}
+]
+},
+{
+"id": "httpx==0.28.1@2025-01-05",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2025-01-05",
+"requires": [
+"httpx==0.28.1"
+],
+"uses": [
+{
+"key": "9e03d4390accd4c4",
+"kind": "name",
+"path": "httpx._types.ProxiesTypes"
+}
+]
+},
+{
+"id": "marshmallow==3.26.2@2026-01-21",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2026-01-21",
+"requires": [
+"marshmallow==3.26.2"
+],
+"uses": [
+{
+"key": "b71232ca20aadb36",
+"kind": "name",
+"path": "marshmallow.utils.FieldInstanceResolutionError"
+}
+]
+},
+{
+"id": "marshmallow==4.0.0@2025-05-17",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2025-05-17",
+"requires": [
+"marshmallow==4.0.0"
+],
+"uses": [
+{
+"key": "b71232ca20aadb36",
+"kind": "name",
+"path": "marshmallow.utils.FieldInstanceResolutionError"
+}
+]
+},
+{
+"id": "mcp==1.10.0@2025-07-26",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2025-07-26",
+"requires": [
+"mcp==1.10.0"
+],
+"uses": [
+{
+"key": "43fcea0ba4199770",
+"kind": "call",
+"path": "mcp.server.fastmcp.FastMCP.tool",
+"npos": 0,
+"kwargs": [
+"title"
+],
+"via": "instance"
+}
+]
+},
+{
+"id": "mcp==1.12.2@2025-08-23",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2025-08-23",
+"requires": [
+"mcp==1.12.2"
+],
+"uses": [
+{
+"key": "233fc4e6756c109a",
+"kind": "call",
+"path": "mcp.server.fastmcp.FastMCP",
+"npos": 0,
+"kwargs": [
+"name",
+"description",
+"port"
+]
+}
+]
+},
+{
+"id": "mcp==1.12.3@2025-08-30",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2025-08-30",
+"requires": [
+"mcp==1.12.3"
+],
+"uses": [
+{
+"key": "233fc4e6756c109a",
+"kind": "call",
+"path": "mcp.server.fastmcp.FastMCP",
+"npos": 0,
+"kwargs": [
+"name",
+"description",
+"port"
+]
+}
+]
+},
+{
+"id": "mcp==1.9.4@2025-07-12",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2025-07-12",
+"requires": [
+"mcp==1.9.4"
+],
+"uses": [
+{
+"key": "43fcea0ba4199770",
+"kind": "call",
+"path": "mcp.server.fastmcp.FastMCP.tool",
+"npos": 0,
+"kwargs": [
+"title"
+],
+"via": "instance"
+}
+]
+},
+{
+"id": "numpy==1.26.4@2024-03-06",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2024-03-06",
+"requires": [
+"numpy==1.26.4"
+],
+"uses": [
+{
+"key": "5cbcb47741a0170d",
+"kind": "name",
+"path": "numpy.unicode_"
+}
+]
+},
+{
+"id": "numpy==2.0.0@2024-07-16",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2024-07-16",
+"requires": [
+"numpy==2.0.0"
+],
+"uses": [
+{
+"key": "5cbcb47741a0170d",
+"kind": "name",
+"path": "numpy.unicode_"
+}
+]
+},
+{
+"id": "numpy==2.2.5@2025-05-19",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2025-05-19",
+"requires": [
+"numpy==2.2.5"
+],
+"uses": [
+{
+"key": "5cbcb47741a0170d",
+"kind": "name",
+"path": "numpy.unicode_"
+}
+]
+},
+{
+"id": "openai==0.28.1@2023-10-26",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-10-26",
+"requires": [
+"openai==0.28.1"
+],
+"uses": [
+{
+"key": "c11540ddce2c6c3f",
+"kind": "call",
+"path": "openai.Image.create",
+"npos": 0,
+"kwargs": [
+"prompt",
+"n",
+"size"
+]
+},
+{
+"key": "d1500b28c6013b3a",
+"kind": "call",
+"path": "openai.Embedding.create",
+"npos": 0,
+"kwargs": [
+"input",
+"model"
+]
+}
+]
+},
+{
+"id": "openai==1.0.0@2023-12-06",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-12-06",
+"requires": [
+"openai==1.0.0"
+],
+"uses": [
+{
+"key": "c11540ddce2c6c3f",
+"kind": "call",
+"path": "openai.Image.create",
+"npos": 0,
+"kwargs": [
+"prompt",
+"n",
+"size"
+]
+},
+{
+"key": "d1500b28c6013b3a",
+"kind": "call",
+"path": "openai.Embedding.create",
+"npos": 0,
+"kwargs": [
+"input",
+"model"
+]
+}
+]
+},
+{
+"id": "openai==1.10.0@2024-02-24",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2024-02-24",
+"requires": [
+"openai==1.10.0"
+],
+"uses": [
+{
+"key": "c11540ddce2c6c3f",
+"kind": "call",
+"path": "openai.Image.create",
+"npos": 0,
+"kwargs": [
+"prompt",
+"n",
+"size"
+]
+}
+]
+},
+{
+"id": "openai==1.37.0@2024-08-21",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2024-08-21",
+"requires": [
+"openai==1.37.0"
+],
+"uses": [
+{
+"key": "d1500b28c6013b3a",
+"kind": "call",
+"path": "openai.Embedding.create",
+"npos": 0,
+"kwargs": [
+"input",
+"model"
+]
+}
+]
+},
+{
+"id": "pandas==1.5.3@2023-02-18",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-02-18",
+"requires": [
+"pandas==1.5.3"
+],
+"uses": [
+{
+"key": "e992b07fd4d18f67",
+"kind": "name",
+"path": "pandas.io.json.json_normalize"
+}
+]
+},
+{
+"id": "pandas==2.0.0@2023-05-03",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-05-03",
+"requires": [
+"pandas==2.0.0"
+],
+"uses": [
+{
+"key": "e992b07fd4d18f67",
+"kind": "name",
+"path": "pandas.io.json.json_normalize"
+}
+]
+},
+{
+"id": "pandas==2.1.3@2023-12-10",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-12-10",
+"requires": [
+"pandas==2.1.3"
+],
+"uses": [
+{
+"key": "e992b07fd4d18f67",
+"kind": "name",
+"path": "pandas.io.json.json_normalize"
+}
+]
+},
+{
+"id": "pytest==8.0.2@2024-03-25",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2024-03-25",
+"requires": [
+"pytest==8.0.2"
+],
+"uses": [
+{
+"key": "67bf63ade6bd298e",
+"kind": "name",
+"path": "_pytest.nodes.iterparentnodeids"
+},
+{
+"key": "9e8834e3c2d6a7e7",
+"kind": "call",
+"path": "_pytest.fixtures.FixtureDef",
+"npos": 0,
+"kwargs": [
+"fixturemanager",
+"baseid",
+"argname",
+"func",
+"scope",
+"params"
+]
+}
+]
+},
+{
+"id": "pytest==8.1.0@2024-04-02",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2024-04-02",
+"requires": [
+"pytest==8.1.0"
+],
+"uses": [
+{
+"key": "67bf63ade6bd298e",
+"kind": "name",
+"path": "_pytest.nodes.iterparentnodeids"
+},
+{
+"key": "9e8834e3c2d6a7e7",
+"kind": "call",
+"path": "_pytest.fixtures.FixtureDef",
+"npos": 0,
+"kwargs": [
+"fixturemanager",
+"baseid",
+"argname",
+"func",
+"scope",
+"params"
+]
+}
+]
+},
+{
+"id": "pytest==8.1.1@2024-04-08",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2024-04-08",
+"requires": [
+"pytest==8.1.1"
+],
+"uses": [
+{
+"key": "9e8834e3c2d6a7e7",
+"kind": "call",
+"path": "_pytest.fixtures.FixtureDef",
+"npos": 0,
+"kwargs": [
+"fixturemanager",
+"baseid",
+"argname",
+"func",
+"scope",
+"params"
+]
+}
+]
+},
+{
+"id": "redis==4.6.0@2023-07-25",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-07-25",
+"requires": [
+"redis==4.6.0"
+],
+"uses": [
+{
+"key": "04dbf5354c8fd5d9",
+"kind": "name",
+"path": "redis.connection.HiredisParser"
+}
+]
+},
+{
+"id": "redis==5.0.0@2023-09-14",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-09-14",
+"requires": [
+"redis==5.0.0"
+],
+"uses": [
+{
+"key": "04dbf5354c8fd5d9",
+"kind": "name",
+"path": "redis.connection.HiredisParser"
+}
+]
+},
+{
+"id": "redis==5.0.1@2023-10-26",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-10-26",
+"requires": [
+"redis==5.0.1"
+],
+"uses": [
+{
+"key": "04dbf5354c8fd5d9",
+"kind": "name",
+"path": "redis.connection.HiredisParser"
+}
+]
+},
+{
+"id": "scikit-learn==1.2.2@2023-04-08",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-04-08",
+"requires": [
+"scikit-learn==1.2.2"
+],
+"uses": [
+{
+"key": "116b53664ab3fe5c",
+"kind": "name",
+"path": "sklearn.neighbors.DistanceMetric"
+}
+]
+},
+{
+"id": "scikit-learn==1.3.0@2023-07-30",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-07-30",
+"requires": [
+"scikit-learn==1.3.0"
+],
+"uses": [
+{
+"key": "116b53664ab3fe5c",
+"kind": "name",
+"path": "sklearn.neighbors.DistanceMetric"
+}
+]
+},
+{
+"id": "scikit-learn==1.3.2@2023-11-22",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-11-22",
+"requires": [
+"scikit-learn==1.3.2"
+],
+"uses": [
+{
+"key": "116b53664ab3fe5c",
+"kind": "name",
+"path": "sklearn.neighbors.DistanceMetric"
+}
+]
+},
+{
+"id": "selenium==4.10.0@2023-07-07",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-07-07",
+"requires": [
+"selenium==4.10.0"
+],
+"uses": [
+{
+"key": "4c173d6ab2cf3e3c",
+"kind": "call",
+"path": "selenium.webdriver.Chrome",
+"npos": 0,
+"kwargs": [
+"service_log_path"
+]
+}
+]
+},
+{
+"id": "selenium==4.9.1@2023-06-07",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-06-07",
+"requires": [
+"selenium==4.9.1"
+],
+"uses": [
+{
+"key": "4c173d6ab2cf3e3c",
+"kind": "call",
+"path": "selenium.webdriver.Chrome",
+"npos": 0,
+"kwargs": [
+"service_log_path"
+]
+}
+]
+},
+{
+"id": "sqlalchemy==1.4.54@2024-10-05",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2024-10-05",
+"requires": [
+"sqlalchemy==1.4.54"
+],
+"uses": [
+{
+"key": "1d11522b86bd7bca",
+"kind": "name",
+"path": "sqlalchemy.databases"
+}
+]
+},
+{
+"id": "sqlalchemy==2.0.0@2023-02-25",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-02-25",
+"requires": [
+"sqlalchemy==2.0.0"
+],
+"uses": [
+{
+"key": "1d11522b86bd7bca",
+"kind": "name",
+"path": "sqlalchemy.databases"
+}
+]
+},
+{
+"id": "sqlalchemy==2.0.22@2023-11-11",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-11-11",
+"requires": [
+"sqlalchemy==2.0.22"
+],
+"uses": [
+{
+"key": "1d11522b86bd7bca",
+"kind": "name",
+"path": "sqlalchemy.databases"
+}
+]
+},
+{
+"id": "streamlit==1.40.2@2024-12-25",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2024-12-25",
+"requires": [
+"streamlit==1.40.2"
+],
+"uses": [
+{
+"key": "61d95b2a635c1154",
+"kind": "name",
+"path": "streamlit.elements.image.AtomicImage"
+},
+{
+"key": "9fbffe33ef34fb7d",
+"kind": "name",
+"path": "streamlit.elements.image.image_to_url"
+}
+]
+},
+{
+"id": "streamlit==1.41.0@2025-01-09",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2025-01-09",
+"requires": [
+"streamlit==1.41.0"
+],
+"uses": [
+{
+"key": "61d95b2a635c1154",
+"kind": "name",
+"path": "streamlit.elements.image.AtomicImage"
+},
+{
+"key": "9fbffe33ef34fb7d",
+"kind": "name",
+"path": "streamlit.elements.image.image_to_url"
+}
+]
+},
+{
+"id": "streamlit==1.41.1@2025-01-12",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2025-01-12",
+"requires": [
+"streamlit==1.41.1"
+],
+"uses": [
+{
+"key": "61d95b2a635c1154",
+"kind": "name",
+"path": "streamlit.elements.image.AtomicImage"
+}
+]
+},
+{
+"id": "werkzeug==2.3.8@2023-12-08",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-12-08",
+"requires": [
+"werkzeug==2.3.8"
+],
+"uses": [
+{
+"key": "8d6d460aa916e1a1",
+"kind": "name",
+"path": "werkzeug.urls.url_quote_plus"
+}
+]
+},
+{
+"id": "werkzeug==3.0.0@2023-10-30",
+"python": [
+"3.11",
+"3.10",
+"3.12",
+"3.9"
+],
+"exclude_newer": "2023-10-30",
+"requires": [
+"werkzeug==3.0.0"
+],
+"uses": [
+{
+"key": "8d6d460aa916e1a1",
+"kind": "name",
+"path": "werkzeug.urls.url_quote_plus"
+}
+]
+}
+]
+}

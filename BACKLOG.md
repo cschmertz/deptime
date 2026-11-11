@@ -860,9 +860,37 @@ Deployment notes: [docs/05](docs/05-self-hosting.md).
 - [ ] **DT-HOST-03**: Persistent rate-limit store (replaces in-memory) · `P2` `S`
 - [ ] **DT-HOST-04**: Privacy notice for the hosted instance ([docs/08](docs/08-privacy-and-security.md)) · `P0` `S` · before HOST-01 goes public
 
+## Proposed (2026-11-11, not yet reviewed)
+
+Ideas for checking ahead of a failure instead of after one, plus wider coverage and a public benchmark. None is
+scheduled: each needs a review, and then a design and a measurement plan, before it joins a milestone.
+
+- [ ] **DT-CORE-57**: Check code as it is written · `P?` `M`
+  - What: a Claude Code hook after each edit to a `.py` file reads the project's installed versions (its lockfile or
+    the venv's `*.dist-info` metadata, never importing anything) and checks the edited code's uses of covered packages
+    with `check_symbols` at those versions, so an agent hears about a name or keyword the installed release doesn't
+    have (`openai.ChatCompletion.create` against openai 2.x) before running the code.
+  - Open: reading a project's uses at edit time (DepTime's reader, on the changed lines or the file); staying quiet
+    on `unknown` and `not_indexed`; one note per use and session; latency inside a hook's budget.
+- [ ] **DT-CORE-58**: Check a dependency change before it lands · `P?` `M`
+  - What: a hook on a dependency change (`uv add`, `uv lock --upgrade`, `pip install -U`, an edit to
+    `pyproject.toml`, `requirements*.txt` or a lockfile) runs `diff_versions` from the old to the new version with the
+    project's own uses, and says which uses the change breaks and what replaces each, before the tests run.
+- [ ] **DT-CORE-59**: A project's deprecation report · `P?` `S`
+  - What: `deptime check` over a whole project: the uses deprecated at its installed versions, and the first indexed
+    release that removes each, so a migration can be planned before an upgrade forces it.
+- [ ] **DT-GTM-06**: GitHub Action for dependency-update pull requests · `P?` `M` · deps: CORE-58
+  - What: on a Dependabot or Renovate pull request, a comment listing the project's uses the bump breaks, with
+    replacements; optionally a failing check. Was in Parked.
+- [ ] **DT-DATA-74**: Cover the most-used PyPI packages, not 53 · `P?` `L`
+  - What: extend coverage to the most-downloaded packages (hundreds), with the build time, index size and the
+    golden and holdout checks that would take.
+- [ ] **DT-OSS-14**: Publish the holdout sets as a benchmark · `P?` `M`
+  - What: the labelled uses (probed in a sandbox) and the tracebacks, collected under fixed rules, packaged as a
+    public benchmark for how tools and agents handle library API changes, with its own README and scorer.
+
 ## Parked
 
 - npm/TypeScript ecosystem.
-- GitHub Action (checks a PR's dependency bumps against the index).
 - A bulk dataset export.
 - MCP resources: rename maps as prefetchable context.

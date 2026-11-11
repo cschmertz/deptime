@@ -1,0 +1,13 @@
+{
+ "about": "Labels changed by hand, each with the library source that shows it (bench/holdout/README.md: call breaks found by binding are checked against the source at `to`, here read from the release's wheel). A use overridden here is excluded.",
+ "overrides": [
+  {
+   "upgrade": "pin-faizanahemad__science-reader-langchain-openai-up",
+   "key": "1da1b97e7b2f2b61",
+   "use": "langchain_openai.ChatOpenAI(max_tokens=, model=)",
+   "probe": "breaks (param_removed): the signature has no `max_tokens`",
+   "why": "at 1.7.4 ChatOpenAI declares `max_tokens: int | None = Field(default=None, alias=\"max_completion_tokens\")`, so the signature pydantic builds lists the alias; BaseChatOpenAI's `model_config = ConfigDict(populate_by_name=True)` makes the model accept the field's own name too, so `ChatOpenAI(max_tokens=...)` still works (the class docstring's own example passes `max_tokens=None`)",
+   "evidence": "langchain_openai-1.7.4 wheel, langchain_openai/chat_models/base.py line 3798 (the field on ChatOpenAI), line 1306 (`model_config` on BaseChatOpenAI, which ChatOpenAI subclasses at line 2928 without its own) and line 2991 (the docstring example)"
+  }
+ ]
+}

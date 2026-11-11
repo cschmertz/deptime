@@ -1,0 +1,397 @@
+{
+ "hold-openai-embedding-apiremovedinv1-openai-python": {
+  "ok": true,
+  "versions": {
+   "0.28.1": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "1.37.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-openai-image-apiremovedinv1-openai-python": {
+  "ok": true,
+  "versions": {
+   "0.28.1": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "1.10.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-mcp-fastmcp-init-description-python-sdk": {
+  "ok": true,
+  "versions": {
+   "1.12.2": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.12.3": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   }
+  }
+ },
+ "hold-mcp-fastmcp-tool-title-not-yet-added-python-sdk": {
+  "ok": true,
+  "versions": {
+   "1.10.0": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.9.4": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   }
+  }
+ },
+ "hold-streamlit-atomicimage-streamlit-extras": {
+  "ok": true,
+  "versions": {
+   "1.40.2": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.41.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "1.41.1": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-streamlit-image-to-url-streamlit-drawable-canvas": {
+  "ok": true,
+  "versions": {
+   "1.40.2": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.41.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-gradio-chatbot-style-cogvlm": {
+  "ok": true,
+  "versions": {
+   "3.50.2": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "4.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-gradio-encode-url-or-file-to-base64-stackoverflow": {
+  "ok": true,
+  "versions": {
+   "3.23.0": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "3.24.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "3.36.1": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-pandas-io-json-json-normalize-gnomad-python-api": {
+  "ok": true,
+  "versions": {
+   "1.5.3": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "2.1.3": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-django-encoding-smart-text-django-places": {
+  "ok": true,
+  "versions": {
+   "3.2.25": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "4.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "4.0.2": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-scikit-learn-neighbors-distancemetric-pdsc": {
+  "ok": true,
+  "versions": {
+   "1.2.2": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "1.3.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "1.3.2": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-sqlalchemy-databases-module-aliyun-odps-python-sdk": {
+  "ok": true,
+  "versions": {
+   "1.4.54": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "2.0.22": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-werkzeug-urls-url-quote-plus-jam-py": {
+  "ok": true,
+  "versions": {
+   "2.3.8": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "3.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-marshmallow-utils-fieldinstanceresolutionerror-azure-sdk-for-python": {
+  "ok": true,
+  "versions": {
+   "3.26.2": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "4.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-numpy-unicode-whylogs": {
+  "ok": true,
+  "versions": {
+   "1.26.4": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "2.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "2.2.5": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-selenium-chrome-init-service-log-path-robotframework": {
+  "ok": true,
+  "versions": {
+   "4.9.1": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "4.10.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_removed"
+   }
+  }
+ },
+ "hold-fastapi-openapi-utils-get-model-definitions-fastapi-rfc7807": {
+  "ok": true,
+  "versions": {
+   "0.99.1": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "0.100.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "0.100.1": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-redis-connection-hiredisparser-celery-8689": {
+  "ok": true,
+  "versions": {
+   "4.6.0": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "5.0.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "5.0.1": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-aiohttp-helpers-get-running-loop-ha-senec-v3": {
+  "ok": true,
+  "versions": {
+   "3.9.5": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "3.10.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-httpx-types-proxiestypes-py-googletrans": {
+  "ok": true,
+  "versions": {
+   "0.27.2": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "0.28.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   },
+   "0.28.1": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-pytest-nodes-iterparentnodeids-pytest-bdd-674": {
+  "ok": true,
+  "versions": {
+   "8.0.2": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "8.1.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "removed"
+   }
+  }
+ },
+ "hold-pytest-fixturedef-init-fixturemanager-repository-service-tuf": {
+  "ok": true,
+  "versions": {
+   "8.0.2": {
+    "expected": "works",
+    "got": true,
+    "why": ""
+   },
+   "8.1.0": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_now_required"
+   },
+   "8.1.1": {
+    "expected": "fails",
+    "got": false,
+    "why": "param_now_required"
+   }
+  }
+ }
+}

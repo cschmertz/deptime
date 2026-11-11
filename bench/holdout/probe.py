@@ -38,6 +38,11 @@ CHECK_TIMEOUT_S = 15 * 60
 # ffmpy; DT-QA-08; crewai-tools' docx2txt, DT-QA-10). An environment that doesn't install from wheels alone is retried
 # allowing just these to build. Nothing else builds, and the packages under test always come from wheels.
 SOURCE_BUILDS = ["pypika", "ffmpy", "docx2txt"]
+# A venv made with `python -m venv` came with setuptools until Python 3.12, and packages of that era import
+# `pkg_resources` without declaring it (gradio 3.x, crewai 0.11; 94 uses of 2026-11f). uv's venvs have no setuptools,
+# so an environment whose checks fail on exactly that import is installed again with setuptools from the same date
+# and checked again (DT-QA-12).
+SETUPTOOLS_MISSING = "No module named 'pkg_resources'"
 
 # Runs inside the sandbox with the environment's interpreter: argv[1] = uses (JSON), argv[2] = results (JSON lines on
 # stdout). Every use is checked on its own, so one that hangs or crashes the import of a module loses only itself.
@@ -532,9 +537,10 @@ def freeze() -> dict[str, str]:
     return found
 
 
-def install(env: dict) -> tuple[str, list[str]] | None:
+def install(env: dict, extra: list[str]) -> tuple[str, list[str]] | None:
     """(the Python that installed the environment, the dependencies built from source), or None. Wheels only first,
-    on each listed Python; then the same allowing SOURCE_BUILDS to build from their sdists."""
+    on each listed Python; then the same allowing SOURCE_BUILDS to build from their sdists. `extra` are requirements
+    added to the environment's own."""
     for builds in ([], SOURCE_BUILDS):
         allow = [a for b in builds for a in ("--no-binary", b)]
         for python in env["python"]:
@@ -554,6 +560,7 @@ def install(env: dict) -> tuple[str, list[str]] | None:
                     "--exclude-newer",
                     env["exclude_newer"],
                     *env["requires"],
+                    *extra,
                     timeout=INSTALL_TIMEOUT_S,
                 )
                 return python, list(builds)
@@ -562,22 +569,10 @@ def install(env: dict) -> tuple[str, list[str]] | None:
     return None
 
 
-def probe(env: dict) -> dict:
-    base = {"id": env["id"], "requires": env["requires"]}
-    installed = install(env)
-    if installed is None:
-        return {**base, "result": "install_failed", "tried": env["python"]}
-    _, built = installed
-    version = sh(
-        str(PY), "-I", "-S", "-c", "import sys; print(sys.version.split()[0])", capture_output=True, text=True
-    )
-    (PROJECT / "check.py").write_text(CHECK, encoding="utf-8")
-    (PROJECT / "uses.json").write_text(json.dumps(env["uses"]), encoding="utf-8")
-    record = {**base, "python": version.stdout.strip(), "installed": freeze()}
-    if built:
-        record["source_builds_allowed"] = built
+def check_uses(uses: list[dict]) -> dict[str, dict]:
+    """Each use's result, by key, from CHECK in the sandbox against the installed venv."""
     results: dict[str, dict] = {}
-    remaining = list(env["uses"])
+    remaining = list(uses)
     # A use that kills the interpreter (a segfault in an extension) loses only itself: rerun the rest without it.
     for _ in range(5):
         (PROJECT / "uses.json").write_text(json.dumps(remaining), encoding="utf-8")
@@ -611,9 +606,47 @@ def probe(env: dict) -> dict:
         results[lost["key"]] = {"key": lost["key"], "resolved": None, "error": "probe: interpreter died here"}
     for u in remaining:
         results[u["key"]] = {"key": u["key"], "resolved": None, "error": "probe: not reached"}
-    record.update(result="ok", results=[results[u["key"]] for u in env["uses"]])
-    shutil.rmtree(VENV, ignore_errors=True)
-    return record
+    return results
+
+
+def needs_setuptools(results: dict[str, dict], installed: dict[str, str]) -> bool:
+    return "setuptools" not in installed and any(
+        SETUPTOOLS_MISSING in (r.get("error") or "") for r in results.values()
+    )
+
+
+def probe(env: dict) -> dict:
+    base = {"id": env["id"], "requires": env["requires"]}
+    first: dict | None = None
+    for extra in ([], ["setuptools"]):
+        installed = install(env, extra)
+        if installed is None:
+            # Without setuptools the checks ran; if adding it doesn't install, they stand.
+            return first or {**base, "result": "install_failed", "tried": env["python"]}
+        _, built = installed
+        version = sh(
+            str(PY),
+            "-I",
+            "-S",
+            "-c",
+            "import sys; print(sys.version.split()[0])",
+            capture_output=True,
+            text=True,
+        )
+        (PROJECT / "check.py").write_text(CHECK, encoding="utf-8")
+        record = {**base, "python": version.stdout.strip(), "installed": freeze()}
+        if built:
+            record["source_builds_allowed"] = built
+        if extra:
+            record["added"] = extra
+        results = check_uses(env["uses"])
+        shutil.rmtree(VENV, ignore_errors=True)
+        record.update(result="ok", results=[results[u["key"]] for u in env["uses"]])
+        if extra or not needs_setuptools(results, record["installed"]):
+            return record
+        first = record
+    assert first is not None
+    return first
 
 
 def main() -> int:

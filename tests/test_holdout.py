@@ -235,6 +235,22 @@ def test_wilson_interval() -> None:
     assert score.rate(1, 4).startswith("25.0% (1/4; ")
 
 
+def test_probe_adds_setuptools_only_for_pkg_resources() -> None:
+    """An environment is installed again with setuptools only when a check failed on importing pkg_resources and
+    setuptools isn't there already (gradio 3.x, crewai 0.11; DT-QA-12)."""
+    import probe
+
+    missing = {
+        "a": {"key": "a", "resolved": None, "error": "ModuleNotFoundError: No module named 'pkg_resources'"}
+    }
+    other = {"a": {"key": "a", "resolved": None, "error": "ModuleNotFoundError: No module named 'torch'"}}
+    ok = {"a": {"key": "a", "resolved": True}}
+    assert probe.needs_setuptools(missing, {"gradio": "3.23.0"})
+    assert not probe.needs_setuptools(missing, {"gradio": "3.23.0", "setuptools": "67.7.2"})
+    assert not probe.needs_setuptools(other, {"gradio": "3.23.0"})
+    assert not probe.needs_setuptools(ok, {"gradio": "3.23.0"})
+
+
 def test_probe_resolves_like_python_imports(tmp_path: Path) -> None:
     """Attributes first (a function named like its own module is what calls mean), then by import (a module a package
     registers in sys.modules under a name an attribute shadows). Runs the probe's checker on two local packages only."""

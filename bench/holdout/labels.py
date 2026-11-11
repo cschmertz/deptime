@@ -166,7 +166,7 @@ def main() -> None:
             rec = json.loads(line)
             envs_meta[rec["id"]] = {
                 k: rec.get(k)
-                for k in ("result", "python", "requires", "source_builds_allowed")
+                for k in ("result", "python", "requires", "source_builds_allowed", "added")
                 if rec.get(k) is not None
             }
             if rec.get("result") == "ok":

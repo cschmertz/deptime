@@ -23,6 +23,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
 
 ## [Unreleased]
 
+## [0.1.12] - 2026-11-10
+
 ### Added
 - `check_symbols` says when a callable's body does nothing but raise (`SymbolCheck.raises`, the exception and its
   message), and `diff_versions` reports the release where it started with a new event kind, `now_raises`
@@ -323,7 +325,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
 - The prebuilt index of 52 packages, downloaded on first run and refreshed daily; `deptime index pull|status|pack`;
   offline mode (`DEPTIME_OFFLINE=1`).
 
-[Unreleased]: https://github.com/cschmertz/deptime/compare/v0.1.11...HEAD
+[Unreleased]: https://github.com/cschmertz/deptime/compare/v0.1.12...HEAD
+[0.1.12]: https://github.com/cschmertz/deptime/compare/v0.1.11...v0.1.12
 [0.1.11]: https://github.com/cschmertz/deptime/compare/v0.1.10...v0.1.11
 [0.1.10]: https://github.com/cschmertz/deptime/compare/v0.1.9...v0.1.10
 [0.1.9]: https://github.com/cschmertz/deptime/compare/v0.1.8...v0.1.9

@@ -20,7 +20,7 @@
 
 ## Current state: public alpha, v0.1.12 (since 2026-11-10)
 
-- 0.1.11 (tag on `4be62a3`) is on PyPI, the MCP Registry (latest) and GitHub (Latest), published by `release.yml`; a fresh `uvx --from deptime==0.1.11` install pulls the `SNAPSHOT_FORMAT` 25 index with `index pull --verify` and answers three of the 2026-11c holdout's tracebacks that only its query fixes reach: tavern's `_pytest._code.code.FormattedExcinfo` as removed after pytest 9.0.3, marked private (DT-DATA-62), langchain-core's `BaseRetriever.get_relevant_documents` as removed after 0.3.86 with `invoke` to use (DT-CORE-43), and scikit-learn's `BaseEstimator._validate_data`, called by gplearn's subclass, as removed after 1.6.1 at medium (DT-CORE-42). What changed since 0.1.10 is in `CHANGELOG.md`.
+- 0.1.12 (tag on `74d4e3c`) is on PyPI, the MCP Registry (latest) and GitHub (Latest), published by `release.yml`; a fresh `uvx --from deptime==0.1.12` install pulls the `SNAPSHOT_FORMAT` 26 index with `index pull --verify` and answers with the query changes it brings: `check_symbols` reads llama-index-core 0.14.25's `ServiceContext.from_defaults` present, with what it raises ("ValueError: ServiceContext is deprecated. …"; DT-DATA-67), and `explain_error` reads fastmcp 3's "FastMCP() no longer accepts `log_level`" as `FastMCP.__init__(log_level)` removed after 2.14.7, with `run_http_async` (DT-CORE-47). What changed since 0.1.11 is in `CHANGELOG.md`.
 
 - The repo is public. `uvx deptime mcp` installs from PyPI, and pushing a `v*` tag publishes through trusted publishing (`release.yml`).
 - Every index published since 2026-11-07 has a signed build provenance attestation; `deptime index pull --verify` (0.1.9 and later) and `gh attestation verify` check it (DT-OSS-09, SECURITY.md).

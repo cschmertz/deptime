@@ -25,7 +25,9 @@ import argparse
 import base64
 import io
 import json
+import os
 import re
+import shutil
 import subprocess
 import sys
 import tarfile
@@ -70,13 +72,17 @@ def _until_reset() -> float:
 
 def gh(*args: str) -> str:
     """A gh call; a rate limit waits for its reset (the core quota is shared with whatever else uses the token), so a
-    package is never logged as an error for it."""
+    package is never logged as an error for it, and a server error (code search's deeper pages answer 503 for a while,
+    DT-QA-12) is tried again after a wait that grows."""
     for attempt in range(8):
         p = subprocess.run(["gh", *args], capture_output=True, text=True)
         if p.returncode == 0:
             return p.stdout
         if "rate limit" in p.stderr.lower() or "secondary" in p.stderr.lower():
             time.sleep(max(30 * (attempt + 1), _until_reset()))
+            continue
+        if re.search(r"HTTP 50[234]\b", p.stderr) and attempt < 5:
+            time.sleep(60 * (attempt + 1))
             continue
         raise RuntimeError(p.stderr.strip()[:300])
     raise RuntimeError("rate limited")
@@ -94,9 +100,11 @@ def fetch_source(repo: str, sha: str, dest: Path) -> None:
     if dest.exists():
         return
     data = fetch(f"https://codeload.github.com/{repo}/tar.gz/{sha}", 300)
-    dest.mkdir(
-        parents=True
-    )  # after the download, so one that fails leaves nothing to read as an empty project
+    # Into a folder of its own, renamed into place at the end: a download or extraction that fails leaves nothing to
+    # read as an empty project, and two searches fetching the same repository at once don't collide.
+    part = dest.with_name(f"{dest.name}.part-{os.getpid()}")
+    shutil.rmtree(part, ignore_errors=True)
+    part.mkdir(parents=True)
     with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tf:
         for m in tf.getmembers():
             if not m.isfile() or not m.name.endswith((".py", ".txt", ".toml", ".cfg")):
@@ -104,11 +112,15 @@ def fetch_source(repo: str, sha: str, dest: Path) -> None:
             rel = Path(*Path(m.name).parts[1:])
             if rel.is_absolute() or ".." in rel.parts or not rel.parts:
                 continue
-            out = dest / rel
+            out = part / rel
             out.parent.mkdir(parents=True, exist_ok=True)
             f = tf.extractfile(m)
             if f is not None:
                 out.write_bytes(f.read())
+    try:
+        part.rename(dest)
+    except OSError:  # another search put it there first
+        shutil.rmtree(part, ignore_errors=True)
 
 
 def older_target(package: str, pin: str) -> str | None:

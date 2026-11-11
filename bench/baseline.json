@@ -1,14 +1,14 @@
 {
-  "index_built_at": "2026-11-11T00:29:07+00:00",
+  "index_built_at": "2026-11-11T12:34:05+00:00",
   "summary": {
-    "cases": 375,
-    "known_gap_share": 2.4,
+    "cases": 401,
+    "known_gap_share": 3.0,
     "overall": {
-      "root_cause": 97.6,
-      "root_cause_and_boundary": 97.6,
-      "boundary": 97.6,
-      "replacement": 77.5,
-      "replacement_uncurated": 66.3
+      "root_cause": 97.0,
+      "root_cause_and_boundary": 97.0,
+      "boundary": 97.0,
+      "replacement": 75.3,
+      "replacement_uncurated": 64.3
     },
     "by_tier": {
       "-": {
@@ -20,20 +20,20 @@
         "replacement_uncurated": 100.0
       },
       "A": {
-        "cases": 198,
-        "root_cause": 99.0,
-        "root_cause_and_boundary": 99.0,
-        "boundary": 99.0,
-        "replacement": 66.2,
-        "replacement_uncurated": 56.8
+        "cases": 206,
+        "root_cause": 98.1,
+        "root_cause_and_boundary": 98.1,
+        "boundary": 98.0,
+        "replacement": 62.8,
+        "replacement_uncurated": 53.8
       },
       "B": {
-        "cases": 166,
-        "root_cause": 95.8,
-        "root_cause_and_boundary": 95.8,
-        "boundary": 95.8,
-        "replacement": 86.2,
-        "replacement_uncurated": 73.4
+        "cases": 184,
+        "root_cause": 95.7,
+        "root_cause_and_boundary": 95.7,
+        "boundary": 95.7,
+        "replacement": 84.5,
+        "replacement_uncurated": 71.8
       }
     },
     "by_origin": {
@@ -46,12 +46,12 @@
         "replacement_uncurated": 100.0
       },
       "reported": {
-        "cases": 367,
-        "root_cause": 97.8,
-        "root_cause_and_boundary": 97.8,
-        "boundary": 97.8,
-        "replacement": 76.8,
-        "replacement_uncurated": 65.2
+        "cases": 393,
+        "root_cause": 97.2,
+        "root_cause_and_boundary": 97.2,
+        "boundary": 97.2,
+        "replacement": 74.6,
+        "replacement_uncurated": 63.3
       }
     }
   },
@@ -75,6 +75,12 @@
       "replacement_uncurated": null
     },
     "aiohttp-streams-asyncstreamreadermixin-vcrpy-direct-cli": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
+    "hold-aiohttp-helpers-get-running-loop-ha-senec-v3": {
       "root_cause": true,
       "boundary": true,
       "replacement": null,
@@ -123,8 +129,8 @@
       "replacement_uncurated": null
     },
     "hold-anthropic-types-beta-tools-claudette": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": null,
       "replacement_uncurated": null
     },
@@ -284,6 +290,12 @@
       "replacement": null,
       "replacement_uncurated": null
     },
+    "hold-django-encoding-smart-text-django-places": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": false,
+      "replacement_uncurated": false
+    },
     "dspy-teleprompt-mipro-removed": {
       "root_cause": true,
       "boundary": true,
@@ -356,6 +368,12 @@
       "replacement": true,
       "replacement_uncurated": true
     },
+    "hold-fastapi-openapi-utils-get-model-definitions-fastapi-rfc7807": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
     "fastmcp-get-tools-removed-ecs-server": {
       "root_cause": true,
       "boundary": true,
@@ -415,6 +433,12 @@
       "boundary": true,
       "replacement": true,
       "replacement_uncurated": true
+    },
+    "hold-fastmcp-init-include-tags-gravitino": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false,
+      "replacement_uncurated": false
     },
     "flask-before-first-request-ddtrace": {
       "root_cause": true,
@@ -542,6 +566,18 @@
       "replacement": true,
       "replacement_uncurated": true
     },
+    "hold-gradio-chatbot-style-cogvlm": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
+    "hold-gradio-encode-url-or-file-to-base64-stackoverflow": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false,
+      "replacement_uncurated": false
+    },
     "httpx-asyncclient-app-kwarg-datasette": {
       "root_cause": true,
       "boundary": true,
@@ -567,6 +603,12 @@
       "replacement_uncurated": null
     },
     "httpx-asyncclient-proxy-not-yet-added-cooaki": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
+    "hold-httpx-types-proxiestypes-py-googletrans": {
       "root_cause": true,
       "boundary": true,
       "replacement": null,
@@ -630,6 +672,12 @@
       "root_cause": true,
       "boundary": true,
       "replacement": true,
+      "replacement_uncurated": false
+    },
+    "hold-huggingface-hub-hf-hub-download-use-auth-token-speechbrain": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": false,
       "replacement_uncurated": false
     },
     "instructor-from-anthropic-not-yet-added": {
@@ -956,6 +1004,12 @@
       "replacement": null,
       "replacement_uncurated": null
     },
+    "hold-marshmallow-utils-fieldinstanceresolutionerror-azure-sdk-for-python": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
     "matplotlib-tostring-rgb-rvc-webui": {
       "root_cause": true,
       "boundary": true,
@@ -1100,6 +1154,18 @@
       "replacement": true,
       "replacement_uncurated": true
     },
+    "hold-mcp-fastmcp-init-description-python-sdk": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
+    "hold-mcp-fastmcp-tool-title-not-yet-added-python-sdk": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
     "mistralai-chat-completion-module-removed-devika": {
       "root_cause": true,
       "boundary": true,
@@ -1215,8 +1281,8 @@
       "replacement_uncurated": false
     },
     "hold-numpy-sctypes-imgaug": {
-      "root_cause": false,
-      "boundary": false,
+      "root_cause": true,
+      "boundary": true,
       "replacement": null,
       "replacement_uncurated": null
     },
@@ -1225,6 +1291,12 @@
       "boundary": false,
       "replacement": false,
       "replacement_uncurated": false
+    },
+    "hold-numpy-unicode-whylogs": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true,
+      "replacement_uncurated": true
     },
     "ollama-create-modelfile-kwarg-removed": {
       "root_cause": true,
@@ -1364,6 +1436,18 @@
       "replacement": null,
       "replacement_uncurated": null
     },
+    "hold-openai-embedding-apiremovedinv1-openai-python": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false,
+      "replacement_uncurated": false
+    },
+    "hold-openai-image-apiremovedinv1-openai-python": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false,
+      "replacement_uncurated": false
+    },
     "pandas-dataframe-append-cpm-python": {
       "root_cause": true,
       "boundary": true,
@@ -1435,6 +1519,12 @@
       "boundary": true,
       "replacement": null,
       "replacement_uncurated": null
+    },
+    "hold-pandas-io-json-json-normalize-gnomad-python-api": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true,
+      "replacement_uncurated": true
     },
     "pinecone-db-data-not-yet-added-microservice-utils": {
       "root_cause": true,
@@ -1712,6 +1802,18 @@
       "replacement": null,
       "replacement_uncurated": null
     },
+    "hold-pytest-nodes-iterparentnodeids-pytest-bdd-674": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
+    "hold-pytest-fixturedef-init-fixturemanager-repository-service-tuf": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
     "python-distutils-removed-thefuck": {
       "root_cause": true,
       "boundary": true,
@@ -1850,6 +1952,12 @@
       "replacement": true,
       "replacement_uncurated": true
     },
+    "hold-redis-connection-hiredisparser-celery-8689": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
     "scikit-learn-onehotencoder-sparse-lazypredict": {
       "root_cause": true,
       "boundary": true,
@@ -1915,6 +2023,12 @@
       "boundary": true,
       "replacement": true,
       "replacement_uncurated": true
+    },
+    "hold-scikit-learn-neighbors-distancemetric-pdsc": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false,
+      "replacement_uncurated": false
     },
     "httpx-proxies-kwarg": {
       "root_cause": true,
@@ -1989,10 +2103,16 @@
       "replacement_uncurated": false
     },
     "hold-selenium-chrome-init-chrome-options-pytest-invenio": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true,
+      "replacement_uncurated": false
+    },
+    "hold-selenium-chrome-init-service-log-path-robotframework": {
       "root_cause": false,
       "boundary": false,
-      "replacement": false,
-      "replacement_uncurated": false
+      "replacement": null,
+      "replacement_uncurated": null
     },
     "sqlalchemy-engine-execute-removed-kamcli": {
       "root_cause": true,
@@ -2047,6 +2167,12 @@
       "boundary": true,
       "replacement": null,
       "replacement_uncurated": null
+    },
+    "hold-sqlalchemy-databases-module-aliyun-odps-python-sdk": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": false,
+      "replacement_uncurated": false
     },
     "sqlmodel-sqltypes-guid-removed-mountaineer": {
       "root_cause": true,
@@ -2132,6 +2258,18 @@
       "replacement": false,
       "replacement_uncurated": false
     },
+    "hold-streamlit-atomicimage-streamlit-extras": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true,
+      "replacement_uncurated": true
+    },
+    "hold-streamlit-image-to-url-streamlit-drawable-canvas": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true,
+      "replacement_uncurated": true
+    },
     "hold-transformers-trainingarguments-evaluation-strategy-autogluon": {
       "root_cause": true,
       "boundary": true,
@@ -2191,6 +2329,18 @@
       "boundary": true,
       "replacement": true,
       "replacement_uncurated": true
+    },
+    "hold-transformers-llamaflashattention2-axolotl": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": null,
+      "replacement_uncurated": null
+    },
+    "hold-transformers-extract-past-from-model-output-cogvlm2": {
+      "root_cause": false,
+      "boundary": false,
+      "replacement": null,
+      "replacement_uncurated": null
     },
     "typer-clear-export-removed-async-typer": {
       "root_cause": true,
@@ -2301,6 +2451,12 @@
       "replacement_uncurated": true
     },
     "hold-werkzeug-urls-url-encode-webgrid": {
+      "root_cause": true,
+      "boundary": true,
+      "replacement": true,
+      "replacement_uncurated": true
+    },
+    "hold-werkzeug-urls-url-quote-plus-jam-py": {
       "root_cause": true,
       "boundary": true,
       "replacement": true,

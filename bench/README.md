@@ -92,5 +92,8 @@ new tracebacks, and 0.9% and 0.7% false positives on 2,279 working uses (15 of e
 placeholder release), with 96.6% and 96.0% recall on 176 breaks; see `holdout/2026-11d/results-2026-11-10.md`. The
 fifth, `holdout/2026-11e/` (DT-QA-11), the first scored after the fixes designed from 2026-11d's misses, scored 85.7% on
 28 new tracebacks, and 0.05% and 0.2% false positives on 2,052 working uses, with 99.3% and 97.9% recall on 140 breaks;
-see `holdout/2026-11e/results-2026-11-10.md`. All five sets' tracebacks are in `cases/` now; `bench.yml` checks each
+see `holdout/2026-11e/results-2026-11-10.md`. The sixth, `holdout/2026-11f/` (DT-QA-12), the first scored after the
+fixes designed from 2026-11e's misses, scored 76.9% on 26 new tracebacks (four of its six misses are errors as a web
+page pastes them), and 0.1% and 0.1% false positives on 2,113 working uses, with 100% and 96.7% recall on 152 breaks;
+see `holdout/2026-11f/results-2026-11-11.md`. All six sets' tracebacks are in `cases/` now; `bench.yml` checks each
 set's uses against its `baseline.json`.

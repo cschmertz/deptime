@@ -34,6 +34,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Bac
   2's "`np.sctypes` was removed in the NumPy 2.0 release", with or without the backticks (DT-CORE-52)
 - The traceback parser no longer takes seconds on some inputs within the 20,000-character limit (one long word, a
   long run of spaces after a frame line): every pattern it runs is linear in the input (DT-CORE-56)
+- `explain_error` answers the module an import line asks for when the error names the package it's in: anthropic 0.27
+  dropped `types.beta` whole, so `from anthropic.types.beta.tools import ...` fails with "No module named
+  'anthropic.types.beta'", and 0.34 brought `types.beta` back without `tools`. The finding is now about
+  `anthropic.types.beta.tools`, with a sentence on `types.beta`. IPython's frames now carry the code line their arrow
+  marks (`---> 15 from x import y`) (DT-CORE-51)
 
 ## [0.1.12] - 2026-11-10
 

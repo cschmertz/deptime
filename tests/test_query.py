@@ -248,6 +248,80 @@ def test_a_module_that_became_a_name_is_a_removed_module():
     assert f.issue == "present_in_installed_version"
 
 
+def test_a_missing_package_answers_the_module_the_import_line_asks_for():
+    # DT-CORE-51: anthropic 0.27 dropped `types.beta` whole, so `from anthropic.types.beta.tools import ...` fails with
+    # "No module named 'anthropic.types.beta'"; 0.34 brought `types.beta` back without `tools`, which the code needs.
+    spec = PackageSpec(name="pkgb", import_names=("pkgb",), tier="B")
+
+    def modules(*paths: str) -> dict[str, SymbolRecord]:
+        return {p: SymbolRecord(p, "module", p) for p in paths}
+
+    base = modules("pkgb", "pkgb.types")
+    beta, tools = modules("pkgb.types.beta"), modules("pkgb.types.beta.tools")
+    legacy = modules("pkgb.legacy", "pkgb.legacy.io")
+    store = IndexStore.memory()
+    store.rebuild_package(
+        spec,
+        [
+            ApiSnapshot(
+                "pkgb", "0.5", ["pkgb"], base | beta | tools | legacy | modules("pkgb.types.beta.old")
+            ),
+            ApiSnapshot("pkgb", "1.0", ["pkgb"], base | beta | tools | legacy),
+            ApiSnapshot("pkgb", "2.0", ["pkgb"], base),
+            ApiSnapshot("pkgb", "3.0", ["pkgb"], base | beta | modules("pkgb.types.beta.cache")),
+        ],
+    )
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+
+    def explain(code: str, installed: str = "2.0", ipython: bool = False, module: str = "pkgb.types.beta"):
+        ipython_frame = "File ~/env/lib/python3.11/site-packages/app/core.py:15\n---> 15 "
+        frame = ipython_frame if ipython else '  File "app.py", line 15, in <module>\n    '
+        tb = f"{frame}{code}\nModuleNotFoundError: No module named '{module}'"
+        (f,) = dt.explain_error(tb, {"pkgb": installed}).findings
+        return f
+
+    for ipython in (False, True):
+        f = explain("from pkgb.types.beta.tools import Msg, block", ipython=ipython)
+        assert (f.symbol, f.issue, f.last_version_with, f.first_version_without, f.pin_to_restore) == (
+            "pkgb.types.beta.tools",
+            "module_removed",
+            "1.0",
+            "2.0",
+            "pkgb<=1.0",
+        )
+        assert (
+            "The error names `pkgb.types.beta`, the package it's in; the import line asks for "
+            "`pkgb.types.beta.tools`. `pkgb.types.beta` went in the same release and is back from 3.0, without "
+            "`tools`." in f.explanation
+        )
+    assert explain("import pkgb.types.beta.tools as t").symbol == "pkgb.types.beta.tools"
+    # Gone earlier than its package: the pin is the module's own.
+    f = explain("from pkgb.types.beta.old import x")
+    assert (f.symbol, f.last_version_with, f.pin_to_restore) == ("pkgb.types.beta.old", "0.5", "pkgb<=0.5")
+    assert "`pkgb.types.beta` went later, in 2.0, and is back from 3.0, without `old`." in f.explanation
+    # Not there yet: code for 3.0 run on 2.0.
+    f = explain("from pkgb.types.beta.cache import C")
+    assert (f.symbol, f.issue, f.first_version_with, f.pin_to_restore) == (
+        "pkgb.types.beta.cache",
+        "symbol_not_yet_added",
+        "3.0",
+        "pkgb>=3.0",
+    )
+    assert "`pkgb.types.beta` went in 2.0 and is back from 3.0." in f.explanation
+    # The import line asks for the module the error names, or one the index never had: the error's module.
+    for code in ("from pkgb.types.beta import tools", "from pkgb.types.beta.nothere import x", "x = 1"):
+        assert explain(code).symbol == "pkgb.types.beta", code
+    # Gone with its package, which doesn't come back: the error's own module says as much (langchain 1.0's `chains`).
+    f = explain("from pkgb.legacy.io import x", module="pkgb.legacy")
+    assert (f.symbol, f.last_version_with) == ("pkgb.legacy", "1.0")
+    assert "import line" not in f.explanation
+    # At the last release with it, the error has another cause; nothing to look deeper for.
+    assert (
+        explain("from pkgb.types.beta.tools import Msg", installed="1.0").issue
+        == "present_in_installed_version"
+    )
+
+
 def test_no_parameter_verdict_without_a_signature():
     # DT-CORE-20: an unresolved alias has no signature (pytest.skip before `_pytest` was loaded), so a
     # kwarg error against it says nothing about whether the parameter existed.

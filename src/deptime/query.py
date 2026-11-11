@@ -51,7 +51,7 @@ from deptime.models import (
     SymbolHistory,
     SymbolQuery,
 )
-from deptime.tracebacks import ErrorSignal, parse_traceback
+from deptime.tracebacks import ErrorSignal, imported_modules, parse_traceback
 from deptime.untrusted import instruction_like, untrusted_text
 
 MAX_DIFF_EVENTS = 500
@@ -169,6 +169,8 @@ DOTTED_RE = re.compile(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*")
 CHANGELOG_LABELS = ("changelog", "releasenotes", "changes", "whatsnew", "history", "releases")
 # Findings that don't identify a version change (the name is unknown, or present at the installed version).
 INCONCLUSIVE_ISSUES = {"never_existed", "present_in_installed_version"}
+# A module gone at the installed release, or not there yet: a version change that explains `No module named`.
+MODULE_CHANGE_ISSUES = {"module_removed", "symbol_not_yet_added"}
 MODULE_SIGNALS = {"import_name", "module_missing", "module_attribute"}
 OBJECT_SIGNALS = {
     "object_attribute",
@@ -2262,17 +2264,16 @@ class DepTime:
                 )
             ]
         if signal.kind == "module_missing":
-            return [
-                self._symbol_finding(
-                    spec,
-                    signal.module or "",
-                    resolved,
-                    exact,
-                    installed_version,
-                    module=True,
-                    message=signal.message,
-                )
-            ]
+            f = self._symbol_finding(
+                spec,
+                signal.module or "",
+                resolved,
+                exact,
+                installed_version,
+                module=True,
+                message=signal.message,
+            )
+            return [self._imported_module_finding(spec, signal, f, resolved, exact, installed_version) or f]
         if signal.kind in {"object_attribute", "class_attribute"} and signal.owner and signal.name:
             owner_leaf = signal.owner.rsplit(".", 1)[-1]
             paths = self._rank(self.store.find_by_suffix([name], f"{owner_leaf}.{signal.name}"), signal)
@@ -2338,6 +2339,78 @@ class DepTime:
             )
             return [f for f in found if f is not None]
         return []
+
+    def _imported_module_finding(
+        self,
+        spec: PackageSpec,
+        signal: ErrorSignal,
+        named: Finding,
+        resolved: sqlite3.Row | None,
+        exact: bool,
+        installed: str | None,
+    ) -> Finding | None:
+        """The module the import line asks for, under the package the error names, when the index has it gone (or not
+        there yet) too and that tells more (DT-CORE-51). anthropic 0.27 dropped `types.beta` whole, so `from
+        anthropic.types.beta.tools import ...` fails with "No module named 'anthropic.types.beta'", and 0.34 brought
+        `types.beta` back without `tools`: the code needs `tools`. The import line is the innermost frame's that has
+        one, and the deepest of its modules that the index has gone or not there yet is the answer, with a sentence on
+        the package the error names, unless its versions are the package's and the package never comes back without
+        it."""
+        assert self.store is not None
+        parent = named.symbol
+        if named.issue not in MODULE_CHANGE_ISSUES or not parent:
+            return None
+        modules = next((m for f in reversed(signal.frames) if (m := imported_modules(f.code or ""))), [])
+        target = next((m for m in modules if m.startswith(parent + ".")), None)
+        if target is None:
+            return None
+        parts = target[len(parent) + 1 :].split(".")
+        for k in range(len(parts), 0, -1):
+            path = f"{parent}.{'.'.join(parts[:k])}"
+            f = self._symbol_finding(
+                spec, path, resolved, exact, installed, module=True, message=signal.message
+            )
+            if f.issue in MODULE_CHANGE_ISSUES:
+                break
+        else:
+            return None
+        name = spec.name
+        ordinal = resolved["ordinal"] if resolved else self.store.releases(name)[-1]["ordinal"]
+        # The release where the error's package comes back (anthropic's `types.beta` in 0.34), and whether the module
+        # the code needs comes back with it.
+        back = None
+        if named.issue == "module_removed":
+            spans = [*self.store.spans(name, parent), *self.store.internal_spans(name, parent)]
+            back = min((s["first_ordinal"] for s in spans if s["first_ordinal"] > ordinal), default=None)
+        with_it = back is not None and bool(
+            self.store.span_at(name, path, back) or self.store.internal_span_at(name, path, back)
+        )
+
+        def versions(x: Finding) -> tuple:
+            return x.issue, x.last_version_with, x.first_version_without, x.first_version_with
+
+        if versions(f) == versions(named) and (back is None or with_it):
+            # Gone with its package for good, as langchain 1.0's `chains.retrieval` with `chains`: the error's own
+            # module says as much.
+            return None
+        if named.issue == "module_removed":
+            if f.issue != "module_removed":
+                went = f"in {named.first_version_without}"
+            elif f.first_version_without == named.first_version_without:
+                went = "in the same release"
+            else:
+                went = f"later, in {named.first_version_without}"
+            story = f"`{parent}` went {went}"
+            if back is not None:
+                comma = "," if went.startswith("later") else ""
+                story += f"{comma} and is back from {self._version(name, back)}"
+                story += "" if with_it else f", without `{path[len(parent) + 1 :]}`"
+        else:  # not there yet either, and the module comes later than its package
+            story = f"`{parent}` appears in {named.first_version_with}"
+        note = (
+            f" The error names `{parent}`, the package it's in; the import line asks for `{path}`. {story}."
+        )
+        return f.model_copy(update={"explanation": f.explanation + note})
 
     def _misnamed(self, findings: list[Finding], signal: ErrorSignal) -> set[int]:
         """The findings whose function Python wouldn't have named as the message does, when another one's it would:

@@ -59,6 +59,8 @@ PYTEST_FRAME_RE = re.compile(
     r"^(?P<file>[^\s:>][^:]*?\.pyi?):(?P<line>\d+):(?: in (?P<func>\S(?:.*\S)?)| (?P<exc>[A-Za-z_][\w.]*))?\s*$"
 )
 IPYTHON_LOCATION_RE = re.compile(r"^\s*File (?P<file>\S+?\.pyi?):(?P<line>\d+)(?:, in (?P<func>.*\S))?\s*$")
+# IPython's arrow at a frame's own line, among the numbered lines around it: `---> 15 from x import y` (DT-CORE-51).
+IPYTHON_ARROW_RE = re.compile(r"^\s*-*>\s*(?P<line>\d+)\s(?P<code>.*\S)")
 PYTHON_PATH_RES = (
     re.compile(r"[\\/]python3\.(?P<minor>\d{1,2})t?[\\/]"),
     re.compile(r"[\\/]Python3(?P<minor>\d{1,2})(?:-32|-arm64)?[\\/]", re.IGNORECASE),
@@ -68,6 +70,7 @@ SUGGESTION_RE = re.compile(r"Did you mean:? '(?P<s>[\w.]+)'\??\s*$")
 DOTTED_RE = re.compile(r"(?<![\w.])([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+)")
 CALL_RE = re.compile(r"(?<![\w.])([A-Za-z_][\w.]*)\s*\(")
 FROM_IMPORT_RE = re.compile(r"^\s*from\s+(?P<mod>[\w.]+)\s+import\s+(?P<names>[\w\s,()]+)")
+IMPORT_RE = re.compile(r"^\s*import\s+(?P<mods>[\w.]+(?:\s+as\s+\w+)?(?:\s*,\s*[\w.]+(?:\s+as\s+\w+)?)*)")
 
 CIRCULAR_RE = re.compile(r"partially initialized module '(?P<module>[\w.]+)'")
 IMPORT_NAME_RE = re.compile(r"cannot import name '(?P<name>[\w.]+)' from '(?P<module>[\w.]+)'")
@@ -239,6 +242,18 @@ def _referenced_names(code_lines: list[str]) -> list[str]:
     return list(found)
 
 
+def imported_modules(code: str) -> list[str]:
+    """The modules an import line asks for: a `from` import's module, each module of a plain `import` (DT-CORE-51).
+    A relative import names none."""
+    if fm := FROM_IMPORT_RE.match(code):
+        mods = [fm.group("mod")]
+    elif im := IMPORT_RE.match(code):
+        mods = [part.split()[0] for part in im.group("mods").split(",")]
+    else:
+        return []
+    return [m for m in mods if not m.startswith(".")]
+
+
 def parse_traceback(text: str) -> ErrorSignal | None:
     """Return the signal for the *last* exception in `text`, or None if no exception line is found.
 
@@ -334,7 +349,13 @@ def _python_version_of(lines: list[str], signal: ErrorSignal) -> ErrorSignal:
 def _location_frames(lines: list[str], start: int, exc_index: int) -> list[Frame]:
     """A block's frames from pytest's and IPython's location lines, outermost first."""
     frames = []
+    ipython: set[int] = set()  # indexes in `frames` of IPython's location lines
     for i in range(start, exc_index):
+        if (am := IPYTHON_ARROW_RE.match(lines[i])) and ipython:
+            k = len(frames) - 1
+            if k in ipython and frames[k].code is None and int(am.group("line")) == frames[k].line:
+                frames[k].code = am.group("code").strip()
+            continue
         m = IPYTHON_LOCATION_RE.match(lines[i]) or PYTEST_FRAME_RE.match(lines[i])
         if m is None or m.groupdict().get("exc"):
             continue
@@ -344,6 +365,8 @@ def _location_frames(lines: list[str], start: int, exc_index: int) -> list[Frame
         frames.append(
             Frame(file=file, line=int(m.group("line")), function=func, module=_module_from_path(file))
         )
+        if m.re is IPYTHON_LOCATION_RE:
+            ipython.add(len(frames) - 1)
     for line in lines[exc_index + 1 : exc_index + 2 + MAX_MESSAGE_LINES]:
         m = PYTEST_FRAME_RE.match(line)
         if m is not None and m.group("exc"):  # the frame that raised, printed after the `E` lines

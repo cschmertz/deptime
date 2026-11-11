@@ -57,7 +57,7 @@ All tools are read-only and idempotent, and return structured output (pydantic m
   - A covered package listed under another distribution that installs the same code (`pinecone-client` 3.2.2 is pinecone 3.2.2) counts as that package. When another distribution installs other code under a covered import name (`agents`: TensorFlow Agents, ai-agents), the versions decide which one raised: a rival installed instead of the covered package, or a whole `pip_freeze` without it, puts the error in `not_covered` (DT-CORE-03).
 - **Signal kinds it handles:**
   - `import_name` (`cannot import name 'X' from 'm'`)
-  - `module_missing`
+  - `module_missing`: when the failing import line asks for a module under the one the error names (`from anthropic.types.beta.tools import ...` failing with "No module named 'anthropic.types.beta'") and the index has that module gone, or not there yet, the finding is about it, with a sentence on the package the error names; not when its versions are the package's and the package never comes back without it (DT-CORE-51). An IPython frame's code is the line its arrow marks (`---> 15 from x import y`).
   - `module_attribute`
   - `object_attribute` and `class_attribute` (resolved by class-name suffix)
   - `unexpected_kwarg`

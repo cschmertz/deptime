@@ -1,4 +1,4 @@
-from deptime.tracebacks import MAX_INPUT_CHARS, parse_traceback
+from deptime.tracebacks import MAX_INPUT_CHARS, imported_modules, parse_traceback
 
 HTTPX_TB = """\
 Traceback (most recent call last):
@@ -645,6 +645,43 @@ def test_pytest_and_ipython_location_lines_are_frames():
     assert parse_traceback(IPYTHON_TB).frames[1].function == "Parameter.make_metavar"  # without the arguments
 
 
+def test_ipython_frames_take_their_code_from_the_arrow_line():
+    # DT-CORE-51: IPython marks a frame's own line with an arrow, `---> 15 from x import y`, between the lines around
+    # it; explain_error reads the import line of a ModuleNotFoundError (2026-11e's claudette traceback).
+    assert [f.code for f in parse_traceback(IPYTHON_TB).frames] == [
+        'rv += f" {self.make_metavar(ctx=ctx)}"',
+        "metavar = self.type.get_metavar(param=self, ctx=ctx)",
+    ]
+    claudette = (
+        "File ~/env/lib/python3.11/site-packages/claudette/core.py:15\n"
+        "     13 from anthropic import Anthropic\n"
+        "---> 15 from anthropic.types.beta.tools import ToolsBetaMessage, tool_use_block\n"
+        "     17 from fastcore.docments import docments\n"
+        "\n"
+        "ModuleNotFoundError: No module named 'anthropic.types.beta'\n"
+    )
+    s = parse_traceback(claudette)
+    assert [f.code for f in s.frames] == [
+        "from anthropic.types.beta.tools import ToolsBetaMessage, tool_use_block"
+    ]
+    assert "anthropic.types.beta.tools.ToolsBetaMessage" in s.referenced_names
+    # Only the arrow at the frame's own line, and only before the next frame.
+    other = "File ~/a.py:3\n----> 1 import x\n\nFile ~/b.py:2\n----> 2 import y\n\nModuleNotFoundError: No module named 'y'\n"
+    assert [f.code for f in parse_traceback(other).frames] == [None, "import y"]
+
+
+def test_the_modules_an_import_line_asks_for():
+    # DT-CORE-51: the module of a `from` import, each module of a plain one; a relative import names none.
+    assert imported_modules("from a.b.c import d, e") == ["a.b.c"]
+    assert imported_modules("from a.b import (c,") == ["a.b"]
+    assert imported_modules("import a.b as x, c.d") == ["a.b", "c.d"]
+    assert imported_modules("import app; app.main()") == ["app"]
+    assert imported_modules("from .a import b") == []
+    assert imported_modules("from . import b") == []
+    assert imported_modules("x = importlib.import_module('a.b')") == []
+    assert imported_modules("") == []
+
+
 # DT-CORE-52: two shapes from the 2026-11e holdout (numpy 2): a message quoted without its exception class, and a
 # traceback flattened onto one line.
 
@@ -771,6 +808,10 @@ def test_adversarial_input_parses_in_linear_time():
         "a repeated positional-count prefix": "TypeError: " + "f() takes " * (n // 10),
         "repeated site-packages": 'File "' + "/site-packages/" * (n // 15) + '", line 1, in f\nValueError: v',
         "a repeated hook prefix": "pluggy.PluginValidationError: " + "for hook 'a' " * (n // 13),
+        "dashes after an IPython frame": "File a.py:1\n"
+        + "-" * n
+        + "\nModuleNotFoundError: No module named 'a'",
+        "a long arrow line": "File a.py:1\n---> 1 " + "import a" + ", b" * (n // 3) + "\nValueError: v",
     }
     for name, text in inputs.items():
         best = float("inf")

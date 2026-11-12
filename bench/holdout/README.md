@@ -9,6 +9,10 @@ It is scored once; that first score is the number to quote, and leads the README
 `bench/cases` and its uses stay here as a regression check. A fix designed from a set's misses is scored on the next set,
 not this one.
 
+Each miss gets a backlog item, but only a pattern is worked on next: two or more cases in the set (uses or tracebacks,
+as the scorer counts them), a cause an earlier set also showed, or any false positive or wrong answer. A one-off is held
+until a later set has another case of it (`BACKLOG.md`, from 2026-11-11).
+
 ## What a set holds
 
 `<set>/` (e.g. `2026-11/`):

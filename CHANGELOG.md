@@ -1,7 +1,8 @@
 # Changelog
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Backlog IDs (`DT-…`) point to
-[BACKLOG.md](BACKLOG.md), which has the details and the measurements behind each change.
+[BACKLOG.md](BACKLOG.md) and, for work finished before 2026-11-13, to
+[docs/backlog-archive.md](docs/backlog-archive.md), which has the details and the measurements behind each change.
 
 ## Versioning
 

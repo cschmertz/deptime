@@ -11,7 +11,10 @@ not this one.
 
 Each miss gets a backlog item, but only a pattern is worked on next: two or more cases in the set (uses or tracebacks,
 as the scorer counts them), a cause an earlier set also showed, or any false positive or wrong answer. A one-off is held
-until a later set has another case of it (`BACKLOG.md`, from 2026-11-11).
+until a later set has another case of it (`docs/backlog-archive.md`, from 2026-11-11).
+
+**Since 2026-11-13 no new sets are collected** (`BACKLOG.md`, rule 1). The six sets here stay as regression checks, and
+a held item moves up when someone reports the wrong answer it causes.
 
 ## What a set holds
 

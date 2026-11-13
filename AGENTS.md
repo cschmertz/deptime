@@ -6,6 +6,13 @@ DepTime is an open-source (MIT), **local-first** MCP server. It answers "what ch
 
 Read `README.md` first. The plan is in `BACKLOG.md`; put its IDs (e.g. `DT-CORE-05`) in commit messages.
 
+**Maintenance mode (since 2026-11-13).** Read the rules in `BACKLOG.md` before starting work:
+- work starts from a reported wrong answer or a failed scheduled check, and no new holdout sets are collected;
+- answer `unknown` or add a `[[package.served]]` entry before writing new extraction code;
+- keep `BACKLOG.md` short: one line per change, with measurements in `bench/**/results-*.md` and commit bodies.
+
+Finished work and its measurements are in `docs/backlog-archive.md`, which is frozen: don't edit it.
+
 **Commit messages** (from 2026-11-10 on; don't reword or rebase older commits):
 - **Subject:** one short plain-English sentence, aiming for 72 characters or fewer, that someone who has never opened the codebase can follow: what changed and why it matters.
   - No function names, file paths or jargon. The five tool names (`check_symbols`, `explain_error`, `diff_versions`, `symbol_history`, `coverage`) are fine.

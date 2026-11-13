@@ -2,6 +2,35 @@
 
 **Purpose:** measure whether `explain_error` gives the right answer on *real* failures. This is the project's accuracy measure (root cause + boundary: floor 70%, target 80%).
 
+## Results: every check, first run and now
+
+The project README gives four first-run numbers. This is every check behind them, with the score when each was
+first run and the score now.
+
+Each check's right answers were written down before DepTime first ran on it ([bench/](https://github.com/cschmertz/deptime/tree/main/bench)). Judge DepTime by the first run: the fixes since then were designed from its misses, so the later numbers are flattering.
+
+| Check | Cases | First run | Now |
+|---|---|---|---|
+| Right package, name and breaking release for a traceback from a GitHub issue, on the [2026-11f holdout](https://github.com/cschmertz/deptime/blob/main/bench/holdout/2026-11f/results-2026-11-11.md) | 26, after every fix so far | 76.9% | 76.9% |
+| Code that still works after an upgrade, flagged as broken by `check_symbols` (lower is better) | 2,113 uses from 171 upgrades of real projects, labelled by running them | 0.1% | 0.1% |
+| The same, by `diff_versions(used_symbols=...)` | 2,113 | 0.1% | 0.1% |
+| Code that breaks, flagged by `check_symbols` / `diff_versions` | 152 uses | 100% / 96.7% | 100% / 96.7% |
+| The same four, on the [2026-11e holdout](https://github.com/cschmertz/deptime/blob/main/bench/holdout/2026-11e/results-2026-11-10.md): tracebacks; working code flagged by `check_symbols` / `diff_versions`; breaks flagged | 28; 2,024 / 2,052 uses; 140 | 85.7%; 0.05% / 0.2%; 99.3% / 97.9% | 96.4%; 0.05% / 0.05%; 100% / 100% |
+| The same four, on the [2026-11d holdout](https://github.com/cschmertz/deptime/blob/main/bench/holdout/2026-11d/results-2026-11-10.md): tracebacks; working code flagged by `check_symbols` / `diff_versions`; breaks flagged | 30; 2,224 / 2,279 uses; 176 | 86.7%; 0.9% / 0.7%; 96.6% / 96.0% | 93.3%; 0.09% / 0.09%; 99.4% / 99.4% |
+| The same four, on the [holdout of 2026-11-09](https://github.com/cschmertz/deptime/blob/main/bench/holdout/2026-11c/results-2026-11-09.md): tracebacks; working code flagged by `check_symbols` / `diff_versions`; breaks flagged | 35; 1,801 / 1,841 uses; 128 | 88.6%; 0.5% / 0.3%; 99.2% / 99.2% | 97.1%; 0.06% / 0%; 100% / 98.4% |
+| The same four, on the [holdout of 2026-11-08](https://github.com/cschmertz/deptime/blob/main/bench/holdout/2026-11b/results-2026-11-08.md): tracebacks; working code flagged by `check_symbols` / `diff_versions`; breaks flagged | 37; 2,503 / 2,542 uses; 146 (140 once six wrong labels are corrected) | 91.9%; 1.5% / 0.2%; 95.9% / 95.9% | 100%; 0% / 0%; 100% / 100% |
+| The same four, on the [holdout of 2026-11-07](https://github.com/cschmertz/deptime/blob/main/bench/holdout/2026-11/results-2026-11-07.md): tracebacks; working code flagged by `check_symbols` / `diff_versions`; breaks flagged | 35; 3,600 / 2,399 uses; 130 | 88.6%; 3.8% / 0.3%; 97.7% / 76.9% | 100%; 0.1% / 0.1%; 98.4% / 98.5% |
+| Right package, name and breaking release for a traceback from a GitHub issue | 32 collected 2026-11-05 | 68.8% | 100% |
+| The same, on a holdout fixed in advance from [TimeMachine-bench](https://github.com/tohoku-nlp/timemachine-bench) | 29 | 72.4% | 96.6% |
+| Error kind and package read from the traceback: scripts, pytest, chained exceptions, `ExceptionGroup`, IPython, Python 3.10–3.14 | 736, holdout fixed in advance | 93.8% | 100% |
+| Replacement hints at confidence ≥ 0.75 that are right | hints for 50 documented migrations | 11 of 11 | 42 of 45 |
+| Documented migrations that get a right hint at ≥ 0.75 | 50 | 11 | 42 (32 without hand-checked hints from migration guides) |
+| Names that exist at runtime but read as absent | 2,428 sampled at runtime from 10 dynamic packages | 5.1% | 1.2% |
+
+`check_symbols` answers `unknown`, with the reason, where the index can't tell (a path through an instance such as `pytest.mark`, or into a distribution it doesn't cover): 66 working uses and 5 breaks of the 2026-11f holdout (28 working uses of 2026-11e's, 55 working uses and 2 breaks of 2026-11d's, 40 working uses and 4 breaks of 2026-11-09's, 43 working uses of 2026-11-08's, 79 working uses and 4 breaks of 2026-11-07's since that answer was added), left out of its rates above. Its [misses](https://github.com/cschmertz/deptime/blob/main/bench/holdout/2026-11f/results-2026-11-11.md#misses) are new items in the [backlog](https://github.com/cschmertz/deptime/blob/main/BACKLOG.md), to be scored on the next set. Both tools' two false alarms on 2026-11f are one scikit-learn import from a compiled module, which the index can't read; most of its traceback misses are errors as a web page pastes them (a keyword in backticks, `__init__` printed as `init`). The fixes for the 2026-11d holdout's misses are in the index of 2026-11-10 (`SNAPSHOT_FORMAT` 26): 2 of its 20 and 17 false alarms are left per tool, chromadb's embedding functions, which its `__init__` writes into `globals()`, and the dspy placeholder release that gave 15 of each is now read from the distribution it installs. Since 2026-11-10 the holdout's rule reads a parameter `diff_versions` reports as required at the older release going down (polars 0.19.6's `int_range(n)`), and one passed by position (`StateGraph(State)`), so its "now" figures for `diff_versions` count both right.
+
+Across all 393 real tracebacks in the benchmark, including the ones fixes were designed from, DepTime names the right package, name and release for 97.2%, and a right replacement is among its first three for 74.6%. CI re-scores them and the holdouts on every code change and every published index, and fails on a drop of more than 2 points (or a false-positive rate up by more than 1).
+
 ## Case format (`cases/*.jsonl`, one JSON object per line)
 
 | Field | Meaning |

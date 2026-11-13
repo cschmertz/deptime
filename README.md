@@ -18,69 +18,20 @@
 
 </div>
 
-When an agent hits `ImportError`, `AttributeError` or "unexpected keyword argument" in a fast-moving library, one call to DepTime says **what changed, in which release, and what to use instead**. Answers are computed from static diffs of every indexed release, not from docs or model memory.
+Python libraries rename and remove things between releases. Code that worked last year, or code an AI model learned from, then fails with an `ImportError`, an `AttributeError` or "unexpected keyword argument". DepTime tells a coding agent **what changed, in which release, and what to use instead**, in one call.
 
-Free, open source (MIT), and **local**: your code and errors never leave your machine.
-
-<p>
+<p align="center">
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cschmertz/deptime/main/docs/assets/how-it-works-dark.svg">
-  <img alt="How DepTime works. Built nightly on GitHub: new PyPI releases are read statically and diffed release to release; packages are never imported or run. The only thing that crosses to your machine is one file, index.sqlite.xz. Answered on your machine: deptime mcp answers your agent locally, and your code and errors stay there." src="https://raw.githubusercontent.com/cschmertz/deptime/main/docs/assets/how-it-works-light.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cschmertz/deptime/main/docs/assets/demo-dark.svg">
+  <img alt="A terminal. The error is: TypeError: Client.__init__() got an unexpected keyword argument 'proxies'. The command deptime explain --installed httpx==0.28.1 answers that httpx.Client.__init__(proxies) was removed: the last release with it is 0.27.2, the first without it 0.28.0, and it was deprecated in 0.26.0. Use proxy or mounts instead, or pin httpx<=0.27.2." src="https://raw.githubusercontent.com/cschmertz/deptime/main/docs/assets/demo-light.svg" width="760">
 </picture>
 </p>
 
-Every night, GitHub Actions reads each new release's public API with [griffe](https://mkdocstrings.github.io/griffe/), which parses the source without running it, diffs it against the previous release, and publishes the result as one file, `index.sqlite.xz`, on this repo's Releases. On your machine, `deptime mcp` checks that file's sha256 and schema before swapping it in, then answers every question locally in milliseconds. The full design is in [docs/04-architecture.md](https://github.com/cschmertz/deptime/blob/main/docs/04-architecture.md), and the decisions are in [docs/adr/](https://github.com/cschmertz/deptime/tree/main/docs/adr).
+- **Computed, not remembered.** Each answer comes from comparing the library's own source across its releases, not from docs or a model's memory, and it quotes the evidence it found.
+- **Local and free.** Open source (MIT). Your code and errors never leave your machine.
+- **Says when it doesn't know.** For a package it doesn't cover, or a name it can't follow, the answer is "not covered" or `unknown`, never a guess.
 
-```text
-TypeError: Client.__init__() got an unexpected keyword argument 'proxies'
-```
-
-```json
-{
-  "symbol": "httpx.Client.__init__(proxies)",
-  "issue": "param_removed",
-  "installed_version": "0.28.1",
-  "last_version_with": "0.27.2",
-  "first_version_without": "0.28.0",
-  "deprecated_in": "0.26.0",
-  "replacements": [
-    {"target": "proxy", "confidence": 0.8, "source": "deprecation_message"},
-    {"target": "mounts", "confidence": 0.79, "source": "deprecation_message"}
-  ],
-  "pin_to_restore": "httpx<=0.27.2",
-  "confidence": "high"
-}
-```
-
-That's the real `explain_error` answer from the published index, trimmed. The full answer also quotes the deprecation message DepTime found in httpx's own source, and adds a one-sentence explanation for your agent to pass on.
-
-> **Status:** alpha. The prebuilt index is rebuilt twice a day. Known gaps are tracked in [BACKLOG.md](https://github.com/cschmertz/deptime/blob/main/BACKLOG.md).
-
-## How well it works
-
-Each check's right answers were written down before DepTime first ran on it ([bench/](https://github.com/cschmertz/deptime/tree/main/bench)). Judge DepTime by the first run: the fixes since then were designed from its misses, so the later numbers are flattering.
-
-| Check | Cases | First run | Now |
-|---|---|---|---|
-| Right package, name and breaking release for a traceback from a GitHub issue, on the [2026-11f holdout](https://github.com/cschmertz/deptime/blob/main/bench/holdout/2026-11f/results-2026-11-11.md) | 26, after every fix so far | 76.9% | 76.9% |
-| Code that still works after an upgrade, flagged as broken by `check_symbols` (lower is better) | 2,113 uses from 171 upgrades of real projects, labelled by running them | 0.1% | 0.1% |
-| The same, by `diff_versions(used_symbols=...)` | 2,113 | 0.1% | 0.1% |
-| Code that breaks, flagged by `check_symbols` / `diff_versions` | 152 uses | 100% / 96.7% | 100% / 96.7% |
-| The same four, on the [2026-11e holdout](https://github.com/cschmertz/deptime/blob/main/bench/holdout/2026-11e/results-2026-11-10.md): tracebacks; working code flagged by `check_symbols` / `diff_versions`; breaks flagged | 28; 2,024 / 2,052 uses; 140 | 85.7%; 0.05% / 0.2%; 99.3% / 97.9% | 96.4%; 0.05% / 0.05%; 100% / 100% |
-| The same four, on the [2026-11d holdout](https://github.com/cschmertz/deptime/blob/main/bench/holdout/2026-11d/results-2026-11-10.md): tracebacks; working code flagged by `check_symbols` / `diff_versions`; breaks flagged | 30; 2,224 / 2,279 uses; 176 | 86.7%; 0.9% / 0.7%; 96.6% / 96.0% | 93.3%; 0.09% / 0.09%; 99.4% / 99.4% |
-| The same four, on the [holdout of 2026-11-09](https://github.com/cschmertz/deptime/blob/main/bench/holdout/2026-11c/results-2026-11-09.md): tracebacks; working code flagged by `check_symbols` / `diff_versions`; breaks flagged | 35; 1,801 / 1,841 uses; 128 | 88.6%; 0.5% / 0.3%; 99.2% / 99.2% | 97.1%; 0.06% / 0%; 100% / 98.4% |
-| The same four, on the [holdout of 2026-11-08](https://github.com/cschmertz/deptime/blob/main/bench/holdout/2026-11b/results-2026-11-08.md): tracebacks; working code flagged by `check_symbols` / `diff_versions`; breaks flagged | 37; 2,503 / 2,542 uses; 146 (140 once six wrong labels are corrected) | 91.9%; 1.5% / 0.2%; 95.9% / 95.9% | 100%; 0% / 0%; 100% / 100% |
-| The same four, on the [holdout of 2026-11-07](https://github.com/cschmertz/deptime/blob/main/bench/holdout/2026-11/results-2026-11-07.md): tracebacks; working code flagged by `check_symbols` / `diff_versions`; breaks flagged | 35; 3,600 / 2,399 uses; 130 | 88.6%; 3.8% / 0.3%; 97.7% / 76.9% | 100%; 0.1% / 0.1%; 98.4% / 98.5% |
-| Right package, name and breaking release for a traceback from a GitHub issue | 32 collected 2026-11-05 | 68.8% | 100% |
-| The same, on a holdout fixed in advance from [TimeMachine-bench](https://github.com/tohoku-nlp/timemachine-bench) | 29 | 72.4% | 96.6% |
-| Error kind and package read from the traceback: scripts, pytest, chained exceptions, `ExceptionGroup`, IPython, Python 3.10–3.14 | 736, holdout fixed in advance | 93.8% | 100% |
-| Replacement hints at confidence ≥ 0.75 that are right | hints for 50 documented migrations | 11 of 11 | 42 of 45 |
-| Documented migrations that get a right hint at ≥ 0.75 | 50 | 11 | 42 (32 without hand-checked hints from migration guides) |
-| Names that exist at runtime but read as absent | 2,428 sampled at runtime from 10 dynamic packages | 5.1% | 1.2% |
-
-`check_symbols` answers `unknown`, with the reason, where the index can't tell (a path through an instance such as `pytest.mark`, or into a distribution it doesn't cover): 66 working uses and 5 breaks of the 2026-11f holdout (28 working uses of 2026-11e's, 55 working uses and 2 breaks of 2026-11d's, 40 working uses and 4 breaks of 2026-11-09's, 43 working uses of 2026-11-08's, 79 working uses and 4 breaks of 2026-11-07's since that answer was added), left out of its rates above. Its [misses](https://github.com/cschmertz/deptime/blob/main/bench/holdout/2026-11f/results-2026-11-11.md#misses) are new items in the [backlog](https://github.com/cschmertz/deptime/blob/main/BACKLOG.md), to be scored on the next set. Both tools' two false alarms on 2026-11f are one scikit-learn import from a compiled module, which the index can't read; most of its traceback misses are errors as a web page pastes them (a keyword in backticks, `__init__` printed as `init`). The fixes for the 2026-11d holdout's misses are in the index of 2026-11-10 (`SNAPSHOT_FORMAT` 26): 2 of its 20 and 17 false alarms are left per tool, chromadb's embedding functions, which its `__init__` writes into `globals()`, and the dspy placeholder release that gave 15 of each is now read from the distribution it installs. Since 2026-11-10 the holdout's rule reads a parameter `diff_versions` reports as required at the older release going down (polars 0.19.6's `int_range(n)`), and one passed by position (`StateGraph(State)`), so its "now" figures for `diff_versions` count both right.
-
-Across all 393 real tracebacks in the benchmark, including the ones fixes were designed from, DepTime names the right package, name and release for 97.2%, and a right replacement is among its first three for 74.6%. CI re-scores them and the holdouts on every code change and every published index, and fails on a drop of more than 2 points (or a false-positive rate up by more than 1).
+> **Status:** alpha, in maintenance mode. The tools are complete for the packages they cover, the index rebuilds itself twice a day, and fixes follow [reported wrong answers](https://github.com/cschmertz/deptime/issues/new/choose). Known gaps are listed in [BACKLOG.md](https://github.com/cschmertz/deptime/blob/main/BACKLOG.md).
 
 ## Install
 
@@ -109,6 +60,37 @@ Checked 2026-11-05 with `deptime` 0.1.4 ([details](https://github.com/cschmertz/
 | MCP Python SDK clients 1.0–1.30 and TypeScript SDK clients 1.0–1.32 (protocols 2024-11-05 to 2025-11-25), over stdio and against `deptime serve` | ✅ |
 | Cursor, VS Code, Claude Desktop | not checked yet; they take the same `uvx deptime mcp` command |
 
+## What an answer looks like
+
+An agent that hits this error:
+
+```text
+TypeError: Client.__init__() got an unexpected keyword argument 'proxies'
+```
+
+passes it to `explain_error` and gets:
+
+```json
+{
+  "symbol": "httpx.Client.__init__(proxies)",
+  "issue": "param_removed",
+  "installed_version": "0.28.1",
+  "last_version_with": "0.27.2",
+  "first_version_without": "0.28.0",
+  "deprecated_in": "0.26.0",
+  "replacements": [
+    {"target": "proxy", "confidence": 0.8, "source": "deprecation_message"},
+    {"target": "mounts", "confidence": 0.79, "source": "deprecation_message"}
+  ],
+  "pin_to_restore": "httpx<=0.27.2",
+  "confidence": "high"
+}
+```
+
+That's the real answer from the published index, trimmed. The full answer also quotes the deprecation message DepTime found in httpx's own source, and adds a one-sentence explanation for the agent to pass on:
+
+> httpx.Client.__init__ accepted `proxies` up to httpx 0.27.2; it is gone from 0.28.0 onward. Deprecated in 0.26.0 ("The 'proxies' argument is now deprecated. Use 'proxy' or 'mounts' instead."). Use `proxy` or `mounts` instead, or pin httpx<=0.27.2.
+
 ## Tools
 
 | Tool | Use it when |
@@ -119,7 +101,43 @@ Checked 2026-11-05 with `deptime` 0.1.4 ([details](https://github.com/cschmertz/
 | `diff_versions(package, from_version \| date, to_version?, used_symbols?)` | Upgrading, or "what changed since my training cutoff?" |
 | `coverage()` | What's indexed (53 fast-moving packages: AI/agent stack + libraries with known breaking changes; [list](https://github.com/cschmertz/deptime/blob/main/docs/coverage.md)) |
 
-Every answer carries evidence and a confidence level. If a package isn't covered, DepTime says so instead of guessing. The contracts are in [docs/03-product-spec.md](https://github.com/cschmertz/deptime/blob/main/docs/03-product-spec.md).
+Every answer carries evidence and a confidence level. The contracts are in [docs/03-product-spec.md](https://github.com/cschmertz/deptime/blob/main/docs/03-product-spec.md).
+
+## How well it works
+
+Every number in the table is a **first run**: the cases and their right answers were collected and committed before DepTime ever ran on them.
+
+| How often does it… | First run | Measured on |
+|---|---|---|
+| find the right package, name and breaking release from a real traceback? | **87%** (166 of 191) | Tracebacks from GitHub issues and Stack Overflow, in six sets |
+| offer the right replacement among its first three suggestions? | **48%** (41 of 85) | The same tracebacks, where a replacement is known |
+| flag code that still works after an upgrade? (lower is better) | **0.1%** (2 of 2,047) | Uses of covered packages in real projects, labelled by running them. Newest of six sets; the oldest scored 3.8% |
+| find the code that an upgrade breaks? | **100%** (147 of 147) | The same projects. Newest set; the six range from 95.9% to 100% |
+
+- **The upgrade checks are the strong part.** The last two rows are `check_symbols`. On the same set, `diff_versions` found 96.7% of the breaks (147 of 152) and flagged 0.1% of working code (2 of 2,113).
+- **Replacements are the weak part.** On unseen errors the right one is offered about half the time. A suggestion at confidence 0.75 or more is usually right: 11 of 11 on the first run over 50 documented migrations, 42 of 45 now.
+- **The same cases score higher today** (97.2% of all 393 real tracebacks in the benchmark), because fixes were designed from their misses. That is why the first run is the number to trust.
+- **Where it can't tell, it says so.** `check_symbols` answered `unknown`, with the reason, for 66 working uses and 5 breaks of the newest set, which are left out of its rates above.
+
+Every set, every later re-run and each miss is in [bench/README.md](https://github.com/cschmertz/deptime/blob/main/bench/README.md#results-every-check-first-run-and-now). CI re-scores all of it on every code change and every published index, and fails on a drop of more than 2 points.
+
+## What it doesn't do
+
+- **It covers the packages on its [list](https://github.com/cschmertz/deptime/blob/main/docs/coverage.md), not all of PyPI,** and every release of each minor series active since 2023. For anything else the answer is "not covered".
+- **It reads source without running it.** A name that only exists once the library is running (built by compiled code, or computed at import time) can read as `unknown`, or occasionally as missing.
+- **It sees names, parameters and deprecations, not behaviour.** A function that keeps its signature but changes what it does is invisible to it.
+- **Python only.**
+
+## How it works
+
+<p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/cschmertz/deptime/main/docs/assets/how-it-works-dark.svg">
+  <img alt="How DepTime works. Built nightly on GitHub: new PyPI releases are read statically and diffed release to release; packages are never imported or run. The only thing that crosses to your machine is one file, index.sqlite.xz. Answered on your machine: deptime mcp answers your agent locally, and your code and errors stay there." src="https://raw.githubusercontent.com/cschmertz/deptime/main/docs/assets/how-it-works-light.svg">
+</picture>
+</p>
+
+Twice a day, GitHub Actions reads each new release's public API with [griffe](https://mkdocstrings.github.io/griffe/), which parses the source without running it, diffs it against the previous release, and publishes the result as one file, `index.sqlite.xz`, on this repo's Releases. On your machine, `deptime mcp` checks that file's sha256 and schema before swapping it in, then answers every question locally in milliseconds. The full design is in [docs/04-architecture.md](https://github.com/cschmertz/deptime/blob/main/docs/04-architecture.md), and the decisions are in [docs/adr/](https://github.com/cschmertz/deptime/tree/main/docs/adr).
 
 ## CLI
 
@@ -154,7 +172,7 @@ uv run deptime ingest httpx --versions 0.27.2 0.28.1
 
 ## Docs
 
-[Product spec](https://github.com/cschmertz/deptime/blob/main/docs/03-product-spec.md) · [Architecture](https://github.com/cschmertz/deptime/blob/main/docs/04-architecture.md) · [Self-hosting](https://github.com/cschmertz/deptime/blob/main/docs/05-self-hosting.md) · [Risks & spikes](https://github.com/cschmertz/deptime/blob/main/docs/07-risks-and-spikes.md) · [Privacy & security](https://github.com/cschmertz/deptime/blob/main/docs/08-privacy-and-security.md) · [Changelog](https://github.com/cschmertz/deptime/blob/main/CHANGELOG.md)
+[Product spec](https://github.com/cschmertz/deptime/blob/main/docs/03-product-spec.md) · [Architecture](https://github.com/cschmertz/deptime/blob/main/docs/04-architecture.md) · [Self-hosting](https://github.com/cschmertz/deptime/blob/main/docs/05-self-hosting.md) · [Risks & spikes](https://github.com/cschmertz/deptime/blob/main/docs/07-risks-and-spikes.md) · [Privacy & security](https://github.com/cschmertz/deptime/blob/main/docs/08-privacy-and-security.md) · [Benchmark](https://github.com/cschmertz/deptime/blob/main/bench/README.md) · [Changelog](https://github.com/cschmertz/deptime/blob/main/CHANGELOG.md)
 
 ## License
 

@@ -64,6 +64,8 @@ The default home is `$XDG_CACHE_HOME/deptime`, else `~/.cache/deptime` (override
 - Tool behaviour: `query.py`. Tests use the synthetic 3-release httpx index in `tests/conftest.py`.
 - Download, refresh, packing: `index/distribution.py` (`tests/test_distribution.py`, all via `httpx.MockTransport`)
 - Covered packages: `src/deptime/coverage.toml` (ships in the wheel; set correct `import_names`)
+- README demo: `uv run python tools/demo_svg.py` redraws `docs/assets/demo-*.svg` from the real answer; never edit them by hand
+- README numbers: four first-run figures in "How well it works"; every other score goes in `bench/README.md`
 - Curated migration hints: `src/deptime/curated.toml` (ships in the wheel; each must pass the checks in its header, ADR 0006)
 
 ## Verified external APIs

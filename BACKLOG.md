@@ -33,7 +33,7 @@ before that date, with its measurements, is in [docs/backlog-archive.md](docs/ba
 |---|---|---|
 | **M0 Spikes** | S1 go/no-go (false-absent ≤ 10%); S2–S7 answered | S1 to S4 passed (S1 at 1.2%); S5 done but for the GUI clients; S6 and S7 open, below |
 | **M1 Local alpha** | Public repo; index published; `uvx deptime mcp` works from PyPI; benchmark ≥ 70% | Met: every holdout's first run is above 70% |
-| **M2 Distribution** | Registries, plugin, snippets, demo GIF, 5 rename-map pages | Registries, plugin and pages done; the demo and the hosting are below |
+| **M2 Distribution** | Registries, plugin, snippets, demo GIF, 5 rename-map pages | Registries, plugin, pages and the demo done; the hosting is below |
 | **M3 Optional hosted** | Public endpoint for web clients | Not planned |
 
 ## Why maintenance mode
@@ -83,9 +83,6 @@ What still needs a person, about once a month:
 
 Small, and each one makes the mode above hold by itself.
 
-- [ ] **DT-OSS-02**: README proof · `P1` `S`
-  - Left: a 10-second demo (traceback → answer); "How well it works" cut to one row per check, with the older sets
-    and the re-run detail moved to `bench/README.md`; a status line that matches this page.
 - [ ] **DT-QA-14**: A scheduled health check that opens an issue · `P2` `M`
   - Why: nothing scheduled watches for decay. `bench` re-scores cases whose answers are known, so a new release that
     binds its names a new way lowers accuracy without failing anything, and a release that keeps failing to build is
@@ -98,6 +95,12 @@ Small, and each one makes the mode above hold by itself.
   - AC: Dependabot's minor-and-patch groups merge once `ci` and `bench` pass, a few days after the release they
     bring; griffe and major versions still wait for a person. Each merge is also the activity that keeps the schedule
     alive.
+
+## Done since 2026-11-13
+
+- [x] **DT-OSS-02** (2026-11-13): README proof. An animated demo drawn from the real answer (`tools/demo_svg.py`),
+  "How well it works" as four first-run numbers with the full table in `bench/README.md`, a limits section and a
+  status line.
 
 ## Optional, once
 

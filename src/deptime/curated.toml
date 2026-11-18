@@ -2496,3 +2496,369 @@ path = "pipes"
 target = "subprocess"
 quote = "pipes: Use the subprocess module instead."
 url = "https://docs.python.org/3/whatsnew/3.13.html"
+
+# polars-2
+# https://docs.pola.rs/releases/upgrade/2/ "Removal of deprecated functionality":
+[[hint]]
+package = "polars"
+path = "polars.DataFrame.melt"
+target = "polars.DataFrame.unpivot"
+quote = "DataFrame/LazyFrame.melt() | 1.0 | unpivot(), with index instead of id_vars and on instead of value_vars"
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.DataFrame.with_row_count"
+target = "polars.DataFrame.with_row_index"
+quote = "DataFrame/LazyFrame.with_row_count() | 0.20 | with_row_index() (default column name is now \"index\", not \"row_nr\")"
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.LazyFrame.melt"
+target = "polars.LazyFrame.unpivot"
+quote = "DataFrame/LazyFrame.melt() | 1.0 | unpivot(), with index instead of id_vars and on instead of value_vars"
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.LazyFrame.with_row_count"
+target = "polars.LazyFrame.with_row_index"
+quote = "DataFrame/LazyFrame.with_row_count() | 0.20 | with_row_index() (default column name is now \"index\", not \"row_nr\")"
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.LazyFrame.fetch"
+target = "polars.LazyFrame.collect"
+quote = "LazyFrame.fetch() | 0.19 | collect() in conjunction with head()"
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.Array.width"
+target = "polars.Array.size"
+quote = "pl.Array.width | 0.20 | size"
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.read_csv_batched"
+target = "polars.scan_csv"
+quote = "read_csv_batched() | 1.37 | scan_csv().collect_batches()"
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.read_csv(missing_utf8_is_empty_string)"
+target = "empty_string_is_null"
+quote = "read_csv/scan_csv(missing_utf8_is_empty_string=...)1 | 1.43 | empty_string_is_null=... (note: the boolean is inverted)"
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.read_csv(dtypes)"
+target = "schema_overrides"
+quote = "read_csv/scan_csv(dtypes=...) | 0.20.31 | schema_overrides=..."
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.scan_csv(missing_utf8_is_empty_string)"
+target = "empty_string_is_null"
+quote = "read_csv/scan_csv(missing_utf8_is_empty_string=...)1 | 1.43 | empty_string_is_null=... (note: the boolean is inverted)"
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.scan_csv(dtypes)"
+target = "schema_overrides"
+quote = "read_csv/scan_csv(dtypes=...) | 0.20.31 | schema_overrides=..."
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.read_parquet(allow_missing_columns)"
+target = "missing_columns"
+quote = "read_parquet/scan_parquet(allow_missing_columns=...) | 1.30 | missing_columns=\"insert\" / \"raise\""
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.scan_parquet(allow_missing_columns)"
+target = "missing_columns"
+quote = "read_parquet/scan_parquet(allow_missing_columns=...) | 1.30 | missing_columns=\"insert\" / \"raise\""
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.read_csv(row_count_name)"
+target = "row_index_name"
+quote = "read/scan_csv/_ipc/_ndjson/_parquet(row_count_name=, row_count_offset=...) | 0.20.4 | row_index_name=... / row_index_offset=..."
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.read_csv(row_count_offset)"
+target = "row_index_offset"
+quote = "read/scan_csv/_ipc/_ndjson/_parquet(row_count_name=, row_count_offset=...) | 0.20.4 | row_index_name=... / row_index_offset=..."
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.scan_csv(row_count_name)"
+target = "row_index_name"
+quote = "read/scan_csv/_ipc/_ndjson/_parquet(row_count_name=, row_count_offset=...) | 0.20.4 | row_index_name=... / row_index_offset=..."
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.scan_csv(row_count_offset)"
+target = "row_index_offset"
+quote = "read/scan_csv/_ipc/_ndjson/_parquet(row_count_name=, row_count_offset=...) | 0.20.4 | row_index_name=... / row_index_offset=..."
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.read_ipc(row_count_name)"
+target = "row_index_name"
+quote = "read/scan_csv/_ipc/_ndjson/_parquet(row_count_name=, row_count_offset=...) | 0.20.4 | row_index_name=... / row_index_offset=..."
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.read_ipc(row_count_offset)"
+target = "row_index_offset"
+quote = "read/scan_csv/_ipc/_ndjson/_parquet(row_count_name=, row_count_offset=...) | 0.20.4 | row_index_name=... / row_index_offset=..."
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.scan_ipc(row_count_name)"
+target = "row_index_name"
+quote = "read/scan_csv/_ipc/_ndjson/_parquet(row_count_name=, row_count_offset=...) | 0.20.4 | row_index_name=... / row_index_offset=..."
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.scan_ipc(row_count_offset)"
+target = "row_index_offset"
+quote = "read/scan_csv/_ipc/_ndjson/_parquet(row_count_name=, row_count_offset=...) | 0.20.4 | row_index_name=... / row_index_offset=..."
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.read_parquet(row_count_name)"
+target = "row_index_name"
+quote = "read/scan_csv/_ipc/_ndjson/_parquet(row_count_name=, row_count_offset=...) | 0.20.4 | row_index_name=... / row_index_offset=..."
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.read_parquet(row_count_offset)"
+target = "row_index_offset"
+quote = "read/scan_csv/_ipc/_ndjson/_parquet(row_count_name=, row_count_offset=...) | 0.20.4 | row_index_name=... / row_index_offset=..."
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.scan_parquet(row_count_name)"
+target = "row_index_name"
+quote = "read/scan_csv/_ipc/_ndjson/_parquet(row_count_name=, row_count_offset=...) | 0.20.4 | row_index_name=... / row_index_offset=..."
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.scan_parquet(row_count_offset)"
+target = "row_index_offset"
+quote = "read/scan_csv/_ipc/_ndjson/_parquet(row_count_name=, row_count_offset=...) | 0.20.4 | row_index_name=... / row_index_offset=..."
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.DataFrame.glimpse(return_as_string)"
+target = "return_type"
+quote = "DataFrame.glimpse(return_as_string=...) | 1.35 | return_type=\"string\""
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.DataFrame.top_k(descending)"
+target = "reverse"
+quote = "DataFrame/LazyFrame.top_k/bottom_k(descending=...) | 1.0 | reverse=..."
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.DataFrame.bottom_k(descending)"
+target = "reverse"
+quote = "DataFrame/LazyFrame.top_k/bottom_k(descending=...) | 1.0 | reverse=..."
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.DataFrame.join(join_nulls)"
+target = "nulls_equal"
+quote = "DataFrame/LazyFrame.join(join_nulls=...) | 1.24 | nulls_equal=..."
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.LazyFrame.top_k(descending)"
+target = "reverse"
+quote = "DataFrame/LazyFrame.top_k/bottom_k(descending=...) | 1.0 | reverse=..."
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.LazyFrame.bottom_k(descending)"
+target = "reverse"
+quote = "DataFrame/LazyFrame.top_k/bottom_k(descending=...) | 1.0 | reverse=..."
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.LazyFrame.join(join_nulls)"
+target = "nulls_equal"
+quote = "DataFrame/LazyFrame.join(join_nulls=...) | 1.24 | nulls_equal=..."
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.DataFrame.pivot(columns)"
+target = "on"
+quote = "DataFrame.pivot(columns=...) | 1.0 | on=..."
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.Array.__init__(width)"
+target = "shape"
+quote = "pl.Array(width=...) | 0.20 | shape=..."
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.collect_all(streaming)"
+target = "engine"
+quote = "pl.collect_all/collect_all_async(streaming=...) | 1.25 | engine=\"streaming\""
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.collect_all_async(streaming)"
+target = "engine"
+quote = "pl.collect_all/collect_all_async(streaming=...) | 1.25 | engine=\"streaming\""
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.LazyFrame.explain(tree_format)"
+target = "format"
+quote = "LazyFrame.explain(tree_format=...) | 0.20 | format=\"tree\""
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.LazyFrame.with_context"
+target = "polars.concat"
+quote = "LazyFrame.with_context() | 1.0 | pl.concat(..., how=\"horizontal\")"
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.threadpool_size"
+target = "polars.thread_pool_size"
+quote = "pl.threadpool_size() | 0.20.7 | pl.thread_pool_size()"
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.Expr.where"
+target = "polars.Expr.filter"
+quote = "Expr.where() | 0.20.4 | filter()"
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.Expr.shrink_dtype"
+target = "polars.Series.shrink_dtype"
+quote = "Expr.shrink_dtype() | 1.33 | Series.shrink_dtype() (after collecting)"
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.Expr.register_plugin"
+target = "polars.plugins.register_plugin_function"
+quote = "Expr.register_plugin() | 0.20.16 | polars.plugins.register_plugin_function()"
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.Expr.from_json"
+target = "polars.Expr.deserialize"
+quote = "Expr.from_json() | 0.20.11 | Expr.deserialize() (note: takes a file-like input, not a string)"
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.Series.has_validity"
+target = "polars.Series.has_nulls"
+quote = "Series.has_validity() | 0.20.30 | has_nulls()"
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.Series.to_numpy(zero_copy_only)"
+target = "allow_copy"
+quote = "Series.to_numpy(zero_copy_only=...) | 0.20.10 | allow_copy=... (note: the boolean is inverted)"
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.Series.equals(strict)"
+target = "check_dtypes"
+quote = "Series.equals(strict=...) | 0.20.31 | check_dtypes=..."
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.testing.assert_series_equal(check_dtype)"
+target = "check_dtypes"
+quote = "assert_series_equal/assert_frame_equal(check_dtype=...) | 0.20.31 | check_dtypes=..."
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.testing.assert_frame_equal(check_dtype)"
+target = "check_dtypes"
+quote = "assert_series_equal/assert_frame_equal(check_dtype=...) | 0.20.31 | check_dtypes=..."
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.read_excel(xlsx2csv_options)"
+target = "engine_options"
+quote = "read_excel/read_ods(xlsx2csv_options=...) | 0.20.6 | engine_options=..."
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.read_excel(read_csv_options)"
+target = "read_options"
+quote = "read_excel/read_ods(read_csv_options=...) | 0.20.7 | read_options=..."
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.from_repr(tbl)"
+target = "data"
+quote = "pl.from_repr(tbl=...) | 0.20.17 | data=..."
+url = "https://docs.pola.rs/releases/upgrade/2/"
+
+[[hint]]
+package = "polars"
+path = "polars.SQLContext.__init__(eager_execution)"
+target = "eager"
+quote = "pl.SQLContext(eager_execution=...) | 0.20.31 | eager=..."
+url = "https://docs.pola.rs/releases/upgrade/2/"

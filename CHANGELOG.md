@@ -61,6 +61,13 @@ are data: they can grow in any release.)
 
 ## [Unreleased]
 
+### Added
+- Migration hints for polars 2.0, taken from the removal table in its upgrade guide: `melt()` → `unpivot()`,
+  `with_row_count()` → `with_row_index()`, `pl.Array.width` → `size`, `read_csv_batched()` → `scan_csv()`, and the
+  argument renames (`dtypes` → `schema_overrides`, `row_count_name` → `row_index_name`, `join_nulls` →
+  `nulls_equal`, `descending` → `reverse`, and the rest), 52 hints in a `# polars-2` group. Rows whose replacement is
+  prose or a workaround are left out.
+
 ## [1.0.3] - 2026-11-17
 
 ### Fixed

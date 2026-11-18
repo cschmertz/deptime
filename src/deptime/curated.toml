@@ -2145,6 +2145,38 @@ target = "mcp.client.Client"
 quote = "The `create_connected_server_and_client_session` helper in `mcp.shared.memory` has been removed. Use `mcp.client.Client` instead — it accepts a `Server` or `MCPServer` instance directly and handles the in-memory transport and session setup for you."
 url = "https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/migration.md#create_connected_server_and_client_session-removed"
 
+# langchain-1
+# LangChain 1.0 moved its legacy modules to the separate `langchain-classic` package. The guide gives the
+# import for each; langchain-classic itself isn't indexed, so these targets are outside the index.
+[[hint]]
+package = "langchain"
+path = "langchain.chains"
+target = "langchain_classic.chains"
+quote = "# Chains from langchain_classic.chains import LLMChain"
+url = "https://docs.langchain.com/oss/python/migrate/langchain-v1.md"
+
+[[hint]]
+package = "langchain"
+path = "langchain.retrievers"
+target = "langchain_classic.retrievers"
+quote = "# Retrievers from langchain_classic.retrievers import ..."
+url = "https://docs.langchain.com/oss/python/migrate/langchain-v1.md"
+
+[[hint]]
+package = "langchain"
+path = "langchain.indexes"
+target = "langchain_classic.indexes"
+quote = "# Indexing from langchain_classic.indexes import ..."
+url = "https://docs.langchain.com/oss/python/migrate/langchain-v1.md"
+
+[[hint]]
+package = "langchain"
+path = "langchain.hub"
+target = "langchain_classic.hub"
+quote = "# Hub from langchain_classic import hub"
+url = "https://docs.langchain.com/oss/python/migrate/langchain-v1.md"
+
+
 # langgraph-1
 [[hint]]
 package = "langgraph"

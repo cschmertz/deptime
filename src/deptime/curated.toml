@@ -2862,3 +2862,40 @@ path = "polars.SQLContext.__init__(eager_execution)"
 target = "eager"
 quote = "pl.SQLContext(eager_execution=...) | 0.20.31 | eager=..."
 url = "https://docs.pola.rs/releases/upgrade/2/"
+
+# gradio-4
+# gradio 3.x warned in its own source, and 4.0.0's CHANGELOG lists the removals:
+[[hint]]
+package = "gradio"
+path = "gradio.inputs"
+target = "gradio.components"
+quote = "Usage of gradio.inputs is deprecated, and will not be supported in the future, please import your component from gradio.components"
+url = "https://github.com/gradio-app/gradio/blob/gradio@3.50.2/gradio/inputs.py#L16-L19"
+
+[[hint]]
+package = "gradio"
+path = "gradio.outputs"
+target = "gradio.components"
+quote = "Usage of gradio.outputs is deprecated, and will not be supported in the future, please import your components from gradio.components"
+url = "https://github.com/gradio-app/gradio/blob/gradio@3.50.2/gradio/outputs.py#L16-L20"
+
+[[hint]]
+package = "gradio"
+path = "gradio.Variable"
+target = "gradio.State"
+quote = "* Removes the deprecated `Variable` alias for `State`"
+url = "https://github.com/gradio-app/gradio/blob/main/CHANGELOG.md"
+
+[[hint]]
+package = "gradio"
+path = "gradio.Audio.__init__(source)"
+target = "sources"
+quote = "* Renames `source` param in `gr.Audio` and `gr.Video` to `sources`"
+url = "https://github.com/gradio-app/gradio/blob/main/CHANGELOG.md"
+
+[[hint]]
+package = "gradio"
+path = "gradio.Video.__init__(source)"
+target = "sources"
+quote = "* Renames `source` param in `gr.Audio` and `gr.Video` to `sources`"
+url = "https://github.com/gradio-app/gradio/blob/main/CHANGELOG.md"

@@ -62,6 +62,9 @@ are data: they can grow in any release.)
 ## [Unreleased]
 
 ### Added
+- Migration hints for gradio 4.0: `gradio.inputs` and `gradio.outputs` → `gradio.components` (quoting the 3.x warnings in gradio's own `inputs.py` / `outputs.py`), `gradio.Variable` → `gradio.State`, and the `source` argument of `gr.Audio` / `gr.Video` → `sources`, the last three from the 4.0.0 entry of gradio's CHANGELOG.
+
+### Added
 - Migration hints for polars 2.0, taken from the removal table in its upgrade guide: `melt()` → `unpivot()`,
   `with_row_count()` → `with_row_index()`, `pl.Array.width` → `size`, `read_csv_batched()` → `scan_csv()`, and the
   argument renames (`dtypes` → `schema_overrides`, `row_count_name` → `row_index_name`, `join_nulls` →

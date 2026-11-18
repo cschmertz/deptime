@@ -2403,6 +2403,77 @@ def test_diff_lists_a_used_path_no_indexed_release_has_where_check_symbols_reads
     assert "1 never-seen path left out" in (hushed.note or "")
 
 
+def test_diff_lists_a_used_path_check_symbols_cant_check_with_the_reason():
+    # DT-CORE-61: langgraph's `checkpoint.base` comes from langgraph-checkpoint, which installs into the namespace
+    # package, so check_symbols answers `unknown` at both ends and no event can say whether the name survived.
+    def snap(version: str, records: list[str], requires: list[str]) -> ApiSnapshot:
+        symbols = {p: SymbolRecord(p, "module", p) for p in records}
+        return ApiSnapshot("ng", version, ["ng"], symbols, requires=requires, namespaces=["ng"])
+
+    spec = PackageSpec(name="ng", import_names=("ng",), tier="A")
+
+    def store_for(requires: list[str], quiet: tuple = ()) -> DepTime:
+        store = IndexStore.memory()
+        old = snap("1.0.2", ["ng", "ng.graph"], requires)
+        new = snap("0.2.39", ["ng", "ng.graph"], requires)
+        store.rebuild_package(spec, [old, new])
+        return DepTime(store, Coverage(POLICY, (spec,)), suppressions=quiet)
+
+    def store_between(requires_old: list[str], requires_new: list[str]) -> DepTime:
+        store = IndexStore.memory()
+        old = snap("1.0.2", ["ng", "ng.graph", "ng.checkpoint"], requires_old)
+        new = snap("0.2.39", ["ng", "ng.graph"], requires_new)
+        store.rebuild_package(spec, [old, new])
+        return DepTime(store, Coverage(POLICY, (spec,)))
+
+    elsewhere = "ng.checkpoint.base.get_checkpoint_metadata"
+    gone = "ng.graph.nothing"
+    dt = store_for(["ng-checkpoint"])
+    res = dt.diff_versions("ng", "1.0.2", "0.2.39", used_symbols=[elsewhere, gone, "ng.graph"])
+    # A name the index has no record of under a module it does have is `missing`, which `never_seen` says.
+    assert [(u.path, u.unknown_in) for u in res.unchecked_uses] == [(elsewhere, ["1.0.2", "0.2.39"])]
+    assert [(u.path, u.missing_in) for u in res.never_seen] == [(gone, ["1.0.2", "0.2.39"])]
+    assert "ng-checkpoint" in res.unchecked_uses[0].hint
+    # The empty `events` list no longer reads as "nothing changed".
+    assert "`ng.checkpoint.base.get_checkpoint_metadata` can't be checked" in (res.note or "")
+    assert "`unchecked_uses` says why" in (res.note or "")
+    # A name the index does have at both ends isn't listed.
+    assert dt.diff_versions("ng", "1.0.2", "0.2.39", used_symbols=["ng.graph"]).unchecked_uses == []
+    # Without used_symbols, nothing to list.
+    assert dt.diff_versions("ng", "1.0.2", "0.2.39").unchecked_uses == []
+    # Unknown at the `to` end only (the module is its own release's there, filled from another distribution at
+    # 0.2.39): the note names that end, and the range isn't claimed uncheckable as a whole.
+    one_end = store_between([], ["ng-checkpoint"])
+    (one,) = one_end.diff_versions("ng", "1.0.2", "0.2.39", used_symbols=["ng.checkpoint"]).unchecked_uses
+    assert one.unknown_in == ["0.2.39"]
+    assert "ng-checkpoint" in one.hint
+    assert "can't tell what ng has at 0.2.39" in (
+        one_end.diff_versions("ng", "1.0.2", "0.2.39", used_symbols=["ng.checkpoint"]).note or ""
+    )
+
+
+def test_a_used_path_missing_at_one_end_is_left_to_never_seen():
+    # DT-CORE-61: `never_seen` already says which end a path is missing at, so it isn't listed twice.
+    def snap(version: str, records: list[str], requires: list[str]) -> ApiSnapshot:
+        symbols = {p: SymbolRecord(p, "module", p) for p in records}
+        return ApiSnapshot("ng", version, ["ng"], symbols, requires=requires, namespaces=["ng"])
+
+    spec = PackageSpec(name="ng", import_names=("ng",), tier="A")
+    store = IndexStore.memory()
+    store.rebuild_package(
+        spec,
+        [
+            snap("0.0.37", ["ng", "ng.checkpoint", "ng.checkpoint.memory"], []),
+            snap("0.3.31", ["ng"], ["ng-checkpoint"]),
+        ],
+    )
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+    saver = "ng.checkpoint.memory.InMemorySaver"
+    res = dt.diff_versions("ng", "0.0.37", "0.3.31", used_symbols=[saver])
+    assert [(u.path, u.missing_in) for u in res.never_seen] == [(saver, ["0.0.37"])]
+    assert res.unchecked_uses == []
+
+
 def test_an_import_from_a_private_import_root_maps_to_its_package():
     # DT-DATA-62: tavern 3.5's `from _pytest._code.code import FormattedExcinfo` on pytest 9.1.0; coverage.toml's
     # `internal_names` maps `_pytest` to pytest, whose snapshots record its modules as internal names.

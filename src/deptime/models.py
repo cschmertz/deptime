@@ -214,6 +214,18 @@ class NeverSeenUse(BaseModel):
     )
 
 
+class UncheckedUse(BaseModel):
+    path: str
+    unknown_in: list[str] = Field(
+        description="The ends of the range (`from_version`, `to_version`) where check_symbols reads the path"
+        " `unknown`."
+    )
+    hint: str = Field(
+        description="Why the index can't tell, as check_symbols gives it: the distribution that may install the"
+        " module, or the object whose attributes are made at runtime."
+    )
+
+
 class DiffResult(BaseModel):
     package: str
     from_version: str | None
@@ -232,6 +244,13 @@ class DiffResult(BaseModel):
         " check_symbols reads `missing` at one end of the range or both (DT-CORE-54). langgraph 0.0.37's own"
         " `checkpoint.memory` has no `InMemorySaver`, which 0.3's comes from langgraph-checkpoint. Not one a listed"
         " event's `affects` already takes.",
+    )
+    unchecked_uses: list[UncheckedUse] = Field(
+        default_factory=list,
+        description="With used_symbols: used paths that check_symbols reads `unknown` at an end of the range and"
+        " never `missing` there, so `never_seen` doesn't already cover them, and no event can say whether the name"
+        " survived (DT-CORE-61). langgraph.checkpoint.base.get_checkpoint_metadata, whose module comes from"
+        " langgraph-checkpoint, which installs it into the langgraph namespace.",
     )
 
 

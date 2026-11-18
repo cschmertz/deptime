@@ -59,6 +59,7 @@ from deptime.models import (
     SymbolCheck,
     SymbolHistory,
     SymbolQuery,
+    UncheckedUse,
     UpgradeCheckResult,
 )
 from deptime.tracebacks import ErrorSignal, imported_modules, parse_traceback
@@ -333,6 +334,26 @@ def _never_seen_note(package: str, unseen: list[NeverSeenUse], lo: str, hi: str)
     return (
         f"{len(unseen)} used paths are in no indexed release of {package}, so no event can name them, and"
         f" check_symbols reads them missing at an end of the range: {_and(shown)}; `never_seen` says which end."
+    )
+
+
+def _unchecked_note(package: str, uses: list[UncheckedUse], lo: str, hi: str) -> str | None:
+    """diff_versions' sentence on the used paths check_symbols can't tell about (DT-CORE-61)."""
+    if not uses:
+        return None
+    if len(uses) == 1:
+        (u,) = uses
+        where = f"at {u.unknown_in[0]}" if len(u.unknown_in) == 1 else f"at {lo} or {hi}"
+        return (
+            f"`{u.path}` can't be checked: the index can't tell what {package} has {where}, so no event can say"
+            " whether the name survived (`unchecked_uses` says why)."
+        )
+    shown = [f"`{u.path}`" for u in uses[:3]]
+    if len(uses) > 3:
+        shown.append(f"{len(uses) - 3} more")
+    return (
+        f"{len(uses)} used paths can't be checked at an end of the range, so no event can say whether they"
+        f" survived: {_and(shown)}; `unchecked_uses` says which end and why."
     )
 
 
@@ -1477,6 +1498,9 @@ class DepTime:
         never_seen = [
             u for u in unseen if not any(x.matches(name, u.path, "never_existed") for x in self.suppressions)
         ]
+        unchecked = self._unchecked_uses(
+            name, spec, used, lo, hi, {u.path for u in unseen} | {p for e in built for p in e.affects}
+        )
         notes = [
             None
             if lo["version"] == from_version or DATE_RE.match(from_version)
@@ -1485,6 +1509,7 @@ class DepTime:
             project.note(hidden, "event"),
             project.note(len(unseen) - len(never_seen), "never-seen path"),
             _never_seen_note(name, never_seen, lo["version"], hi["version"]),
+            _unchecked_note(name, unchecked, lo["version"], hi["version"]),
             *(
                 f"Removals under {module} aren't listed: {why}, so the import may still work; check_symbols"
                 " answers `unknown` there."
@@ -1500,7 +1525,37 @@ class DepTime:
             note=" ".join(n for n in notes if n) or None,
             suppressed=hidden + len(unseen) - len(never_seen),
             never_seen=never_seen,
+            unchecked_uses=unchecked,
         )
+
+    def _unchecked_uses(
+        self,
+        name: str,
+        spec: PackageSpec,
+        used: list[str],
+        lo: sqlite3.Row,
+        hi: sqlite3.Row,
+        covered: set[str],
+    ) -> list[UncheckedUse]:
+        """Used paths check_symbols reads `unknown` at one end of the range and never `missing` (DT-CORE-61):
+        langgraph.checkpoint.base.get_checkpoint_metadata, whose module langgraph-checkpoint installs into the
+        namespace, so the index can't say whether the name survived and no event can name it. A path `_never_seen`
+        covers is left to it, which says the end it is missing at."""
+        assert self.store is not None
+        ends = list(dict.fromkeys([lo["version"], hi["version"]]))
+        out: list[UncheckedUse] = []
+        for path in used:
+            if path in covered:
+                continue
+            checks = [self._check_symbols(name, spec, v, [SymbolQuery(path=path)]).results[0] for v in ends]
+            if any(c.status == "missing" for c in checks):
+                continue
+            unknown = [v for v, c in zip(ends, checks, strict=True) if c.status == "unknown"]
+            if not unknown:
+                continue
+            hint = next((c.hint for c in checks if c.status == "unknown" and c.hint), "")
+            out.append(UncheckedUse(path=path, unknown_in=unknown, hint=hint))
+        return out
 
     def _never_seen(
         self,

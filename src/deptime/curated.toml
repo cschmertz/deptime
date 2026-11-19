@@ -2145,6 +2145,92 @@ target = "mcp.client.Client"
 quote = "The `create_connected_server_and_client_session` helper in `mcp.shared.memory` has been removed. Use `mcp.client.Client` instead — it accepts a `Server` or `MCPServer` instance directly and handles the in-memory transport and session setup for you."
 url = "https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/migration.md#create_connected_server_and_client_session-removed"
 
+# fastmcp-4
+[[hint]]
+package = "fastmcp"
+path = "fastmcp.tools.tool.Tool"
+target = "fastmcp.tools.Tool"
+quote = "Tool / ToolResult from fastmcp.tools.tool | fastmcp.tools"
+url = "https://gofastmcp.com/getting-started/upgrading/from-fastmcp-3"
+
+[[hint]]
+package = "fastmcp"
+path = "fastmcp.tools.tool.ToolResult"
+target = "fastmcp.tools.ToolResult"
+quote = "Tool / ToolResult from fastmcp.tools.tool | fastmcp.tools"
+url = "https://gofastmcp.com/getting-started/upgrading/from-fastmcp-3"
+
+[[hint]]
+package = "fastmcp"
+path = "fastmcp.resources.resource.Resource"
+target = "fastmcp.resources.Resource"
+quote = "Resource from fastmcp.resources.resource | fastmcp.resources"
+url = "https://gofastmcp.com/getting-started/upgrading/from-fastmcp-3"
+
+[[hint]]
+package = "fastmcp"
+path = "fastmcp.prompts.prompt.Prompt"
+target = "fastmcp.prompts.Prompt"
+quote = "Prompt / Message from fastmcp.prompts.prompt | fastmcp.prompts"
+url = "https://gofastmcp.com/getting-started/upgrading/from-fastmcp-3"
+
+[[hint]]
+package = "fastmcp"
+path = "fastmcp.prompts.prompt.Message"
+target = "fastmcp.prompts.Message"
+quote = "Prompt / Message from fastmcp.prompts.prompt | fastmcp.prompts"
+url = "https://gofastmcp.com/getting-started/upgrading/from-fastmcp-3"
+
+[[hint]]
+package = "fastmcp"
+path = "fastmcp.tools.tool.FunctionTool"
+target = "fastmcp.tools.function_tool.FunctionTool"
+quote = "FunctionTool / ParsedFunction / tool from fastmcp.tools.tool | fastmcp.tools.function_tool"
+url = "https://gofastmcp.com/getting-started/upgrading/from-fastmcp-3"
+
+[[hint]]
+package = "fastmcp"
+path = "fastmcp.tools.tool.tool"
+target = "fastmcp.tools.function_tool.tool"
+quote = "FunctionTool / ParsedFunction / tool from fastmcp.tools.tool | fastmcp.tools.function_tool"
+url = "https://gofastmcp.com/getting-started/upgrading/from-fastmcp-3"
+
+[[hint]]
+package = "fastmcp"
+path = "fastmcp.resources.resource.FunctionResource"
+target = "fastmcp.resources.function_resource.FunctionResource"
+quote = "FunctionResource / resource from fastmcp.resources.resource | fastmcp.resources.function_resource"
+url = "https://gofastmcp.com/getting-started/upgrading/from-fastmcp-3"
+
+[[hint]]
+package = "fastmcp"
+path = "fastmcp.resources.resource.resource"
+target = "fastmcp.resources.function_resource.resource"
+quote = "FunctionResource / resource from fastmcp.resources.resource | fastmcp.resources.function_resource"
+url = "https://gofastmcp.com/getting-started/upgrading/from-fastmcp-3"
+
+[[hint]]
+package = "fastmcp"
+path = "fastmcp.prompts.prompt.FunctionPrompt"
+target = "fastmcp.prompts.function_prompt.FunctionPrompt"
+quote = "FunctionPrompt / prompt from fastmcp.prompts.prompt | fastmcp.prompts.function_prompt"
+url = "https://gofastmcp.com/getting-started/upgrading/from-fastmcp-3"
+
+[[hint]]
+package = "fastmcp"
+path = "fastmcp.server.middleware.caching.CachableToolResult"
+target = "fastmcp.server.middleware.caching.CacheableToolResult"
+quote = "The response-caching wrapper models lost a spelling typo — CachableToolResult, CachablePromptResult, and their siblings became CacheableToolResult, CacheablePromptResult, etc. — so an import of the old spelling from fastmcp.server.middleware.caching raises ImportError."
+url = "https://gofastmcp.com/getting-started/upgrading/from-fastmcp-3"
+
+[[hint]]
+package = "fastmcp"
+path = "fastmcp.server.middleware.caching.CachablePromptResult"
+target = "fastmcp.server.middleware.caching.CacheablePromptResult"
+quote = "The response-caching wrapper models lost a spelling typo — CachableToolResult, CachablePromptResult, and their siblings became CacheableToolResult, CacheablePromptResult, etc. — so an import of the old spelling from fastmcp.server.middleware.caching raises ImportError."
+url = "https://gofastmcp.com/getting-started/upgrading/from-fastmcp-3"
+
+
 # langchain-1
 # LangChain 1.0 moved its legacy modules to the separate `langchain-classic` package. The guide gives the
 # import for each; langchain-classic itself isn't indexed, so these targets are outside the index.

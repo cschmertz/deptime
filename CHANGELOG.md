@@ -64,6 +64,15 @@ are data: they can grow in any release.)
 ### Added
 - `diff_versions` says which used names it can't check, and why, in a new `unchecked_uses` field, and its note
   points to it, instead of an empty answer that reads as "nothing changed" (DT-CORE-61).
+- `diff_versions` lists `deprecated_uses` when given `used_symbols`: every used path that is deprecated at
+  `to_version`, wherever the deprecation began (`deprecated_in`, with `<=X` when it is already there in the earliest
+  indexed release, and `message`, untrusted text from the library). langgraph 1.0.2 → 1.2.20 with
+  `errors.NodeInterrupt`, deprecated since 0.6 before the range, now reads as deprecated (DT-CORE-62). An in-range
+  `deprecated` event whose deprecation no longer holds at `to_version` carries `detail.until`, the first release where
+  the name is still there but no longer deprecated, so gradio 3.23.0 → 6.31.0 no longer reports `gr.update`'s 3.45.0
+  deprecation as one to act on (its departure from 3.48.0 is shown instead). A removal isn't an end: its own event
+  says that.
+
 - Migration hints for gradio 4.0: `gradio.inputs` and `gradio.outputs` → `gradio.components` (quoting the 3.x
   warnings in gradio's own `inputs.py` / `outputs.py`), `gradio.Variable` → `gradio.State`, and the `source` argument
   of `gr.Audio` / `gr.Video` → `sources`, the last three from the 4.0.0 entry of gradio's CHANGELOG.

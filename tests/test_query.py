@@ -3463,3 +3463,85 @@ def test_check_symbols_reads_a_member_of_a_union_as_missing():
     # What the union object itself may have, depending on the Python: unknown.
     assert ask("app.Request.__args__").status == "unknown"
     assert ask("app.Request.copy_with").status == "unknown"
+
+
+def test_diff_lists_used_names_deprecated_at_the_target_version():
+    # DT-CORE-62: a name still deprecated at `to_version` is reported there, wherever the deprecation began, and one
+    # whose deprecation ended inside the range carries `detail.until` instead of sending anyone off a name that is
+    # fine again. langgraph 1.0.2 to 1.2.20 with errors.NodeInterrupt (deprecated in 0.6) and gradio 3.23.0 to
+    # 6.31.0 with update (deprecated in 3.45.0, dropped in 3.48.0).
+    def snap(version: str, records: list[tuple[str, str | None]]) -> ApiSnapshot:
+        symbols = {
+            path: SymbolRecord(path, "class", f"dg._internal.{path}", None, message)
+            for path, message in records
+        }
+        return ApiSnapshot("dg", version, ["dg"], symbols)
+
+    faded = "Faded is deprecated, use dg.Bright instead."
+    old = "Old is deprecated, use dg.New instead."
+    ancestor = "Ancestor is deprecated, use dg.Descendant instead."
+    spec = PackageSpec(name="dg", import_names=("dg",), tier="A")
+    store = IndexStore.memory()
+    store.rebuild_package(
+        spec,
+        [
+            snap("0.1.0", [("dg.Old", old), ("dg.Ancestor", ancestor)]),
+            snap("0.2.0", [("dg.Old", old), ("dg.Ancestor", ancestor), ("dg.Faded", faded)]),
+            snap("0.3.0", [("dg.Ancestor", ancestor), ("dg.Faded", None)]),
+        ],
+    )
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+
+    def ask(version: str, path: str) -> str | None:
+        return dt.check_symbols("dg", version, [SymbolQuery(path=path)]).results[0].deprecated
+
+    # The state at each end, which decides both halves.
+    assert ask("0.3.0", "dg.Ancestor") == ancestor
+    assert ask("0.3.0", "dg.Faded") is None
+    assert ask("0.1.0", "dg.Faded") is None
+
+    wide = dt.diff_versions("dg", "0.1.0", "0.3.0", used_symbols=["dg.Faded", "dg.Old", "dg.Ancestor"])
+    # Deprecated at `to_version`, even though the deprecation began before the range: "<=0.1.0" is the earliest release
+    # the index has, so the true start is unknown, as check_upgrade says it.
+    assert [(u.path, u.deprecated_in) for u in wide.deprecated_uses] == [("dg.Ancestor", "<=0.1.0")]
+    assert "Ancestor is deprecated" in (wide.deprecated_uses[0].message or "")
+    # The in-range event stays, and its end shows as `detail.until`: still indexed in 0.3.0, no longer deprecated.
+    faded_event = next(e for e in wide.events if e.path == "dg.Faded" and e.kind == "deprecated")
+    assert (faded_event.version, faded_event.detail.get("until")) == ("0.2.0", "0.3.0")
+    # A removal isn't an end: its own event says that, so no `until` is invented for it.
+    assert all("until" not in e.detail for e in wide.events if e.path == "dg.Old")
+    # Without used_symbols, nothing to list.
+    assert dt.diff_versions("dg", "0.1.0", "0.3.0").deprecated_uses == []
+
+    # Starting from inside the deprecation, there is no start event to mark, and the name is fine at `to`.
+    narrow = dt.diff_versions("dg", "0.2.0", "0.3.0", used_symbols=["dg.Faded"])
+    assert narrow.deprecated_uses == []
+    assert not any(e.path == "dg.Faded" for e in narrow.events)
+
+    # A class whose deprecation sits on its `__init__` reads deprecated from `to` too (DT-CORE-53), as check_symbols
+    # answers it: huggingface_hub 0.20 on put Repository's there.
+    classy = IndexStore.memory()
+    repo = "Repository is deprecated. Use Repo instead."
+
+    def snap_cls(version: str, deprecated: bool) -> ApiSnapshot:
+        symbols = {
+            "dg.Repository": SymbolRecord("dg.Repository", "class", "dg._internal.Repository", None, None),
+            "dg.Repository.push": SymbolRecord(
+                "dg.Repository.push", "function", "dg._internal.Repository.push", [_param("ref")]
+            ),
+        }
+        if deprecated:
+            symbols["dg.Repository.__init__"] = SymbolRecord(
+                "dg.Repository.__init__",
+                "function",
+                "dg._internal.Repository.__init__",
+                [_param("token")],
+                repo,
+            )
+        return ApiSnapshot("dg", version, ["dg"], symbols)
+
+    classy.rebuild_package(spec, [snap_cls("0.2.0", False), snap_cls("0.3.0", True)])
+    cls_dt = DepTime(classy, Coverage(POLICY, (spec,)))
+    uses = cls_dt.diff_versions("dg", "0.2.0", "0.3.0", used_symbols=["dg.Repository"]).deprecated_uses
+    assert [(u.path, u.deprecated_in) for u in uses] == [("dg.Repository", "0.3.0")]
+    assert "Repository is deprecated" in (uses[0].message or "")

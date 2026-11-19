@@ -80,6 +80,9 @@ are data: they can grow in any release.)
   argument renames (`dtypes` → `schema_overrides`, `row_count_name` → `row_index_name`, `join_nulls` →
   `nulls_equal`, `descending` → `reverse`, and the rest), 52 hints in a `# polars-2` group. Rows whose replacement is
   prose or a workaround are left out.
+- Migration hints for gradio 6.0, from its migration guide: the plots' `show_fullscreen_button` and
+  `show_export_button` → `buttons`, `color_legend_title` → `color_title` (for `LinePlot`, `BarPlot` and
+  `ScatterPlot` alike), and `WaveformOptions`' `show_controls` → `show_recording_waveform`.
 - A migration hint for weaviate-client 4.10: the removed v3 `weaviate.Client` → `weaviate.WeaviateClient`, quoting
   the message the old class now raises (DT-CORE-77).
 

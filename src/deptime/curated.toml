@@ -3084,6 +3084,38 @@ quote = "* Renames `source` param in `gr.Audio` and `gr.Video` to `sources`"
 url = "https://github.com/gradio-app/gradio/blob/main/CHANGELOG.md"
 
 
+# gradio-6
+# From the guide's "Native plot components removed parameters" section: LinePlot, BarPlot and ScatterPlot share
+# one constructor, so the LinePlot spelling answers all three.
+[[hint]]
+package = "gradio"
+path = "gradio.LinePlot.__init__(show_fullscreen_button)"
+target = "buttons"
+quote = "show_fullscreen_button, show_export_button - These parameters have been removed. Use the buttons parameter instead."
+url = "https://www.gradio.app/guides/gradio-6-migration-guide"
+
+[[hint]]
+package = "gradio"
+path = "gradio.LinePlot.__init__(show_export_button)"
+target = "buttons"
+quote = "show_fullscreen_button, show_export_button - These parameters have been removed. Use the buttons parameter instead."
+url = "https://www.gradio.app/guides/gradio-6-migration-guide"
+
+[[hint]]
+package = "gradio"
+path = "gradio.LinePlot.__init__(color_legend_title)"
+target = "color_title"
+quote = "color_legend_title - This parameter has been removed. Use color_title instead."
+url = "https://www.gradio.app/guides/gradio-6-migration-guide"
+
+[[hint]]
+package = "gradio"
+path = "gradio.WaveformOptions.__init__(show_controls)"
+target = "show_recording_waveform"
+quote = "show_controls - This parameter in WaveformOptions has been removed. Use show_recording_waveform instead."
+url = "https://www.gradio.app/guides/gradio-6-migration-guide"
+
+
 # weaviate-4
 # weaviate-client 4.10 removed the v3 client: `weaviate.Client(...)` still exists but raises, and its message names
 # the v4 class only after "use Python client v4", which the miner rightly reads as prose (DT-CORE-77).

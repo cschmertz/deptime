@@ -18,6 +18,65 @@
 # url = "<https URL of the page>"
 
 
+# fastmcp-3
+# Listing methods renamed in v3; OpenAPI compatibility shims removed in v4.
+[[hint]]
+package = "fastmcp"
+path = "fastmcp.FastMCP.get_tools"
+target = "fastmcp.FastMCP.list_tools"
+quote = "get_tools() [...] list_tools()"
+url = "https://gofastmcp.com/getting-started/upgrading/from-fastmcp-2"
+
+[[hint]]
+package = "fastmcp"
+path = "fastmcp.FastMCP.get_resources"
+target = "fastmcp.FastMCP.list_resources"
+quote = "get_resources() [...] list_resources()"
+url = "https://gofastmcp.com/getting-started/upgrading/from-fastmcp-2"
+
+[[hint]]
+package = "fastmcp"
+path = "fastmcp.FastMCP.get_prompts"
+target = "fastmcp.FastMCP.list_prompts"
+quote = "get_prompts() [...] list_prompts()"
+url = "https://gofastmcp.com/getting-started/upgrading/from-fastmcp-2"
+
+[[hint]]
+package = "fastmcp"
+path = "fastmcp.FastMCP.get_resource_templates"
+target = "fastmcp.FastMCP.list_resource_templates"
+quote = "get_resource_templates() [...] list_resource_templates()"
+url = "https://gofastmcp.com/getting-started/upgrading/from-fastmcp-2"
+
+[[hint]]
+package = "fastmcp"
+path = "fastmcp.server.openapi"
+target = "fastmcp.server.providers.openapi"
+quote = "from fastmcp.server.openapi import FastMCPOpenAPI [...] from fastmcp.server.providers.openapi import OpenAPIProvider"
+url = "https://gofastmcp.com/getting-started/upgrading/from-fastmcp-2"
+
+[[hint]]
+package = "fastmcp"
+path = "fastmcp.server.openapi.FastMCPOpenAPI"
+target = "fastmcp.server.providers.openapi.OpenAPIProvider"
+quote = "from fastmcp.server.openapi import FastMCPOpenAPI [...] from fastmcp.server.providers.openapi import OpenAPIProvider"
+url = "https://gofastmcp.com/getting-started/upgrading/from-fastmcp-2"
+
+[[hint]]
+package = "fastmcp"
+path = "fastmcp.experimental.server.openapi"
+target = "fastmcp.server.providers.openapi"
+quote = "from fastmcp.experimental.server.openapi import FastMCPOpenAPI [...] from fastmcp.server.providers.openapi import OpenAPIProvider"
+url = "https://gofastmcp.com/getting-started/upgrading/from-fastmcp-2"
+
+[[hint]]
+package = "fastmcp"
+path = "fastmcp.experimental.server.openapi.FastMCPOpenAPI"
+target = "fastmcp.server.providers.openapi.OpenAPIProvider"
+quote = "from fastmcp.experimental.server.openapi import FastMCPOpenAPI [...] from fastmcp.server.providers.openapi import OpenAPIProvider"
+url = "https://gofastmcp.com/getting-started/upgrading/from-fastmcp-2"
+
+
 # openai-v1
 # The removed resource classes themselves (DT-DATA-78): `from openai import ChatCompletion` fails, and the guide's
 # line for each class's main method names the client resource that replaces it.

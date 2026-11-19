@@ -83,6 +83,8 @@ are data: they can grow in any release.)
 - Migration hints for gradio 6.0, from its migration guide: the plots' `show_fullscreen_button` and
   `show_export_button` → `buttons`, `color_legend_title` → `color_title` (for `LinePlot`, `BarPlot` and
   `ScatterPlot` alike), and `WaveformOptions`' `show_controls` → `show_recording_waveform`.
+- Migration hints for 26 fine-tuning, batch, and model types renamed in Mistral Python SDK 2.0,
+  sourced from its versioned migration guide.
 - A migration hint for weaviate-client 4.10: the removed v3 `weaviate.Client` → `weaviate.WeaviateClient`, quoting
   the message the old class now raises (DT-CORE-77).
 

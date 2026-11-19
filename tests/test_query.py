@@ -1756,6 +1756,32 @@ def test_diff_reports_removals_of_used_members_under_a_retyped_module():
     assert not {u.path for u in diff.unchecked_uses}.intersection(removals)
 
 
+def test_check_symbols_keeps_unknown_under_a_name_a_module_getattr_serves():
+    # langchain 0.3 serves `chains.LLMChain` through the module's `__getattr__`: the class it returns still has
+    # `from_string`, which the index last saw when LLMChain was a plain class (0.1.11), so it isn't `missing`.
+    spec = PackageSpec(name="pkg", import_names=("pkg",), tier="B")
+    root, mod = _rec("pkg", "module"), _rec("pkg.chains", "module")
+    cls, member = (
+        _rec("pkg.chains.LLMChain", "class"),
+        _rec("pkg.chains.LLMChain.from_string", "function", []),
+    )
+    lazy = SymbolRecord(cls.path, "getattr", "pkg.chains.__getattr__")
+    dt = _dt(
+        [
+            (
+                spec,
+                [
+                    ApiSnapshot("pkg", "1.0", ["pkg"], {r.path: r for r in (root, mod, cls, member)}),
+                    ApiSnapshot("pkg", "2.0", ["pkg"], {r.path: r for r in (root, mod, lazy)}),
+                ],
+            )
+        ]
+    )
+    (result,) = dt.check_symbols("pkg", "2.0", [SymbolQuery(path=member.path)]).results
+    assert result.status == "unknown"
+    assert "__getattr__" in result.hint
+
+
 STUB = PackageSpec(name="stub", import_names=("stub",), tier="B")
 
 

@@ -895,8 +895,10 @@ class DepTime:
         mark's name), so `unknown`, unless it is an alias into another covered distribution (`fastapi.status` is
         `starlette.status`), checked there. A class: its bases from other distributions (`_inherited`). A module
         imported under another path: its own names. A namespace package: `unknown`, since another distribution may
-        install the module. None (so `missing`) when the prefix's own names settle it or the local path's own
-        history shows that it used to exist."""
+        install the module. None (so `missing`) when the prefix's own names settle it, or when the prefix is a
+        function and the path's own history ended before this release (DT-CORE-60: fastmcp 3's `prompts.prompt`). Not
+        for a name a module `__getattr__` serves or an alias: the object behind it may still have the member
+        (langchain 0.3's lazily served `chains.LLMChain` keeps `from_string`)."""
         assert self.store is not None
         parts = full.split(".")
         for k in range(len(parts) - 1, 0, -1):
@@ -948,9 +950,13 @@ class DepTime:
             target = self._outside(name, spec, span, row["ordinal"])
             if target is not None and depth < 2:
                 return self._through(name, row, q, full, prefix, f"{target}.{rest}", depth)
-            if target is None and any(
-                s["last_ordinal"] < row["ordinal"]
-                for s in (*self.store.spans(name, full), *self.store.internal_spans(name, full))
+            if (
+                target is None
+                and span["kind"] == "function"
+                and any(
+                    s["last_ordinal"] < row["ordinal"]
+                    for s in (*self.store.spans(name, full), *self.store.internal_spans(name, full))
+                )
             ):
                 return None
             what = OBJECT_KINDS.get(span["kind"], f"a {span['kind']}")

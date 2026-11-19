@@ -87,6 +87,8 @@ are data: they can grow in any release.)
   the message the old class now raises (DT-CORE-77).
 
 ### Fixed
+- `check_symbols` reports historically indexed names as missing after they disappear under a retyped module.
+  `diff_versions` reports removals at the version that dropped the name, including internal names (DT-CORE-60).
 - A word in a deprecation message is no longer read as its replacement: weaviate's "use Python client v4" and "use
   v3 code" gave `weaviate.Client` the replacements "Python" and "v3". A name where a stored message was cut off is
   skipped too, as it may go on (DT-CORE-77).

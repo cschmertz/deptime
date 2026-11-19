@@ -1705,6 +1705,57 @@ def _dt(specs_and_snaps: list[tuple[PackageSpec, list[ApiSnapshot]]], extra=()) 
     return DepTime(store, Coverage(POLICY, tuple(s for s, _ in specs_and_snaps) + tuple(extra)))
 
 
+def _retyped_module() -> DepTime:
+    spec = PackageSpec(name="pkg", import_names=("pkg",), tier="B")
+    root, mod = _rec("pkg", "module"), _rec("pkg.tools", "module")
+    fn = _rec(mod.path, "function", [])
+    public, private = _rec("pkg.tools.Tool", "class"), _rec("pkg.tools._Helper", "class")
+    old = {root.path: root, mod.path: mod, public.path: public}
+    new = {root.path: root, fn.path: fn}
+    return _dt(
+        [
+            (
+                spec,
+                [
+                    ApiSnapshot("pkg", "1.0", ["pkg"], old, internal={private.path: private}),
+                    ApiSnapshot(
+                        "pkg", "2.0", ["pkg"], new | {public.path: public}, internal={private.path: private}
+                    ),
+                    ApiSnapshot("pkg", "2.1", ["pkg"], new),
+                ],
+            )
+        ]
+    )
+
+
+def test_check_symbols_reports_removed_members_under_a_retyped_module():
+    dt = _retyped_module()
+    paths = [SymbolQuery(path=f"pkg.tools.{name}") for name in ("Tool", "_Helper", "dynamic")]
+    previous = dt.check_symbols("pkg", "2.0", paths).results
+    assert [r.status for r in previous[:2]] == ["present", "present"]
+
+    public, private, dynamic = dt.check_symbols("pkg", "2.1", paths).results
+    assert (public.status, public.hint, public.internal) == ("missing", "seen in 1.0..2.0", False)
+    assert (private.status, private.hint, private.internal) == ("missing", "seen in 1.0..2.0", True)
+    assert dynamic.status == "unknown"
+    assert "index doesn't list its attributes" in dynamic.hint
+
+
+def test_diff_reports_removals_of_used_members_under_a_retyped_module():
+    dt = _retyped_module()
+    used = ["pkg.tools.Tool", "pkg.tools._Helper", "pkg.tools.dynamic"]
+    diff = dt.diff_versions("pkg", "1.0", "2.1", used_symbols=used)
+    removals = {
+        event.path: (event.version, event.detail.get("internal", False))
+        for event in diff.events
+        if event.kind == "removed"
+    }
+    assert removals == {"pkg.tools.Tool": ("2.1", False), "pkg.tools._Helper": ("2.1", True)}
+    retyped = [(event.version, event.affects) for event in diff.events if event.kind == "kind_changed"]
+    assert retyped == [("2.0", ["pkg.tools.dynamic"])]
+    assert not {u.path for u in diff.unchecked_uses}.intersection(removals)
+
+
 STUB = PackageSpec(name="stub", import_names=("stub",), tier="B")
 
 

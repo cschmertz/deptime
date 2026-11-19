@@ -895,7 +895,8 @@ class DepTime:
         mark's name), so `unknown`, unless it is an alias into another covered distribution (`fastapi.status` is
         `starlette.status`), checked there. A class: its bases from other distributions (`_inherited`). A module
         imported under another path: its own names. A namespace package: `unknown`, since another distribution may
-        install the module. None (so `missing`) when the prefix's own names, which the index lists, settle it."""
+        install the module. None (so `missing`) when the prefix's own names settle it or the local path's own
+        history shows that it used to exist."""
         assert self.store is not None
         parts = full.split(".")
         for k in range(len(parts) - 1, 0, -1):
@@ -947,6 +948,11 @@ class DepTime:
             target = self._outside(name, spec, span, row["ordinal"])
             if target is not None and depth < 2:
                 return self._through(name, row, q, full, prefix, f"{target}.{rest}", depth)
+            if target is None and any(
+                s["last_ordinal"] < row["ordinal"]
+                for s in (*self.store.spans(name, full), *self.store.internal_spans(name, full))
+            ):
+                return None
             what = OBJECT_KINDS.get(span["kind"], f"a {span['kind']}")
             obj = f" (`{target or span['canonical']}`)" if (target or span["canonical"]) != prefix else ""
             return SymbolCheck(
@@ -1478,7 +1484,9 @@ class DepTime:
             extra, affects = self._parent_events(
                 name, used, lo["ordinal"], hi["ordinal"], include_added, rows
             )
-            extra += self._internal_events(name, used, lo["ordinal"], hi["ordinal"], include_added, rows)
+            extra += self._internal_events(
+                name, spec, used, lo["ordinal"], hi["ordinal"], include_added, rows
+            )
             extra += [d for u in used for d in self._init_deprecation_rows(name, u, rows)]
             if extra:
                 rows = sorted(
@@ -1731,7 +1739,10 @@ class DepTime:
                     if (r["ordinal"], r["kind"]) in taken:
                         continue
                     at = r["prev_ordinal"] if r["kind"] == "added" else r["ordinal"]
-                    if at is not None and self.store.span_at(name, path, at) is not None:
+                    if at is not None and (
+                        self.store.span_at(name, path, at) is not None
+                        or self.store.internal_span_at(name, path, at) is not None
+                    ):
                         continue
                     taken.add((r["ordinal"], r["kind"]))
                     key = _event_key(r)
@@ -1741,15 +1752,21 @@ class DepTime:
         return list(extra.values()), dict(affects)
 
     def _internal_events(
-        self, name: str, used: list[str], after: int, upto: int, include_added: bool, rows: list
+        self,
+        name: str,
+        spec: PackageSpec,
+        used: list[str],
+        after: int,
+        upto: int,
+        include_added: bool,
+        rows: list,
     ) -> list[Mapping]:
         """`added` and `removed` events in (after, upto] for used paths that aren't public API in some release
         (DT-CORE-46), which the index's events don't record: langchain 0.0.134 added the private
         `SQLDatabase._get_sample_rows`, and flask 3.0 removed `_app_ctx_stack`, which its `__getattr__` served until
         2.3. Worked out from the path's public and internal spans, with `detail.internal` true; a change the events
-        already have isn't repeated, and neither is one where the path's parent is then neither a module nor a class
-        of the package (langchain 0.0.349's `sql_database.SQLDatabase` is an alias into langchain-community, whose
-        members it doesn't record)."""
+        already have isn't repeated. When the parent becomes a runtime object or an alias outside the package, a
+        removal needs the same evidence as `check_symbols` (DT-CORE-60)."""
         assert self.store is not None
         have = {(r["path"], r["ordinal"], r["kind"]) for r in rows}
         out: list[Mapping] = []
@@ -1770,7 +1787,17 @@ class DepTime:
                     continue
                 parent = path.rpartition(".")[0]
                 held = self.store.span_at(name, parent, o if kind == "removed" else o - 1)
-                if held is not None and held["kind"] not in ("module", "class"):
+                if (
+                    held is not None
+                    and held["kind"] not in ("module", "class")
+                    and (
+                        kind == "added"
+                        or self._unseen(
+                            name, spec, SymbolQuery(path=path), path, self.store.releases(name)[o], 0
+                        )
+                        is not None
+                    )
+                ):
                     continue
                 detail = {"kind": now or was, "internal": True}
                 out.append(

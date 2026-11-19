@@ -3134,3 +3134,93 @@ path = "weaviate.Client"
 target = "weaviate.WeaviateClient"
 quote = "Python client v3 `weaviate.Client(...)` has been removed. Upgrade your code to use Python client v4 `weaviate.WeaviateClient` connections and methods."
 url = "https://github.com/weaviate/weaviate-python-client/blob/v4.20.0/weaviate/client.py#L184-L188"
+
+
+# transformers-5
+# transformers 5.0 removed tokenizer methods and `TrainingArguments` options that were deprecated during 4.x. Its v5
+# migration guide gives each one's replacement. A renamed constructor argument is `Class.__init__(argument)`. The guide
+# names `HUGGINGFACE_CO_RESOLVE_ENDPOINT` without a module, so the two modules that exposed it (`transformers.utils` and
+# `transformers.file_utils`) each get the same hint.
+[[hint]]
+package = "transformers"
+path = "transformers.PreTrainedTokenizerBase.encode_plus"
+target = "transformers.PreTrainedTokenizerBase.__call__"
+quote = "The encode_plus method is deprecated in favor of the single __call__ method."
+url = "https://github.com/huggingface/transformers/blob/v5.0.0/MIGRATION_GUIDE_V5.md#L216"
+
+[[hint]]
+package = "transformers"
+path = "transformers.PreTrainedTokenizerBase.prepare_seq2seq_batch"
+target = "transformers.PreTrainedTokenizerBase.__call__"
+quote = "prepare_seq2seq_batch(): Deprecated; use __call__() with text_target parameter instead."
+url = "https://github.com/huggingface/transformers/blob/v5.0.0/MIGRATION_GUIDE_V5.md#L291"
+
+[[hint]]
+package = "transformers"
+path = "transformers.PreTrainedTokenizerBase.as_target_tokenizer"
+target = "transformers.PreTrainedTokenizerBase.__call__"
+quote = "as_target_tokenizer(): Removed from base class. Use __call__() with text_target parameter instead."
+url = "https://github.com/huggingface/transformers/blob/v5.0.0/MIGRATION_GUIDE_V5.md#L307"
+
+[[hint]]
+package = "transformers"
+path = "transformers.BatchEncoding.words"
+target = "transformers.BatchEncoding.word_ids"
+quote = "BatchEncoding.words(): Deprecated; use word_ids() instead."
+url = "https://github.com/huggingface/transformers/blob/v5.0.0/MIGRATION_GUIDE_V5.md#L302"
+
+[[hint]]
+package = "transformers"
+path = "transformers.utils.HUGGINGFACE_CO_RESOLVE_ENDPOINT"
+target = "huggingface_hub.constants.ENDPOINT"
+quote = "Constants … HUGGINGFACE_CO_RESOLVE_ENDPOINT have been removed. Please use huggingface_hub.constants.ENDPOINT instead."
+url = "https://github.com/huggingface/transformers/blob/v5.0.0/MIGRATION_GUIDE_V5.md#L706"
+
+[[hint]]
+package = "transformers"
+path = "transformers.file_utils.HUGGINGFACE_CO_RESOLVE_ENDPOINT"
+target = "huggingface_hub.constants.ENDPOINT"
+quote = "Constants … HUGGINGFACE_CO_RESOLVE_ENDPOINT have been removed. Please use huggingface_hub.constants.ENDPOINT instead."
+url = "https://github.com/huggingface/transformers/blob/v5.0.0/MIGRATION_GUIDE_V5.md#L706"
+
+[[hint]]
+package = "transformers"
+path = "transformers.TrainingArguments.__init__(per_gpu_train_batch_size)"
+target = "per_device_train_batch_size"
+quote = "per_gpu_train_batch_size -> per_device_train_batch_size"
+url = "https://github.com/huggingface/transformers/blob/v5.0.0/MIGRATION_GUIDE_V5.md#L576"
+
+[[hint]]
+package = "transformers"
+path = "transformers.TrainingArguments.__init__(per_gpu_eval_batch_size)"
+target = "per_device_eval_batch_size"
+quote = "per_gpu_eval_batch_size -> per_device_eval_batch_size"
+url = "https://github.com/huggingface/transformers/blob/v5.0.0/MIGRATION_GUIDE_V5.md#L577"
+
+[[hint]]
+package = "transformers"
+path = "transformers.TrainingArguments.__init__(push_to_hub_token)"
+target = "hub_token"
+quote = "push_to_hub_token -> hub_token"
+url = "https://github.com/huggingface/transformers/blob/v5.0.0/MIGRATION_GUIDE_V5.md#L573"
+
+[[hint]]
+package = "transformers"
+path = "transformers.TrainingArguments.__init__(push_to_hub_model_id)"
+target = "hub_model_id"
+quote = "push_to_hub_model_id and push_to_hub_organization -> hub_model_id"
+url = "https://github.com/huggingface/transformers/blob/v5.0.0/MIGRATION_GUIDE_V5.md#L574"
+
+[[hint]]
+package = "transformers"
+path = "transformers.TrainingArguments.__init__(tpu_metrics_debug)"
+target = "debug"
+quote = "tpu_metrics_debug -> debug"
+url = "https://github.com/huggingface/transformers/blob/v5.0.0/MIGRATION_GUIDE_V5.md#L572"
+
+[[hint]]
+package = "transformers"
+path = "transformers.TrainingArguments.__init__(include_tokens_per_second)"
+target = "include_num_input_tokens_seen"
+quote = "include_tokens_per_second -> include_num_input_tokens_seen"
+url = "https://github.com/huggingface/transformers/blob/v5.0.0/MIGRATION_GUIDE_V5.md#L581"

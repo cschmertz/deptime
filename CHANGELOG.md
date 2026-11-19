@@ -91,6 +91,8 @@ are data: they can grow in any release.)
   the message the old class now raises (DT-CORE-77).
 
 ### Fixed
+- `explain_error` now recognises a callable that raises a recorded error in its indexed release, such as
+  `ServiceContext.from_defaults` in llama-index-core (DT-CORE-49).
 - A word in a deprecation message is no longer read as its replacement: weaviate's "use Python client v4" and "use
   v3 code" gave `weaviate.Client` the replacements "Python" and "v3". A name where a stored message was cut off is
   skipped too, as it may go on (DT-CORE-77).

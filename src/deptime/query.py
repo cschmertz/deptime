@@ -73,6 +73,10 @@ CODE_LABEL = "<code>"  # the file name check_upgrade gives `code` in its answer
 # The `package` of a finding about the standard library (DT-DATA-06).
 PYTHON = "python"
 MAX_FINDINGS_PER_PACKAGE = 5
+UNKNOWN_ERROR_NOTE = (
+    "This error shape is not a version-change symptom DepTime analyses "
+    "(ImportError, ModuleNotFoundError, AttributeError, TypeError on call signatures)."
+)
 # Replacement hints below this stay in the structured `replacements` list (with their confidence) but are never
 # stated as advice in prose: agents read `explanation` as fact. Matches spike S2's precision threshold.
 EXPLAIN_MIN_CONFIDENCE = 0.75
@@ -1809,18 +1813,18 @@ class DepTime:
                 findings=[],
                 note="Circular import inside your own code, not a library version change.",
             )
-        if signal.kind == "unknown":
-            return ExplainResult(
-                signal=signal.to_model(),
-                findings=[],
-                note="This error shape is not a version-change symptom DepTime analyses (ImportError, ModuleNotFoundError, AttributeError, TypeError on call signatures).",
-            )
         if self.store is None:
             # Without an index every package would look "not covered", which teaches the agent the opposite of
             # the truth on its very first call.
-            return ExplainResult(signal=signal.to_model(), findings=[], note=self._no_index_note())
+            note = UNKNOWN_ERROR_NOTE if signal.kind == "unknown" else self._no_index_note()
+            return ExplainResult(signal=signal.to_model(), findings=[], note=note)
         installed, alias_notes = self._read_aliases(parse_installed(installed_versions, pip_freeze))
-        named = self._candidates(signal, installed)
+        # The module whose code raised, or None for a frame outside site-packages.
+        raiser = signal.frames[-1].module if signal.frames else None
+        if signal.kind == "unknown":
+            named = self.coverage.packages_for_module(raiser) if raiser else []
+        else:
+            named = self._candidates(signal, installed)
         candidates, rivals, owner_notes = self._import_owners(
             named, installed, complete=bool(pip_freeze and pip_freeze.strip())
         )
@@ -1835,8 +1839,8 @@ class DepTime:
             findings.extend(
                 self._findings_for(spec, signal, installed.get(spec.name))[:MAX_FINDINGS_PER_PACKAGE]
             )
-        # The module whose code raised: a library's (in site-packages) or None for the user's own code.
-        raiser = signal.frames[-1].module if signal.frames else None
+        if signal.kind == "unknown" and not findings:
+            return ExplainResult(signal=signal.to_model(), findings=[], note=UNKNOWN_ERROR_NOTE)
         stdlib_notes: list[str] = []
         if signal.kind in MODULE_SIGNALS and not named and signal.module:
             entry = stdlib.lookup(signal.module)
@@ -2038,7 +2042,11 @@ class DepTime:
         path, param = (m["path"], m["param"]) if m else (f.symbol, None)
         not_yet = f.issue in {"symbol_not_yet_added", "param_not_yet_added"}
         before = f.last_version_without if not_yet else f.last_version_with
-        after = (f.first_version_with if not_yet else f.first_version_without) or f.resolved_version
+        after = (
+            (f.first_version_with if not_yet else f.first_version_without)
+            or f.raises_since
+            or f.resolved_version
+        )
         update: dict = {}
         if (
             where := self._defined_at(name, path, (after, before) if not_yet else (before, after))
@@ -2636,6 +2644,72 @@ class DepTime:
         )
         return [self._inferred(f, why)]
 
+    def _raising_stub_findings(
+        self, name: str, signal: ErrorSignal, resolved: sqlite3.Row, installed_version: str
+    ) -> list[Finding]:
+        """Explain an exact match to a callable that only raises in the installed release (DT-CORE-49)."""
+        assert self.store is not None
+        frame = signal.frames[-1]
+        assert frame.module is not None
+        if not all(part.isidentifier() for part in frame.function.split(".")):
+            return []
+        type_and_message = signal.exception_type
+        if signal.message:
+            type_and_message += ": " + " ".join(signal.message.split())
+        ordinal = resolved["ordinal"]
+        prefix = frame.module + "."
+        matches: dict[str, str] = {}
+        for _, path in self.store.find_by_suffix([name], frame.function):
+            span = self.store.span_at(name, path, ordinal)
+            if span is None or span["kind"] != "function" or _raises(span) != type_and_message:
+                continue
+            canonical = span["canonical"]
+            if not canonical.startswith(prefix) or not canonical.endswith("." + frame.function):
+                continue
+            relative = canonical.removeprefix(prefix)
+            if "." in relative:
+                parent = self.store.span_at(name, path.rpartition(".")[0], ordinal)
+                if parent is None or parent["kind"] != "class":
+                    continue
+            matches.setdefault(canonical, path)
+        if len(matches) != 1:
+            return []
+        (path,) = matches.values()
+
+        # Find the beginning of the current run of raising releases. Older events can belong to a stub that
+        # stopped raising or was removed and later reintroduced.
+        start = ordinal
+        for span in reversed(self.store.spans(name, path)):
+            if span["first_ordinal"] > ordinal:
+                continue
+            if span["last_ordinal"] < start - 1 or not _raises(span):
+                break
+            start = span["first_ordinal"]
+        since = (
+            self._version(name, start)
+            if any(e["kind"] == "now_raises" and e["ordinal"] == start for e in self.store.events(name, path))
+            else None
+        )
+        explanation = f"`{path}` does nothing but raise the reported error in {name} {resolved['version']}."
+        if since is not None:
+            explanation += f" It started raising in {since}."
+        return [
+            Finding(
+                package=name,
+                symbol=path,
+                issue="now_raises",
+                installed_version=installed_version,
+                resolved_version=resolved["version"],
+                raises=type_and_message,
+                raises_since=since,
+                replacements=self._followed(
+                    name, [self._replacement(r) for r in self._hints(name, path)], ordinal
+                ),
+                confidence="high",
+                explanation=explanation,
+            )
+        ]
+
     def _findings_for(
         self, spec: PackageSpec, signal: ErrorSignal, installed_version: str | None
     ) -> list[Finding]:
@@ -2644,6 +2718,10 @@ class DepTime:
         resolved, exact = (
             self.store.resolve_version(name, installed_version) if installed_version else (None, False)
         )
+        if signal.kind == "unknown":
+            if exact and resolved is not None and installed_version:
+                return self._raising_stub_findings(name, signal, resolved, installed_version)
+            return []
         if signal.kind == "import_name" and not signal.module:
             return self._unplaced_import_findings(spec, signal, resolved, exact, installed_version)
         if signal.kind in {"import_name", "module_attribute"}:

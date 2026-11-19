@@ -1755,6 +1755,32 @@ def test_a_callable_that_now_only_raises_is_reported(tmp_path):
     assert (check.results[0].status, check.results[0].raises) == ("present", None)
 
 
+def test_explain_error_matches_an_indexed_raising_stub():
+    dt = _stub()
+    tb = (
+        "Traceback (most recent call last):\n"
+        '  File "/app/main.py", line 12, in <module>\n'
+        "    ServiceContext.from_defaults()\n"
+        '  File "/venv/lib/python3.12/site-packages/stub/__init__.py", line 31, in from_defaults\n'
+        '    raise ValueError("ServiceContext is deprecated.")\n'
+        "ValueError: ServiceContext is deprecated.\n"
+    )
+    installed = {"stub": "0.14.0"}
+    (finding,) = dt.explain_error(tb, installed).findings
+    assert (finding.symbol, finding.issue, finding.raises_since) == (
+        "stub.ServiceContext.from_defaults",
+        "now_raises",
+        "0.14.0",
+    )
+    assert finding.raises == "ValueError: ServiceContext is deprecated."
+    assert finding.replacements == []
+
+    assert dt.explain_error(tb, {"stub": "0.10.0"}).findings == []
+    assert dt.explain_error(tb.replace("is deprecated.", "needs a setting."), installed).findings == []
+    assert dt.explain_error(tb.replace("/site-packages/stub/", "/app/stub/"), installed).findings == []
+    assert dt.explain_error(tb.replace("in from_defaults", "in other_method"), installed).findings == []
+
+
 FLK = PackageSpec(name="flk", import_names=("flk",), tier="B")
 
 

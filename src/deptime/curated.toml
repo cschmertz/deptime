@@ -2901,6 +2901,36 @@ quote = "* Renames `source` param in `gr.Audio` and `gr.Video` to `sources`"
 url = "https://github.com/gradio-app/gradio/blob/main/CHANGELOG.md"
 
 
+# gradio-6
+[[hint]]
+package = "gradio"
+path = "gradio.LinePlot.__init__(show_fullscreen_button)"
+target = "buttons"
+quote = "show_fullscreen_button, show_export_button … `buttons`"
+url = "https://www.gradio.app/guides/gradio-6-migration-guide"
+
+[[hint]]
+package = "gradio"
+path = "gradio.LinePlot.__init__(show_export_button)"
+target = "buttons"
+quote = "show_fullscreen_button, show_export_button … `buttons`"
+url = "https://www.gradio.app/guides/gradio-6-migration-guide"
+
+[[hint]]
+package = "gradio"
+path = "gradio.LinePlot.__init__(color_legend_title)"
+target = "color_title"
+quote = "color_legend_title … `color_title`"
+url = "https://www.gradio.app/guides/gradio-6-migration-guide"
+
+[[hint]]
+package = "gradio"
+path = "gradio.WaveformOptions.__init__(show_controls)"
+target = "show_recording_waveform"
+quote = "show_controls … `show_recording_waveform`"
+url = "https://www.gradio.app/guides/gradio-6-migration-guide"
+
+
 # weaviate-4
 # weaviate-client 4.10 removed the v3 client: `weaviate.Client(...)` still exists but raises, and its message names
 # the v4 class only after "use Python client v4", which the miner rightly reads as prose (DT-CORE-77).

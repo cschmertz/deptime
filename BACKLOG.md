@@ -134,6 +134,12 @@ fields (crewai `Task(expected_output=)`, one case), until it recurs.
 
 ## Done since 2026-11-13
 
+- [x] **DT-CORE-62** (2026-11-18, by rise11hx-cmyk): `diff_versions` lists the used paths already
+  deprecated at `to_version` in a new `deprecated_uses` field, with `deprecated_in` and the library's message,
+  wherever the deprecation began (langgraph 1.2.20's `errors.NodeInterrupt`, deprecated from 0.6.0; huggingface_hub
+  0.23.2's `Repository`, deprecated from 0.19.0 and read from its own `__init__` from 0.20 on), and a
+  `deprecated` event inside the range carries `detail.until`, the first release where the name is there but no
+  longer deprecated (gradio's `update`, 3.45.0 to 3.48.0), a removal not counting as an end.
 - [x] **DT-QA-17** (2026-11-17): 30 real errors with another cause (a typo, a broken install, a file named like the
   package, the project's own bug): `explain_error` blamed a release for none (`bench/false-blame/results-2026-11-17.md`).
 - [x] **DT-SPIKE-05** (2026-11-17): Claude Desktop, VS Code and Cursor run `uvx deptime mcp` from the README's
@@ -292,7 +298,6 @@ Known gaps, most with a case kept as `known_gap` in the benchmark. None is sched
 | DT-CORE-60 | A module that became a function: names under it read `unknown` (fastmcp 3's `prompts.prompt`) | query |
 | DT-CORE-34 | Constructor keywords of dataclasses and pydantic models; required arguments | query, extraction |
 | DT-DATA-09 | Pydantic model fields as `__init__` keywords | extraction |
-| DT-CORE-62 | `diff_versions` on a deprecation in force at both ends, or dropped before `to` | query |
 | DT-DATA-76 | A name a lazy table serves doesn't carry its target's deprecation (langchain-community's `llms.OpenAI`) | extraction |
 
 **Tracebacks with no finding**

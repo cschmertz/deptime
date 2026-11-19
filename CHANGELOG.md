@@ -64,6 +64,9 @@ are data: they can grow in any release.)
 ### Added
 - `diff_versions` says which used names it can't check, and why, in a new `unchecked_uses` field, and its note
   points to it, instead of an empty answer that reads as "nothing changed" (DT-CORE-61).
+- `diff_versions` lists the used paths already deprecated at `to_version` in a new `deprecated_uses` field, with
+  `deprecated_in` and the library's message, wherever the deprecation began, and a `deprecated` event inside the
+  range says when the deprecation ended in `detail.until` (DT-CORE-62).
 - Migration hints for gradio 4.0: `gradio.inputs` and `gradio.outputs` → `gradio.components` (quoting the 3.x
   warnings in gradio's own `inputs.py` / `outputs.py`), `gradio.Variable` → `gradio.State`, and the `source` argument
   of `gr.Audio` / `gr.Video` → `sources`, the last three from the 4.0.0 entry of gradio's CHANGELOG.

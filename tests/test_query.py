@@ -3463,3 +3463,82 @@ def test_check_symbols_reads_a_member_of_a_union_as_missing():
     # What the union object itself may have, depending on the Python: unknown.
     assert ask("app.Request.__args__").status == "unknown"
     assert ask("app.Request.copy_with").status == "unknown"
+
+
+def _deprecated_uses_store() -> DepTime:
+    """DT-CORE-62's shape: `gp.keep` and `Repo` are deprecated before the range and still are at its end, `gp.old`
+    stops being deprecated inside it, `gp.gone` is deprecated and then removed inside it."""
+    spec = PackageSpec(name="gp", import_names=("gp",), tier="B")
+    mod = SymbolRecord("gp", "module", "gp")
+    old_msg = "gp.old is deprecated. Use gp.new instead."
+    keep_msg = "gp.keep is deprecated and stays that way."
+    repo_msg = "Repo is deprecated. Use NewRepo instead."
+
+    def rec(path: str, kind: str, deprecated: str | None = None, params=None) -> SymbolRecord:
+        return SymbolRecord(path, kind, path, params, deprecated)
+
+    def snap(
+        version: str, old: str | None, keep: str | None, gone: str | None, repo: str | None
+    ) -> ApiSnapshot:
+        symbols: dict[str, SymbolRecord] = {"gp": mod}
+        for path, kind, text in (
+            ("gp.old", "function", old),
+            ("gp.keep", "function", keep),
+            ("gp.gone", "function", gone),
+        ):
+            if text != "removed":
+                symbols[path] = rec(path, kind, None if text is None else text, [])
+        symbols["gp.Repo"] = rec("gp.Repo", "class")
+        symbols["gp.Repo.__init__"] = rec("gp.Repo.__init__", "function", repo, [])
+        return ApiSnapshot("gp", version, ["gp"], symbols)
+
+    return _dt(
+        [
+            (
+                spec,
+                [
+                    snap("0.9", None, None, None, None),
+                    snap("1.0", old_msg, keep_msg, old_msg, repo_msg),
+                    snap("2.0", old_msg, keep_msg, "removed", repo_msg),
+                    snap("3.0", None, keep_msg, "removed", repo_msg),
+                ],
+            )
+        ]
+    )
+
+
+def test_diff_lists_used_paths_deprecated_where_youre_going():
+    """DT-CORE-62: the state at `to_version`, wherever the deprecation began, and a class whose deprecation sits on
+    its own `__init__` (huggingface_hub's `Repository` from 0.20 on) counts as deprecated itself."""
+    dt = _deprecated_uses_store()
+    res = dt.diff_versions("gp", "2.0", "3.0", used_symbols=["gp.old", "gp.keep", "gp.gone", "gp.Repo"])
+    assert [(u.path, u.deprecated_in) for u in res.deprecated_uses] == [
+        ("gp.keep", "1.0"),
+        ("gp.Repo", "1.0"),
+    ]
+    assert res.deprecated_uses[0].message == "gp.keep is deprecated and stays that way."
+    # Deprecation began before the range: no event says it, and the path is still listed.
+    assert [e for e in res.events if e.kind == "deprecated" and e.path == "gp.keep"] == []
+    # `gp.old` is no longer deprecated at 3.0, so it isn't listed; `gp.gone` is missing there, which `never_seen`
+    # says instead.
+    assert {u.path for u in res.deprecated_uses}.isdisjoint({"gp.old", "gp.gone"})
+    assert "`deprecated_uses` says when" in (res.note or "")
+    # Without used_symbols there is nothing to list.
+    assert dt.diff_versions("gp", "2.0", "3.0").deprecated_uses == []
+
+
+def test_diff_says_when_a_deprecation_ended_inside_the_range():
+    """DT-CORE-62: `detail.until` is the first release where the name is still there but no longer deprecated, so an
+    in-range `deprecated` event doesn't read as still deprecated (gradio's `update` from 3.45.0 to 3.48.0)."""
+    dt = _deprecated_uses_store()
+    res = dt.diff_versions("gp", "0.9", "3.0", used_symbols=["gp.old"])
+    (dep,) = [e for e in res.events if e.kind == "deprecated" and e.path == "gp.old"]
+    assert (dep.version, dep.detail.get("until")) == ("1.0", "3.0")
+    # A removal isn't an end: it has its own event, so nothing is added.
+    rm = dt.diff_versions("gp", "0.9", "2.0", used_symbols=["gp.gone"])
+    (dep,) = [e for e in rm.events if e.kind == "deprecated" and e.path == "gp.gone"]
+    assert dep.detail.get("until") is None
+    assert any(e.kind == "removed" and e.path == "gp.gone" for e in rm.events)
+    # Still deprecated at the end of the range: no end to say.
+    still = dt.diff_versions("gp", "0.9", "2.0", used_symbols=["gp.keep"])
+    assert [e.detail.get("until") for e in still.events if e.kind == "deprecated"] == [None]

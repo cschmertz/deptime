@@ -226,6 +226,17 @@ class UncheckedUse(BaseModel):
     )
 
 
+class DeprecatedUse(BaseModel):
+    path: str
+    deprecated_in: str | None = Field(
+        description="First indexed release where the deprecation is observed, as check_upgrade's notice says it:"
+        " `<=X` when the earliest indexed release already has the deprecation, so it didn't begin in X."
+    )
+    message: UntrustedText = Field(
+        description="The library's deprecation text at `to_version`, the same one check_symbols gives."
+    )
+
+
 class DiffResult(BaseModel):
     package: str
     from_version: str | None
@@ -251,6 +262,13 @@ class DiffResult(BaseModel):
         " never `missing` there, so `never_seen` doesn't already cover them, and no event can say whether the name"
         " survived (DT-CORE-61). langgraph.checkpoint.base.get_checkpoint_metadata, whose module comes from"
         " langgraph-checkpoint, which installs it into the langgraph namespace.",
+    )
+    deprecated_uses: list[DeprecatedUse] = Field(
+        default_factory=list,
+        description="With used_symbols: used paths already deprecated at `to_version`, wherever the deprecation"
+        " began, because what matters is the state where you're going (DT-CORE-62). A `deprecated` event inside"
+        " the range stays as it is alongside; it carries `detail.until` when the deprecation ends before"
+        " `to_version`. langgraph 1.2.20's `errors.NodeInterrupt`, deprecated from 0.6 on.",
     )
 
 

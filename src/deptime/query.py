@@ -47,6 +47,7 @@ from deptime.models import (
     ConfidenceFactor,
     CoverageEntry,
     CoverageResult,
+    DeprecatedUse,
     DiffResult,
     ExplainResult,
     Finding,
@@ -354,6 +355,26 @@ def _unchecked_note(package: str, uses: list[UncheckedUse], lo: str, hi: str) ->
     return (
         f"{len(uses)} used paths can't be checked at an end of the range, so no event can say whether they"
         f" survived: {_and(shown)}; `unchecked_uses` says which end and why."
+    )
+
+
+def _deprecated_note(package: str, uses: list[DeprecatedUse], hi: str) -> str | None:
+    """diff_versions' sentence on the used paths already deprecated where you're going (DT-CORE-62)."""
+    if not uses:
+        return None
+    if len(uses) == 1:
+        (u,) = uses
+        since = f" since {u.deprecated_in}" if u.deprecated_in else ""
+        return (
+            f"`{u.path}` is already deprecated in {hi}{since}, wherever the range begins (`deprecated_uses` says"
+            " when it began)."
+        )
+    shown = [f"`{u.path}`" for u in uses[:3]]
+    if len(uses) > 3:
+        shown.append(f"{len(uses) - 3} more")
+    return (
+        f"{len(uses)} used paths are already deprecated in {hi}, wherever the range begins: {_and(shown)};"
+        " `deprecated_uses` says when each began."
     )
 
 
@@ -1492,15 +1513,21 @@ class DepTime:
         kept = [r for r in rows if not self._namespace_filled(name, r, hi, filled)]
         total -= len(rows) - len(kept)
         rows = kept
-        built = [self._event(name, r, affects.get(_event_key(r))) for r in rows]
+        built = [self._event_with_end(name, r, affects.get(_event_key(r)), hi["ordinal"]) for r in rows]
         events, hidden = self._unsuppressed(name, built)
         unseen = self._never_seen(name, spec, used, lo, hi, {p for e in built for p in e.affects})
         never_seen = [
             u for u in unseen if not any(x.matches(name, u.path, "never_existed") for x in self.suppressions)
         ]
+        ends = list(dict.fromkeys([lo["version"], hi["version"]]))
+        checks = {
+            path: [self._check_symbols(name, spec, v, [SymbolQuery(path=path)]).results[0] for v in ends]
+            for path in used
+        }
         unchecked = self._unchecked_uses(
-            name, spec, used, lo, hi, {u.path for u in unseen} | {p for e in built for p in e.affects}
+            used, ends, checks, {u.path for u in unseen} | {p for e in built for p in e.affects}
         )
+        deprecated = self._deprecated_uses(name, used, ends, checks)
         notes = [
             None
             if lo["version"] == from_version or DATE_RE.match(from_version)
@@ -1510,6 +1537,7 @@ class DepTime:
             project.note(len(unseen) - len(never_seen), "never-seen path"),
             _never_seen_note(name, never_seen, lo["version"], hi["version"]),
             _unchecked_note(name, unchecked, lo["version"], hi["version"]),
+            _deprecated_note(name, deprecated, hi["version"]),
             *(
                 f"Removals under {module} aren't listed: {why}, so the import may still work; check_symbols"
                 " answers `unknown` there."
@@ -1526,34 +1554,75 @@ class DepTime:
             suppressed=hidden + len(unseen) - len(never_seen),
             never_seen=never_seen,
             unchecked_uses=unchecked,
+            deprecated_uses=deprecated,
         )
+
+    def _event_with_end(
+        self, name: str, row: sqlite3.Row, affects: list[str] | None, hi: int
+    ) -> HistoryEvent:
+        """`row` as an event, with `detail.until` when a `deprecated` one's deprecation ends before the end of the
+        range (DT-CORE-62): gradio's `update` from 3.45.0 to 3.48.0."""
+        event = self._event(name, row, affects)
+        if event.kind != "deprecated":
+            return event
+        until = self._deprecation_until(name, event.path, row["ordinal"], hi)
+        return (
+            event if until is None else event.model_copy(update={"detail": {**event.detail, "until": until}})
+        )
+
+    def _deprecation_until(self, name: str, path: str, after: int, hi: int) -> str | None:
+        """First release in the range after `after` where `path` is there but no longer deprecated (DT-CORE-62).
+        A removal doesn't count as an end, because it has its own event; a class whose deprecation sits on its
+        own `__init__` reads as deprecated, as check_symbols reads it."""
+        assert self.store is not None
+        for rel in self.store.releases(name):
+            ordinal = rel["ordinal"]
+            if ordinal <= after or ordinal > hi:
+                continue
+            span = self.store.span_at(name, path, ordinal)
+            if span is None:
+                continue
+            if not (span["deprecated"] or self._init_deprecation(name, path, ordinal, span)):
+                return rel["version"]
+        return None
+
+    def _deprecated_uses(
+        self, name: str, used: list[str], ends: list[str], checks: dict[str, list[SymbolCheck]]
+    ) -> list[DeprecatedUse]:
+        """Used paths already deprecated at `to_version`, wherever the deprecation began (DT-CORE-62): langgraph
+        1.2.20's `errors.NodeInterrupt`, deprecated from 0.6 on. `_check_symbols` at the end of the range also
+        covers a class whose deprecation sits on its own `__init__` (huggingface_hub's `Repository` from 0.20)."""
+        out: list[DeprecatedUse] = []
+        for path in used:
+            check = checks[path][-1]
+            if check.status != "present" or not check.deprecated:
+                continue
+            since, _ = self._deprecation(name, path)
+            out.append(DeprecatedUse(path=path, deprecated_in=since, message=check.deprecated))
+        return out
 
     def _unchecked_uses(
         self,
-        name: str,
-        spec: PackageSpec,
         used: list[str],
-        lo: sqlite3.Row,
-        hi: sqlite3.Row,
+        ends: list[str],
+        checks: dict[str, list[SymbolCheck]],
         covered: set[str],
     ) -> list[UncheckedUse]:
         """Used paths check_symbols reads `unknown` at one end of the range and never `missing` (DT-CORE-61):
         langgraph.checkpoint.base.get_checkpoint_metadata, whose module langgraph-checkpoint installs into the
         namespace, so the index can't say whether the name survived and no event can name it. A path `_never_seen`
         covers is left to it, which says the end it is missing at."""
-        assert self.store is not None
-        ends = list(dict.fromkeys([lo["version"], hi["version"]]))
         out: list[UncheckedUse] = []
         for path in used:
             if path in covered:
                 continue
-            checks = [self._check_symbols(name, spec, v, [SymbolQuery(path=path)]).results[0] for v in ends]
-            if any(c.status == "missing" for c in checks):
+            got = checks[path]
+            if any(c.status == "missing" for c in got):
                 continue
-            unknown = [v for v, c in zip(ends, checks, strict=True) if c.status == "unknown"]
+            unknown = [v for v, c in zip(ends, got, strict=True) if c.status == "unknown"]
             if not unknown:
                 continue
-            hint = next((c.hint for c in checks if c.status == "unknown" and c.hint), "")
+            hint = next((c.hint for c in got if c.status == "unknown" and c.hint), "")
             out.append(UncheckedUse(path=path, unknown_in=unknown, hint=hint))
         return out
 

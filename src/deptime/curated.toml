@@ -984,6 +984,189 @@ quote = "apollo_cache = caching.CachedContent.create( … apollo_cache = client.
 url = "https://aistudio.google.com/docs/migrate#context-caching"
 
 
+# mistralai-v2
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.ArchiveFTModelOut"
+target = "mistralai.client.models.ArchiveModelResponse"
+quote = "ArchiveFTModelOut | ArchiveModelResponse"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.BatchJobIn"
+target = "mistralai.client.models.CreateBatchJobRequest"
+quote = "BatchJobIn | CreateBatchJobRequest"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.BatchJobOut"
+target = "mistralai.client.models.BatchJob"
+quote = "BatchJobOut | BatchJob"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.BatchJobsOut"
+target = "mistralai.client.models.ListBatchJobsResponse"
+quote = "BatchJobsOut | ListBatchJobsResponse"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.CheckpointOut"
+target = "mistralai.client.models.Checkpoint"
+quote = "CheckpointOut | Checkpoint"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.ClassifierDetailedJobOut"
+target = "mistralai.client.models.ClassifierFineTuningJobDetails"
+quote = "ClassifierDetailedJobOut | ClassifierFineTuningJobDetails"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.ClassifierFTModelOut"
+target = "mistralai.client.models.ClassifierFineTunedModel"
+quote = "ClassifierFTModelOut | ClassifierFineTunedModel"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.ClassifierJobOut"
+target = "mistralai.client.models.ClassifierFineTuningJob"
+quote = "ClassifierJobOut | ClassifierFineTuningJob"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.ClassifierTargetIn"
+target = "mistralai.client.models.ClassifierTarget"
+quote = "ClassifierTargetIn | ClassifierTarget"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.ClassifierTargetOut"
+target = "mistralai.client.models.ClassifierTargetResult"
+quote = "ClassifierTargetOut | ClassifierTargetResult"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.ClassifierTrainingParametersIn"
+target = "mistralai.client.models.ClassifierTrainingParameters"
+quote = "ClassifierTrainingParametersIn | ClassifierTrainingParameters"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.CompletionDetailedJobOut"
+target = "mistralai.client.models.CompletionFineTuningJobDetails"
+quote = "CompletionDetailedJobOut | CompletionFineTuningJobDetails"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.CompletionFTModelOut"
+target = "mistralai.client.models.CompletionFineTunedModel"
+quote = "CompletionFTModelOut | CompletionFineTunedModel"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.CompletionJobOut"
+target = "mistralai.client.models.CompletionFineTuningJob"
+quote = "CompletionJobOut | CompletionFineTuningJob"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.CompletionTrainingParametersIn"
+target = "mistralai.client.models.CompletionTrainingParameters"
+quote = "CompletionTrainingParametersIn | CompletionTrainingParameters"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.EventOut"
+target = "mistralai.client.models.Event"
+quote = "EventOut | Event"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.FTModelCapabilitiesOut"
+target = "mistralai.client.models.FineTunedModelCapabilities"
+quote = "FTModelCapabilitiesOut | FineTunedModelCapabilities"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.GithubRepositoryOut"
+target = "mistralai.client.models.GithubRepository"
+quote = "GithubRepositoryOut | GithubRepository"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.JobIn"
+target = "mistralai.client.models.CreateFineTuningJobRequest"
+quote = "JobIn | CreateFineTuningJobRequest"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.JobMetadataOut"
+target = "mistralai.client.models.JobMetadata"
+quote = "JobMetadataOut | JobMetadata"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.JobsOut"
+target = "mistralai.client.models.ListFineTuningJobsResponse"
+quote = "JobsOut | ListFineTuningJobsResponse"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.LegacyJobMetadataOut"
+target = "mistralai.client.models.LegacyJobMetadata"
+quote = "LegacyJobMetadataOut | LegacyJobMetadata"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.MetricOut"
+target = "mistralai.client.models.Metric"
+quote = "MetricOut | Metric"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.UnarchiveFTModelOut"
+target = "mistralai.client.models.UnarchiveModelResponse"
+quote = "UnarchiveFTModelOut | UnarchiveModelResponse"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.UpdateFTModelIn"
+target = "mistralai.client.models.UpdateModelRequest"
+quote = "UpdateFTModelIn | UpdateModelRequest"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.WandbIntegrationOut"
+target = "mistralai.client.models.WandbIntegrationResult"
+quote = "WandbIntegrationOut | WandbIntegrationResult"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
 # mistralai-v1
 [[hint]]
 package = "mistralai"

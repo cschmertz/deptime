@@ -288,6 +288,99 @@ quote = "We do not support calling asynchronous methods in the module-level clie
 url = "https://github.com/openai/openai-python/discussions/742"
 
 
+# pydantic-ai-v2
+[[hint]]
+package = "pydantic-ai-slim"
+path = "pydantic_ai.builtin_tools"
+target = "pydantic_ai.native_tools"
+quote = "pydantic_ai.builtin_tools | pydantic_ai.native_tools"
+url = "https://pydantic.dev/docs/ai/overview/migration/"
+
+[[hint]]
+package = "pydantic-ai-slim"
+path = "pydantic_ai.messages.ModelResponse.vendor_details"
+target = "pydantic_ai.messages.ModelResponse.provider_details"
+quote = "ModelResponse.vendor_details | ModelResponse.provider_details"
+url = "https://pydantic.dev/docs/ai/overview/migration/"
+
+[[hint]]
+package = "pydantic-ai-slim"
+path = "pydantic_ai.messages.ModelResponse.vendor_id"
+target = "pydantic_ai.messages.ModelResponse.provider_response_id"
+quote = "ModelResponse.vendor_id, ModelResponse.provider_request_id | ModelResponse.provider_response_id"
+url = "https://pydantic.dev/docs/ai/overview/migration/"
+
+[[hint]]
+package = "pydantic-ai-slim"
+path = "pydantic_ai.messages.ModelResponse.provider_request_id"
+target = "pydantic_ai.messages.ModelResponse.provider_response_id"
+quote = "ModelResponse.vendor_id, ModelResponse.provider_request_id | ModelResponse.provider_response_id"
+url = "https://pydantic.dev/docs/ai/overview/migration/"
+
+[[hint]]
+package = "pydantic-ai-slim"
+path = "pydantic_ai.usage.Usage.request_tokens"
+target = "pydantic_ai.usage.RunUsage.input_tokens"
+quote = "usage.request_tokens, usage.response_tokens | usage.input_tokens, usage.output_tokens"
+url = "https://pydantic.dev/docs/ai/overview/migration/"
+
+[[hint]]
+package = "pydantic-ai-slim"
+path = "pydantic_ai.usage.Usage.response_tokens"
+target = "pydantic_ai.usage.RunUsage.output_tokens"
+quote = "usage.request_tokens, usage.response_tokens | usage.input_tokens, usage.output_tokens"
+url = "https://pydantic.dev/docs/ai/overview/migration/"
+
+[[hint]]
+package = "pydantic-ai-slim"
+path = "pydantic_ai.result.StreamedRunResult.stream_responses"
+target = "pydantic_ai.result.StreamedRunResult.stream_response"
+quote = "StreamedRunResult.stream_responses() (plural, yielding (response, is_last)) | stream_response() (singular, yielding a bare ModelResponse; read the old is_last as response.state != 'incomplete')"
+url = "https://pydantic.dev/docs/ai/overview/migration/"
+
+[[hint]]
+package = "pydantic-ai-slim"
+path = "pydantic_ai.messages.FunctionToolResultEvent.result"
+target = "pydantic_ai.messages.FunctionToolResultEvent.part"
+quote = "FunctionToolResultEvent(result=...), .result | FunctionToolResultEvent(part=...), .part"
+url = "https://pydantic.dev/docs/ai/overview/migration/"
+
+[[hint]]
+package = "pydantic-ai-slim"
+path = "pydantic_ai.messages.FunctionToolCallEvent.call_id"
+target = "pydantic_ai.messages.FunctionToolCallEvent.tool_call_id"
+quote = "FunctionToolCallEvent.call_id | FunctionToolCallEvent.tool_call_id"
+url = "https://pydantic.dev/docs/ai/overview/migration/"
+
+[[hint]]
+package = "pydantic-ai-slim"
+path = "pydantic_ai.usage.UsageLimits.__init__(request_tokens_limit)"
+target = "input_tokens_limit"
+quote = "UsageLimits(request_tokens_limit=), (response_tokens_limit=) | UsageLimits(input_tokens_limit=), (output_tokens_limit=)"
+url = "https://pydantic.dev/docs/ai/overview/migration/"
+
+[[hint]]
+package = "pydantic-ai-slim"
+path = "pydantic_ai.usage.UsageLimits.__init__(response_tokens_limit)"
+target = "output_tokens_limit"
+quote = "UsageLimits(request_tokens_limit=), (response_tokens_limit=) | UsageLimits(input_tokens_limit=), (output_tokens_limit=)"
+url = "https://pydantic.dev/docs/ai/overview/migration/"
+
+[[hint]]
+package = "pydantic-ai-slim"
+path = "pydantic_ai.Agent.__init__(history_processors)"
+target = "capabilities"
+quote = "Agent(history_processors=...) | Agent(capabilities=[ProcessHistory(...)])"
+url = "https://pydantic.dev/docs/ai/overview/migration/"
+
+[[hint]]
+package = "pydantic-ai-slim"
+path = "pydantic_ai.models.openai.OpenAIChatModel.__init__(system_prompt_role)"
+target = "profile"
+quote = "OpenAIChatModel(system_prompt_role=...) | OpenAIChatModel(profile=OpenAIModelProfile(openai_system_prompt_role=...)) — see the note below if the model already resolves a profile"
+url = "https://pydantic.dev/docs/ai/overview/migration/"
+
+
 # pydantic-v2
 [[hint]]
 package = "pydantic"

@@ -426,6 +426,33 @@ def test_check_symbols(dt):
     assert old.status == "missing" and "0.26.0" in old.hint and "httpx.NewThing" in old.hint
 
 
+def test_check_symbols_suggests_a_curated_keyword_that_the_release_accepts(coverage):
+    path = "httpx.Client.__init__(proxies)"
+    store = IndexStore.memory()
+    store.rebuild_package(
+        HTTPX,
+        SNAPSHOTS,
+        RELEASED_AT,
+        curated=[
+            CuratedHint("httpx", path, "auth_old", "proxies | auth_old", "https://example.com/migration"),
+            CuratedHint("httpx", path, "timeout", "proxies | timeout", "https://example.com/migration"),
+        ],
+    )
+    dt = DepTime(store, coverage)
+    checks = [
+        SymbolQuery(path="httpx.Client", kwargs=["proxies", "unknown"]),
+        SymbolQuery(path="httpx.Client.__init__", kwargs=["proxies"]),
+        SymbolQuery(path="httpx.Client", kwargs=["proxies", "timeout"]),
+    ]
+
+    constructor, method, already_passed = dt.check_symbols("httpx", "0.28.1", checks).results
+    assert constructor.rejected_kwargs == ["proxies", "unknown"]
+    assert method.rejected_kwargs == ["proxies"]
+    assert constructor.hint == method.hint == "For `proxies`, try `timeout`."
+    assert already_passed.hint is None
+    assert dt.check_symbols("httpx", "0.27.2", checks[:1]).results[0].hint is None
+
+
 def test_check_symbols_reads_call_notation_in_kwargs(dt):
     """DT-CORE-67: a caller that copies a call's shape (`Client(_, proxies=)`) into `kwargs` gets the keyword read as
     `proxies` and the `_` left out, and the note says so; the field names stay as they are (Invariant 3)."""

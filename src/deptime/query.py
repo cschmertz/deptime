@@ -1338,6 +1338,19 @@ class DepTime:
                     )
                     if h
                 )
+            if rejected and params_raw is not None:
+                func = f"{full}.__init__" if span["kind"] == "class" else full
+                for keyword in rejected:
+                    for replacement in self._hints(name, f"{func}({keyword})"):
+                        target = replacement["target"]
+                        if (
+                            replacement["source"] == "curated"
+                            and target not in q.kwargs
+                            and _accepts_kwarg(params_raw, target)
+                        ):
+                            advice = f"For `{keyword}`, try `{target}`."
+                            hint = f"{hint} {advice}" if hint else advice
+                            break
             results.append(
                 SymbolCheck(
                     path=full,

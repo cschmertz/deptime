@@ -1226,6 +1226,83 @@ target = "mistralai.client.models.WandbIntegrationResult"
 quote = "WandbIntegrationOut | WandbIntegrationResult"
 url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
 
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.AgentCreationRequest"
+target = "mistralai.client.models.CreateAgentRequest"
+quote = "AgentCreationRequest | CreateAgentRequest"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.AgentUpdateRequest"
+target = "mistralai.client.models.UpdateAgentRequest"
+quote = "AgentUpdateRequest | UpdateAgentRequest"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.DeleteFileOut"
+target = "mistralai.client.models.DeleteFileResponse"
+quote = "DeleteFileOut | DeleteFileResponse"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.DocumentOut"
+target = "mistralai.client.models.Document"
+quote = "DocumentOut | Document"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.DocumentUpdateIn"
+target = "mistralai.client.models.UpdateDocumentRequest"
+quote = "DocumentUpdateIn | UpdateDocumentRequest"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.LibraryIn"
+target = "mistralai.client.models.CreateLibraryRequest"
+quote = "LibraryIn | CreateLibraryRequest"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.LibraryInUpdate"
+target = "mistralai.client.models.UpdateLibraryRequest"
+quote = "LibraryInUpdate | UpdateLibraryRequest"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.LibraryOut"
+target = "mistralai.client.models.Library"
+quote = "LibraryOut | Library"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.ListDocumentOut"
+target = "mistralai.client.models.ListDocumentsResponse"
+quote = "ListDocumentOut | ListDocumentsResponse"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.ListFilesOut"
+target = "mistralai.client.models.ListFilesResponse"
+quote = "ListFilesOut | ListFilesResponse"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
+[[hint]]
+package = "mistralai"
+path = "mistralai.models.ListLibraryOut"
+target = "mistralai.client.models.ListLibrariesResponse"
+quote = "ListLibraryOut | ListLibrariesResponse"
+url = "https://github.com/mistralai/client-python/blob/v2.0.0/MIGRATION.md#type-renames"
+
 # mistralai-v1
 [[hint]]
 package = "mistralai"

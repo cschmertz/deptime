@@ -2566,6 +2566,69 @@ target = "mcp.client.Client"
 quote = "The `create_connected_server_and_client_session` helper in `mcp.shared.memory` has been removed. Use `mcp.client.Client` instead — it accepts a `Server` or `MCPServer` instance directly and handles the in-memory transport and session setup for you."
 url = "https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/migration.md#create_connected_server_and_client_session-removed"
 
+[[hint]]
+package = "mcp"
+path = "mcp.ClientSession.list_tools(cursor)"
+target = "params"
+quote = "Each method now takes a single keyword-only argument, `params: PaginatedRequestParams | None = None`. Pass `params=PaginatedRequestParams(cursor=...)` to continue from a `next_cursor`; omit `params` for the first page."
+url = "https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/migration.md#cursor-parameter-removed-from-clientsession-list-methods"
+
+[[hint]]
+package = "mcp"
+path = "mcp.ClientSession.list_resources(cursor)"
+target = "params"
+quote = "Each method now takes a single keyword-only argument, `params: PaginatedRequestParams | None = None`. Pass `params=PaginatedRequestParams(cursor=...)` to continue from a `next_cursor`; omit `params` for the first page."
+url = "https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/migration.md#cursor-parameter-removed-from-clientsession-list-methods"
+
+[[hint]]
+package = "mcp"
+path = "mcp.ClientSession.list_resource_templates(cursor)"
+target = "params"
+quote = "Each method now takes a single keyword-only argument, `params: PaginatedRequestParams | None = None`. Pass `params=PaginatedRequestParams(cursor=...)` to continue from a `next_cursor`; omit `params` for the first page."
+url = "https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/migration.md#cursor-parameter-removed-from-clientsession-list-methods"
+
+[[hint]]
+package = "mcp"
+path = "mcp.ClientSession.list_prompts(cursor)"
+target = "params"
+quote = "Each method now takes a single keyword-only argument, `params: PaginatedRequestParams | None = None`. Pass `params=PaginatedRequestParams(cursor=...)` to continue from a `next_cursor`; omit `params` for the first page."
+url = "https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/migration.md#cursor-parameter-removed-from-clientsession-list-methods"
+
+[[hint]]
+package = "mcp"
+path = "mcp.client.session_group.ClientSessionGroup.call_tool(args)"
+target = "arguments"
+quote = "The deprecated `args` parameter has been removed from `ClientSessionGroup.call_tool()`. Use `arguments` instead."
+url = "https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/migration.md#args-parameter-removed-from-clientsessiongroupcall_tool"
+
+[[hint]]
+package = "mcp"
+path = "mcp.client.streamable_http.MCP_PROTOCOL_VERSION"
+target = "mcp.shared.inbound.MCP_PROTOCOL_VERSION_HEADER"
+quote = "The `MCP_PROTOCOL_VERSION` header-name constant has moved: import `MCP_PROTOCOL_VERSION_HEADER` from `mcp.shared.inbound` instead of `MCP_PROTOCOL_VERSION` from `mcp.client.streamable_http`."
+url = "https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/migration.md#streamablehttptransportprotocol_version-attribute-removed"
+
+[[hint]]
+package = "mcp"
+path = "mcp.client.websocket.websocket_client"
+target = "mcp.client.streamable_http.streamable_http_client"
+quote = "The WebSocket transport has been removed: `mcp.client.websocket.websocket_client` … Use the streamable HTTP transport instead (`mcp.client.streamable_http.streamable_http_client` on the client, `streamable_http_app()` on the server)"
+url = "https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/migration.md#websocket-transport-removed"
+
+[[hint]]
+package = "mcp"
+path = "mcp.client.auth.extensions.client_credentials.ClientCredentialsOAuthProvider.__init__(scopes)"
+target = "scope"
+quote = "`ClientCredentialsOAuthProvider` and `PrivateKeyJWTOAuthProvider` took the requested scope as a keyword named `scopes` … The parameter is now `scope`, matching the RFC 6749 wire parameter, `OAuthClientMetadata.scope`, and the newer `IdentityAssertionOAuthProvider`."
+url = "https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/migration.md#scopes-renamed-to-scope-on-the-client-credentials-providers"
+
+[[hint]]
+package = "mcp"
+path = "mcp.client.auth.extensions.client_credentials.PrivateKeyJWTOAuthProvider.__init__(scopes)"
+target = "scope"
+quote = "`ClientCredentialsOAuthProvider` and `PrivateKeyJWTOAuthProvider` took the requested scope as a keyword named `scopes` … The parameter is now `scope`, matching the RFC 6749 wire parameter, `OAuthClientMetadata.scope`, and the newer `IdentityAssertionOAuthProvider`."
+url = "https://github.com/modelcontextprotocol/python-sdk/blob/main/docs/migration.md#scopes-renamed-to-scope-on-the-client-credentials-providers"
+
 # fastmcp-4
 [[hint]]
 package = "fastmcp"

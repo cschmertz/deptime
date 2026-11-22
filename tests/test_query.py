@@ -2554,14 +2554,14 @@ def test_diff_lists_a_used_path_check_symbols_cant_check_with_the_reason():
 
     def store_for(requires: list[str], quiet: tuple = ()) -> DepTime:
         store = IndexStore.memory()
-        old = snap("1.0.2", ["ng", "ng.graph"], requires)
+        old = snap("0.1.2", ["ng", "ng.graph"], requires)
         new = snap("0.2.39", ["ng", "ng.graph"], requires)
         store.rebuild_package(spec, [old, new])
         return DepTime(store, Coverage(POLICY, (spec,)), suppressions=quiet)
 
     def store_between(requires_old: list[str], requires_new: list[str]) -> DepTime:
         store = IndexStore.memory()
-        old = snap("1.0.2", ["ng", "ng.graph", "ng.checkpoint"], requires_old)
+        old = snap("0.1.2", ["ng", "ng.graph", "ng.checkpoint"], requires_old)
         new = snap("0.2.39", ["ng", "ng.graph"], requires_new)
         store.rebuild_package(spec, [old, new])
         return DepTime(store, Coverage(POLICY, (spec,)))
@@ -2569,26 +2569,26 @@ def test_diff_lists_a_used_path_check_symbols_cant_check_with_the_reason():
     elsewhere = "ng.checkpoint.base.get_checkpoint_metadata"
     gone = "ng.graph.nothing"
     dt = store_for(["ng-checkpoint"])
-    res = dt.diff_versions("ng", "1.0.2", "0.2.39", used_symbols=[elsewhere, gone, "ng.graph"])
+    res = dt.diff_versions("ng", "0.1.2", "0.2.39", used_symbols=[elsewhere, gone, "ng.graph"])
     # A name the index has no record of under a module it does have is `missing`, which `never_seen` says.
-    assert [(u.path, u.unknown_in) for u in res.unchecked_uses] == [(elsewhere, ["1.0.2", "0.2.39"])]
-    assert [(u.path, u.missing_in) for u in res.never_seen] == [(gone, ["1.0.2", "0.2.39"])]
+    assert [(u.path, u.unknown_in) for u in res.unchecked_uses] == [(elsewhere, ["0.1.2", "0.2.39"])]
+    assert [(u.path, u.missing_in) for u in res.never_seen] == [(gone, ["0.1.2", "0.2.39"])]
     assert "ng-checkpoint" in res.unchecked_uses[0].hint
     # The empty `events` list no longer reads as "nothing changed".
     assert "`ng.checkpoint.base.get_checkpoint_metadata` can't be checked" in (res.note or "")
     assert "`unchecked_uses` says why" in (res.note or "")
     # A name the index does have at both ends isn't listed.
-    assert dt.diff_versions("ng", "1.0.2", "0.2.39", used_symbols=["ng.graph"]).unchecked_uses == []
+    assert dt.diff_versions("ng", "0.1.2", "0.2.39", used_symbols=["ng.graph"]).unchecked_uses == []
     # Without used_symbols, nothing to list.
-    assert dt.diff_versions("ng", "1.0.2", "0.2.39").unchecked_uses == []
+    assert dt.diff_versions("ng", "0.1.2", "0.2.39").unchecked_uses == []
     # Unknown at the `to` end only (the module is its own release's there, filled from another distribution at
     # 0.2.39): the note names that end, and the range isn't claimed uncheckable as a whole.
     one_end = store_between([], ["ng-checkpoint"])
-    (one,) = one_end.diff_versions("ng", "1.0.2", "0.2.39", used_symbols=["ng.checkpoint"]).unchecked_uses
+    (one,) = one_end.diff_versions("ng", "0.1.2", "0.2.39", used_symbols=["ng.checkpoint"]).unchecked_uses
     assert one.unknown_in == ["0.2.39"]
     assert "ng-checkpoint" in one.hint
     assert "can't tell what ng has at 0.2.39" in (
-        one_end.diff_versions("ng", "1.0.2", "0.2.39", used_symbols=["ng.checkpoint"]).note or ""
+        one_end.diff_versions("ng", "0.1.2", "0.2.39", used_symbols=["ng.checkpoint"]).note or ""
     )
 
 
@@ -3702,6 +3702,12 @@ def test_diff_lists_used_names_deprecated_at_the_target_version():
     uses = cls_dt.diff_versions("dg", "0.2.0", "0.3.0", used_symbols=["dg.Repository"]).deprecated_uses
     assert [(u.path, u.deprecated_in) for u in uses] == [("dg.Repository", "0.3.0")]
     assert "Repository is deprecated" in (uses[0].message or "")
+
+
+def test_diff_versions_says_when_the_range_is_reversed(dt):
+    res = dt.diff_versions("httpx", "0.28.1", "0.26.0")
+    assert res.events == [] and "0.26.0" in res.note and "0.28.1" in res.note
+    assert dt.diff_versions("httpx", "0.27.2", "0.27.2").note is None
 
 
 def test_check_symbols_says_when_the_code_is_too_long(dt):

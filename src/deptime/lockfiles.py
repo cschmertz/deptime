@@ -202,6 +202,8 @@ def _requirements(tree: Tree, rel: str, seen: set[str]) -> dict[str, str]:
         if not line:
             continue
         if m := re.match(r"^(?:-r|--requirement)(?:\s+|=)(\S+)", line):
+            if PurePosixPath(m.group(1)).is_absolute() or Path(m.group(1)).is_absolute():
+                continue
             inc = PurePosixPath(rel).parent / m.group(1)
             parts: list[str] = []
             for part in inc.parts:  # stay inside the project
@@ -220,7 +222,7 @@ def _requirements(tree: Tree, rel: str, seen: set[str]) -> dict[str, str]:
             continue
         line = re.split(r"\s+--?\w", line, maxsplit=1)[0]  # `--hash=...` and other per-line options
         if (pin := _requirement_pin(line)) is not None:
-            out[pin[0]] = pin[1]
+            out.setdefault(*pin)
     return out
 
 

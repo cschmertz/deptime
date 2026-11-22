@@ -1500,6 +1500,17 @@ class DepTime:
                 events=[],
                 note="Could not resolve the version range against the index; see `coverage`.",
             )
+        if lo["ordinal"] > hi["ordinal"]:
+            return DiffResult(
+                package=name,
+                from_version=lo["version"],
+                to_version=hi["version"],
+                events=[],
+                note=(
+                    f"from_version {lo['version']} is newer than to_version {hi['version']}: diff_versions lists the"
+                    " changes from the older release to the newer one. Swap them to see what changed."
+                ),
+            )
         limit = max(1, min(limit, MAX_DIFF_EVENTS))
         filtering = any(x.package == name for x in self.suppressions)
         used = list(dict.fromkeys(self._qualify(spec, u) for u in used_symbols or []))

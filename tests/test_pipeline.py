@@ -964,3 +964,31 @@ def test_extraction_skips_member_names_with_control_characters(tmp_path):
             zf.writestr(name.removeprefix("pkg-1.0/"), "def ok():\n    pass\n")
     root = pypi.extract(wheel, tmp_path / "wheel")
     assert sorted(p.name for p in (root / "pkg").iterdir()) == ["__init__.py"]
+
+
+@pytest.mark.parametrize("bad", ["httpx", "httpx==", "==0.28.1", "=="])
+def test_explain_installed_without_equals_exits_2(bad, capsys):
+    with pytest.raises(SystemExit) as exc:
+        cli.main(["explain", "--installed", bad])
+    assert exc.value.code == 2
+    assert f"expected PKG==VER, got {bad!r}" in capsys.readouterr().err
+
+
+def test_explain_installed_valid_pin(tmp_path, monkeypatch):
+    tb = tmp_path / "tb.txt"
+    tb.write_text("TypeError: x\n")
+    seen: dict = {}
+
+    class FakeDt:
+        def explain_error(self, text, installed, freeze, min_confidence):
+            seen["installed"] = installed
+
+            class Out:
+                def model_dump_json(self, **kwargs):
+                    return "{}"
+
+            return Out()
+
+    monkeypatch.setattr(cli, "_dt", lambda _settings: FakeDt())
+    assert cli.main(["explain", "--file", str(tb), "--installed", "httpx==0.28.1"]) == 0
+    assert seen["installed"] == {"httpx": "0.28.1"}

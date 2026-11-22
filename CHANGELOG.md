@@ -61,6 +61,10 @@ are data: they can grow in any release.)
 
 ## [Unreleased]
 
+### Fixed
+- `deptime explain --installed` with an item that isn't `PKG==VER` prints the usage and what's wrong, exit 2,
+  instead of a traceback (DT-CORE-87, #58).
+
 ## [1.1.4] - 2026-11-21
 
 ### Fixed

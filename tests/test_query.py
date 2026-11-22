@@ -3702,3 +3702,10 @@ def test_diff_lists_used_names_deprecated_at_the_target_version():
     uses = cls_dt.diff_versions("dg", "0.2.0", "0.3.0", used_symbols=["dg.Repository"]).deprecated_uses
     assert [(u.path, u.deprecated_in) for u in uses] == [("dg.Repository", "0.3.0")]
     assert "Repository is deprecated" in (uses[0].message or "")
+
+
+def test_check_symbols_says_when_the_code_is_too_long(dt):
+    res = dt.check_symbols("httpx", "0.28.1", code="import httpx\n" + "x = 1\n" * 20_000)
+    assert res.results == [] and "100,000" in res.note and "parse" not in res.note
+    ok = dt.check_symbols("httpx", "0.28.1", code="import httpx\nhttpx.Client(timeout=5)\n")
+    assert [r.path for r in ok.results] == ["httpx", "httpx.Client"]

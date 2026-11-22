@@ -877,15 +877,21 @@ class DepTime:
         queries, notation = _call_notation(list(symbols or []))
         read = None
         if code is not None:
-            uses = snippet.uses_in(code, tuple(spec.import_names))
-            if uses is None:
-                read = "The code doesn't parse as Python, or nests too deeply to read, so nothing was read from it."
+            if len(code) > snippet.MAX_CODE_CHARS:
+                read = (
+                    f"The code is over {snippet.MAX_CODE_CHARS:,} characters, the most check_symbols reads,"
+                    " so nothing was read from it."
+                )
             else:
-                queries, count = self._code_queries(name, version, queries, uses)
-                read = f"{count} name{'' if count == 1 else 's'} of {name} read from the code."
-                if len(queries) > MAX_CODE_SYMBOLS:
-                    read += f" Only the first {MAX_CODE_SYMBOLS} names are checked."
-                    queries = queries[:MAX_CODE_SYMBOLS]
+                uses = snippet.uses_in(code, tuple(spec.import_names))
+                if uses is None:
+                    read = "The code doesn't parse as Python, or nests too deeply to read, so nothing was read from it."
+                else:
+                    queries, count = self._code_queries(name, version, queries, uses)
+                    read = f"{count} name{'' if count == 1 else 's'} of {name} read from the code."
+                    if len(queries) > MAX_CODE_SYMBOLS:
+                        read += f" Only the first {MAX_CODE_SYMBOLS} names are checked."
+                        queries = queries[:MAX_CODE_SYMBOLS]
         result = self._check_symbols(name, spec, version, queries)
         stand_in = self._stand_in_note(name, [result.resolved_version])
         if read or notation or stand_in:

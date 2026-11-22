@@ -2,11 +2,14 @@ import json
 import re
 from pathlib import Path
 
+import pytest
+
 from deptime import __version__
 from deptime.config import load_coverage
 
 ROOT = Path(__file__).resolve().parents[1]
 README = ROOT / "README.md"
+SDIST = (ROOT / "PKG-INFO").is_file()
 
 
 def test_readme_package_count_matches_coverage():
@@ -38,6 +41,7 @@ def test_registry_server_json_matches_the_release():
     assert re.findall(r"mcp-name: (\S+) ", README.read_text(encoding="utf-8")) == [server["name"]]
 
 
+@pytest.mark.skipif(SDIST, reason="action.yml is not included in the sdist")
 def test_the_action_runs_this_release_and_keeps_inputs_out_of_scripts():
     """The GitHub Action (DT-GTM-06) installs the release it ships with, so a release moves its pin; and every input
     reaches a script through `env:`, never `${{ }}` inside `run:`, where a value would become shell code."""
@@ -47,6 +51,7 @@ def test_the_action_runs_this_release_and_keeps_inputs_out_of_scripts():
     assert runs and all("${{" not in block + line for block, line in runs)
 
 
+@pytest.mark.skipif(SDIST, reason=".github/workflows is not included in the sdist")
 def test_every_workflow_installs_the_index_only_once_its_provenance_is_verified():
     """B2, N1: build-index starts from the published index, then signs what it builds. Without `--verify` it would
     sign a file uploaded by hand; with a fallback after a failed pull, it would build from the snapshots alone and
@@ -60,6 +65,7 @@ def test_every_workflow_installs_the_index_only_once_its_provenance_is_verified(
     assert {"bench.yml", "build-index.yml", "pages.yml"} <= set(pulls)
 
 
+@pytest.mark.skipif(SDIST, reason=".github/workflows is not included in the sdist")
 def test_a_release_publishes_only_a_tagged_commit_on_main():
     """G1: the `pypi` environment accepts only `v*` tags (a repository setting), but a tag can name a commit on any
     branch, so the publishing job checks that the tagged commit is on `main` before it builds anything."""

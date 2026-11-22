@@ -12,6 +12,18 @@ from deptime.query import DepTime
 
 PROXIES_MSG = "The 'proxies' argument is now deprecated. Use 'proxy' or 'mounts' instead."
 HTTPX = PackageSpec(name="httpx", import_names=("httpx",), tier="B")
+SDIST = (Path(__file__).resolve().parents[1] / "PKG-INFO").is_file()
+collect_ignore = (
+    [
+        "test_bench_dataset.py",
+        "test_holdout.py",
+        "test_model_alone.py",
+        "test_model_alone_upgrades.py",
+        "test_upgrade_bench.py",
+    ]
+    if SDIST
+    else []
+)
 
 
 def _p(name: str, kind: str = "keyword-only", default: str | None = "None") -> dict:

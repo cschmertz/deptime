@@ -220,7 +220,7 @@ def _requirements(tree: Tree, rel: str, seen: set[str]) -> dict[str, str]:
             continue
         line = re.split(r"\s+--?\w", line, maxsplit=1)[0]  # `--hash=...` and other per-line options
         if (pin := _requirement_pin(line)) is not None:
-            out[pin[0]] = pin[1]
+            out.setdefault(*pin)
     return out
 
 

@@ -266,3 +266,23 @@ def test_a_pyproject_with_the_wrong_shapes_is_reported_not_a_crash(tmp_path):
         pins = read_pins(tmp_path)
         assert "pyproject.toml" not in pins.by_file and pins.problems[0].startswith("pyproject.toml: "), text
     assert project_name(tmp_path) is None
+
+
+def test_requirements_keeps_first_pin_when_package_is_listed_twice(tmp_path):
+    _write(
+        tmp_path,
+        {
+            "requirements.txt": 'numpy==2.1.0; python_version >= "3.9"\nnumpy==1.26.4; python_version < "3.9"\n',
+        },
+    )
+    base = read_pins(tmp_path)
+    assert base.by_file == {"requirements.txt": {"numpy": "2.1.0"}}
+
+    _write(
+        tmp_path,
+        {
+            "requirements.txt": 'numpy==2.2.0; python_version >= "3.9"\nnumpy==1.26.4; python_version < "3.9"\n',
+        },
+    )
+    head = read_pins(tmp_path)
+    assert changes(base, head) == [Change("numpy", "2.1.0", "2.2.0", "requirements.txt")]

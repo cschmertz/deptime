@@ -115,9 +115,17 @@ def cmd_ingest(args: argparse.Namespace, settings: Settings) -> int:
     return 1 if failures else 0
 
 
+def _installed_pin(item: str) -> tuple[str, str]:
+    if "==" in item:
+        pkg, ver = item.split("==", 1)
+        if pkg and ver:
+            return pkg, ver
+    raise argparse.ArgumentTypeError(f"expected PKG==VER, got {item!r}")
+
+
 def cmd_explain(args: argparse.Namespace, settings: Settings) -> int:
     text = Path(args.file).read_text() if args.file else sys.stdin.read()
-    installed = dict(item.split("==", 1) for item in args.installed)
+    installed = dict(args.installed)
     freeze = Path(args.freeze).read_text() if args.freeze else None
     _print(_dt(settings).explain_error(text, installed or None, freeze, args.min_confidence))
     return 0
@@ -386,7 +394,7 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("explain", help="explain a traceback (stdin or --file)")
     p.add_argument("--file")
-    p.add_argument("--installed", nargs="*", default=[], metavar="PKG==VER")
+    p.add_argument("--installed", nargs="*", default=[], metavar="PKG==VER", type=_installed_pin)
     p.add_argument("--freeze", help="path to `pip freeze` output")
     p.add_argument(
         "--min-confidence", choices=["high", "medium", "low"], help="leave out findings below this"

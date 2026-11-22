@@ -2867,6 +2867,41 @@ target = "retry_policy"
 quote = "* rename `retry` -> `retry_policy` (#4957)"
 url = "https://github.com/langchain-ai/langgraph/releases/tag/0.5.0"
 
+[[hint]]
+package = "langgraph"
+path = "langgraph.prebuilt.chat_agent_executor.AgentState"
+target = "langchain.agents.AgentState"
+quote = "| `AgentState` | `langchain.agents.AgentState` |"
+url = "https://docs.langchain.com/oss/python/migrate/langgraph-v1.md"
+
+[[hint]]
+package = "langgraph"
+path = "langgraph.prebuilt.chat_agent_executor.AgentStateWithStructuredResponse"
+target = "langchain.agents.AgentState"
+quote = "| `AgentStateWithStructuredResponse` | `langchain.agents.AgentState` |"
+url = "https://docs.langchain.com/oss/python/migrate/langgraph-v1.md"
+
+[[hint]]
+package = "langgraph"
+path = "langgraph.prebuilt.interrupt.HumanInterruptConfig"
+target = "langchain.agents.middleware.human_in_the_loop.InterruptOnConfig"
+quote = "| `HumanInterruptConfig` | `langchain.agents.middleware.human_in_the_loop.InterruptOnConfig` |"
+url = "https://docs.langchain.com/oss/python/migrate/langgraph-v1.md"
+
+[[hint]]
+package = "langgraph"
+path = "langgraph.prebuilt.interrupt.ActionRequest"
+target = "langchain.agents.middleware.human_in_the_loop.InterruptOnConfig"
+quote = "| `ActionRequest` | `langchain.agents.middleware.human_in_the_loop.InterruptOnConfig` |"
+url = "https://docs.langchain.com/oss/python/migrate/langgraph-v1.md"
+
+[[hint]]
+package = "langgraph"
+path = "langgraph.prebuilt.interrupt.HumanInterrupt"
+target = "langchain.agents.middleware.human_in_the_loop.HITLRequest"
+quote = "| `HumanInterrupt` | `langchain.agents.middleware.human_in_the_loop.HITLRequest` |"
+url = "https://docs.langchain.com/oss/python/migrate/langgraph-v1.md"
+
 
 # dspy-2.5-3.x
 [[hint]]

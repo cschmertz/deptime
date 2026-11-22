@@ -75,3 +75,29 @@ def test_a_release_publishes_only_a_tagged_commit_on_main():
     assert "fetch-depth: 0" in pypi, "the check needs main's history"
     check = re.search(r"git merge-base --is-ancestor \S+ origin/main", pypi)
     assert check and check.start() < pypi.index("uv build") < pypi.index("pypa/gh-action-pypi-publish")
+
+
+@pytest.mark.skipif(SDIST, reason=".github/workflows is not included in the sdist")
+def test_ci_runs_once_per_change():
+    """#56: push runs on every branch (`**`), never tags (release tags point at commits already tested on main);
+    pull_request runs every job for forks and skips branches in this repository, whose push already ran."""
+    workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    on_block = workflow.split("\non:\n", 1)[1].split("\npermissions:\n", 1)[0]
+    on_code = "\n".join(
+        line.split("#", 1)[0].rstrip() for line in on_block.splitlines() if line.split("#", 1)[0].strip()
+    )
+    assert on_code == '  push:\n    branches: ["**"]\n  pull_request:'
+    jobs_block = workflow.split("\njobs:\n", 1)[1]
+    headers = list(re.finditer(r"(?m)^  ([a-z0-9-]+):\n", jobs_block))
+    jobs = {
+        m.group(1): jobs_block[m.end() : headers[i + 1].start() if i + 1 < len(headers) else len(jobs_block)]
+        for i, m in enumerate(headers)
+    }
+    assert set(jobs) >= {"test", "test-windows", "audit"}
+    guard = (
+        "    if: github.event_name == 'push'"
+        " || github.event.pull_request.head.repo.full_name != github.repository"
+    )
+    for name, body in jobs.items():
+        job_ifs = [line.split("#", 1)[0].rstrip() for line in body.splitlines() if line.startswith("    if:")]
+        assert job_ifs == [guard], f"{name}: {job_ifs}"

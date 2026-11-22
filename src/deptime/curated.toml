@@ -18,6 +18,93 @@
 # url = "<https URL of the page>"
 
 
+# anthropic
+# count_tokens moved in 0.39.0; beta skills response types renamed in 1.2.0.
+[[hint]]
+package = "anthropic"
+path = "anthropic.Anthropic.count_tokens"
+target = "anthropic.resources.beta.Messages.count_tokens"
+quote = "remove legacy `client.count_tokens()` & `client.get_tokenizer()` methods … This functionality has been replaced by the `client.beta.messages.count_tokens()` API which supports newer models and all content functionality, such as images and PDFs."
+url = "https://github.com/anthropics/anthropic-sdk-python/blob/main/CHANGELOG.md"
+
+[[hint]]
+package = "anthropic"
+path = "anthropic.Anthropic.get_tokenizer"
+target = "anthropic.resources.beta.Messages.count_tokens"
+quote = "remove legacy `client.count_tokens()` & `client.get_tokenizer()` methods … This functionality has been replaced by the `client.beta.messages.count_tokens()` API which supports newer models and all content functionality, such as images and PDFs."
+url = "https://github.com/anthropics/anthropic-sdk-python/blob/main/CHANGELOG.md"
+
+[[hint]]
+package = "anthropic"
+path = "anthropic.Client.count_tokens"
+target = "anthropic.resources.beta.Messages.count_tokens"
+quote = "remove legacy `client.count_tokens()` & `client.get_tokenizer()` methods … This functionality has been replaced by the `client.beta.messages.count_tokens()` API which supports newer models and all content functionality, such as images and PDFs."
+url = "https://github.com/anthropics/anthropic-sdk-python/blob/main/CHANGELOG.md"
+
+[[hint]]
+package = "anthropic"
+path = "anthropic.Client.get_tokenizer"
+target = "anthropic.resources.beta.Messages.count_tokens"
+quote = "remove legacy `client.count_tokens()` & `client.get_tokenizer()` methods … This functionality has been replaced by the `client.beta.messages.count_tokens()` API which supports newer models and all content functionality, such as images and PDFs."
+url = "https://github.com/anthropics/anthropic-sdk-python/blob/main/CHANGELOG.md"
+
+[[hint]]
+package = "anthropic"
+path = "anthropic.AsyncAnthropic.count_tokens"
+target = "anthropic.resources.beta.AsyncMessages.count_tokens"
+quote = "remove legacy `client.count_tokens()` & `client.get_tokenizer()` methods … This functionality has been replaced by the `client.beta.messages.count_tokens()` API which supports newer models and all content functionality, such as images and PDFs."
+url = "https://github.com/anthropics/anthropic-sdk-python/blob/main/CHANGELOG.md"
+
+[[hint]]
+package = "anthropic"
+path = "anthropic.AsyncAnthropic.get_tokenizer"
+target = "anthropic.resources.beta.AsyncMessages.count_tokens"
+quote = "remove legacy `client.count_tokens()` & `client.get_tokenizer()` methods … This functionality has been replaced by the `client.beta.messages.count_tokens()` API which supports newer models and all content functionality, such as images and PDFs."
+url = "https://github.com/anthropics/anthropic-sdk-python/blob/main/CHANGELOG.md"
+
+[[hint]]
+package = "anthropic"
+path = "anthropic.AsyncClient.count_tokens"
+target = "anthropic.resources.beta.AsyncMessages.count_tokens"
+quote = "remove legacy `client.count_tokens()` & `client.get_tokenizer()` methods … This functionality has been replaced by the `client.beta.messages.count_tokens()` API which supports newer models and all content functionality, such as images and PDFs."
+url = "https://github.com/anthropics/anthropic-sdk-python/blob/main/CHANGELOG.md"
+
+[[hint]]
+package = "anthropic"
+path = "anthropic.AsyncClient.get_tokenizer"
+target = "anthropic.resources.beta.AsyncMessages.count_tokens"
+quote = "remove legacy `client.count_tokens()` & `client.get_tokenizer()` methods … This functionality has been replaced by the `client.beta.messages.count_tokens()` API which supports newer models and all content functionality, such as images and PDFs."
+url = "https://github.com/anthropics/anthropic-sdk-python/blob/main/CHANGELOG.md"
+
+[[hint]]
+package = "anthropic"
+path = "anthropic.types.beta.SkillCreateResponse"
+target = "anthropic.types.beta.BetaSkill"
+quote = "`BetaSkill` now names the Skill object returned by `client.beta.skills.create()` / `retrieve()` / `list()` (replacing `SkillCreateResponse` / `SkillRetrieveResponse` / `SkillListResponse`), and skill versions are `BetaSkillVersion` / `BetaDeletedSkillVersion` (replacing `Version*Response`)."
+url = "https://github.com/anthropics/anthropic-sdk-python/blob/main/CHANGELOG.md"
+
+[[hint]]
+package = "anthropic"
+path = "anthropic.types.beta.SkillRetrieveResponse"
+target = "anthropic.types.beta.BetaSkill"
+quote = "`BetaSkill` now names the Skill object returned by `client.beta.skills.create()` / `retrieve()` / `list()` (replacing `SkillCreateResponse` / `SkillRetrieveResponse` / `SkillListResponse`), and skill versions are `BetaSkillVersion` / `BetaDeletedSkillVersion` (replacing `Version*Response`)."
+url = "https://github.com/anthropics/anthropic-sdk-python/blob/main/CHANGELOG.md"
+
+[[hint]]
+package = "anthropic"
+path = "anthropic.types.beta.SkillListResponse"
+target = "anthropic.types.beta.BetaSkill"
+quote = "`BetaSkill` now names the Skill object returned by `client.beta.skills.create()` / `retrieve()` / `list()` (replacing `SkillCreateResponse` / `SkillRetrieveResponse` / `SkillListResponse`), and skill versions are `BetaSkillVersion` / `BetaDeletedSkillVersion` (replacing `Version*Response`)."
+url = "https://github.com/anthropics/anthropic-sdk-python/blob/main/CHANGELOG.md"
+
+[[hint]]
+package = "anthropic"
+path = "anthropic.types.beta.SkillDeleteResponse"
+target = "anthropic.types.beta.BetaDeletedSkill"
+quote = "`client.beta.skills.delete()` now deletes a Skill together with all of its versions (previously refused while any version existed). It returns `BetaDeletedSkill` (was `SkillDeleteResponse`)."
+url = "https://github.com/anthropics/anthropic-sdk-python/blob/main/CHANGELOG.md"
+
+
 # fastmcp-3
 # Listing methods renamed in v3; OpenAPI compatibility shims removed in v4.
 [[hint]]

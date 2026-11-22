@@ -91,6 +91,19 @@ def test_requirements_pins_only_exact_versions(tmp_path):
     assert pins.by_file["requirements-dev.txt"] == {"pytest": "8.0.0"}
 
 
+def test_requirements_does_not_follow_absolute_include(tmp_path):
+    outside = tmp_path / "outside.txt"
+    outside.write_text("httpx==0.27.2\n")
+    project = tmp_path / "project"
+    _write(
+        project,
+        {
+            "requirements.txt": f"requests==2.31.0\n-r {outside.as_posix()}\n-r /etc/outside.txt\n",
+        },
+    )
+    assert read_pins(project).by_file == {"requirements.txt": {"requests": "2.31.0"}}
+
+
 def test_pyproject_pins_from_project_groups_and_poetry(tmp_path):
     _write(
         tmp_path,

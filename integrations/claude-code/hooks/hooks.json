@@ -6,9 +6,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/suggest_deptime.py"],
-            "timeout": 10
+            "command": ". \"$CLAUDE_PLUGIN_ROOT/scripts/run_hint_hook.sh\"",
+            "timeout": 10,
+            "shell": "bash"
           }
         ]
       }
@@ -19,9 +19,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/suggest_deptime.py"],
-            "timeout": 10
+            "command": ". \"$CLAUDE_PLUGIN_ROOT/scripts/run_hint_hook.sh\"",
+            "timeout": 10,
+            "shell": "bash"
           }
         ]
       }

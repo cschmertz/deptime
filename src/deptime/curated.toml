@@ -3881,3 +3881,33 @@ path = "PIL.Image.Image.get_child_images"
 target = "PIL.ImageFile.ImageFile.get_child_images"
 quote = "Image.Image.get_child_images() has been moved to ImageFile.ImageFile.get_child_images()."
 url = "https://pillow.readthedocs.io/en/stable/releasenotes/13.0.0.html"
+
+# qdrant-client
+# add and query deprecated in 1.16.0 and removed in 1.19.0; query_batch omitted because no direct replacement is stated.
+[[hint]]
+package = "qdrant-client"
+path = "qdrant_client.QdrantClient.add"
+target = "qdrant_client.QdrantClient.upsert"
+quote = "`add`, `query`, `query_batch` methods deprecated in favour of `upsert` and `query_points`"
+url = "https://github.com/qdrant/qdrant-client/releases/tag/v1.16.0"
+
+[[hint]]
+package = "qdrant-client"
+path = "qdrant_client.QdrantClient.query"
+target = "qdrant_client.QdrantClient.query_points"
+quote = "`add`, `query`, `query_batch` methods deprecated in favour of `upsert` and `query_points`"
+url = "https://github.com/qdrant/qdrant-client/releases/tag/v1.16.0"
+
+[[hint]]
+package = "qdrant-client"
+path = "qdrant_client.AsyncQdrantClient.add"
+target = "qdrant_client.AsyncQdrantClient.upsert"
+quote = "`add`, `query`, `query_batch` methods deprecated in favour of `upsert` and `query_points`"
+url = "https://github.com/qdrant/qdrant-client/releases/tag/v1.16.0"
+
+[[hint]]
+package = "qdrant-client"
+path = "qdrant_client.AsyncQdrantClient.query"
+target = "qdrant_client.AsyncQdrantClient.query_points"
+quote = "`add`, `query`, `query_batch` methods deprecated in favour of `upsert` and `query_points`"
+url = "https://github.com/qdrant/qdrant-client/releases/tag/v1.16.0"

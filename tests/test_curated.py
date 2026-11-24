@@ -10,7 +10,7 @@ import pytest
 
 from deptime import stdlib
 from deptime.config import load_coverage
-from deptime.ingest.curated import curated_hints
+from deptime.ingest.curated import curated_hints, hints_for
 
 
 def test_every_curated_hint_is_well_formed():
@@ -68,6 +68,32 @@ def test_every_curated_quote_names_the_old_name_and_its_replacement():
             if SPELLED.get(name, name).lower() not in quote:
                 unnamed.append(f"{h.path} -> {h.target}: the quote doesn't name {name}")
     assert not unnamed, "\n".join(unnamed)
+
+
+def test_dspy_3_4_hints_name_what_its_release_table_says_replaces_the_experimental_lm_types():
+    # DT-DATA-08 (#74): 3.4.0 removed the 3.3 experimental LM types, and its notes give a table of replacements.
+    # Only names that table states belong here: a wrong replacement is worse than none (`dspy.Developer`,
+    # `dspy.ToolCall` and `dspy.ToolResult` left with them, but the table doesn't say what replaces those).
+    rows = {
+        "`dspy.LMRequest`, `dspy.LMResponse` | `dspy.lm15.Request`, `dspy.lm15.Response`": {
+            "dspy.LMRequest": "dspy.lm15.Request",
+            "dspy.LMResponse": "dspy.lm15.Response",
+        },
+        "`dspy.LMMessage`, `dspy.LMConfig` | `dspy.lm15.Message`, `dspy.lm15.Config`": {
+            "dspy.LMMessage": "dspy.lm15.Message",
+            "dspy.LMConfig": "dspy.lm15.Config",
+        },
+        "`dspy.System(text)` | `Request(system=text, ...)`": {"dspy.System": "dspy.lm15.Request"},
+        "`dspy.User(text)`, `dspy.Assistant(text)` | `Message.user(text)`, `Message.assistant(text)`": {
+            "dspy.User": "dspy.lm15.Message.user",
+            "dspy.Assistant": "dspy.lm15.Message.assistant",
+        },
+    }
+    shipped = [h for h in hints_for("dspy") if h.url.endswith("/releases/tag/3.4.0")]
+    assert {(h.quote, h.path): h.target for h in shipped} == {
+        (quote, path): target for quote, hints in rows.items() for path, target in hints.items()
+    }
+    assert {h.url for h in shipped} == {"https://github.com/stanfordnlp/dspy/releases/tag/3.4.0"}
 
 
 class _Text(HTMLParser):

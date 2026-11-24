@@ -3055,6 +3055,56 @@ target = "dspy.ChainOfThought"
 quote = "Deprecate dspy.TypedPredictor and its variants. You'll get much better typed (and untyped) results out-of-the-box now with standard dspy.Predict, dspy.ChainOfThought, etc."
 url = "https://github.com/stanfordnlp/dspy/releases/tag/2.5.17"
 
+# 3.4.0 replaced the experimental 3.3 LM types (now `dspy.lm15`); each hint quotes its row of the release's table.
+[[hint]]
+package = "dspy"
+path = "dspy.LMRequest"
+target = "dspy.lm15.Request"
+quote = "`dspy.LMRequest`, `dspy.LMResponse` | `dspy.lm15.Request`, `dspy.lm15.Response`"
+url = "https://github.com/stanfordnlp/dspy/releases/tag/3.4.0"
+
+[[hint]]
+package = "dspy"
+path = "dspy.LMResponse"
+target = "dspy.lm15.Response"
+quote = "`dspy.LMRequest`, `dspy.LMResponse` | `dspy.lm15.Request`, `dspy.lm15.Response`"
+url = "https://github.com/stanfordnlp/dspy/releases/tag/3.4.0"
+
+[[hint]]
+package = "dspy"
+path = "dspy.LMMessage"
+target = "dspy.lm15.Message"
+quote = "`dspy.LMMessage`, `dspy.LMConfig` | `dspy.lm15.Message`, `dspy.lm15.Config`"
+url = "https://github.com/stanfordnlp/dspy/releases/tag/3.4.0"
+
+[[hint]]
+package = "dspy"
+path = "dspy.LMConfig"
+target = "dspy.lm15.Config"
+quote = "`dspy.LMMessage`, `dspy.LMConfig` | `dspy.lm15.Message`, `dspy.lm15.Config`"
+url = "https://github.com/stanfordnlp/dspy/releases/tag/3.4.0"
+
+[[hint]]
+package = "dspy"
+path = "dspy.System"
+target = "dspy.lm15.Request"
+quote = "`dspy.System(text)` | `Request(system=text, ...)`"
+url = "https://github.com/stanfordnlp/dspy/releases/tag/3.4.0"
+
+[[hint]]
+package = "dspy"
+path = "dspy.User"
+target = "dspy.lm15.Message.user"
+quote = "`dspy.User(text)`, `dspy.Assistant(text)` | `Message.user(text)`, `Message.assistant(text)`"
+url = "https://github.com/stanfordnlp/dspy/releases/tag/3.4.0"
+
+[[hint]]
+package = "dspy"
+path = "dspy.Assistant"
+target = "dspy.lm15.Message.assistant"
+quote = "`dspy.User(text)`, `dspy.Assistant(text)` | `Message.user(text)`, `Message.assistant(text)`"
+url = "https://github.com/stanfordnlp/dspy/releases/tag/3.4.0"
+
 # starlette-1
 [[hint]]
 package = "starlette"

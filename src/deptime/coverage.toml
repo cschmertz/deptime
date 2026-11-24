@@ -296,6 +296,11 @@ import_names = ["starlette"]
 tier = "B"
 
 [[package]]
+name = "uvicorn"
+import_names = ["uvicorn"]
+tier = "B"
+
+[[package]]
 name = "httpx"
 import_names = ["httpx"]
 tier = "B"

@@ -3882,6 +3882,23 @@ target = "PIL.ImageFile.ImageFile.get_child_images"
 quote = "Image.Image.get_child_images() has been moved to ImageFile.ImageFile.get_child_images()."
 url = "https://pillow.readthedocs.io/en/stable/releasenotes/13.0.0.html"
 
+
+# uvicorn (DT-DATA-87)
+# 0.36.0 replaced the event loop setup with loop factories; 0.41.0 fixed a misspelt attribute.
+[[hint]]
+package = "uvicorn"
+path = "uvicorn.config.Config.setup_event_loop"
+target = "uvicorn.config.Config.get_loop_factory"
+quote = "The `setup_event_loop` method was replaced by `get_loop_factory` in uvicorn 0.36.0."
+url = "https://github.com/Kludex/uvicorn/blob/0.36.1/uvicorn/config.py#L476-L481"
+
+[[hint]]
+package = "uvicorn"
+path = "uvicorn.lifespan.on.LifespanOn.error_occured"
+target = "uvicorn.lifespan.on.LifespanOn.error_occurred"
+quote = "Rename `LifespanOn.error_occured` to `error_occurred` (#2776)"
+url = "https://github.com/Kludex/uvicorn/blob/0.41.0/docs/release-notes.md"
+
 # qdrant-client
 # add and query deprecated in 1.16.0 and removed in 1.19.0; query_batch omitted because no direct replacement is stated.
 [[hint]]

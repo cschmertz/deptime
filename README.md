@@ -148,7 +148,7 @@ Your agent can ask whether a function or argument it remembers still exists in t
 | `check_symbols` | Check names and arguments against the version you have installed |
 | `diff_versions` | Everything that changed between two versions, or since a date |
 | `symbol_history` | The full history of one function or class |
-| `coverage` | Which libraries DepTime knows (54 fast-moving packages, mostly the AI and agent stack: [list](https://github.com/cschmertz/deptime/blob/main/docs/coverage.md)) |
+| `coverage` | Which libraries DepTime knows (55 fast-moving packages, mostly the AI and agent stack: [list](https://github.com/cschmertz/deptime/blob/main/docs/coverage.md)) |
 
 Every answer says how sure it is and why. The exact inputs and outputs are in the [product spec](https://github.com/cschmertz/deptime/blob/main/docs/03-product-spec.md).
 

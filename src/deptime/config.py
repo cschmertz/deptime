@@ -5,7 +5,8 @@ from __future__ import annotations
 import os
 import re
 import tomllib
-from dataclasses import dataclass
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass, replace
 from datetime import date
 from importlib import resources
 from pathlib import Path
@@ -259,6 +260,18 @@ class Coverage:
     def get(self, name: str) -> PackageSpec | None:
         wanted = canonicalize_name(name)
         return next((p for p in self.packages if p.name == wanted), None)
+
+    def with_indexed(self, indexed: Iterable[tuple[str, Sequence[str], str]]) -> Coverage:
+        """This list, plus a bare entry for each `(name, import names, tier)` it doesn't have (DT-CORE-93).
+
+        The index is rebuilt twice a day and deptime only when it is released, so an index can hold a package this
+        deptime's list doesn't. Its row says what answering needs: pillow imports as `PIL`, not `pillow`."""
+        extra = tuple(
+            PackageSpec(name=name, import_names=tuple(import_names), tier=tier)
+            for name, import_names, tier in indexed
+            if import_names and self.get(name) is None
+        )
+        return replace(self, packages=self.packages + extra) if extra else self
 
     def installed_under(self, name: str) -> PackageSpec | None:
         """The covered package whose code `name` installs under another distribution name (`installed_as`)."""

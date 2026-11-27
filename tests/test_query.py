@@ -662,6 +662,7 @@ def test_check_symbols_says_unknown_where_the_index_cant_see(monkeypatch):
     # Not required by this release, or not covered: unknown, and says which.
     monkeypatch.setattr(dt.store, "requirement", lambda *a: None)
     assert "doesn't require" in ask("app.status.OK").hint
+    dt.store.conn.execute("DELETE FROM releases WHERE package = 'lib'")
     dt.coverage = Coverage(POLICY, (dt.coverage.packages[0],))
     nope = ask("app.status.OK")
     assert nope.status == "unknown" and "which DepTime doesn't index (lib)" in nope.hint

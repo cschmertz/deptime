@@ -613,7 +613,9 @@ class DepTime:
         suppressions: tuple[project.Suppression, ...] = (),
     ):
         self._store = store
-        self.coverage = coverage
+        self._listed = coverage
+        # The list with the index's other packages added, and the index it was read from (DT-CORE-93).
+        self._known: tuple[IndexStore, Coverage] | None = None
         # The project's own suppressions (DT-CORE-30): local mode only, and every answer counts what they leave out.
         self.suppressions = suppressions
         # Opened lazily if it appears after start-up, e.g. another process finished the first download.
@@ -636,6 +638,30 @@ class DepTime:
                         if store is not None:
                             store.close()
         return self._store
+
+    @property
+    def coverage(self) -> Coverage:
+        """The packages DepTime answers about: the list this deptime ships, plus any package the index has that the
+        list doesn't (DT-CORE-93). The published index gains a package before a release lists it, and a package
+        known only by its name read `not covered` in the upgrade check, and its names `missing` in `check_symbols`
+        when it imports under another name (pillow's `PIL`, python-dateutil's `dateutil`)."""
+        store = self.store
+        if store is None:
+            return self._listed
+        known = self._known
+        if known is None or known[0] is not store:
+            unlisted = [r for r in store.package_rows() if self._listed.get(r["name"]) is None]
+            merged = self._listed.with_indexed(
+                (r["name"], json.loads(r["import_names"]), r["tier"])
+                for r in unlisted
+                if store.has_package(r["name"])
+            )
+            known = self._known = (store, merged)
+        return known[1]
+
+    @coverage.setter
+    def coverage(self, coverage: Coverage) -> None:
+        self._listed, self._known = coverage, None
 
     def set_store(self, store: IndexStore | None) -> None:
         """Swap in a newly downloaded index. Reference assignment is atomic; the old connection is left to GC

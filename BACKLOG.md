@@ -126,6 +126,9 @@ In order. The first line of each phase is what it delivers.
   keyword-only. Its `deprecate_with_replacement()` calls aren't read.
 - [x] **DT-QA-28, scored again** (2026-11-27): with DT-DATA-86 to 91 in the index, C is 60.3% (95% CI 58.2-62.3%)
   on the same sample, so the 60% bar is met (`bench/coverage-share/results-2026-11-27.md`).
+- [x] **DT-CORE-93** (2026-11-27): a package the index has and this deptime's list doesn't is answered from the
+  index's own row (its import names and tier). 1.1.7 called the seven new packages "not covered" in the upgrade
+  check and read pillow's and python-dateutil's names `missing` in `check_symbols`, guessing `pillow` for `PIL`.
 
 Phases 2 and 3 (the command and the GitHub Action) shipped in 0.2.0. DT-QA-22 met every bar on real update pull
 requests; its three wrong answers are fixed in the published index (DT-CORE-72, DT-DATA-82, DT-DATA-51: a second,

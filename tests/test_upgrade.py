@@ -6,13 +6,14 @@ import json
 import subprocess
 
 from deptime import cli, snippet, upgrade
+from deptime.config import PackageSpec
 from deptime.index.store import IndexStore
 from deptime.ingest.snapshot import ApiSnapshot, SymbolRecord
-from deptime.models import DependencyChange
+from deptime.models import DependencyChange, SymbolQuery
 from deptime.query import DepTime
 from deptime.suppressions import Suppression
 from deptime.upgrade import check_upgrade, own_modules, project_files, to_markdown
-from tests.conftest import HTTPX
+from tests.conftest import HTTPX, RELEASED_AT, SNAPSHOTS
 
 CODE = """import httpx
 
@@ -830,3 +831,50 @@ def test_a_distribution_that_installs_a_covered_package_is_checked_as_it(store, 
     # A suppression may name either.
     dt.suppressions = (Suppression("httpx-slim", "httpx.Client"),)
     assert check_upgrade(dt, "p", {"a.py": CODE}, [_change("0.27.2", "0.28.1", "httpx-slim")]).breaks == 0
+
+
+def test_a_package_only_the_index_lists_is_checked_under_its_own_import_name(store, coverage):
+    # DT-CORE-93: the published index had pillow four days before a release listed it. deptime 1.1.7 said the update
+    # wasn't covered, and `check_symbols`, guessing the import name `pillow`, said `PIL.Image.open` was missing.
+    def snap(version: str, names: tuple[str, ...]) -> ApiSnapshot:
+        paths = ("PIL", "PIL.Image", *(f"PIL.Image.{n}" for n in names))
+        kind = {"PIL": "module", "PIL.Image": "module", "PIL.Image.open": "function"}
+        symbols = {
+            p: SymbolRecord(p, k := kind.get(p, "attribute"), p, [] if k == "function" else None)
+            for p in paths
+        }
+        return ApiSnapshot("pillow", version, ["PIL"], symbols)
+
+    pillow = PackageSpec(name="pillow", import_names=("PIL",), tier="B")
+    store.rebuild_package(pillow, [snap("9.5.0", ("open", "ANTIALIAS")), snap("10.0.0", ("open",))])
+    # A row with no release answers nothing, so it isn't added.
+    store.conn.execute(
+        "INSERT INTO packages(name, import_names, tier, indexed_at) VALUES ('empty', '[\"empty\"]', 'B', '')"
+    )
+    dt = DepTime(store, coverage)
+    assert coverage.get("pillow") is None and dt.coverage.get("pillow") == pillow
+    assert (
+        dt.coverage.get("empty") is None
+        and dt.coverage.packages[: len(coverage.packages)] == coverage.packages
+    )
+    assert [s.name for s in dt.coverage.packages_for_module("PIL.Image")] == ["pillow"]
+    assert dt.coverage_report().configured_but_not_indexed == ["google-genai"]
+
+    there, gone = dt.check_symbols(
+        "pillow", "10.0.0", [SymbolQuery(path="PIL.Image.open"), SymbolQuery(path="Image.ANTIALIAS")]
+    ).results
+    assert (there.path, there.status) == ("PIL.Image.open", "present")
+    assert (gone.path, gone.status) == ("PIL.Image.ANTIALIAS", "missing") and "9.5.0" in gone.hint
+
+    code = "from PIL import Image\n\nim = Image.open('a.png')\nim.resize((1, 1), Image.ANTIALIAS)\n"
+    res = check_upgrade(dt, "proj", {"app.py": code}, [_change("9.5.0", "10.0.0", "pillow")])
+    (pkg,) = res.checked
+    assert res.not_covered == [] and [(b.path, b.locations[0].line) for b in pkg.breaks] == [
+        ("PIL.Image.ANTIALIAS", 4)
+    ]
+
+    # A new index takes the place of the old one: the list follows it.
+    newer = IndexStore.memory()
+    newer.rebuild_package(HTTPX, SNAPSHOTS, RELEASED_AT)
+    dt.set_store(newer)
+    assert dt.coverage.get("pillow") is None and dt.coverage.packages == coverage.packages

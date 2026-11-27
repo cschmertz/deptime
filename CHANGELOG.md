@@ -96,6 +96,13 @@ are data: they can grow in any release.)
   `complex64`, `recfromcsv`/`recfromtxt` → `genfromtxt`, the `newbyteorder` methods → `dtype.newbyteorder`, and the
   modules `linalg.linalg` and `fft.helper` (removed in 2.4.0) → `linalg` and `fft` (#80).
 
+### Fixed
+- A package the published index has and this deptime's own list doesn't is answered from the index's record of
+  it, so a package is covered as soon as the index has it. deptime 1.1.7 and earlier say such an update is "not
+  covered" in the upgrade check and `explain_error`, and `check_symbols` and `symbol_history` read its names as
+  `missing` when it imports under another name (pillow's `PIL`, python-dateutil's `dateutil`): upgrade to have
+  the seven packages above checked (DT-CORE-93).
+
 ## [1.1.7] - 2026-11-23
 
 ### Added

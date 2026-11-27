@@ -120,6 +120,10 @@ In order. The first line of each phase is what it delivers.
 - [x] **DT-DATA-91** (2026-11-24): python-dateutil, 2.9.0 to 4.0.0 (4 releases), which needed DT-DATA-101 and 102:
   the `.xz` grows 85 KB (0.16%) with them. 4 curated hints for 3.0's `tz.TZPATHS` → `tz.TZPATH` and `tz.reset_tzpath`.
   A call on the removed list (`tz.TZPATHS.insert(...)`) gets no hint in the upgrade check: held.
+- [x] **DT-DATA-95** (2026-11-27): pypdf, 3.2.0 to 7.2.0 (117 releases): the `.xz` grows 157 KB (0.29%), its build
+  job takes 1 min 44 s. 2 curated hints (`PdfMerger` → `PdfWriter`, `AnnotationBuilder` → `pypdf.annotations`);
+  `no_params` names 7.1's `add_outline_item`, whose decorator still takes the arguments its signature makes
+  keyword-only. Its `deprecate_with_replacement()` calls aren't read.
 - [x] **DT-QA-28, scored again** (2026-11-27): with DT-DATA-86 to 91 in the index, C is 60.3% (95% CI 58.2-62.3%)
   on the same sample, so the 60% bar is met (`bench/coverage-share/results-2026-11-27.md`).
 
@@ -422,13 +426,6 @@ Known gaps, most with a case kept as `known_gap` in the benchmark. None is sched
 - Parked as before: an npm/TypeScript index, a bulk dataset export, MCP resources for rename maps.
 
 ## Later
-
-**Cover DT-QA-28's shortlist** (each needs its build time and download size measured first, and the maintainer's
-call on the download). Of the nine left after DT-DATA-86 to 91, this one crosses a documented break often enough:
-
-| ID | Package | Major pairs it adds to DT-QA-28's C | Of them, crossing a documented removal |
-|---|---|---|---|
-| DT-DATA-95 | pypdf | 17 | 15 cross 6.0 or 7.0, which removed public names (`PdfMerger`, `AnnotationBuilder`, `PdfWriter.add_js`) |
 
 - **DT-OSS-19** (proposed): ship the survey's rename checker as a contributor tool: for "old name → new name" pairs,
   whether the index already answers each, can't take it, or would gain it, so a hint PR is checked before review.

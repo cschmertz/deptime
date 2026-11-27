@@ -18,8 +18,9 @@
 #                  deptime 0.1.5 and older can't read. `false` stores every member under every class.
 # `internal_names` = private import roots the wheel also installs, recorded only as internal names, never as public
 #                  API; tracebacks from them map to the package (DT-DATA-62: pytest's `_pytest`).
-# `no_params`    = modules whose callables are recorded without their parameters, so their arguments are unknown
-#                  (DT-DATA-88): hand-written stubs for compiled code whose argument names can differ from the code's.
+# `no_params`    = modules, or single callables, whose callables are recorded without their parameters, so their
+#                  arguments are unknown (DT-DATA-88): hand-written stubs for compiled code whose argument names can
+#                  differ from the code's, or a decorator that takes more than the signature says (DT-DATA-95).
 # `[[package.served]]` = names the package serves through its own import machinery rather than by binding them
 #                  (DT-DATA-52), in each release whose `file` matches the regular expression `when`: `module` as the
 #                  module `serves`, with all its names (`{part}` matches one dotted part, the same in both), or in
@@ -354,6 +355,15 @@ when = 'setattr\(module, (?:"DDPF_" \+ |f"DDPF_\{)item\d?\.name'
 modules = ["PIL.DdsImagePlugin"]
 members_of = ["DDSD", "DDSCAPS", "DDSCAPS2", "DDPF"]
 prefix = "{class}_"
+
+[[package]]
+name = "pypdf"
+import_names = ["pypdf"]
+tier = "B"
+notes = "Its `deprecate_with_replacement()` and `deprecation_with_replacement()` calls aren't read, so a deprecation shows only where a docstring states it, and a method that raises through the second reads as present."
+# 7.1 made `add_outline_item`'s arguments keyword-only in its signature, but `@deprecate_positional_arguments("8.0.0")`
+# still takes them by position, with a warning: its arguments are left unknown rather than read as keyword-only.
+no_params = ["pypdf._writer.PdfWriter.add_outline_item"]
 
 [[package]]
 name = "polars"

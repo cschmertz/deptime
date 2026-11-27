@@ -80,6 +80,10 @@ are data: they can grow in any release.)
   (`gunicorn.workers.geventlet`) and 24.0.0's `Arbiter.handle_chld` losing its arguments (DT-DATA-90).
 - python-dateutil is covered, 2.9.0 to 4.0.0, with migration hints for 3.0.0's removed `tz.TZPATHS` → `tz.TZPATH`
   and `tz.reset_tzpath` (DT-DATA-91).
+- pypdf is covered, 3.2.0 to 7.2.0, with migration hints for `PdfMerger` → `PdfWriter` and
+  `generic.AnnotationBuilder` → `pypdf.annotations` (both removed in 6.0.0). `no_params` in `coverage.toml` can name
+  a single function: pypdf's `PdfWriter.add_outline_item` still takes by position the arguments its 7.1 signature
+  makes keyword-only, so its arguments are left unknown (DT-DATA-95).
 - Names a module binds by unpacking (`MO, TU, WE, ... = weekdays`) and attributes that `__init__` sets through the
   class's own methods are now known, so they no longer read missing, and names that are still there no longer read
   removed: sqlalchemy 2.0, for one, had 49 such false removals (DT-DATA-101, DT-DATA-102).

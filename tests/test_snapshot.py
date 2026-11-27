@@ -3301,6 +3301,33 @@ def test_no_params_leaves_the_arguments_of_callables_under_its_modules_unknown(t
     assert ApiSnapshot.load(out).no_params == ["cg._rust"]
 
 
+def test_no_params_can_name_one_method_and_leave_the_rest_read(tmp_path):
+    # DT-DATA-95: pypdf 7.1 writes `add_outline_item(self, *, title, page_number, ...)`, but its decorator
+    # `deprecate_positional_arguments("8.0.0")` still takes them by position. Read as written, every
+    # `add_outline_item("Chapter 1", 0)` broke at 7.1; naming the method leaves only its arguments unknown.
+    writer = "class PdfWriter:\n    def add_outline_item(self, {}title, page_number): ...\n    def add_page(self, page): ...\n"
+    files = {"pp/__init__.py": "from pp._writer import PdfWriter as PdfWriter\n"}
+    old = build_snapshot(
+        "pp",
+        "7.0",
+        ["pp"],
+        _write(tmp_path / "70", {**files, "pp/_writer.py": writer.format("")}),
+        own_members=True,
+    )
+    new = build_snapshot(
+        "pp",
+        "7.1",
+        ["pp"],
+        _write(tmp_path / "71", {**files, "pp/_writer.py": writer.format("*, ")}),
+        own_members=True,
+        no_params=["pp._writer.PdfWriter.add_outline_item"],
+    )
+    members = new.classes["pp._writer.PdfWriter"].members
+    assert members["add_outline_item"].params is None
+    assert [p["name"] for p in members["add_page"].params] == ["page"]
+    assert [e for e in diff_snapshots(old, new) if e.kind.startswith("param")] == []
+
+
 def test_snapshot_roundtrip_keeps_internal_names(tmp_path):
     snap = build_snapshot("inner", "1.0", ["inner"], _write(tmp_path / "src", INTERNALS))
     out = tmp_path / "s.json.gz"

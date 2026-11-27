@@ -4089,3 +4089,20 @@ path = "dateutil.tz.tz.TZPATHS"
 target = "dateutil.tz.reset_tzpath"
 quote = "Added ``dateutil.tz.TZPATH`` and ``dateutil.tz.reset_tzpath`` to allow for runtime configuration of the IANA time zone data search path. These replace the mutable ``dateutil.tz.TZPATHS`` list, which has been removed."
 url = "https://github.com/dateutil/dateutil/blob/3.0.0/NEWS"
+
+# pypdf
+# 4.x deprecated `PdfMerger` and `AnnotationBuilder` (5.0 made them raise, 6.0 removed them); their docstrings name what
+# replaces each.
+[[hint]]
+package = "pypdf"
+path = "pypdf.PdfMerger"
+target = "pypdf.PdfWriter"
+quote = "class PdfMerger: … Use :class:`PdfWriter` instead."
+url = "https://github.com/py-pdf/pypdf/blob/4.3.1/pypdf/_merger.py#L85-L90"
+
+[[hint]]
+package = "pypdf"
+path = "pypdf.generic.AnnotationBuilder"
+target = "pypdf.annotations"
+quote = "The AnnotationBuilder is deprecated. Instead, use the annotation classes in pypdf.annotations."
+url = "https://github.com/py-pdf/pypdf/blob/4.3.1/pypdf/generic/__init__.py#L106-L111"

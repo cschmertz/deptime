@@ -120,6 +120,8 @@ In order. The first line of each phase is what it delivers.
 - [x] **DT-DATA-91** (2026-11-24): python-dateutil, 2.9.0 to 4.0.0 (4 releases), which needed DT-DATA-101 and 102:
   the `.xz` grows 85 KB (0.16%) with them. 4 curated hints for 3.0's `tz.TZPATHS` → `tz.TZPATH` and `tz.reset_tzpath`.
   A call on the removed list (`tz.TZPATHS.insert(...)`) gets no hint in the upgrade check: held.
+- [x] **DT-QA-28, scored again** (2026-11-27): with DT-DATA-86 to 91 in the index, C is 60.3% (95% CI 58.2-62.3%)
+  on the same sample, so the 60% bar is met (`bench/coverage-share/results-2026-11-27.md`).
 
 Phases 2 and 3 (the command and the GitHub Action) shipped in 0.2.0. DT-QA-22 met every bar on real update pull
 requests; its three wrong answers are fixed in the published index (DT-CORE-72, DT-DATA-82, DT-DATA-51: a second,

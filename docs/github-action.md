@@ -25,7 +25,7 @@ jobs:
 ## What it does
 
 1. Installs DepTime with `uvx`, pinned to the release the action ships with.
-2. Downloads DepTime's index (about 50 MB) from this repository's GitHub releases, and checks its checksum.
+2. Downloads DepTime's index (about 55 MB) from this repository's GitHub releases, and checks its checksum.
 3. Reads the version changes between the pull request's base commit and its head, from `uv.lock`, `poetry.lock`,
    `pyproject.toml` or `requirements*.txt` pins (lockfiles and requirements files in any directory,
    `requirements/*.txt` too). It fetches the base commit if the checkout doesn't have it.

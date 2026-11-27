@@ -220,6 +220,15 @@ page pastes them), and 0.1% and 0.1% false positives on 2,113 working uses, with
 see `holdout/2026-11f/results-2026-11-11.md`. All six sets' tracebacks are in `cases/` now; `bench.yml` checks each
 set's uses against its `baseline.json`.
 
+## How often a real update is to a covered package (DT-QA-28)
+
+`coverage-share/README.md` is the protocol, committed before any pull request was collected. Of the major library
+updates in 12,766 of Dependabot's pull requests to Python projects (90 days, read on 2026-11-23), 31.7% were to one of
+the 53 packages covered then, under the protocol's 60% bar (`coverage-share/results-2026-11-23.md`). With the six
+packages its shortlist put first (pillow, uvicorn, cryptography, oauthlib, gunicorn, python-dateutil), the same sample
+scores 60.3% (95% CI 58.2-62.3%; `coverage-share/results-2026-11-27.md`). The six were picked from that sample, so a
+new one would likely score lower. pypdf was added afterwards and isn't counted.
+
 ## Published as a benchmark (DT-OSS-14)
 
 `dataset/` builds the six holdout sets, 2026-11g, DT-QA-22's update pull requests, the real tracebacks in `cases/` and

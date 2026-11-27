@@ -6,9 +6,10 @@ accepts, a newly required argument) with the release that changed it and what re
 When Claude hits an import or argument error, the same index tells it what changed in the library, in which release,
 and what to use instead.
 
-It covers the fast-moving libraries of the Python AI and agent stack (openai, langchain, pydantic, mcp, httpx,
-transformers and more). Answers come from a prebuilt index of each release's public API, read without importing or
-running the library. No AI model is involved, and your code and errors never leave your machine.
+It covers fast-moving Python libraries: the AI and agent stack (openai, langchain, pydantic, mcp, transformers
+and more) and widely used web and data libraries (fastapi, django, sqlalchemy, pandas, numpy, pillow and more).
+Answers come from a prebuilt index of each release's public API, read without importing or running the library. No
+AI model is involved, and your code and errors never leave your machine.
 
 ## Try it
 

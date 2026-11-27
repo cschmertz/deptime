@@ -57,7 +57,7 @@ claude mcp add deptime -- uvx deptime mcp
 Other AI coding tools (Cursor, Codex, VS Code, Claude Desktop and more) use the same command, `uvx deptime mcp`, in their MCP settings.
 To make sure the agent uses it, paste [this short block](integrations/snippets/agents-md-deptime.md) into your project's `AGENTS.md` (Codex and Cursor read it).
 
-That's it. The first time it starts, DepTime downloads its data file (about 50 MB) and keeps it up to date on its own. To keep it fully offline, set `DEPTIME_OFFLINE=1`.
+That's it. The first time it starts, DepTime downloads its data file (about 55 MB) and keeps it up to date on its own. To keep it fully offline, set `DEPTIME_OFFLINE=1`.
 
 **Using Claude Code?** The plugin adds a `/deptime:fix-upgrade` command and suggests DepTime when a version error shows up:
 
@@ -148,7 +148,7 @@ Your agent can ask whether a function or argument it remembers still exists in t
 | `check_symbols` | Check names and arguments against the version you have installed |
 | `diff_versions` | Everything that changed between two versions, or since a date |
 | `symbol_history` | The full history of one function or class |
-| `coverage` | Which libraries DepTime knows (60 fast-moving packages, mostly the AI and agent stack: [list](https://github.com/cschmertz/deptime/blob/main/docs/coverage.md)) |
+| `coverage` | Which libraries DepTime knows: 60 fast-moving packages, from the AI and agent stack to web frameworks and data tools ([list](https://github.com/cschmertz/deptime/blob/main/docs/coverage.md)) |
 
 Every answer says how sure it is and why. The exact inputs and outputs are in the [product spec](https://github.com/cschmertz/deptime/blob/main/docs/03-product-spec.md).
 

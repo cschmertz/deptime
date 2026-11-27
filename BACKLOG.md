@@ -412,24 +412,21 @@ Known gaps, most with a case kept as `known_gap` in the benchmark. None is sched
 - **DT-QA-13** (the next holdout set): closed by rule 1.
 - **DT-HOST-01 to 04** (a public hosted instance): running one is continuous work. The code for self-hosting stays.
 - **DT-DATA-74** (hundreds of packages instead of 53): the build time and the checks grow with it.
+- **DT-DATA-92, 93, 96 to 100** (twisted, pytest-asyncio, tornado, anyio, playwright, pygments, sentry-sdk, from
+  DT-QA-28's shortlist): few breaks the upgrade check would catch. pytest-asyncio's is a fixture a test requests by
+  parameter name, which it doesn't read; 19 of twisted's 20 major updates go to pre-releases, which the index skips;
+  tornado and anyio add 7 major pairs; the other three none.
 - Parked as before: an npm/TypeScript index, a bulk dataset export, MCP resources for rename maps.
 
 ## Later
 
-**Cover DT-QA-28's shortlist** (proposed; each needs its build time and download size measured first, and the
-maintainer's call on the download):
+**Cover DT-QA-28's shortlist** (each needs its build time and download size measured first, and the maintainer's
+call on the download). Of the nine left after DT-DATA-86 to 91, these two cross a documented break often enough:
 
-| ID | Package | Major pairs it adds to DT-QA-28's C |
-|---|---|---|
-| DT-DATA-92 | twisted | 20 |
-| DT-DATA-93 | pytest-asyncio | 19 |
-| DT-DATA-94 | websockets | 18 |
-| DT-DATA-95 | pypdf | 17 |
-| DT-DATA-96 | tornado | 4 |
-| DT-DATA-97 | anyio | 3 |
-| DT-DATA-98 | playwright | 0 |
-| DT-DATA-99 | pygments | 0 |
-| DT-DATA-100 | sentry-sdk | 0 |
+| ID | Package | Major pairs it adds to DT-QA-28's C | Of them, crossing a documented removal |
+|---|---|---|---|
+| DT-DATA-94 | websockets | 18 | 17 cross 17.0, which removed the aliases of modules moved in 9.0 |
+| DT-DATA-95 | pypdf | 17 | none cross 4.0's; 15 cross 6.0 or 7.0: add only if those removed public names |
 
 - **DT-OSS-19** (proposed): ship the survey's rename checker as a contributor tool: for "old name → new name" pairs,
   whether the index already answers each, can't take it, or would gain it, so a hint PR is checked before review.

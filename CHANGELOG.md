@@ -91,6 +91,10 @@ are data: they can grow in any release.)
   `AsyncQdrantClient` (removed in 1.19.0) → `upsert` and `query_points` (#76).
 - Migration hints for dspy, from its 3.4.0 release notes: the experimental 3.3 LM types `LMRequest`, `LMResponse`,
   `LMMessage`, `LMConfig`, `System`, `User` and `Assistant` (removed in 3.4.0) → their `dspy.lm15` replacements (#77).
+- Migration hints for numpy, from its 2.0 migration guide and 2.4.0 release notes: `asfarray` and `cast` →
+  `asarray`, `geterrobj`/`seterrobj` → `errstate`, `NINF` → `inf`, `longcomplex` → `clongdouble`, `singlecomplex` →
+  `complex64`, `recfromcsv`/`recfromtxt` → `genfromtxt`, the `newbyteorder` methods → `dtype.newbyteorder`, and the
+  modules `linalg.linalg` and `fft.helper` (removed in 2.4.0) → `linalg` and `fft` (#80).
 
 ## [1.1.7] - 2026-11-23
 

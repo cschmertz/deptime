@@ -61,6 +61,10 @@ are data: they can grow in any release.)
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-27
+
+Seven more packages are covered, 60 in all. Upgrade to have them checked: 1.1.7 and earlier don't know them.
+
 ### Added
 - pillow is covered, 9.4.0 to 13.0.0, with 15 migration hints from its release notes: `Image.ANTIALIAS` →
   `Image.Resampling.LANCZOS`, `getsize` → `getbbox`, `textsize` → `textbbox`, `ImageMath.eval` → `lambda_eval` and
@@ -867,7 +871,8 @@ A documentation release: the code is 0.1.13's, and every answer is the same.
 - The prebuilt index of 52 packages, downloaded on first run and refreshed daily; `deptime index pull|status|pack`;
   offline mode (`DEPTIME_OFFLINE=1`).
 
-[Unreleased]: https://github.com/cschmertz/deptime/compare/v1.1.7...HEAD
+[Unreleased]: https://github.com/cschmertz/deptime/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/cschmertz/deptime/compare/v1.1.7...v1.2.0
 [1.1.7]: https://github.com/cschmertz/deptime/compare/v1.1.6...v1.1.7
 [1.1.6]: https://github.com/cschmertz/deptime/compare/v1.1.5...v1.1.6
 [1.1.5]: https://github.com/cschmertz/deptime/compare/v1.1.4...v1.1.5

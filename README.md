@@ -90,7 +90,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7 # pin to a commit in your own workflows
-      - uses: cschmertz/deptime@v1.1.7
+      - uses: cschmertz/deptime@v1.2.0
 ```
 
 You can run the same check from a terminal with `uvx deptime check-upgrade`, or in Claude Code with `/deptime:fix-upgrade`, which also has Claude fix what broke.

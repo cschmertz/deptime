@@ -1,7 +1,7 @@
 {
   "name": "deptime",
   "displayName": "DepTime",
-  "version": "1.1.7",
+  "version": "1.2.0",
   "description": "Finds what a Python dependency update breaks in your code, with the release that changed it and what replaces it, and has Claude fix those lines. Also explains version errors. Runs locally; your code never leaves your machine.",
   "author": {
     "name": "cschmertz",

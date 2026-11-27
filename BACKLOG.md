@@ -416,17 +416,19 @@ Known gaps, most with a case kept as `known_gap` in the benchmark. None is sched
   DT-QA-28's shortlist): few breaks the upgrade check would catch. pytest-asyncio's is a fixture a test requests by
   parameter name, which it doesn't read; 19 of twisted's 20 major updates go to pre-releases, which the index skips;
   tornado and anyio add 7 major pairs; the other three none.
+- **DT-DATA-94** (websockets): 23 names that still work with a warning (`websockets.client.connect`,
+  `WebSocketServerProtocol`) are served by `lazy_import(..., deprecated_aliases={...})`, which nothing reads, so they
+  read removed in 14.0 (3 false breaks of 5 on a toy 13.1 → 17.0 check). Reading it is one package's shape (rule 4).
 - Parked as before: an npm/TypeScript index, a bulk dataset export, MCP resources for rename maps.
 
 ## Later
 
 **Cover DT-QA-28's shortlist** (each needs its build time and download size measured first, and the maintainer's
-call on the download). Of the nine left after DT-DATA-86 to 91, these two cross a documented break often enough:
+call on the download). Of the nine left after DT-DATA-86 to 91, this one crosses a documented break often enough:
 
 | ID | Package | Major pairs it adds to DT-QA-28's C | Of them, crossing a documented removal |
 |---|---|---|---|
-| DT-DATA-94 | websockets | 18 | 17 cross 17.0, which removed the aliases of modules moved in 9.0 |
-| DT-DATA-95 | pypdf | 17 | none cross 4.0's; 15 cross 6.0 or 7.0: add only if those removed public names |
+| DT-DATA-95 | pypdf | 17 | 15 cross 6.0 or 7.0, which removed public names (`PdfMerger`, `AnnotationBuilder`, `PdfWriter.add_js`) |
 
 - **DT-OSS-19** (proposed): ship the survey's rename checker as a contributor tool: for "old name → new name" pairs,
   whether the index already answers each, can't take it, or would gain it, so a hint PR is checked before review.

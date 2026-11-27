@@ -939,6 +939,98 @@ quote = "ptp | Use np.ptp(arr, ...) instead."
 url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#ndarray-and-scalar-methods"
 
 
+[[hint]]
+package = "numpy"
+path = "numpy.asfarray"
+target = "numpy.asarray"
+quote = "asfarray | Use np.asarray with a float dtype instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.cast"
+target = "numpy.asarray"
+quote = "cast | Use np.asarray(arr, dtype=dtype) instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.geterrobj"
+target = "numpy.errstate"
+quote = "geterrobj | Use the np.errstate context manager instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.seterrobj"
+target = "numpy.errstate"
+quote = "seterrobj | Use the np.errstate context manager instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.NINF"
+target = "numpy.inf"
+quote = "NINF | Use -np.inf instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.longcomplex"
+target = "numpy.clongdouble"
+quote = "longcomplex | Use np.clongdouble instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.singlecomplex"
+target = "numpy.complex64"
+quote = "singlecomplex | Use np.complex64 instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.recfromcsv"
+target = "numpy.genfromtxt"
+quote = "recfromcsv | Use np.genfromtxt with comma delimiter instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.recfromtxt"
+target = "numpy.genfromtxt"
+quote = "recfromtxt | Use np.genfromtxt instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#main-namespace"
+
+[[hint]]
+package = "numpy"
+path = "numpy.ndarray.newbyteorder"
+target = "numpy.dtype.newbyteorder"
+quote = "newbyteorder | Use arr.view(arr.dtype.newbyteorder(order)) instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#ndarray-and-scalar-methods"
+
+[[hint]]
+package = "numpy"
+path = "numpy.generic.newbyteorder"
+target = "numpy.dtype.newbyteorder"
+quote = "newbyteorder | Use arr.view(arr.dtype.newbyteorder(order)) instead."
+url = "https://numpy.org/devdocs/numpy_2_0_migration_guide.html#ndarray-and-scalar-methods"
+
+[[hint]]
+package = "numpy"
+path = "numpy.linalg.linalg"
+target = "numpy.linalg"
+quote = "numpy.linalg.linalg Use numpy.linalg instead."
+url = "https://numpy.org/doc/stable/release/2.4.0-notes.html#removed-numpy-linalg-linalg-and-numpy-fft-helper"
+
+[[hint]]
+package = "numpy"
+path = "numpy.fft.helper"
+target = "numpy.fft"
+quote = "numpy.fft.helper Use numpy.fft instead."
+url = "https://numpy.org/doc/stable/release/2.4.0-notes.html#removed-numpy-linalg-linalg-and-numpy-fft-helper"
+
+
 # pandas-2.0
 [[hint]]
 package = "pandas"

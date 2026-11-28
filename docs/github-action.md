@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7 # pin to a commit in your own workflows
-      - uses: cschmertz/deptime@v1.2.0
+      - uses: cschmertz/deptime@v1.2.1
 ```
 
 ## What it does
@@ -74,7 +74,7 @@ that runs on `workflow_run`. That workflow checks out nothing, and treats the re
 Add these steps to the check job:
 
 ```yaml
-      - uses: cschmertz/deptime@v1.2.0
+      - uses: cschmertz/deptime@v1.2.1
         id: deptime
       - uses: actions/upload-artifact@v7 # pin to a commit in your own workflows
         if: always() && steps.deptime.outputs.report

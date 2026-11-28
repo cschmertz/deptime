@@ -16,9 +16,9 @@ which of a project's code a dependency update breaks. Everything done before 202
 
 ---
 
-## Current state: stable, v1.2.0
+## Current state: stable, v1.2.1
 
-- **Released:** 1.2.0 (2026-11-27) is on PyPI, the MCP Registry and GitHub: the six tools, the upgrade check (a
+- **Released:** 1.2.1 (2026-11-28) is on PyPI, the MCP Registry and GitHub: the six tools, the upgrade check (a
   command, a GitHub Action, an MCP tool and a Claude Code plugin command), and the 1.x promise in CHANGELOG.md's
   versioning section: the contract only grows.
 - **Index:** 60 packages and 7,189 releases on 2026-11-28 (`SNAPSHOT_FORMAT` 32, schema 2); `index.sqlite.xz` is

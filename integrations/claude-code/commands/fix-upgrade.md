@@ -1,7 +1,7 @@
 ---
 description: Find what a dependency update breaks in this project's Python code with DepTime, then fix those lines
 argument-hint: "[package version [old-version]] (empty: compare the lockfiles at HEAD with the working tree)"
-allowed-tools: Bash(uvx deptime==1.2.0 check-upgrade:*), Bash(rm .deptime-report.md)
+allowed-tools: Bash(uvx deptime==1.2.1 check-upgrade:*), Bash(rm .deptime-report.md)
 ---
 
 DepTime finds the uses an update breaks; you write the fix. Its breaks are confirmed: fix them. Leave working code
@@ -11,9 +11,9 @@ as it is, but if you find another use this update breaks, fix that too.
    read that file with the Read tool (it can be longer than the shell shows). Run each command here exactly as
    written, on its own: no `;`, `&&`, `echo`, pipe or redirect (the shell already shows the exit code, and a
    command with more in it may be refused).
-   - With a package and a version: `uvx deptime==1.2.0 check-upgrade . --package <package> --to <version> --format markdown --output .deptime-report.md`.
+   - With a package and a version: `uvx deptime==1.2.1 check-upgrade . --package <package> --to <version> --format markdown --output .deptime-report.md`.
      Add `--from <old-version>` when it was given.
-   - With none: `uvx deptime==1.2.0 check-upgrade . --format markdown --output .deptime-report.md`. It compares the
+   - With none: `uvx deptime==1.2.1 check-upgrade . --format markdown --output .deptime-report.md`. It compares the
      pinned versions at `HEAD` (`uv.lock`, `poetry.lock`, `pyproject.toml`, `requirements*.txt`) with the working
      tree, so update the lockfile first. On a branch, add `--base <the branch's base>`.
 2. Exit code 2 is an error, printed in the shell. If it says to pass `--from`, the project pins the package somewhere

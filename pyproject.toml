@@ -1,6 +1,6 @@
 [project]
 name = "deptime"
-version = "1.2.0"
+version = "1.2.1"
 description = "Know what a Python dependency update breaks before you merge it. No AI in the loop: offline, free, same answer every time. GitHub Action, CLI and MCP server."
 readme = "README.md"
 requires-python = ">=3.12"

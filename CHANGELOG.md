@@ -61,6 +61,12 @@ are data: they can grow in any release.)
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-11-28
+
+Fewer false breaks from `check-upgrade`: a class keeps the methods it inherits where its base class is hard to
+read. The index carries the fix, so earlier 1.x releases have it already. This release gives the right reason with
+the new `unknown` answers, where earlier ones say the names come from another distribution.
+
 ### Fixed
 - A class whose base class couldn't be read lost every name it inherits, so `check_symbols` read methods that work
   as `missing` and `check-upgrade` failed updates that break nothing (DT-DATA-103). The fix is in the index, so
@@ -70,7 +76,8 @@ are data: they can grow in any release.)
   - numpy `finfo`'s attributes (`max`, `eps` and 14 more) no longer read removed in 2.2.0 and added again in 2.4.1.
   - gradio 6.20.0 to 6.26 shipped without the stub files that list each component's event methods
     (`Button.click`, `Textbox.submit`), which a metaclass makes. A name such a class lacks there is `unknown`, with
-    the reason, where it read removed; an update to those releases no longer fails on it.
+    the reason, where it read removed; an update to those releases no longer fails on it. `name_makers` in
+    `coverage.toml` names such a metaclass.
   - A base class named through an attribute is read too. transformers 5's Python tokenizers
     (`BertJapaneseTokenizer`, `CTRLTokenizer` and 40 more) keep `encode`, `save_pretrained` and the other methods
     they inherit, which read removed in 5.0.0; redis's `asyncio.Redis` has `hset`, `lpush` and the other hash,
@@ -897,7 +904,8 @@ A documentation release: the code is 0.1.13's, and every answer is the same.
 - The prebuilt index of 52 packages, downloaded on first run and refreshed daily; `deptime index pull|status|pack`;
   offline mode (`DEPTIME_OFFLINE=1`).
 
-[Unreleased]: https://github.com/cschmertz/deptime/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/cschmertz/deptime/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/cschmertz/deptime/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/cschmertz/deptime/compare/v1.1.7...v1.2.0
 [1.1.7]: https://github.com/cschmertz/deptime/compare/v1.1.6...v1.1.7
 [1.1.6]: https://github.com/cschmertz/deptime/compare/v1.1.5...v1.1.6

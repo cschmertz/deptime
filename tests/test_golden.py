@@ -3,7 +3,8 @@
 
 The benchmark checks old boundaries; these check the newest releases: every covered package is indexed, its newest
 release on PyPI is indexed within the freshness bound (DT-DATA-04), and each Tier A package's newest indexed release
-has the names its own documentation uses (`golden/tier_a.toml`).
+has the names its own documentation uses (`golden/tier_a.toml`). `golden/working.toml` has names found working by
+running a release, which must not read `missing` there (DT-DATA-103).
 """
 
 from __future__ import annotations
@@ -25,6 +26,9 @@ from deptime.query import DepTime
 
 GOLDEN = tomllib.loads((Path(__file__).parent / "golden" / "tier_a.toml").read_text(encoding="utf-8"))[
     "package"
+]
+WORKING = tomllib.loads((Path(__file__).parent / "golden" / "working.toml").read_text(encoding="utf-8"))[
+    "case"
 ]
 COVERAGE = load_coverage()
 # Twice-daily builds start hours late (DT-DATA-04); older than this, several runs in a row failed to publish.
@@ -74,6 +78,36 @@ def test_the_newest_release_has_the_documented_names(published: DepTime, golden:
     )
     missing = [r.path for r in result.results if r.status != "present"]
     assert not missing, f"{golden['name']} {entry.latest_version} lacks {missing} ({golden['evidence']})"
+
+
+def test_each_working_case_says_how_it_was_checked():
+    covered = {p.name for p in COVERAGE.packages}
+    for case in WORKING:
+        assert case["package"] in covered and case["evidence"]
+        assert case.get("present") or case.get("not_missing")
+        assert set(case) <= {"package", "version", "present", "not_missing", "missing", "evidence"}
+
+
+@pytest.mark.published
+@pytest.mark.parametrize("case", WORKING, ids=[f"{c['package']}-{c['version']}" for c in WORKING])
+def test_names_that_work_at_a_release_dont_read_missing(published: DepTime, case: dict):
+    """A name that runs and reads `missing` fails a clean update (DT-DATA-103); one of `missing` that doesn't shows
+    the release answered `unknown` for more than it had to."""
+    wanted = {
+        "present": case.get("present", []),
+        "not_missing": case.get("not_missing", []),
+        "missing": case.get("missing", []),
+    }
+    paths = [p for group in wanted.values() for p in group]
+    result = published.check_symbols(case["package"], case["version"], [SymbolQuery(path=p) for p in paths])
+    assert result.exact, f"{case['package']} {case['version']} isn't indexed"
+    status = {r.path: r.status for r in result.results}
+    wrong = (
+        [f"{p}: {status[p]}, not present" for p in wanted["present"] if status[p] != "present"]
+        + [f"{p}: missing" for p in wanted["not_missing"] if status[p] == "missing"]
+        + [f"{p}: {status[p]}, not missing" for p in wanted["missing"] if status[p] != "missing"]
+    )
+    assert not wrong, f"{case['package']} {case['version']}: {wrong} ({case['evidence']})"
 
 
 @pytest.mark.published

@@ -21,10 +21,10 @@ which of a project's code a dependency update breaks. Everything done before 202
 - **Released:** 1.2.0 (2026-11-27) is on PyPI, the MCP Registry and GitHub: the six tools, the upgrade check (a
   command, a GitHub Action, an MCP tool and a Claude Code plugin command), and the 1.x promise in CHANGELOG.md's
   versioning section: the contract only grows.
-- **Index:** 60 packages and 7,188 releases on 2026-11-27 (`SNAPSHOT_FORMAT` 31, schema 2); `index.sqlite.xz` is
-  53.9 MB and the `.gz` 83.1 MB. `build-index` runs at 04:17 and 16:17 UTC, replaces the rolling `index` release and
+- **Index:** 60 packages and 7,189 releases on 2026-11-28 (`SNAPSHOT_FORMAT` 32, schema 2); `index.sqlite.xz` is
+  53.9 MB and the `.gz` 83.0 MB. `build-index` runs at 04:17 and 16:17 UTC, replaces the rolling `index` release and
   signs it. A build with no extraction change usually takes under 20 minutes; a `SNAPSHOT_FORMAT` bump means one cold
-  build of about 3 hours (format 31's: 3 h).
+  build of 3 to 4.5 hours (format 31's: 3 h; format 32's: 4 h 25 min, transformers' job 3 h 33 min of it).
 - **Checks that run without anyone:** `ci` on every push (729 offline tests), and `bench` on every code change and
   every published index. `bench` fails on a benchmark drop of more than 2 points, a traceback case that passed in the
   baseline and fails now, or a false-positive rate up by more than 1, and on the published index itself (`tests/test_golden.py`, DT-QA-03): older than 48 h, a package's newest

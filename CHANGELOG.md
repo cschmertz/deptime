@@ -61,6 +61,12 @@ are data: they can grow in any release.)
 
 ## [Unreleased]
 
+### Added
+- Migration hints for pandas, from its 2.1.0, 2.2.0 and 3.0.0 release notes: `DataFrame.swapaxes` and
+  `Series.swapaxes` → `transpose`, the groupby `fillna` methods → `ffill`, `Series.view` and `Index.format` →
+  `astype`, `pandas.value_counts` → `Series.value_counts`, and `arrays.PandasArray` →
+  `arrays.NumpyExtensionArray` (all removed in 3.0.0) (#86).
+
 ## [1.2.1] - 2026-11-28
 
 Fewer false breaks from `check-upgrade`: a class keeps the methods it inherits where its base class is hard to

@@ -61,6 +61,12 @@ are data: they can grow in any release.)
 
 ## [Unreleased]
 
+### Changed
+- The rename-map site has 16 more migrations, 22 in all: pandas 1 → 2 and 2 → 3, Polars 0.20 → 1 and 1 → 2,
+  Gradio 3 → 4, 4 → 5 and 5 → 6, FastMCP 2 → 3 and 3 → 4, Pydantic AI 1 → 2, huggingface_hub 0 → 1, Pillow 9 → 10,
+  urllib3 1 → 2, marshmallow 3 → 4, Werkzeug 2 → 3 and pypdf 3 → 4. A name the newer series has again, a private
+  name and a module's `__all__` are no longer listed as removed (DT-GTM-14).
+
 ## [1.2.0] - 2026-11-27
 
 Seven more packages are covered, 60 in all. Upgrade to have them checked: 1.1.7 and earlier don't know them.

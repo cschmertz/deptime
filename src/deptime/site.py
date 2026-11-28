@@ -70,7 +70,24 @@ MIGRATIONS = (
     Migration("pydantic-1-to-2", "pydantic v1 → v2", (Range("pydantic", "1.10.", "2."),)),
     Migration("openai-0-to-1", "openai 0.x → 1.x", (Range("openai", "0.28", "1."),)),
     Migration("httpx-0.27-to-0.28", "httpx 0.27 → 0.28", (Range("httpx", "0.27.", "0.28."),)),
+    Migration("pandas-1-to-2", "pandas 1.x → 2.x", (Range("pandas", "1.", "2."),)),
+    Migration("pandas-2-to-3", "pandas 2.x → 3.x", (Range("pandas", "2.", "3."),)),
+    Migration("polars-0.20-to-1", "Polars 0.20 → 1.x", (Range("polars", "0.20.", "1."),)),
+    Migration("polars-1-to-2", "Polars 1.x → 2.x", (Range("polars", "1.", "2."),)),
+    Migration("gradio-3-to-4", "Gradio 3.x → 4.x", (Range("gradio", "3.", "4."),)),
+    Migration("gradio-4-to-5", "Gradio 4.x → 5.x", (Range("gradio", "4.", "5."),)),
+    Migration("gradio-5-to-6", "Gradio 5.x → 6.x", (Range("gradio", "5.", "6."),)),
+    Migration("fastmcp-2-to-3", "FastMCP 2.x → 3.x", (Range("fastmcp", "2.", "3."),)),
+    Migration("fastmcp-3-to-4", "FastMCP 3.x → 4.x", (Range("fastmcp", "3.", "4."),)),
+    Migration("pydantic-ai-1-to-2", "Pydantic AI 1.x → 2.x", (Range("pydantic-ai-slim", "1.", "2."),)),
+    Migration("huggingface-hub-0-to-1", "huggingface_hub 0.x → 1.x", (Range("huggingface-hub", "0.", "1."),)),
+    Migration("pillow-9-to-10", "Pillow 9.x → 10.x", (Range("pillow", "9.", "10."),)),
+    Migration("urllib3-1-to-2", "urllib3 1.x → 2.x", (Range("urllib3", "1.", "2."),)),
+    Migration("marshmallow-3-to-4", "marshmallow 3.x → 4.x", (Range("marshmallow", "3.", "4."),)),
+    Migration("werkzeug-2-to-3", "Werkzeug 2.x → 3.x", (Range("werkzeug", "2.", "3."),)),
+    Migration("pypdf-3-to-4", "pypdf 3.x → 4.x", (Range("pypdf", "3.", "4."),)),
 )
+LISTED = 5  # migrations the landing page's description names before "and N more"
 
 STYLE = """
 :root{--bg:#fff;--surface:#f6f8fa;--raised:#fff;--fg:#1f2328;--muted:#59636e;--line:#d1d9e0;--soft:#e6eaef;
@@ -255,6 +272,25 @@ def _artefact(path: str) -> bool:
     return warning or any(a == b for a, b in pairwise(parts))
 
 
+def _name(event: HistoryEvent) -> str:
+    """The name a row shows: the path, or `path(param)` for a change to one parameter."""
+    param = event.detail.get("param") if event.kind.startswith("param_") else None
+    return f"{event.path}({param})" if param else event.path
+
+
+def _back(events: list[tuple[int, HistoryEvent]]) -> set[str]:
+    """The names the range has again at its end, after losing them on the way: gradio 6.20's stubs dropped every
+    component's event methods (`Button.click`) and 6.27's brought them back. A map lists what the migration takes
+    away for good, so these are left off."""
+    there: dict[str, bool] = {}
+    for _, e in sorted(events, key=lambda pair: pair[0]):  # stable: within a release, `added` comes last
+        if e.kind in {"removed", "moved", "param_removed"}:
+            there[_name(e)] = False
+        elif e.kind in {"added", "param_added"}:
+            there[_name(e)] = True
+    return {name for name, present in there.items() if present}
+
+
 def _code(text: str) -> str:
     """A dotted path as code that wraps only after a dot (or an opening parenthesis), never mid-name."""
     return "<code>" + html.escape(text).replace(".", ".<wbr>").replace("(", "<wbr>(") + "</code>"
@@ -284,16 +320,18 @@ def _rows(dt: DepTime, rng: Range) -> tuple[str, list[str], list[str]]:
     hi, _ = dt.store.resolve_version(rng.package, new)
     if lo is None or hi is None:
         return "", [], []
-    # Every event in the range, not the tool's 500 (`diff_versions`), from the same rows.
-    rows, _ = dt.store.events_between(
-        rng.package, lo["ordinal"], hi["ordinal"], 1_000_000, severity=SEVERITY, include_added=False
-    )
+    # Every event in the range, not the tool's 500 (`diff_versions`), from the same rows. The additions are read
+    # only to tell which removed names came back.
+    rows, _ = dt.store.events_between(rng.package, lo["ordinal"], hi["ordinal"], 1_000_000, severity=SEVERITY)
+    events = [(r["ordinal"], dt._event(rng.package, r)) for r in rows]
+    back = _back(events)
     replaced, gone = [], []
-    for e in (dt._event(rng.package, r) for r in rows):
+    for _, e in events:
         if e.kind not in CHANGES or _artefact(e.path):
             continue
-        param = e.detail.get("param") if e.kind in {"param_removed", "param_deprecated"} else None
-        name = f"{e.path}({param})" if param else e.path
+        name = _name(e)
+        if name in back and e.kind in {"removed", "moved", "param_removed"}:
+            continue
         found = _replacements(dt, rng.package, e)
         if found:
             use = " or ".join(_code(r.target) for r in found)
@@ -301,7 +339,8 @@ def _rows(dt: DepTime, rng: Range) -> tuple[str, list[str], list[str]]:
                 f'<tr><td>{_code(name)}</td><td>{use}</td><td class="v">{html.escape(e.version)}</td>'
                 f'<td class="ev">{_evidence(found[0])}</td></tr>'
             )
-        elif e.kind == "removed" and e.path.count(".") <= 2:
+        # Without a replacement to show, only names people write: not `_private` ones or a module's `__all__`.
+        elif e.kind == "removed" and e.path.count(".") <= 2 and not e.path.rsplit(".", 1)[-1].startswith("_"):
             gone.append(f'<tr><td>{_code(name)}</td><td class="v">{html.escape(e.version)}</td></tr>')
     return f"{rng.package} {old} → {new}", replaced[:MAX_ROWS], gone[:MAX_ROWS]
 
@@ -539,13 +578,15 @@ def build(
         path.write_text(page, encoding="utf-8")
         written.append(path)
         links.append((m, span, len(replaced), len(gone)))
+    titles = [m.title for m, _, _, _ in links]
+    named = ", ".join(titles[:LISTED]) + (f" and {len(titles) - LISTED} more" if len(titles) > LISTED else "")
     (out / "index.html").write_text(
         _page(
             "DepTime: know what a Python dependency update breaks",
             _landing(links, len(dt.coverage.packages)),
             built,
             "Know what a Python dependency update breaks before you merge it: offline, free, no AI in the loop. "
-            f"Plus rename maps: {', '.join(m.title for m, _, _, _ in links)}.",
+            f"Plus rename maps: {named}.",
             f"{base}/" if base else None,
             image,
         ),

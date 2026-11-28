@@ -25,7 +25,7 @@ which of a project's code a dependency update breaks. Everything done before 202
   53.9 MB and the `.gz` 83.1 MB. `build-index` runs at 04:17 and 16:17 UTC, replaces the rolling `index` release and
   signs it. A build with no extraction change usually takes under 20 minutes; a `SNAPSHOT_FORMAT` bump means one cold
   build of about 3 hours (format 31's: 3 h).
-- **Checks that run without anyone:** `ci` on every push (717 offline tests), and `bench` on every code change and
+- **Checks that run without anyone:** `ci` on every push (720 offline tests), and `bench` on every code change and
   every published index. `bench` fails on a benchmark drop of more than 2 points, a traceback case that passed in the
   baseline and fails now, or a false-positive rate up by more than 1, and on the published index itself (`tests/test_golden.py`, DT-QA-03): older than 48 h, a package's newest
   release on PyPI for more than 24 h without being indexed, or a Tier A package's newest release without the names
@@ -95,6 +95,16 @@ What still needs a person, about once a month:
 
 In order. The first line of each phase is what it delivers.
 
+**False alarms found 2026-11-27**
+- [ ] **DT-DATA-103**: A class whose base class isn't read loses the members it inherits, so `check-upgrade` reports
+  breaks that aren't there · `P1` `M`
+  - numpy's `matrix` (from 2.2.0) and `memmap` (from 2.5.0) are stored with no base, so every `ndarray` method on
+    them reads removed: `np.memmap(...).astype` fails an update to 2.5 (both are there at runtime in 2.5.5).
+  - Read removed for a few releases and back later: numpy `finfo`'s attributes (2.2.0 to 2.4.0) and gradio
+    components' event methods such as `Button.click` (6.20.0 to 6.26), so an update that lands there fails too.
+  - Extraction, one cold build: read the base, and answer `unknown` where it can't be read (rule 4). Cases first
+    (rule 3). numpy's rename map waits for it.
+
 **Coverage: are 53 packages enough?**
 - [x] **DT-QA-28** (2026-11-23): 31.7% of the major library updates in 12,766 Dependabot Python pull requests are to
   a covered package (bar 60%, missed); the protocol's shortlist of 15 would make it 64.0%, pillow alone 47.3%
@@ -132,6 +142,9 @@ In order. The first line of each phase is what it delivers.
 - [x] **DT-GTM-13** (2026-11-27): the README, the plugin's README and the architecture doc describe the covered
   packages as they are now (28 of the 60 are the AI and agent stack), the download as about 55 MB and the build as
   twice a day; `bench/README.md` gains DT-QA-28.
+- [x] **DT-GTM-14** (2026-11-27): 16 more rename maps on the site, 22 in all (pandas, Polars, Gradio, FastMCP,
+  Pydantic AI, huggingface_hub, Pillow, urllib3, marshmallow, Werkzeug, pypdf). A name the newer series has again,
+  a private name and a module's `__all__` are left off the removed lists.
 
 Phases 2 and 3 (the command and the GitHub Action) shipped in 0.2.0. DT-QA-22 met every bar on real update pull
 requests; its three wrong answers are fixed in the published index (DT-CORE-72, DT-DATA-82, DT-DATA-51: a second,

@@ -4,8 +4,13 @@ from pathlib import Path
 
 import pytest
 
+from deptime.config import Coverage
+from deptime.index.store import IndexStore
+from deptime.ingest.snapshot import SymbolRecord
 from deptime.models import Replacement
-from deptime.site import Migration, Range, _code, _evidence, build
+from deptime.query import DepTime
+from deptime.site import MIGRATIONS, Migration, Range, _code, _evidence, build
+from tests.conftest import HTTPX, RELEASED_AT, _snap
 
 SDIST = (Path(__file__).resolve().parents[1] / "PKG-INFO").is_file()
 
@@ -70,6 +75,56 @@ def test_paths_no_one_writes_are_left_off_the_maps():
     assert not _artefact("httpx.Client.__init__")
     assert not _artefact("langchain_core.tools.BaseTool.list")
     assert not _artefact("requests.ConnectionError")
+
+
+def _with(version: str, *names: str, **flags: bool):
+    """The synthetic httpx release `version` with extra top-level functions."""
+    snap = _snap(version, **flags)
+    for name in names:
+        snap.symbols[f"httpx.{name}"] = SymbolRecord(f"httpx.{name}", "function", f"httpx._api.{name}", [])
+    return snap
+
+
+def test_a_name_that_comes_back_or_that_no_one_writes_is_not_listed_as_removed(coverage: Coverage, tmp_path):
+    """gradio 6.20's stubs lost every component's `click` and 6.27's had it again: not a removal of the migration.
+    A `_private` name or a module's `__all__` going away is no one's broken code."""
+    store = IndexStore.memory()
+    store.rebuild_package(
+        HTTPX,
+        [
+            _with(
+                "0.26.0", "gone", "back", "_hidden", "__all__", proxies=True, old_thing=True, new_thing=False
+            ),
+            _with("0.27.2", proxies=True, old_thing=False, new_thing=True),
+            _with("0.28.1", "back", proxies=False, old_thing=False, new_thing=True),
+        ],
+        RELEASED_AT,
+    )
+    migration = Migration("httpx-0.26-to-0.28", "httpx 0.26 → 0.28", (Range("httpx", "0.26."),))
+    build(DepTime(store, coverage), tmp_path, (migration,))
+    page = _read(tmp_path / "httpx-0.26-to-0.28.html")
+    assert '<tr><td><code>httpx.gone</code></td><td class="v">0.27.2</td></tr>' in page
+    assert "httpx.back" not in page
+    assert "httpx._hidden" not in page and "httpx.__all__" not in page
+    assert "<code>httpx.Client.__init__(proxies)</code>" in page  # a removed argument of `__init__` stays
+
+
+def test_the_landing_page_describes_many_maps_in_one_short_sentence(dt, tmp_path):
+    many = tuple(Migration(f"m{i}", f"Map {i}", (Range("httpx", "0.26."),)) for i in range(8))
+    build(dt, tmp_path, many)
+    landing = _read(tmp_path / "index.html")
+    assert "Plus rename maps: Map 0, Map 1, Map 2, Map 3, Map 4 and 3 more." in landing
+    assert landing.count('<a class="card"') == 8
+
+
+def test_every_shipped_map_has_its_own_address_and_a_covered_package():
+    from deptime.config import load_coverage
+
+    covered = {p.name for p in load_coverage().packages}
+    assert len({m.slug for m in MIGRATIONS}) == len(MIGRATIONS) == len({m.title for m in MIGRATIONS})
+    for m in MIGRATIONS:
+        assert m.ranges or m.curated_from, m.slug
+        assert {r.package for r in m.ranges} <= covered, m.slug
 
 
 @pytest.mark.skipif(SDIST, reason="docs/assets is not included in the sdist")

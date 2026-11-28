@@ -58,3 +58,17 @@ package = "redis"
 version = "8.2.0"
 present = ["redis.asyncio.Redis.hset", "redis.asyncio.Redis.lpush", "redis.asyncio.Redis.acl_list", "redis.asyncio.Redis.get"]
 evidence = "redis 8.2.0 from PyPI on Python 3.13: hasattr(redis.asyncio.Redis, name) is True for each"
+
+# transformers 5.0's Python tokenizers take `encode`, `save_pretrained` and the rest from a base class they name
+# through an attribute.
+[[case]]
+package = "transformers"
+version = "5.0.0"
+present = [
+  "transformers.BertJapaneseTokenizer.encode",
+  "transformers.CTRLTokenizer.batch_decode",
+  "transformers.RoFormerTokenizer.apply_chat_template",
+  "transformers.CanineTokenizer.encode",
+  "transformers.BartphoTokenizer.save_pretrained",
+]
+evidence = "transformers 5.0.0 with sentencepiece and protobuf from PyPI on Python 3.13: hasattr() of each name on the class is True"

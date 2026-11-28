@@ -363,21 +363,18 @@ def member_events(old: ApiSnapshot | None, new: ApiSnapshot) -> list[ChangeEvent
         # A class that starts or stops taking names from somewhere in the package the snapshot couldn't read
         # (DT-DATA-103): a name it has on one side only may be there on the other too, so it is neither removed nor
         # added. gradio 6.20.0 shipped without the stub files that list each component's event methods, and 6.27.0
-        # with them again: 448 names read removed and then added.
+        # with them again: 420 names read removed and then added. A deprecation such a name arrives with is still
+        # first seen here (sqlalchemy 2.0, whose 1.4 classes took names from `with_metaclass(...)`).
         before_unread, after_unread = _unread(old, prev), _unread(new, cls)
         for name in sorted(names):
             a = resolve_member(old.classes, prev, name) if prev else None
             b = resolve_member(new.classes, cls, name) if cls else None
-            if (
-                prev
-                and cls
-                and (
-                    (b is None and after_unread - before_unread)
-                    or (a is None and before_unread - after_unread)
-                )
-            ):
+            if prev and cls and b is None and after_unread - before_unread:
                 continue
-            events.extend(path_events(f"{label}.{name}", a, b, member=True))
+            found = path_events(f"{label}.{name}", a, b, member=True)
+            if prev and cls and a is None and before_unread - after_unread:
+                found = [e for e in found if e.kind != "added"]
+            events.extend(found)
     return events
 
 

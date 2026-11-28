@@ -1281,8 +1281,12 @@ def _made(stub: bool, old: bool) -> dict[str, str]:
     }
     if stub:
         files["evt/button.pyi"] = (
+            "from typing_extensions import deprecated\n\n"
             "class Button:\n    EVENTS: list\n    def press(self): ...\n    def click(self, fn): ...\n"
             + ("    def old(self): ...\n" if old else "")
+            # Listed only by the stub, and deprecated where the stub comes back.
+            + ("" if old else "    @deprecated('tap() is deprecated; use click() instead')\n")
+            + "    def tap(self, fn): ...\n"
         )
     return files
 
@@ -1339,7 +1343,12 @@ def test_names_a_class_takes_from_what_cant_be_read_are_unknown_not_removed(tmp_
         "evt.Manager takes names from `evt.manager.from_queryset`"
     )
     events = sorted((r[0], r[1], r[2]) for r in store.conn.execute("SELECT path, kind, ordinal FROM events"))
-    assert events == [("evt.Button.old", "removed", 2), ("evt.Manager.legacy", "removed", 2)]
+    # `tap` isn't added in 3.0, but its deprecation is first seen there.
+    assert events == [
+        ("evt.Button.old", "removed", 2),
+        ("evt.Button.tap", "deprecated", 2),
+        ("evt.Manager.legacy", "removed", 2),
+    ]
     # An update that lands on the release without stubs reports no break for the method that works.
     report = dt.check_upgrade("evt", "1.0", "2.0", code="import evt\n\nevt.Button().click(print)\n")
     assert report.breaks == 0 and report.checked[0].breaks == []

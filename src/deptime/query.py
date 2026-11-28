@@ -976,7 +976,7 @@ class DepTime:
                     else None
                 )
             if span["kind"] == "class" and depth < 2:
-                return self._inherited(name, row, q, full, prefix, span["canonical"], rest, depth)
+                return self._inherited(name, spec, row, q, full, prefix, span["canonical"], rest, depth)
             if (
                 span["kind"] == "module"
                 and depth < 2
@@ -1044,6 +1044,7 @@ class DepTime:
     def _inherited(
         self,
         name: str,
+        spec: PackageSpec,
         row: sqlite3.Row,
         q: SymbolQuery,
         full: str,
@@ -1056,13 +1057,19 @@ class DepTime:
         is starlette's `Starlette.mount`, checked in starlette at the newest release fastapi's requirement allows; a
         standard-library base (`enum.Enum`, `Exception`) is asked directly. None (so `missing`) when the class has no
         such base, or every base that DepTime can read lacks the name; `unknown` when a base it can't read might
-        have it, or a standard base has it on some Python versions only (DT-CORE-92)."""
+        have it, or a standard base has it on some Python versions only (DT-CORE-92). Also `unknown` when the class
+        takes names from somewhere in its own package the index couldn't read (DT-DATA-103): a base that is a call's
+        result or a name served at runtime, or a metaclass that makes names when the class is created."""
         assert self.store is not None
         bases = self.store.external_bases(name, cls, row["ordinal"])
         unread: list[str] = []
+        own: list[str] = []
         sometimes: tuple[str, stdlib.StdlibMember] | None = None
         for base in bases:
             first, _, deeper = rest.partition(".")
+            if any(base == root or base.startswith(root + ".") for root in spec.import_names):
+                own.append(base)
+                continue
             stdlib_has = _stdlib_member(base, first)
             if isinstance(stdlib_has, stdlib.StdlibMember):
                 sometimes = sometimes or (base, stdlib_has)
@@ -1108,6 +1115,14 @@ class DepTime:
                 status="unknown",
                 hint=f"{prefix} inherits from {_and([f'`{b}`' for b in unread])}, from another distribution DepTime"
                 " can't check here, which may have it",
+            )
+        if own:
+            return SymbolCheck(
+                path=full,
+                status="unknown",
+                hint=f"{prefix} takes names from {_and([f'`{b}`' for b in own])}, which the index can't list"
+                " without running the code (a base class made at runtime, or a metaclass that adds names when the"
+                " class is created), so it may have this one",
             )
         return None
 
@@ -1799,7 +1814,15 @@ class DepTime:
             return False
         release = self.store.releases(name)[row["ordinal"]]
         got = self._inherited(
-            name, release, SymbolQuery(path=row["path"]), row["path"], parent, cls["canonical"], leaf, 0
+            name,
+            self._spec(name),
+            release,
+            SymbolQuery(path=row["path"]),
+            row["path"],
+            parent,
+            cls["canonical"],
+            leaf,
+            0,
         )
         return got is not None and got.status == "present"
 

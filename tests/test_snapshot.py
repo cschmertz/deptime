@@ -4033,8 +4033,9 @@ def test_a_base_imported_through_the_packages_own_reexport_is_external(tmp_path)
     }
     snap = build_snapshot("reex", "1.0", ["reex"], _write(tmp_path, files), own_members=True)
     assert snap.classes["reex.pdf.Loader"].external == ["other_dist.loaders.BaseLoader", "abc.ABC"]
-    # Followed to a name the package itself serves at runtime: not another distribution's base.
-    assert snap.classes["reex.pdf.Lazy"].external == []
+    # Followed to a name the package itself serves at runtime: a base that can't be read (DT-DATA-103), recorded so
+    # a name `Lazy` lacks is unknown, not missing.
+    assert snap.classes["reex.pdf.Lazy"].external == ["reex.lazy.Thing"]
 
 
 def test_a_kwargs_mapping_handed_to_a_helper_takes_the_helpers_deprecations(tmp_path):
@@ -4389,3 +4390,179 @@ def test_attributes_init_sets_through_its_own_methods_are_the_class_attributes(t
         assert {"raw_headers", "callback", "size"} <= resp and not {"nested", "lazy"} & resp
         removed = [e.path for e in diff_snapshots(old, new) if e.kind == "removed"]
         assert removed == []
+
+
+# numpy 2.2's layout (DT-DATA-103). The stub of `cyc/__init__` defines `ndarray` and `finfo`, where the module
+# imports both from `cyc._core`; `cyc._core.multiarray`'s stub imports `ndarray` back from `cyc`.
+BASES = {
+    "cyc/__init__.py": (
+        "from cyc._core import ndarray, finfo\n"
+        "from cyc.matrixlib import matrix\n"
+        "from cyc.records import recarray\n"
+        "from cyc.same import Session\n"
+        "from cyc.made import Manager, Lazy\n"
+    ),
+    "cyc/__init__.pyi": (
+        "from cyc.matrixlib import matrix as matrix\n"
+        "from cyc.records import recarray as recarray\n"
+        "from cyc.same import Session as Session\n"
+        "from cyc.made import Manager as Manager, Lazy as Lazy\n\n"
+        "class ndarray:\n    shape: tuple\n    def argsort(self): ...\n\n"
+        "class finfo:\n    eps: float\n    max: float\n    def tiny(self) -> float: ...\n"
+    ),
+    "cyc/_core/__init__.py": "from .numeric import *\nfrom .getlimits import finfo\n",
+    "cyc/_core/numeric.py": "from .multiarray import ndarray\n__all__ = ['ndarray']\n",
+    "cyc/_core/multiarray.py": "",
+    "cyc/_core/multiarray.pyi": "from cyc import ndarray as ndarray\n",
+    "cyc/_core/getlimits.py": "class finfo:\n    def tiny(self):\n        return 0.0\n",
+    "cyc/_core/getlimits.pyi": "from cyc import finfo\n__all__ = ['finfo']\n",
+    "cyc/matrixlib.py": (
+        "import cyc._core.numeric as N\n\nclass matrix(N.ndarray):\n    def getA(self):\n        pass\n"
+    ),
+    "cyc/records.py": (
+        "from cyc._core import numeric as sb\n\n"
+        "ndarray = sb.ndarray\n\n"
+        "class recarray(ndarray):\n    def field(self):\n        pass\n"
+    ),
+    "cyc/base.py": "class Session:\n    def get(self):\n        pass\n",
+    "cyc/same.py": "from cyc.base import Session\n\nclass Session(Session):\n    def exec(self):\n        pass\n",
+    "cyc/lazy.py": "def __getattr__(name):\n    raise AttributeError(name)\n",
+    "cyc/made.py": (
+        "from cyc.base import Session\n"
+        "from cyc.lazy import Served\n\n"
+        "def from_queryset(cls):\n    return type('Made', (cls,), {})\n\n"
+        "class Manager(from_queryset(Session)):\n    def all(self):\n        pass\n\n"
+        "class Lazy(Served):\n    pass\n"
+    ),
+}
+
+
+def test_a_base_griffe_cant_follow_is_read_by_hand(tmp_path):
+    """DT-DATA-103: griffe leaves out, without a word, a base it can't resolve, and every member inherited from it
+    read removed. `matrix(N.ndarray)` names an import of an import of the class a stub defines, which griffe calls
+    a cycle (numpy 2.2+: `np.matrix(...).argsort` read removed); `recarray(ndarray)` names an attribute bound to
+    the class; `Session(Session)` names the import its own class statement replaces."""
+    root = _write(tmp_path, BASES)
+    for own in (True, False):
+        snap = build_snapshot("cyc", "1.0", ["cyc"], root, own_members=own)
+        assert not snap.errors
+        names = snap.expanded()
+        for path in (
+            "cyc.matrix.argsort",
+            "cyc.matrix.shape",
+            "cyc.matrix.getA",
+            "cyc.recarray.argsort",
+            "cyc.recarray.field",
+            "cyc.Session.get",
+            "cyc.Session.exec",
+        ):
+            assert path in names, (own, path)
+    assert snap.format == 32
+    snap = build_snapshot("cyc", "1.0", ["cyc"], root, own_members=True)
+    assert snap.classes["cyc.matrixlib.matrix"].mro == ["cyc.ndarray"]
+    assert snap.classes["cyc.records.recarray"].mro == ["cyc.ndarray"]
+    assert snap.classes["cyc.same.Session"].mro == ["cyc.base.Session"]
+    assert [snap.classes[c].external for c in ("cyc.matrixlib.matrix", "cyc.records.recarray")] == [[], []]
+
+
+def test_a_base_that_cant_be_read_is_recorded_as_one(tmp_path):
+    """DT-DATA-103: a base that is a call's result (django's `Manager(BaseManager.from_queryset(QuerySet))`) or a
+    name a module's `__getattr__` serves has members no class statement lists. The class records where the trail
+    ends, so a name it lacks is unknown, not missing; a base the package's own class is isn't recorded."""
+    snap = build_snapshot("cyc", "1.0", ["cyc"], _write(tmp_path, BASES), own_members=True)
+    assert snap.classes["cyc.made.Manager"].external == ["cyc.made.from_queryset"]
+    assert snap.classes["cyc.made.Manager"].mro == []
+    assert snap.classes["cyc.made.Lazy"].external == ["cyc.lazy.Served"]
+    assert snap.classes["cyc.base.Session"].external == []
+
+
+def test_a_stub_class_merged_through_an_import_keeps_what_only_the_stub_declares(tmp_path):
+    """DT-DATA-103: numpy 2.2.0 to 2.3.5 declare `finfo` in `numpy/__init__.pyi`, where `numpy/__init__.py` imports
+    the class from `numpy._core.getlimits`. griffe merged the stub into the import, which dropped each name only the
+    stub declares: `finfo.max` and `finfo.eps` read removed in 2.2.0 and added again in 2.4.1."""
+    snap = build_snapshot("cyc", "1.0", ["cyc"], _write(tmp_path, BASES), own_members=True)
+    assert snap.symbols["cyc.finfo"].canonical == "cyc._core.getlimits.finfo"
+    assert set(snap.classes["cyc._core.getlimits.finfo"].members) == {"eps", "max", "tiny"}
+    assert {"cyc.finfo.eps", "cyc.finfo.max", "cyc.finfo.tiny"} <= set(snap.expanded())
+
+
+# gradio's layout from 4.0 (DT-DATA-103): a metaclass binds each name in a class's `EVENTS` as a method, and writes
+# a stub file beside the class that spells them out.
+EVENTS = {
+    "evt/__init__.py": "from evt.button import Button\nfrom evt.plain import Plain\n",
+    "evt/meta.py": (
+        "class ComponentMeta(type):\n"
+        "    def __new__(cls, name, bases, attrs):\n"
+        "        for event in attrs.get('EVENTS', []):\n"
+        "            attrs[event] = lambda self, fn: fn\n"
+        "        attrs['EVENTS'] = list(attrs.get('EVENTS', []))\n"
+        "        return super().__new__(cls, name, bases, attrs)\n\n"
+        "class SlotsMeta(type):\n"
+        "    def __new__(cls, name, bases, attrs):\n"
+        "        attrs['__slots__'] = ()\n"
+        "        return super().__new__(cls, name, bases, attrs)\n"
+    ),
+    "evt/base.py": (
+        "from evt.meta import ComponentMeta\n\n"
+        "class Component(metaclass=ComponentMeta):\n    EVENTS = []\n    def render(self):\n        pass\n"
+    ),
+    "evt/button.py": (
+        "from evt.base import Component\n\n"
+        "class Button(Component):\n    EVENTS = ['click']\n    def press(self):\n        pass\n"
+    ),
+    "evt/plain.py": (
+        "from evt.meta import SlotsMeta\n\nclass Plain(metaclass=SlotsMeta):\n    def go(self):\n        pass\n"
+    ),
+}
+EVENTS_STUB = {
+    "evt/button.pyi": (
+        "from evt.base import Component\n\n"
+        "class Button(Component):\n    EVENTS: list\n    def press(self): ...\n    def click(self, fn): ...\n"
+    ),
+}
+
+
+def test_a_metaclass_that_makes_names_is_recorded_where_no_stub_lists_them(tmp_path):
+    """DT-DATA-103: gradio 6.20.0 to 6.26 shipped without the stub files that list what `ComponentMeta` makes, and
+    `Button.click` read removed. For a metaclass coverage.toml names (`name_makers`), a class it creates records it
+    where no stub lists its names, so a name the class lacks is unknown; with a stub beside one of its classes,
+    nothing is recorded. Another metaclass isn't recorded, whatever it does."""
+    makers = ["evt.meta.ComponentMeta"]
+    bare = build_snapshot(
+        "evt", "2.0", ["evt"], _write(tmp_path / "bare", EVENTS), own_members=True, name_makers=makers
+    )
+    assert bare.name_makers == makers
+    assert bare.classes["evt.button.Button"].external == ["evt.meta.ComponentMeta"]
+    assert bare.classes["evt.base.Component"].external == ["evt.meta.ComponentMeta"]
+    assert "click" not in bare.classes["evt.button.Button"].members
+    assert bare.classes["evt.plain.Plain"].external == []
+    assert ApiSnapshot.load(_saved(bare, tmp_path)).name_makers == makers
+    stubbed = build_snapshot(
+        "evt",
+        "1.0",
+        ["evt"],
+        _write(tmp_path / "stubbed", {**EVENTS, **EVENTS_STUB}),
+        own_members=True,
+        name_makers=makers,
+    )
+    assert stubbed.classes["evt.button.Button"].external == []
+    assert stubbed.classes["evt.base.Component"].external == []
+    assert {"click", "press"} <= set(stubbed.classes["evt.button.Button"].members)
+    unnamed = build_snapshot("evt", "2.0", ["evt"], _write(tmp_path / "unnamed", EVENTS), own_members=True)
+    assert unnamed.classes["evt.button.Button"].external == []
+
+
+def test_a_base_name_is_the_enclosing_scopes_not_the_classs_own_member(tmp_path):
+    """DT-DATA-103: django's `class MultiValueDict(dict)` defines a method `dict`, which griffe took for the base.
+    The bases are read before the class body runs: the base is the builtin, or the module's name."""
+    files = {
+        "scope/__init__.py": (
+            "class Base:\n    def keep(self):\n        pass\n\n"
+            "class MultiValueDict(dict):\n    def dict(self):\n        pass\n\n"
+            "class Sub(Base):\n    def Base(self):\n        pass\n"
+        ),
+    }
+    snap = build_snapshot("scope", "1.0", ["scope"], _write(tmp_path, files), own_members=True)
+    assert snap.classes["scope.MultiValueDict"].external == ["dict"]
+    assert snap.classes["scope.Sub"].mro == ["scope.Base"] and snap.classes["scope.Sub"].external == []
+    assert "scope.Sub.keep" in snap.expanded()

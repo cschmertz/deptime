@@ -210,3 +210,17 @@ def test_project_urls_keeps_web_links_only(tmp_path, monkeypatch):
     monkeypatch.setattr("deptime.ingest.pypi.MAX_PROJECT_URLS", 1)
     assert project_urls(tmp_path, wheel) == {"Homepage": "https://example.org"}
     assert project_urls(info, wheel) is None  # no metadata there
+
+
+def test_coverage_file_sets_name_makers(tmp_path):
+    # DT-DATA-103: the metaclasses whose names the package's stub files list.
+    cov = tmp_path / "coverage.toml"
+    cov.write_text(
+        '[[package]]\nname = "evt"\nname_makers = ["evt.meta.Meta"]\n\n[[package]]\nname = "other"\n'
+    )
+    assert load_coverage(cov).get("evt").name_makers == ("evt.meta.Meta",)
+    assert load_coverage(cov).get("other").name_makers == ()
+    assert load_coverage().get("gradio").name_makers == (
+        "gradio.component_meta.ComponentMeta",
+        "gradio.blocks_events.BlocksMeta",
+    )

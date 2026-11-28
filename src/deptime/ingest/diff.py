@@ -360,11 +360,37 @@ def member_events(old: ApiSnapshot | None, new: ApiSnapshot) -> list[ChangeEvent
             [*(own_names(old, prev) if prev else ()), *(own_names(new, cls) if cls else ())]
         )
         names.update(dict.fromkeys(_rehomed(old, prev, new, cls, changed)))
+        # A class that starts or stops taking names from somewhere in the package the snapshot couldn't read
+        # (DT-DATA-103): a name it has on one side only may be there on the other too, so it is neither removed nor
+        # added. gradio 6.20.0 shipped without the stub files that list each component's event methods, and 6.27.0
+        # with them again: 448 names read removed and then added.
+        before_unread, after_unread = _unread(old, prev), _unread(new, cls)
         for name in sorted(names):
             a = resolve_member(old.classes, prev, name) if prev else None
             b = resolve_member(new.classes, cls, name) if cls else None
+            if (
+                prev
+                and cls
+                and (
+                    (b is None and after_unread - before_unread)
+                    or (a is None and before_unread - after_unread)
+                )
+            ):
+                continue
             events.extend(path_events(f"{label}.{name}", a, b, member=True))
     return events
+
+
+def _unread(snap: ApiSnapshot, cls: str | None) -> set[str]:
+    """Where in its own package the class, or a class in its MRO, takes names the snapshot couldn't read: the
+    entries of `external` under one of the package's import names."""
+    return {
+        base
+        for owner in _chain(snap, cls)
+        if (rec := snap.classes.get(owner)) is not None
+        for base in rec.external
+        if any(base == root or base.startswith(root + ".") for root in snap.import_names)
+    }
 
 
 def _chain(snap: ApiSnapshot, cls: str | None) -> list[str]:

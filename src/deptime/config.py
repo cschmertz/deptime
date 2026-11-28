@@ -238,6 +238,10 @@ class PackageSpec:
     # code, whose argument names can differ from the code's. cryptography 43's stub names `AESGCM.generate_key`'s
     # argument `key_size`; the Rust takes `bit_length`.
     no_params: tuple[str, ...] = ()
+    # Metaclasses that make names when a class is created, which the package's own stub files list (DT-DATA-103):
+    # gradio's `ComponentMeta` binds each event in a component's `EVENTS` as a method. In a release with no stub
+    # file beside the metaclass or a class it makes, a name such a class lacks is unknown, not missing.
+    name_makers: tuple[str, ...] = ()
 
     def alias_version(self, installed: dict[str, str]) -> tuple[str, str] | None:
         """(distribution, version) of the first `installed_as` entry that `installed` lists in its range."""
@@ -331,6 +335,7 @@ def load_coverage(path: Path | None = None) -> Coverage:
             ),
             internal_names=tuple(p.get("internal_names", ())),
             no_params=tuple(p.get("no_params", ())),
+            name_makers=tuple(p.get("name_makers", ())),
         )
         for p in raw.get("package", [])
     )

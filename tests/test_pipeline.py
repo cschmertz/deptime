@@ -247,6 +247,17 @@ def test_cached_snapshot_with_other_no_params_is_rebuilt(tmp_path):
     assert ApiSnapshot.load(snapshot_path(tmp_path, "fakepkg", "1.0.0")).no_params == ["fakepkg._rust"]
 
 
+def test_cached_snapshot_with_other_name_makers_is_rebuilt(tmp_path):
+    """DT-DATA-103: coverage.toml's `name_makers` change what a snapshot records, so an edit rebuilds it."""
+    store = IndexStore.memory()
+    _full_ingest(store, tmp_path)
+    made = PackageSpec(name="fakepkg", import_names=("fakepkg",), tier="B", name_makers=("fakepkg.Meta",))
+    with _client() as client:
+        report = ingest_package(made, POLICY, store, tmp_path, client=client, today=TODAY, log=_quiet)
+    assert report.cached == [] and report.built == ["1.0.0", "2.0.0"]
+    assert ApiSnapshot.load(snapshot_path(tmp_path, "fakepkg", "1.0.0")).name_makers == ["fakepkg.Meta"]
+
+
 def test_switching_a_package_to_own_members_rebuilds_its_snapshots(tmp_path):
     """DT-DATA-16: `own_members` changes what a snapshot records, so a cached one of the other kind is rebuilt."""
     store = IndexStore.memory()

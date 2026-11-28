@@ -199,6 +199,7 @@ def _cached_snapshot(cache_dir: Path, spec: PackageSpec, version: str) -> ApiSna
         and snap.served == [rule.as_dict() for rule in spec.served]
         and snap.internal_names == list(spec.internal_names)
         and snap.no_params == list(spec.no_params)
+        and snap.name_makers == list(spec.name_makers)
     )
     return snap if current else None
 
@@ -254,6 +255,7 @@ def assembly_fingerprint(
         [rule.as_dict() for rule in spec.served],
         list(spec.internal_names),
         list(spec.no_params),
+        list(spec.name_makers),
     ]
     payload = {"code": assembly_code_digest(), "spec": spec_inputs, "releases": releases}
     return hashlib.sha256(json.dumps(payload).encode()).hexdigest()
@@ -365,6 +367,7 @@ def _build(
             spec.served,
             spec.internal_names,
             spec.no_params,
+            spec.name_makers,
         )
         # The analysed code's own requirements: a wrapper release's are those of the distribution it pins.
         snap.requires = pypi.requires_dist(root, file.filename)

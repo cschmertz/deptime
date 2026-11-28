@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Any
 
 import griffe
 import griffe._internal.finder as griffe_finder
+import griffe._internal.merger as griffe_merger
 
 from deptime.ingest.replacements import (
     DEPRECATION_WORDS_RE,
@@ -39,7 +40,7 @@ from deptime.ingest.replacements import (
 if TYPE_CHECKING:
     from deptime.config import ServedRule
 
-SNAPSHOT_FORMAT = 31  # bump when extraction changes: cached snapshots in another format are rebuilt
+SNAPSHOT_FORMAT = 32  # bump when extraction changes: cached snapshots in another format are rebuilt
 MAX_DEPTH = 12  # guards pathological re-export cycles
 
 DEPRECATED_DECORATOR_RE = re.compile(r"^(?:[\w.]+\.)?deprecated\b(?:\(.*\))?$", re.S)
@@ -109,8 +110,11 @@ class ClassRecord:
     # a class that is neither public nor a public class's base, every member. Dunders other than `__init__` and
     # `__call__` aren't recorded.
     internal: dict[str, SymbolRecord] = field(default_factory=dict)
-    # Its direct bases from outside the package, canonical, in the order the class lists them (DT-CORE-32):
-    # `fastapi.FastAPI` inherits `mount` from `starlette.applications.Starlette`, which `mro` can't list.
+    # Where it gets names that `mro` can't list, canonical, bases in the order the class lists them. Its direct
+    # bases from outside the package (DT-CORE-32): `fastapi.FastAPI` inherits `mount` from
+    # `starlette.applications.Starlette`. And what the package itself holds that can't be read as a class
+    # (DT-DATA-103): a base that is a call's result or a name served at runtime, every base of a class whose MRO
+    # can't be computed, and a metaclass that makes names when the class is created.
     external: list[str] = field(default_factory=list)
 
 
@@ -199,6 +203,8 @@ class ApiSnapshot:
     internal_names: list[str] = field(default_factory=list)
     # Modules whose callables are recorded without their parameters (coverage.toml `no_params`, DT-DATA-88).
     no_params: list[str] = field(default_factory=list)
+    # Metaclasses whose names the package's stub files list (coverage.toml `name_makers`, DT-DATA-103).
+    name_makers: list[str] = field(default_factory=list)
 
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -3617,6 +3623,8 @@ class _Walker:
         self.finished: set[str] = set()
         self.unlisting: set[tuple[str, str]] = set()
         self.private_classes: dict[str, griffe.Class] = {}  # classes `internal` finds, by canonical path
+        self.name_makers: frozenset[str] = frozenset(snapshot.name_makers)
+        self.makers: dict[str, bool] = {}  # one of `name_makers` -> `_names_unlisted`
         # Classes a public class's member is (a nested class, or `Generative = _Generative`), recorded with their
         # own members after the public walk (DT-CORE-32).
         self.member_classes: dict[str, griffe.Class] = {}
@@ -4137,17 +4145,36 @@ class _Walker:
         rec = self._own_members(cls, public)
         if rec.mro is not None:
             return
+        unread: list[str] = []
         try:
             mro = cls.mro()
         except ValueError:  # an inheritance cycle: all_members has no inherited members then
-            mro = []
+            mro, unread = [], _external_bases(cls, classes=True)
         except Exception as exc:  # griffe raises several resolution errors for external bases
             if public:
                 self.snap.errors.append(f"{cls.path}: inherited members unavailable ({type(exc).__name__})")
-            mro = []
+            mro, unread = [], _external_bases(cls, classes=True)
         rec.mro = [base.path for base in mro]
         for base in mro:
             self._own_members(base, public)
+        # Names the MRO can't list (DT-DATA-103): a member not found is then unknown, not missing.
+        maker = self._maker([cls, *mro])
+        rec.external.extend(path for path in (*unread, maker) if path and path not in rec.external)
+
+    def _maker(self, line: list[griffe.Class]) -> str | None:
+        """The metaclass that makes names for the first class of `line`, a class and its MRO, which no class
+        statement spells out and, in this release, no stub file lists (DT-DATA-103), so the index can't list them:
+        one of coverage.toml's `name_makers`. gradio's `ComponentMeta.__new__` binds each event of a component's
+        `EVENTS` list as a method (`attrs[event] = trigger.listener`) and writes a stub file that spells them out;
+        6.20.0 to 6.26 shipped without the stubs, and `Button.click` read removed."""
+        if not self.name_makers:
+            return None
+        meta = next((m for owner in line if (m := _metaclass(owner)) is not None), None)
+        if meta is None or meta.path not in self.name_makers:
+            return None
+        if meta.path not in self.makers:
+            self.makers[meta.path] = _names_unlisted(meta)
+        return meta.path if self.makers[meta.path] else None
 
     def _own_members(self, cls: griffe.Class, public: bool = True) -> ClassRecord:
         rec = self.snap.classes.get(cls.path)
@@ -4415,6 +4442,39 @@ def _metaclass(cls: griffe.Class) -> griffe.Class | None:
     return found if found is not None and found.is_class else None  # type: ignore[return-value]
 
 
+def _has_stub(obj: griffe.Object) -> bool:
+    """Whether the module `obj` is, or is defined in, has a stub file, or is one."""
+    filepath = obj.filepath
+    return isinstance(filepath, Path) and (filepath.suffix == ".pyi" or filepath.with_suffix(".pyi").exists())
+
+
+def _made_by(cls: griffe.Class) -> griffe.Class | None:
+    """The package's metaclass that creates `cls`: the one it declares, else the first one a class in its MRO does."""
+    try:
+        line = [cls, *cls.mro()]
+    except Exception:  # an inheritance cycle, or bases griffe can't resolve
+        line = [cls]
+    return next((m for owner in line if (m := _metaclass(owner)) is not None), None)
+
+
+def _names_unlisted(meta: griffe.Class) -> bool:
+    """Whether the release lists nowhere the names the metaclass `meta` makes (DT-DATA-103): no stub file beside the
+    metaclass, nor beside any class it creates. A release with one is taken to list there what the metaclass makes,
+    so a name such a class lacks still reads missing: gradio writes one beside each component, and beside
+    `BlocksMeta` for the events of `Blocks`."""
+    if _has_stub(meta):
+        return False
+    for top in list(meta.modules_collection.members.values()):
+        for module in _modules_of(top) if isinstance(top, griffe.Module) else ():
+            if not _has_stub(module):
+                continue
+            for cls in _classes_of(module):
+                made_by = _made_by(cls)
+                if made_by is not None and made_by.path == meta.path:
+                    return False
+    return True
+
+
 def _metaclass_members(
     cls: griffe.Class, declaring: list[griffe.Class]
 ) -> dict[str, griffe.Object | griffe.Alias]:
@@ -4448,33 +4508,101 @@ def _class_of(member: griffe.Object | griffe.Alias) -> griffe.Class | None:
     return _bound_class(target) if target.is_attribute else None
 
 
-def _external_bases(cls: griffe.Class) -> list[str]:
-    """`cls`'s direct bases that this analysis didn't load, canonical (DT-CORE-32): another distribution's
-    (`starlette.applications.Starlette`), the standard library's (`enum.Enum`, `Exception`). `object` is left out."""
-    out: list[str] = []
-    collection = cls.modules_collection
-    for base in cls.bases:
-        path = base if isinstance(base, str) else getattr(base, "canonical_path", None)
-        # A base imported through the package's own re-export of another distribution's class is an alias in the
-        # package (DT-DATA-55): langchain-community's `BasePDFLoader(BaseLoader)` takes `BaseLoader` from its own
-        # `document_loaders.base`, which imports it from langchain-core. Follow it to the path it names.
-        followed = False
-        for _ in range(MAX_DEPTH):
-            if not path or path == "object":
-                path = None
-                break
-            try:
-                obj = collection[path]
-            except Exception:  # not loaded: from outside the package
-                break
-            if not isinstance(obj, griffe.Alias):
-                path = None
-                break
-            path, followed = obj.target_path, True
+def _follow(collection: griffe.ModulesCollection, path: str | None) -> tuple[griffe.Class | None, str | None]:
+    """The class the name at `path` is, and where the trail of names ends: followed by hand through each import
+    (DT-DATA-55: langchain-community's `BasePDFLoader(BaseLoader)` takes `BaseLoader` from its own
+    `document_loaders.base`, which imports it from langchain-core) and each attribute bound to a name
+    (`ndarray = sb.ndarray`). Not through griffe's own resolution, which reports some chains of imports that end
+    at a class as cyclic (`_through_cycle`). No class when the trail ends at anything else: a path this analysis
+    didn't load, a function, an attribute bound to a call's result, an import cycle. No path for `object`."""
+    seen: set[str] = set()
+    for _ in range(MAX_DEPTH):
+        if not path or path == "object":
+            return None, None
+        if path in seen:
+            break
+        seen.add(path)
+        try:
+            obj = collection[path]
+        except Exception:  # not loaded: from outside the package, or a name the package serves at runtime
+            break
+        if isinstance(obj, griffe.Alias):
+            path = obj.target_path
+        elif obj.is_class:
+            return obj, path  # type: ignore[return-value]
+        elif obj.is_attribute and isinstance(
+            value := getattr(obj, "value", None), (griffe.ExprName, griffe.ExprAttribute)
+        ):
+            path = value.canonical_path
         else:
-            path = None
-        # Followed to a name a loaded package doesn't have (a lazy `__getattr__` name): not another distribution's.
-        if path and not (followed and path.split(".", 1)[0] in collection.members) and path not in out:
+            break
+    return None, path
+
+
+def _base_path(cls: griffe.Class, base: griffe.Expr | str) -> str | None:
+    """The canonical path a base of `cls` names. A class statement's bases are read before its body runs, so a name
+    griffe finds among the class's own members is the enclosing scope's, or a builtin: django's
+    `class MultiValueDict(dict)` defines a method `dict`, and its base is the builtin."""
+    try:
+        path = base if isinstance(base, str) else getattr(base, "canonical_path", None)
+    except Exception:  # an expression griffe can't name
+        return None
+    if isinstance(base, griffe.ExprName) and path == f"{cls.path}.{base.name}":
+        module = cls.module
+        return f"{module.path}.{base.name}" if base.name in module.members else base.name
+    return path
+
+
+def read_bases(collection: griffe.ModulesCollection) -> None:
+    """Name each base by the class it is, where griffe can't follow the name a class statement gives and `_follow`
+    can (DT-DATA-103), so griffe's own `mro()` and `all_members` find it. griffe leaves out a base it can't
+    resolve without a word, and every member inherited from it then read removed: from numpy 2.2,
+    `class matrix(N.ndarray)` names `numpy._core.numeric.ndarray`, an import of an import of the class the stub
+    defines, which griffe reports as a cycle; `class recarray(ndarray)` names an attribute, `ndarray = sb.ndarray`.
+    `np.memmap(...).astype` failed an update to numpy 2.5 that way. A class named after the one it extends
+    (`class Session(Session)`) takes the import the class statement replaces."""
+    for top in list(collection.members.values()):
+        if not isinstance(top, griffe.Module):
+            continue
+        for module in _modules_of(top):
+            for cls in _classes_of(module):
+                for i, base in enumerate(cls.bases):
+                    path = _base_path(cls, base)
+                    if path and not isinstance(base, str) and path != getattr(base, "canonical_path", None):
+                        cls.bases[i] = path  # the enclosing scope's name, not the class's own member
+                    if path == cls.path:
+                        # `class Session(Session)` after `from other import Session`: the base is the import.
+                        path = getattr(cls.parent, "imports", {}).get(cls.name)
+                        if path and path != cls.path:
+                            cls.bases[i] = path
+                    if not path or path == cls.path:
+                        continue
+                    try:
+                        found = collection.get_member(path)
+                        if found.is_alias:
+                            found = found.final_target  # type: ignore[union-attr]
+                        if found.is_class:
+                            continue
+                    except Exception:  # griffe can't resolve it: an import it calls cyclic, or a missing name
+                        pass
+                    by_hand, _ = _follow(collection, path)
+                    if by_hand is not None and by_hand.path != cls.path:
+                        cls.bases[i] = by_hand.path
+
+
+def _external_bases(cls: griffe.Class, classes: bool = False) -> list[str]:
+    """`cls`'s direct bases whose members its MRO can't list, canonical. Those this analysis didn't load
+    (DT-CORE-32): another distribution's (`starlette.applications.Starlette`), the standard library's (`enum.Enum`,
+    `Exception`). And those in the package that can't be read as a class (DT-DATA-103): a name a module's
+    `__getattr__` serves, a call's result (`class Manager(BaseManager.from_queryset(QuerySet))`), an attribute bound
+    to one. A member such a class lacks is then unknown, not missing. `object` is left out. `classes`: the package's
+    classes among its bases too, for a class whose MRO can't be computed."""
+    out: list[str] = []
+    for base in cls.bases:
+        found, path = _follow(cls.modules_collection, _base_path(cls, base))
+        if found is not None and not classes:
+            continue
+        if path and path not in out:
             out.append(path)
     return out
 
@@ -4643,6 +4771,22 @@ def _sorted_py_modules(self: griffe_finder.ModuleFinder, path: Path):
 
 
 griffe_finder.ModuleFinder._filter_py_modules = _sorted_py_modules  # type: ignore[method-assign]
+
+_merge_class_stubs = griffe_merger._merge_class_stubs
+
+
+def _merge_stubs_into_the_class(class_: griffe.Class, stubs: griffe.Class, *, psd: bool = False) -> None:
+    """griffe's `_merge_class_stubs`, for a stub class whose module imports the class it describes (DT-DATA-103):
+    merged into that class, not into the import. griffe hands the import over, and each member only the stub
+    declares is then set on the import's copy of the class's members, which is thrown away. numpy 2.2.0 to 2.3.5
+    declare `finfo` in `numpy/__init__.pyi`, where `numpy/__init__.py` imports it from `numpy._core.getlimits`, so
+    `finfo.max`, `finfo.eps` and 14 more attributes read removed in 2.2.0 and added again in 2.4.1."""
+    if class_.is_alias:
+        class_ = class_.final_target  # type: ignore[assignment]
+    _merge_class_stubs(class_, stubs, psd=psd)
+
+
+griffe_merger._merge_class_stubs = _merge_stubs_into_the_class
 
 
 def _in_type_checking_else(node: ast.AST) -> bool:
@@ -5290,6 +5434,7 @@ def build_snapshot(
     served: Sequence[ServedRule] = (),
     internal_names: Sequence[str] = (),
     no_params: Sequence[str] = (),
+    name_makers: Sequence[str] = (),
 ) -> ApiSnapshot:
     """Snapshot the public API under `search_path`, a private extraction of one release: folders without
     `__init__.py` get an empty one first (see `add_namespace_inits`). `own_members` records each class's own
@@ -5302,7 +5447,8 @@ def build_snapshot(
     machinery (DT-DATA-52), applied after the walk. `internal_names`: private import roots whose modules are
     recorded as internal names only (DT-DATA-62: pytest's `_pytest`). `no_params`: modules whose callables are
     recorded without their parameters (DT-DATA-88: cryptography's Rust bindings, whose stubs name some arguments
-    differently from the code)."""
+    differently from the code). `name_makers`: metaclasses that make names the package's stub files list
+    (DT-DATA-103: gradio's `ComponentMeta`); where a release ships none, a name such a class lacks is unknown."""
     snap = ApiSnapshot(
         package=package,
         version=version,
@@ -5311,6 +5457,7 @@ def build_snapshot(
         own_members=own_members,
         internal_names=list(internal_names),
         no_params=list(no_params),
+        name_makers=list(name_makers),
     )
     roots = [search_path.joinpath(*n.split(".")) for n in import_names]
     bare = [
@@ -5354,6 +5501,7 @@ def build_snapshot(
         )
         if isinstance(loaded, griffe.Module):
             keep_inherited_inits(loaded)
+        read_bases(loaded.modules_collection)
         return loaded
 
     try:

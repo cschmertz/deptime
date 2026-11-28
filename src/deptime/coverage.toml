@@ -21,6 +21,9 @@
 # `no_params`    = modules, or single callables, whose callables are recorded without their parameters, so their
 #                  arguments are unknown (DT-DATA-88): hand-written stubs for compiled code whose argument names can
 #                  differ from the code's, or a decorator that takes more than the signature says (DT-DATA-95).
+# `name_makers`  = metaclasses that make names when a class is created, which the package's own stub files list
+#                  (DT-DATA-103). In a release with no stub file beside the metaclass or beside a class it makes, a
+#                  name such a class lacks is unknown, not missing.
 # `[[package.served]]` = names the package serves through its own import machinery rather than by binding them
 #                  (DT-DATA-52), in each release whose `file` matches the regular expression `when`: `module` as the
 #                  module `serves`, with all its names (`{part}` matches one dotted part, the same in both), or in
@@ -389,6 +392,10 @@ tier = "B"
 name = "gradio"
 import_names = ["gradio"]
 tier = "B"
+# From 4.0 a component's event methods (`Button.click`, `Textbox.submit`) are made by its metaclass from the class's
+# `EVENTS` list, and `Blocks`'s by `BlocksMeta`; both write a stub file that lists them. 6.20.0 to 6.26 shipped
+# without those stub files.
+name_makers = ["gradio.component_meta.ComponentMeta", "gradio.blocks_events.BlocksMeta"]
 
 [[package]]
 name = "django"

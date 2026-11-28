@@ -1252,3 +1252,95 @@ def test_a_name_only_deptimes_readers_find_never_reads_removed(tmp_path):
             }, (own, version)
         events = {(r[0], r[1]) for r in store.conn.execute("SELECT path, kind FROM events")}
         assert not {e for e in events if e[1] == "removed"}, events
+
+
+# gradio's layout (DT-DATA-103): a metaclass, named in coverage.toml's `name_makers`, makes `Button.click` from the
+# class's `EVENTS`, and a stub file beside the class lists it. 2.0 ships without the stub, as gradio 6.20.0 to 6.26 did; 3.0 has it again and drops `old`.
+# `Manager`'s base is a call's result in every release, and 3.0 drops its own `legacy`.
+def _made(stub: bool, old: bool) -> dict[str, str]:
+    files = {
+        "evt/__init__.py": "from evt.button import Button\nfrom evt.manager import Manager\n",
+        "evt/meta.py": (
+            "class ComponentMeta(type):\n"
+            "    def __new__(cls, name, bases, attrs):\n"
+            "        for event in attrs.get('EVENTS', []):\n"
+            "            attrs[event] = lambda self, fn: fn\n"
+            "        return super().__new__(cls, name, bases, attrs)\n"
+        ),
+        "evt/button.py": (
+            "from evt.meta import ComponentMeta\n\n"
+            "class Button(metaclass=ComponentMeta):\n"
+            "    EVENTS = ['click']\n"
+            "    def press(self):\n        pass\n" + ("    def old(self):\n        pass\n" if old else "")
+        ),
+        "evt/manager.py": (
+            "def from_queryset(cls):\n    return type('Made', (cls,), {})\n\n"
+            "class Manager(from_queryset(object)):\n"
+            "    def all(self):\n        pass\n" + ("    def legacy(self):\n        pass\n" if old else "")
+        ),
+    }
+    if stub:
+        files["evt/button.pyi"] = (
+            "class Button:\n    EVENTS: list\n    def press(self): ...\n    def click(self, fn): ...\n"
+            + ("    def old(self): ...\n" if old else "")
+        )
+    return files
+
+
+def test_names_a_class_takes_from_what_cant_be_read_are_unknown_not_removed(tmp_path):
+    """DT-DATA-103: `Button.click` is made by a metaclass and listed only in a stub file, which 2.0 ships without.
+    It read removed in 2.0 and added in 3.0, so an update to 2.0 failed on a method that works. Now 2.0 answers
+    unknown for a name `Button` lacks, and the name is neither removed nor added. What a release that can be read
+    drops is still removed, and so is what a class that never could be read drops from its own statement."""
+    spec = PackageSpec(name="evt", import_names=("evt",), tier="B")
+    snaps = []
+    for version, files in {
+        "1.0": _made(True, True),
+        "2.0": _made(False, True),
+        "3.0": _made(True, False),
+    }.items():
+        root = tmp_path / version
+        for rel, text in files.items():
+            (root / rel).parent.mkdir(parents=True, exist_ok=True)
+            (root / rel).write_text(text)
+        snaps.append(
+            build_snapshot(
+                "evt", version, ["evt"], root, own_members=True, name_makers=["evt.meta.ComponentMeta"]
+            )
+        )
+    assert [s.classes["evt.button.Button"].external for s in snaps] == [[], ["evt.meta.ComponentMeta"], []]
+    store = IndexStore.memory()
+    store.rebuild_package(spec, snaps)
+    dt = DepTime(store, Coverage(POLICY, (spec,)))
+
+    def ask(version: str, path: str):
+        return dt.check_symbols("evt", version, [SymbolQuery(path=path)]).results[0]
+
+    assert [ask(v, "evt.Button.click").status for v in ("1.0", "2.0", "3.0")] == [
+        "present",
+        "unknown",
+        "present",
+    ]
+    assert ask("2.0", "evt.Button.click").hint == (
+        "evt.Button takes names from `evt.meta.ComponentMeta`, which the index can't list without running the code"
+        " (a base class made at runtime, or a metaclass that adds names when the class is created), so it may have"
+        " this one"
+    )
+    assert ask("2.0", "evt.Button.press").status == "present"
+    # Where the stub lists what the metaclass makes, a name the class lacks is missing, as before.
+    assert [ask(v, "evt.Button.nothing").status for v in ("1.0", "2.0", "3.0")] == [
+        "missing",
+        "unknown",
+        "missing",
+    ]
+    assert ask("3.0", "evt.Button.old").status == "missing"
+    assert ask("3.0", "evt.Manager.legacy").status == "unknown"
+    assert ask("3.0", "evt.Manager.legacy").hint.startswith(
+        "evt.Manager takes names from `evt.manager.from_queryset`"
+    )
+    events = sorted((r[0], r[1], r[2]) for r in store.conn.execute("SELECT path, kind, ordinal FROM events"))
+    assert events == [("evt.Button.old", "removed", 2), ("evt.Manager.legacy", "removed", 2)]
+    # An update that lands on the release without stubs reports no break for the method that works.
+    report = dt.check_upgrade("evt", "1.0", "2.0", code="import evt\n\nevt.Button().click(print)\n")
+    assert report.breaks == 0 and report.checked[0].breaks == []
+    assert [(n.path, n.status) for n in report.checked[0].notices] == [("evt.Button.click", "unknown")]

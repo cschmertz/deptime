@@ -71,7 +71,9 @@ CREATE TABLE IF NOT EXISTS classes (
   last_ordinal  INTEGER NOT NULL,
   mro           TEXT,                      -- JSON array of canonical paths; NULL for a class recorded only as a base
   label         TEXT NOT NULL,             -- its shortest public path, else cls: where its members' events are
-  external      TEXT,                      -- JSON array of its bases from outside the package (DT-CORE-32)
+  external      TEXT,                      -- JSON array of where it takes names its MRO can't list: bases from outside the
+                                           -- package (DT-CORE-32), and a base or metaclass inside it that can't be read
+                                           -- (DT-DATA-103)
   PRIMARY KEY (package, cls, first_ordinal)
 ) WITHOUT ROWID;
 

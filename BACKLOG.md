@@ -25,7 +25,7 @@ which of a project's code a dependency update breaks. Everything done before 202
   53.9 MB and the `.gz` 83.1 MB. `build-index` runs at 04:17 and 16:17 UTC, replaces the rolling `index` release and
   signs it. A build with no extraction change usually takes under 20 minutes; a `SNAPSHOT_FORMAT` bump means one cold
   build of about 3 hours (format 31's: 3 h).
-- **Checks that run without anyone:** `ci` on every push (720 offline tests), and `bench` on every code change and
+- **Checks that run without anyone:** `ci` on every push (729 offline tests), and `bench` on every code change and
   every published index. `bench` fails on a benchmark drop of more than 2 points, a traceback case that passed in the
   baseline and fails now, or a false-positive rate up by more than 1, and on the published index itself (`tests/test_golden.py`, DT-QA-03): older than 48 h, a package's newest
   release on PyPI for more than 24 h without being indexed, or a Tier A package's newest release without the names
@@ -96,14 +96,12 @@ What still needs a person, about once a month:
 In order. The first line of each phase is what it delivers.
 
 **False alarms found 2026-11-27**
-- [ ] **DT-DATA-103**: A class whose base class isn't read loses the members it inherits, so `check-upgrade` reports
-  breaks that aren't there · `P1` `M`
-  - numpy's `matrix` (from 2.2.0) and `memmap` (from 2.5.0) are stored with no base, so every `ndarray` method on
-    them reads removed: `np.memmap(...).astype` fails an update to 2.5 (both are there at runtime in 2.5.5).
-  - Read removed for a few releases and back later: numpy `finfo`'s attributes (2.2.0 to 2.4.0) and gradio
-    components' event methods such as `Button.click` (6.20.0 to 6.26), so an update that lands there fails too.
-  - Extraction, one cold build: read the base, and answer `unknown` where it can't be read (rule 4). Cases first
-    (rule 3). numpy's rename map waits for it.
+- [x] **DT-DATA-103** (2026-11-28): a base class griffe can't follow is read (numpy's `matrix`, `memmap` and
+  `recarray`, redis's async commands, transformers 5's Python tokenizers), a stub class merged through an import
+  keeps its names (numpy `finfo`), and a name a class lacks is `unknown` where its base can't be read as a class,
+  or, in gradio 6.20 to 6.26, where no stub lists what its metaclasses make (`name_makers`). Cases in
+  `tests/golden/working.toml`. Snapshot format 32. Upgrade-check bench: one clean upgrade fewer fails (78 of 974),
+  no other answer changes.
 
 **Coverage: are 53 packages enough?**
 - [x] **DT-QA-28** (2026-11-23): 31.7% of the major library updates in 12,766 Dependabot Python pull requests are to
@@ -404,6 +402,7 @@ Known gaps, most with a case kept as `known_gap` in the benchmark. None is sched
 | DT-DATA-73 | matplotlib 3.10's `cm.ScalarMappable` reads private, so its members read missing | extraction |
 | DT-DATA-71 | Names a module only imports read public through a membership-test shim (instructor's `hooks`) | extraction |
 | DT-DATA-72 | A name only a stub binds reads present where the runtime raises (numpy 2.0's `cast`) | extraction |
+| DT-DATA-105 | A class that takes over another's public path reports its own new members as added there (numpy 2.2's `finfo.max`, there since 1.x) | diff |
 
 **Missed breaks and deprecations**
 
@@ -412,6 +411,7 @@ Known gaps, most with a case kept as `known_gap` in the benchmark. None is sched
 | DT-CORE-34 | Constructor keywords of dataclasses and pydantic models; required arguments | query, extraction |
 | DT-DATA-09 | Pydantic model fields as `__init__` keywords | extraction |
 | DT-DATA-76 | A name a lazy table serves doesn't carry its target's deprecation (langchain-community's `llms.OpenAI`) | extraction |
+| DT-DATA-104 | A name removed from a class whose base is made at runtime reads `unknown`: a call's result (django's `Manager`, gunicorn's settings, sqlalchemy 1.4), a name rebound after the class statement (django's gis functions) | extraction |
 
 **Tracebacks with no finding**
 

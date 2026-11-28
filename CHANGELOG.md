@@ -71,15 +71,17 @@ are data: they can grow in any release.)
   - gradio 6.20.0 to 6.26 shipped without the stub files that list each component's event methods
     (`Button.click`, `Textbox.submit`), which a metaclass makes. A name such a class lacks there is `unknown`, with
     the reason, where it read removed; an update to those releases no longer fails on it.
-  - A base class reached through an attribute bound to a class (`AsyncHashCommands = HashCommands`) is read too:
-    redis's `asyncio.Redis` has `hset`, `lpush` and the other commands of those bases, which read `missing` in
-    every release.
+  - A base class named through an attribute is read too. transformers 5's Python tokenizers
+    (`BertJapaneseTokenizer`, `CTRLTokenizer` and 40 more) keep `encode`, `save_pretrained` and the other methods
+    they inherit, which read removed in 5.0.0; redis's `asyncio.Redis` has `hset`, `lpush` and the other hash,
+    list and ACL commands, which read `missing` in every release.
   - More widely, a name a class lacks is `unknown`, not `missing`, when the class takes names from a base made at
-    runtime (a call's result, as django's `Manager` has, or a name a module's `__getattr__` serves).
-    `diff_versions` and `symbol_history` no longer report such a name removed in the release where its class stops
-    being readable, nor added where it is readable again.
+    runtime: a call's result, as django's `Manager` and sqlalchemy 1.4's classes have, or a name a module's
+    `__getattr__` serves. `diff_versions` and `symbol_history` no longer report such a name removed in the release
+    where its class stops being readable, nor added where it is readable again.
 
 ### Changed
+- The rename-map site has NumPy 1.x → 2.0, its 23rd migration (DT-DATA-103).
 - The rename-map site has 16 more migrations, 22 in all: pandas 1 → 2 and 2 → 3, Polars 0.20 → 1 and 1 → 2,
   Gradio 3 → 4, 4 → 5 and 5 → 6, FastMCP 2 → 3 and 3 → 4, Pydantic AI 1 → 2, huggingface_hub 0 → 1, Pillow 9 → 10,
   urllib3 1 → 2, marshmallow 3 → 4, Werkzeug 2 → 3 and pypdf 3 → 4. A name the newer series has again, a private

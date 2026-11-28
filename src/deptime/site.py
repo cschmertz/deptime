@@ -70,6 +70,7 @@ MIGRATIONS = (
     Migration("pydantic-1-to-2", "pydantic v1 → v2", (Range("pydantic", "1.10.", "2."),)),
     Migration("openai-0-to-1", "openai 0.x → 1.x", (Range("openai", "0.28", "1."),)),
     Migration("httpx-0.27-to-0.28", "httpx 0.27 → 0.28", (Range("httpx", "0.27.", "0.28."),)),
+    Migration("numpy-1-to-2", "NumPy 1.x → 2.0", (Range("numpy", "1.", "2.0."),)),
     Migration("pandas-1-to-2", "pandas 1.x → 2.x", (Range("pandas", "1.", "2."),)),
     Migration("pandas-2-to-3", "pandas 2.x → 3.x", (Range("pandas", "2.", "3."),)),
     Migration("polars-0.20-to-1", "Polars 0.20 → 1.x", (Range("polars", "0.20.", "1."),)),

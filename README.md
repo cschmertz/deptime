@@ -137,7 +137,7 @@ That's the real answer from the published data, trimmed. The full answer also qu
 
 Your agent can ask whether a function or argument it remembers still exists in the version you have installed, or what changed between two versions (or since a date, such as its training cutoff).
 
-**Migrating by hand?** The [rename maps](https://cschmertz.github.io/deptime/) show what well-known migrations (pandas 2 and 3, Polars 1 and 2, pydantic 2, LangChain 1, the MCP SDK 2, Gradio 6 and more) renamed or removed, and what replaces each name, from the same data.
+**Migrating by hand?** The [rename maps](https://cschmertz.github.io/deptime/) show what well-known migrations (NumPy 2, pandas 2 and 3, Polars 1 and 2, pydantic 2, LangChain 1, the MCP SDK 2, Gradio 6 and more) renamed or removed, and what replaces each name, from the same data.
 
 ## The tools
 

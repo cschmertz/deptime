@@ -1222,6 +1222,64 @@ quote = "Deprecated argument date_parser in read_csv(), read_table(), read_fwf()
 url = "https://pandas.pydata.org/docs/whatsnew/v2.0.0.html#deprecations"
 
 
+# pandas-3.0
+[[hint]]
+package = "pandas"
+path = "pandas.DataFrame.swapaxes"
+target = "pandas.DataFrame.transpose"
+quote = "Deprecated DataFrame.swapaxes() and Series.swapaxes(), use DataFrame.transpose() or Series.transpose() instead"
+url = "https://pandas.pydata.org/docs/whatsnew/v2.1.0.html#other-deprecations"
+
+[[hint]]
+package = "pandas"
+path = "pandas.Series.swapaxes"
+target = "pandas.Series.transpose"
+quote = "Deprecated DataFrame.swapaxes() and Series.swapaxes(), use DataFrame.transpose() or Series.transpose() instead"
+url = "https://pandas.pydata.org/docs/whatsnew/v2.1.0.html#other-deprecations"
+
+[[hint]]
+package = "pandas"
+path = "pandas.core.groupby.DataFrameGroupBy.fillna"
+target = "pandas.core.groupby.DataFrameGroupBy.ffill"
+quote = "Deprecated DataFrameGroupBy.fillna() and SeriesGroupBy.fillna(); use DataFrameGroupBy.ffill(), DataFrameGroupBy.bfill() for forward and backward filling or DataFrame.fillna() to fill with a single value (or the Series equivalents)"
+url = "https://pandas.pydata.org/docs/whatsnew/v2.2.0.html#other-deprecations"
+
+[[hint]]
+package = "pandas"
+path = "pandas.core.groupby.SeriesGroupBy.fillna"
+target = "pandas.core.groupby.SeriesGroupBy.ffill"
+quote = "Deprecated DataFrameGroupBy.fillna() and SeriesGroupBy.fillna(); use DataFrameGroupBy.ffill(), DataFrameGroupBy.bfill() for forward and backward filling or DataFrame.fillna() to fill with a single value (or the Series equivalents)"
+url = "https://pandas.pydata.org/docs/whatsnew/v2.2.0.html#other-deprecations"
+
+[[hint]]
+package = "pandas"
+path = "pandas.Series.view"
+target = "pandas.Series.astype"
+quote = "Deprecated Series.view(), use Series.astype() instead to change the dtype"
+url = "https://pandas.pydata.org/docs/whatsnew/v2.2.0.html#other-deprecations"
+
+[[hint]]
+package = "pandas"
+path = "pandas.Index.format"
+target = "pandas.Index.astype"
+quote = "Removed Index.format, use Index.astype() with str or Index.map() with a formatter function instead"
+url = "https://pandas.pydata.org/docs/whatsnew/v3.0.0.html#removal-of-prior-version-deprecations-changes"
+
+[[hint]]
+package = "pandas"
+path = "pandas.value_counts"
+target = "pandas.Series.value_counts"
+quote = "Removed pandas.value_counts, use Series.value_counts() instead"
+url = "https://pandas.pydata.org/docs/whatsnew/v3.0.0.html#removal-of-prior-version-deprecations-changes"
+
+[[hint]]
+package = "pandas"
+path = "pandas.arrays.PandasArray"
+target = "pandas.arrays.NumpyExtensionArray"
+quote = "Removed alias arrays.PandasArray for arrays.NumpyExtensionArray"
+url = "https://pandas.pydata.org/docs/whatsnew/v3.0.0.html#removal-of-prior-version-deprecations-changes"
+
+
 # google-genai
 [[hint]]
 package = "google-generativeai"
